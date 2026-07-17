@@ -199,6 +199,14 @@
     box-shadow: 0 14px 34px rgba(229,185,63,0.3); animation: pop 0.4s ease;
   }
   #champion b { color: #96660a; }
+  #resetBtn {
+    position: fixed; top: 18px; right: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #resetBtn:hover { color: #d43d3d; border-color: #f3c1c1; }
   .footer {
     text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
     font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
@@ -208,6 +216,7 @@
 <body>
 
 <div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
+<button id="resetBtn" style="display:none">↺ Start Over</button>
 
 <!-- Screen 1: setup -->
 <div id="setup" class="screen active">
@@ -285,7 +294,19 @@ Rashed</textarea>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
 const $ = id => document.getElementById(id);
-const show = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); };
+const show = id => {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  $(id).classList.add('active');
+  $('resetBtn').style.display = id === 'setup' ? 'none' : '';
+};
+
+var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
+$('resetBtn').onclick = () => {
+  if (!confirm('Start over? All teams and results will be lost.')) return;
+  session++;
+  spinning = false;
+  show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
+};
 
 var fwds = [], defs = [];   // [{ name, picked }] — players stay on the wheel, locked once picked
 var teams = [];
@@ -300,7 +321,9 @@ $('startBtn').onclick = () => {
     $('error').textContent = 'Need the same number of forwards and defenders (at least 2 each).';
     return;
   }
-  teams = [];
+  session++;
+  teams = []; groups = []; koRounds = []; koStarted = false;
+  $('champion').innerHTML = '';
   $('teamList').innerHTML = '';
   $('status').innerHTML = '';
   $('spinBtn').style.display = '';
@@ -372,7 +395,9 @@ $('spinBtn').onclick = () => {
   const deltaF = (targetF - startF) % (2 * Math.PI) - 2 * Math.PI * 6;
   const deltaD = (targetD - startD) % (2 * Math.PI) - 2 * Math.PI * 8; // different turn counts so wheels desync
   const t0 = performance.now();
+  const sess = session;
   (function frame(now) {
+    if (sess !== session) return; // reset happened mid-spin
     const t = Math.min((now - t0) / SPIN_MS, 1);
     const ease = 1 - Math.pow(1 - t, 3);
     fwdAngle = startF + deltaF * ease;
@@ -380,18 +405,20 @@ $('spinBtn').onclick = () => {
     drawWheel('fwdWheel', fwds, fwdAngle, t === 1 ? fi : -1);
     drawWheel('defWheel', defs, defAngle, t === 1 ? di : -1);
     if (t < 1) requestAnimationFrame(frame);
-    else finishSpin(fi, di);
+    else finishSpin(fi, di, sess);
   })(t0);
 };
 
-function finishSpin(fi, di) {
+function finishSpin(fi, di, sess) {
   $('status').innerHTML = `🎉 <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
   setTimeout(() => {
+    if (sess !== session) return;
     formTeam(fi, di);
     const af = availIdx(fwds), ad = availIdx(defs);
     if (af.length === 1 && ad.length === 1) {
       // last pair — no spin needed, auto-assign
       setTimeout(() => {
+        if (sess !== session) return;
         formTeam(af[0], ad[0]);
         $('status').innerHTML = `<span class="last-pick">Last pair auto-assigned!</span> All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
         finishDraft();
