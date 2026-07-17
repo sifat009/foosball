@@ -185,7 +185,8 @@
     text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem;
   }
   .bmatch { margin: 10px 0; overflow: hidden; }
-  .slot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-weight: 600; }
+  .slot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-weight: 600; cursor: pointer; }
+  .slot.empty { cursor: default; }
   .slot .nm { flex: 1; }
   .slot + .slot { border-top: 1px solid #eef2f8; }
   .slot.empty { color: #b3bdca; font-style: italic; }
@@ -333,7 +334,7 @@ Rashed</textarea>
 <!-- Screen 3: tournament -->
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Ollyo Cup</span></h1>
-  <div class="subtitle">Enter each match score — ranking is wins, then goal difference, then goals for.</div>
+  <div class="subtitle">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
   <div id="champion"></div>
   <div id="groupSection">
     <div class="section-title">Group Stage</div>
@@ -352,11 +353,32 @@ Rashed</textarea>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
 const $ = id => document.getElementById(id);
+var curScreen = 'setup';
 const show = id => {
+  curScreen = id;
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   $(id).classList.add('active');
   $('resetBtn').style.display = id === 'setup' ? 'none' : '';
 };
+
+// --- sound (Web Audio, no files) ---
+var audioCtx = null;
+function ac() {
+  audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone(freq, at, dur, vol, type) {
+  const ctx = ac(), t = ctx.currentTime + at;
+  const o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = type; o.frequency.value = freq;
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(ctx.destination);
+  o.start(t); o.stop(t + dur + 0.01);
+}
+function tick() { try { tone(1800, 0, 0.035, 0.07, 'square'); } catch (e) {} }
+function ding() { try { tone(880, 0, 0.5, 0.12, 'triangle'); tone(1318.5, 0.09, 0.6, 0.12, 'triangle'); } catch (e) {} }
 
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
 $('resetBtn').onclick = () => {
@@ -365,6 +387,7 @@ $('resetBtn').onclick = () => {
   spinning = false;
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
+  try { localStorage.removeItem('ollyoCup'); } catch (e) {}
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
 };
 
@@ -392,7 +415,10 @@ $('startBtn').onclick = () => {
   show('draw');
   drawWheel('fwdWheel', fwds, fwdAngle, -1);
   drawWheel('defWheel', defs, defAngle, -1);
+  save();
 };
+$('fwdInput').onchange = () => save();
+$('defInput').onchange = () => save();
 
 // --- wheels ---
 const WHEEL_SHADES = {
@@ -456,12 +482,17 @@ $('spinBtn').onclick = () => {
   const deltaD = (targetD - startD) % (2 * Math.PI) - 2 * Math.PI * 8; // different turn counts so wheels desync
   const t0 = performance.now();
   const sess = session;
+  let lastSeg = null;
   (function frame(now) {
     if (sess !== session) return; // reset happened mid-spin
     const t = Math.min((now - t0) / SPIN_MS, 1);
     const ease = 1 - Math.pow(1 - t, 3);
     fwdAngle = startF + deltaF * ease;
     defAngle = startD + deltaD * ease;
+    // click each time a segment boundary passes the pointer — slows with the wheel
+    const seg = Math.floor((((-Math.PI / 2 - fwdAngle) % (2 * Math.PI)) + 2 * Math.PI) / segF);
+    if (lastSeg !== null && seg !== lastSeg) tick();
+    lastSeg = seg;
     drawWheel('fwdWheel', fwds, fwdAngle, t === 1 ? fi : -1);
     drawWheel('defWheel', defs, defAngle, t === 1 ? di : -1);
     if (t < 1) requestAnimationFrame(frame);
@@ -470,6 +501,7 @@ $('spinBtn').onclick = () => {
 };
 
 function finishSpin(fi, di, sess) {
+  ding();
   $('status').innerHTML = `🎉 <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
   setTimeout(() => {
     if (sess !== session) return;
@@ -493,18 +525,23 @@ function finishSpin(fi, di, sess) {
   }, 1100);
 }
 
+function addTeamCard(t, n) {
+  const div = document.createElement('div');
+  div.className = 'team-card card';
+  div.innerHTML = `<div class="tag">Team ${n}</div>
+    <div class="row f"><span class="name">${t.fwd}</span><span class="role">Forward</span></div>
+    <div class="row d"><span class="name">${t.def}</span><span class="role">Defender</span></div>`;
+  $('teamList').appendChild(div);
+}
+
 function formTeam(fi, di) {
   fwds[fi].picked = true;
   defs[di].picked = true;
   teams.push({ fwd: fwds[fi].name, def: defs[di].name });
   drawWheel('fwdWheel', fwds, fwdAngle, -1);
   drawWheel('defWheel', defs, defAngle, -1);
-  const div = document.createElement('div');
-  div.className = 'team-card card';
-  div.innerHTML = `<div class="tag">Team ${teams.length}</div>
-    <div class="row f"><span class="name">${teams[teams.length - 1].fwd}</span><span class="role">Forward</span></div>
-    <div class="row d"><span class="name">${teams[teams.length - 1].def}</span><span class="role">Defender</span></div>`;
-  $('teamList').appendChild(div);
+  addTeamCard(teams[teams.length - 1], teams.length);
+  save();
 }
 
 function finishDraft() {
@@ -544,7 +581,7 @@ function startCup() {
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
-    koRounds = [[{ a: teams[0], b: teams[1], sa: null, sb: null, winner: null }]];
+    koRounds = [[{ a: teams[0], b: teams[1], winner: null }]];
     $('groupSection').style.display = 'none';
   } else if (teams.length < 6) {
     groups = [{ name: 'Group A', teams: teams.slice(), matches: roundRobin(teams) }];
@@ -602,6 +639,59 @@ function rank(group) {
 function renderAll() {
   renderGroups();
   if (koStarted) renderBracket();
+  save();
+}
+
+/* ================= PERSISTENCE (localStorage) =================
+   Groups and the bracket are rebuilt deterministically from the team order,
+   so only the raw inputs and scores are stored. */
+var restoring = false;
+
+function save() {
+  if (restoring) return;
+  try {
+    localStorage.setItem('ollyoCup', JSON.stringify({
+      screen: curScreen,
+      fwdText: $('fwdInput').value,
+      defText: $('defInput').value,
+      fwds, defs, teams, koStarted,
+      groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
+      koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
+    }));
+  } catch (e) {}
+}
+
+function restore() {
+  let s;
+  try { s = JSON.parse(localStorage.getItem('ollyoCup')); } catch (e) { return; }
+  if (!s) return;
+  restoring = true;
+  if (s.fwdText != null) $('fwdInput').value = s.fwdText;
+  if (s.defText != null) $('defInput').value = s.defText;
+  if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
+    fwds = s.fwds; defs = s.defs; teams = s.teams || [];
+    $('teamList').innerHTML = '';
+    teams.forEach((t, i) => addTeamCard(t, i + 1));
+    show('draw');
+    drawWheel('fwdWheel', fwds, fwdAngle, -1);
+    drawWheel('defWheel', defs, defAngle, -1);
+    if (availIdx(fwds).length === 0 && teams.length) {
+      $('status').innerHTML = `All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
+      finishDraft();
+    }
+    if (s.screen === 'tourney') {
+      startCup();
+      (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb], mi) => {
+        if (sa != null || sb != null) setGroupScore(gi, mi, sa, sb);
+      }));
+      if (s.koStarted && !koStarted) startKnockout();
+      // apply picks round by round — winners propagate forward as they're set
+      if (koStarted) (s.koPicks || []).forEach((ms, r) => ms.forEach((side, i) => {
+        if (side && koRounds[r][i][side]) setKoWinner(r, i, koRounds[r][i][side]);
+      }));
+    }
+  }
+  restoring = false;
 }
 
 function scoreInput(value, disabled, onchange) {
@@ -667,31 +757,29 @@ function renderGroups() {
 
 function startKnockout() {
   koStarted = true;
-  const blank = () => ({ sa: null, sb: null, winner: null });
   if (groups.length === 2) {
     const [ra, rb] = groups.map(g => rank(g).order);
     // FIFA-style cross: A1 vs B2, B1 vs A2
     koRounds = [
-      [{ a: ra[0], b: rb[1], ...blank() }, { a: rb[0], b: ra[1], ...blank() }],
-      [{ a: null, b: null, ...blank() }],
+      [{ a: ra[0], b: rb[1], winner: null }, { a: rb[0], b: ra[1], winner: null }],
+      [{ a: null, b: null, winner: null }],
     ];
   } else {
     const r = rank(groups[0]).order;
-    koRounds = [[{ a: r[0], b: r[1], ...blank() }]];
+    koRounds = [[{ a: r[0], b: r[1], winner: null }]];
   }
   $('koSection').style.display = '';
   $('koBtn').style.display = 'none';
   renderAll();
-  $('koSection').scrollIntoView({ behavior: 'smooth' });
+  if (!restoring) $('koSection').scrollIntoView({ behavior: 'smooth' });
 }
 
-function setKoScore(r, i, sa, sb) {
+function setKoWinner(r, i, team) {
   const m = koRounds[r][i];
-  m.sa = sa; m.sb = sb;
-  const w = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
+  const w = m.winner === team ? null : team; // click the winner again to undo
   const old = m.winner;
   m.winner = w;
-  if (old !== w && r + 1 < koRounds.length) {
+  if (r + 1 < koRounds.length) {
     const ni = i >> 1, next = koRounds[r + 1][ni], slot = i % 2 ? 'b' : 'a';
     resetChain(r + 1, ni); // the matchup changed — anything recorded after is void
     next[slot] = w;
@@ -702,7 +790,7 @@ function setKoScore(r, i, sa, sb) {
 function resetChain(r, i) {
   const m = koRounds[r][i];
   const old = m.winner;
-  m.sa = m.sb = null; m.winner = null;
+  m.winner = null;
   if (old && r + 1 < koRounds.length) {
     const next = koRounds[r + 1][i >> 1], slot = i % 2 ? 'b' : 'a';
     if (next[slot] === old) { next[slot] = null; resetChain(r + 1, i >> 1); }
@@ -720,9 +808,7 @@ function renderBracket() {
     matches.forEach((m, i) => {
       const box = document.createElement('div');
       box.className = 'bmatch card';
-      const ready = m.a && m.b;
-      const bad = m.sa != null && m.sa === m.sb;
-      [['a', m.a, m.sa], ['b', m.b, m.sb]].forEach(([side, t, sc]) => {
+      [m.a, m.b].forEach(t => {
         const d = document.createElement('div');
         d.className = 'slot' + (t === null ? ' empty' : '');
         if (m.winner) d.classList.add(t === m.winner ? 'winner' : 'loser');
@@ -730,11 +816,7 @@ function renderBracket() {
         nm.className = 'nm';
         nm.textContent = t ? teamName(t) : '—';
         d.appendChild(nm);
-        if (ready) {
-          const inp = scoreInput(sc, false, v => side === 'a' ? setKoScore(r, i, v, m.sb) : setKoScore(r, i, m.sa, v));
-          if (bad) inp.classList.add('bad');
-          d.appendChild(inp);
-        }
+        if (t && m.a && m.b) d.onclick = () => setKoWinner(r, i, t);
         box.appendChild(d);
       });
       col.appendChild(box);
@@ -745,7 +827,7 @@ function renderBracket() {
   $('champion').innerHTML = final.winner
     ? `<div class="crown">🏆 Ollyo Cup Champions: <b>${teamName(final.winner)}</b></div>`
     : '';
-  if (final.winner && final.winner !== lastChamp) celebrate(teamName(final.winner));
+  if (final.winner && final.winner !== lastChamp && !restoring) celebrate(teamName(final.winner));
   lastChamp = final.winner;
 }
 
@@ -792,6 +874,8 @@ $('celebrate').onclick = () => {
   $('celebrate').style.display = 'none';
   confettiRun = false;
 };
+
+restore();
 </script>
 </body>
 </html>
