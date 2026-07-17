@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ollyo Foosball Federation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(900px 400px at 15% -5%, rgba(37,99,235,0.08), transparent 60%),
+      radial-gradient(900px 400px at 85% -5%, rgba(229,169,34,0.10), transparent 60%),
+      linear-gradient(180deg, #fbfcfe 0%, #eef2f8 100%);
+    color: #1c2733; min-height: 100vh; padding: 40px 20px 80px;
+  }
+  .eyebrow {
+    display: flex; justify-content: center; margin-bottom: 18px;
+  }
+  .eyebrow span {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #16233a; color: #f3f6fb; font-size: 0.72rem; font-weight: 800;
+    letter-spacing: 0.28em; text-transform: uppercase;
+    padding: 9px 20px 9px 16px; border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(22,35,58,0.25);
+  }
+  h1 {
+    text-align: center; font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 900;
+    letter-spacing: -0.02em; color: #16233a;
+  }
+  h1 .accent {
+    background: linear-gradient(100deg, #d99a06, #f0b429 60%, #b45309);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .subtitle {
+    text-align: center; letter-spacing: 0.02em;
+    color: #7d8a9c; font-size: 1rem; margin: 12px 0 42px; font-weight: 600;
+  }
+  .screen { display: none; max-width: 1150px; margin: 0 auto; }
+  .screen.active { display: block; }
+  .btn {
+    border: none; border-radius: 999px; padding: 15px 40px; font-size: 1.02rem;
+    font-family: inherit; font-weight: 800; letter-spacing: 0.02em; cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.2s, filter 0.2s;
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
+  .btn:active:not(:disabled) { transform: translateY(0); }
+  .btn:disabled { opacity: 0.4; cursor: default; }
+  .btn-green {
+    background: linear-gradient(135deg, #22ab5f, #17854a); color: #fff;
+    box-shadow: 0 10px 26px rgba(31,157,85,0.35);
+  }
+  .btn-gold {
+    background: linear-gradient(135deg, #fff, #fdf4dc); color: #96660a;
+    border: 2px solid #ecc45c; box-shadow: 0 8px 22px rgba(229,185,63,0.25);
+  }
+  .card {
+    background: #fff; border: 1px solid #e7ecf3; border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(23,43,77,0.07);
+  }
+  /* setup */
+  .panels { display: flex; gap: 26px; justify-content: center; flex-wrap: wrap; }
+  .panel { flex: 1; min-width: 260px; max-width: 350px; padding: 24px; }
+  .panel label {
+    display: flex; align-items: center; gap: 8px; font-weight: 800; margin-bottom: 12px;
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem;
+  }
+  .panel label::before { content: ''; width: 10px; height: 10px; border-radius: 3px; }
+  .panel.fwd label { color: #2563eb; }
+  .panel.fwd label::before { background: #2563eb; }
+  .panel.def label { color: #dc5a1e; }
+  .panel.def label::before { background: #dc5a1e; }
+  textarea {
+    width: 100%; height: 200px; background: #f7f9fc; color: #1c2733;
+    border: 1.5px solid #e2e8f1; border-radius: 14px; padding: 14px 16px;
+    font-size: 1rem; font-family: inherit; resize: vertical; line-height: 1.7;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  textarea:focus { outline: none; border-color: #ecc45c; background: #fff; }
+  .center { text-align: center; margin-top: 34px; }
+  #error { color: #d43d3d; margin-top: 12px; min-height: 1.2em; font-weight: 600; }
+  /* wheels */
+  .wheels { display: flex; gap: 70px; justify-content: center; flex-wrap: wrap; }
+  .wheel-col { text-align: center; }
+  .wheel-col h3 {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 0.95rem; font-weight: 800; margin-bottom: 16px;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    padding: 8px 22px; border-radius: 999px;
+  }
+  .wheel-col.fwd h3 { color: #2563eb; background: rgba(37,99,235,0.09); }
+  .wheel-col.def h3 { color: #dc5a1e; background: rgba(220,90,30,0.09); }
+  .pointer {
+    width: 0; height: 0; margin: 0 auto -11px; position: relative; z-index: 2;
+    border-left: 14px solid transparent; border-right: 14px solid transparent;
+    border-top: 24px solid #e5a922; filter: drop-shadow(0 3px 4px rgba(23,43,77,0.3));
+  }
+  canvas {
+    border-radius: 50%;
+    box-shadow: 0 0 0 10px #fff, 0 0 0 11px #e2e8f1, 0 22px 44px rgba(23,43,77,0.16);
+  }
+  .actions { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 44px; }
+  #status { text-align: center; margin-top: 20px; font-size: 1.08rem; color: #5b6a7d; min-height: 1.6em; font-weight: 600; }
+  #status b { color: #96660a; }
+  #status .last-pick { color: #17854a; font-weight: 800; }
+  /* team cards */
+  .team-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+    gap: 20px; margin-top: 40px;
+  }
+  .team-card {
+    padding: 20px 24px; animation: pop 0.35s ease; position: relative; overflow: hidden;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .team-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(23,43,77,0.11); }
+  .team-card::before {
+    content: ''; position: absolute; inset: 0 auto 0 0; width: 5px;
+    background: linear-gradient(180deg, #2563eb, #dc5a1e);
+  }
+  @keyframes pop { from { transform: scale(0.9); opacity: 0; } }
+  .team-card .tag {
+    color: #96660a; font-weight: 800; letter-spacing: 0.2em; font-size: 0.72rem;
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .team-card .row { display: flex; justify-content: space-between; align-items: baseline; padding: 4px 0; }
+  .team-card .name { font-size: 1.14rem; font-weight: 700; }
+  .team-card .row.f .name { color: #2563eb; }
+  .team-card .row.d .name { color: #dc5a1e; }
+  .team-card .role { color: #a4aebc; font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 800; }
+  /* tournament */
+  .section-title {
+    display: flex; align-items: center; gap: 18px; justify-content: center;
+    font-size: 1.15rem; font-weight: 900; color: #16233a;
+    margin: 50px 0 26px; text-transform: uppercase; letter-spacing: 0.18em;
+  }
+  .section-title::before, .section-title::after {
+    content: ''; height: 2px; width: 70px; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #d9a51433);
+  }
+  .section-title::after { background: linear-gradient(90deg, #d9a51433, transparent); }
+  .groups { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
+  .group { flex: 1; min-width: 330px; max-width: 530px; padding: 26px 26px 16px; }
+  .group h4 {
+    display: inline-block; font-size: 0.85rem; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.18em; color: #96660a; background: #fdf4dc;
+    padding: 7px 18px; border-radius: 999px; margin-bottom: 18px;
+  }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+  th {
+    color: #a4aebc; text-transform: uppercase; font-size: 0.68rem; font-weight: 800;
+    letter-spacing: 0.14em; padding: 8px 12px; text-align: left; border-bottom: 2px solid #eef2f8;
+  }
+  th.num, td.num { text-align: center; width: 40px; }
+  td { padding: 11px 12px; border-bottom: 1px solid #f1f4f9; font-weight: 600; font-size: 0.95rem; }
+  tr:last-child td { border-bottom: none; }
+  tr.qualified td { background: #fdf6e0; }
+  tr.qualified td:first-child { border-radius: 10px 0 0 10px; }
+  tr.qualified td:last-child { border-radius: 0 10px 10px 0; }
+  .match {
+    display: flex; align-items: center; background: #f7f9fc; border: 1px solid #eaeff6;
+    border-radius: 14px; margin-bottom: 10px; overflow: hidden;
+  }
+  .m-team { flex: 1; padding: 13px 16px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.15s; }
+  .m-team:last-child { text-align: right; }
+  .m-team:hover { background: #edf2f9; }
+  .m-team.winner { background: #e1f5e8; color: #15803d; font-weight: 800; }
+  .m-team.loser { opacity: 0.45; }
+  .m-team.locked { cursor: default; }
+  .m-team.locked:hover { background: inherit; }
+  .m-team.locked.winner:hover { background: #e1f5e8; }
+  .vs { color: #c9a227; font-weight: 900; font-size: 0.72rem; padding: 0 10px; letter-spacing: 0.05em; }
+  /* knockout bracket */
+  #bracket { display: flex; gap: 48px; overflow-x: auto; padding: 10px 0; justify-content: center; }
+  .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 220px; }
+  .round-title {
+    text-align: center; font-weight: 800; margin-bottom: 14px; color: #a4aebc;
+    text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem;
+  }
+  .bmatch { margin: 10px 0; overflow: hidden; }
+  .slot { padding: 13px 18px; cursor: pointer; font-weight: 600; }
+  .slot + .slot { border-top: 1px solid #eef2f8; }
+  .slot.empty { color: #b3bdca; cursor: default; font-style: italic; }
+  .slot.winner { background: #e1f5e8; color: #15803d; font-weight: 800; }
+  .slot.loser { opacity: 0.45; }
+  .slot:not(.empty):not(.winner):hover { background: #edf2f9; }
+  #champion { display: flex; justify-content: center; margin: 36px 0 4px; min-height: 1em; }
+  #champion .crown {
+    background: linear-gradient(135deg, #fff8e6, #fdeec2);
+    border: 1.5px solid #ecc45c; border-radius: 999px; padding: 16px 38px;
+    font-size: 1.45rem; font-weight: 900; color: #16233a;
+    box-shadow: 0 14px 34px rgba(229,185,63,0.3); animation: pop 0.4s ease;
+  }
+  #champion b { color: #96660a; }
+  .footer {
+    text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
+    font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+</style>
+</head>
+<body>
+
+<div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
+
+<!-- Screen 1: setup -->
+<div id="setup" class="screen active">
+  <h1>The Official <span class="accent">Foosball Cup</span></h1>
+  <div class="subtitle">Register your squad — one name per line, then let the wheels decide.</div>
+  <div class="panels">
+    <div class="panel fwd card">
+      <label>Forwards</label>
+      <textarea id="fwdInput">Sifat
+Rifat
+Siddik
+Nur
+Sazedul Haque
+Firoz</textarea>
+    </div>
+    <div class="panel def card">
+      <label>Defenders</label>
+      <textarea id="defInput">Ofi
+Shewa
+Sajid
+Toufiq
+Irin
+Rashed</textarea>
+    </div>
+  </div>
+  <div class="center">
+    <button id="startBtn" class="btn btn-green">Open the Draft →</button>
+    <div id="error"></div>
+  </div>
+</div>
+
+<!-- Screen 2: draft wheels -->
+<div id="draw" class="screen">
+  <h1>Team <span class="accent">Draft Wheel</span></h1>
+  <div class="subtitle">One spin pairs a forward with a defender. Drafted players stay on the wheel — locked.</div>
+  <div class="wheels">
+    <div class="wheel-col fwd">
+      <h3>Forwards</h3>
+      <div class="pointer"></div>
+      <canvas id="fwdWheel" width="360" height="360"></canvas>
+    </div>
+    <div class="wheel-col def">
+      <h3>Defenders</h3>
+      <div class="pointer"></div>
+      <canvas id="defWheel" width="360" height="360"></canvas>
+    </div>
+  </div>
+  <div class="actions">
+    <button id="spinBtn" class="btn btn-green">Spin the Wheels</button>
+    <button id="tourneyBtn" class="btn btn-gold" style="display:none">Kick Off the Cup 🏆</button>
+  </div>
+  <div id="status"></div>
+  <div id="teamList" class="team-grid"></div>
+</div>
+
+<!-- Screen 3: tournament -->
+<div id="tourney" class="screen">
+  <h1>The <span class="accent">Ollyo Cup</span></h1>
+  <div class="subtitle">Group stage first — every team plays. Top 2 per group advance to the knockout.</div>
+  <div id="champion"></div>
+  <div id="groupSection">
+    <div class="section-title">Group Stage</div>
+    <div id="groups" class="groups"></div>
+    <div class="center"><button id="koBtn" class="btn btn-gold" style="display:none">Start Knockout Stage →</button></div>
+  </div>
+  <div id="koSection" style="display:none">
+    <div class="section-title">Knockout Stage</div>
+    <div id="bracket"></div>
+  </div>
+</div>
+
+<div class="footer">Ollyo Foosball Federation · est. 2026 · matches are settled at the table</div>
+
+<script>
+var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
+
+const $ = id => document.getElementById(id);
+const show = id => { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); };
+
+var fwds = [], defs = [];   // [{ name, picked }] — players stay on the wheel, locked once picked
+var teams = [];
+var fwdAngle = 0, defAngle = 0, spinning = false;
+
+// --- setup ---
+$('startBtn').onclick = () => {
+  const parse = t => t.value.split('\n').map(s => s.trim()).filter(Boolean).map(name => ({ name, picked: false }));
+  fwds = parse($('fwdInput'));
+  defs = parse($('defInput'));
+  if (fwds.length < 2 || fwds.length !== defs.length) {
+    $('error').textContent = 'Need the same number of forwards and defenders (at least 2 each).';
+    return;
+  }
+  teams = [];
+  $('teamList').innerHTML = '';
+  $('status').innerHTML = '';
+  $('spinBtn').style.display = '';
+  $('spinBtn').disabled = false;
+  $('tourneyBtn').style.display = 'none';
+  show('draw');
+  drawWheel('fwdWheel', fwds, fwdAngle, -1);
+  drawWheel('defWheel', defs, defAngle, -1);
+};
+
+// --- wheels ---
+const WHEEL_SHADES = {
+  fwdWheel: ['#d4e2fb', '#c2d6f9'],
+  defWheel: ['#fbe0d0', '#f9d2bd'],
+};
+
+function drawWheel(canvasId, players, angle, highlight) {
+  const c = $(canvasId), ctx = c.getContext('2d');
+  const cx = c.width / 2, cy = c.height / 2, r = cx - 4;
+  ctx.clearRect(0, 0, c.width, c.height);
+  const n = players.length, seg = 2 * Math.PI / n;
+  const shades = WHEEL_SHADES[canvasId];
+  for (let i = 0; i < n; i++) {
+    const a0 = angle + i * seg;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, a0, a0 + seg);
+    ctx.fillStyle = players[i].picked ? '#f4f6f9' : shades[i % 2];
+    if (i === highlight) ctx.fillStyle = '#c4ecd0';
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(a0 + seg / 2);
+    ctx.textAlign = 'right';
+    ctx.fillStyle = players[i].picked ? '#b3bdca' : '#243447';
+    if (i === highlight) ctx.fillStyle = '#15803d';
+    ctx.font = (players[i].picked ? '' : 'bold ') + '15px Inter, sans-serif';
+    ctx.fillText(players[i].name, r - 14, 5);
+    if (players[i].picked) { // strike through
+      const w = ctx.measureText(players[i].name).width;
+      ctx.strokeStyle = '#b3bdca'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(r - 14 - w, 0); ctx.lineTo(r - 14, 0); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // hub
+  ctx.beginPath(); ctx.arc(cx, cy, 14, 0, 2 * Math.PI);
+  ctx.fillStyle = '#e5a922'; ctx.fill();
+  ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
+}
+
+const availIdx = players => players.map((p, i) => p.picked ? -1 : i).filter(i => i >= 0);
+
+$('spinBtn').onclick = () => {
+  if (spinning) return;
+  spinning = true;
+  $('spinBtn').disabled = true;
+  const af = availIdx(fwds), ad = availIdx(defs);
+  const fi = af[Math.floor(Math.random() * af.length)];
+  const di = ad[Math.floor(Math.random() * ad.length)];
+  const segF = 2 * Math.PI / fwds.length, segD = 2 * Math.PI / defs.length;
+  // pointer at top (-90°); land each winner's segment center there
+  const targetF = -Math.PI / 2 - (fi * segF + segF / 2);
+  const targetD = -Math.PI / 2 - (di * segD + segD / 2);
+  const startF = fwdAngle, startD = defAngle;
+  const deltaF = (targetF - startF) % (2 * Math.PI) - 2 * Math.PI * 6;
+  const deltaD = (targetD - startD) % (2 * Math.PI) - 2 * Math.PI * 8; // different turn counts so wheels desync
+  const t0 = performance.now();
+  (function frame(now) {
+    const t = Math.min((now - t0) / SPIN_MS, 1);
+    const ease = 1 - Math.pow(1 - t, 3);
+    fwdAngle = startF + deltaF * ease;
+    defAngle = startD + deltaD * ease;
+    drawWheel('fwdWheel', fwds, fwdAngle, t === 1 ? fi : -1);
+    drawWheel('defWheel', defs, defAngle, t === 1 ? di : -1);
+    if (t < 1) requestAnimationFrame(frame);
+    else finishSpin(fi, di);
+  })(t0);
+};
+
+function finishSpin(fi, di) {
+  $('status').innerHTML = `🎉 <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
+  setTimeout(() => {
+    formTeam(fi, di);
+    const af = availIdx(fwds), ad = availIdx(defs);
+    if (af.length === 1 && ad.length === 1) {
+      // last pair — no spin needed, auto-assign
+      setTimeout(() => {
+        formTeam(af[0], ad[0]);
+        $('status').innerHTML = `<span class="last-pick">Last pair auto-assigned!</span> All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
+        finishDraft();
+      }, 700);
+    } else if (af.length === 0) {
+      $('status').innerHTML = `All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
+      finishDraft();
+    } else {
+      spinning = false;
+      $('spinBtn').disabled = false;
+    }
+  }, 1100);
+}
+
+function formTeam(fi, di) {
+  fwds[fi].picked = true;
+  defs[di].picked = true;
+  teams.push({ fwd: fwds[fi].name, def: defs[di].name });
+  drawWheel('fwdWheel', fwds, fwdAngle, -1);
+  drawWheel('defWheel', defs, defAngle, -1);
+  const div = document.createElement('div');
+  div.className = 'team-card card';
+  div.innerHTML = `<div class="tag">Team ${teams.length}</div>
+    <div class="row f"><span class="name">${teams[teams.length - 1].fwd}</span><span class="role">Forward</span></div>
+    <div class="row d"><span class="name">${teams[teams.length - 1].def}</span><span class="role">Defender</span></div>`;
+  $('teamList').appendChild(div);
+}
+
+function finishDraft() {
+  spinning = false;
+  $('spinBtn').style.display = 'none';
+  $('tourneyBtn').style.display = '';
+  $('tourneyBtn').onclick = startCup;
+}
+
+function teamName(t) { return `${t.fwd} + ${t.def}`; }
+
+/* ================= OLLYO CUP: group stage -> knockout =================
+   n >= 6: two groups, round robin, top 2 each -> semis -> final
+   3-5:    one group, round robin, top 2 -> final
+   2:      straight final */
+var groups = [];    // [{ name, teams, matches: [{a, b, winner}] }]
+var koRounds = [], koStarted = false;
+
+function roundRobin(ts) {
+  const arr = ts.slice();
+  if (arr.length % 2) arr.push(null);
+  const n = arr.length, matches = [];
+  for (let r = 0; r < n - 1; r++) {
+    for (let i = 0; i < n / 2; i++) {
+      const a = arr[i], b = arr[n - 1 - i];
+      if (a && b) matches.push({ a, b, winner: null });
+    }
+    arr.splice(1, 0, arr.pop());
+  }
+  return matches;
+}
+
+function startCup() {
+  groups = []; koRounds = []; koStarted = false;
+  $('champion').innerHTML = '';
+  if (teams.length === 2) {
+    koStarted = true;
+    koRounds = [[{ a: teams[0], b: teams[1], winner: null }]];
+    $('groupSection').style.display = 'none';
+  } else if (teams.length < 6) {
+    groups = [{ name: 'Group A', teams: teams.slice(), matches: roundRobin(teams) }];
+    $('groupSection').style.display = '';
+  } else {
+    const half = Math.ceil(teams.length / 2); // wheel order is already random — first half A, rest B
+    const a = teams.slice(0, half), b = teams.slice(half);
+    groups = [
+      { name: 'Group A', teams: a, matches: roundRobin(a) },
+      { name: 'Group B', teams: b, matches: roundRobin(b) },
+    ];
+    $('groupSection').style.display = '';
+  }
+  $('koSection').style.display = koStarted ? '' : 'none';
+  show('tourney');
+  renderAll();
+}
+
+function rank(group) {
+  const wins = new Map(group.teams.map(t => [t, 0]));
+  const played = new Map(group.teams.map(t => [t, 0]));
+  group.matches.forEach(m => {
+    if (!m.winner) return;
+    played.set(m.a, played.get(m.a) + 1);
+    played.set(m.b, played.get(m.b) + 1);
+    wins.set(m.winner, wins.get(m.winner) + 1);
+  });
+  const order = group.teams.slice().sort((x, y) => wins.get(y) - wins.get(x));
+  // head-to-head tiebreak for a pair tied on wins
+  // ponytail: 3-way ties fall back to draw order; add mini-table if it ever matters
+  for (let i = 0; i < order.length - 1; i++) {
+    const a = order[i], b = order[i + 1];
+    if (wins.get(a) !== wins.get(b)) continue;
+    const m = group.matches.find(m => (m.a === a && m.b === b) || (m.a === b && m.b === a));
+    if (m && m.winner === b) { order[i] = b; order[i + 1] = a; }
+  }
+  return { order, wins, played };
+}
+
+function renderAll() {
+  renderGroups();
+  if (koStarted) renderBracket();
+}
+
+function renderGroups() {
+  const el = $('groups');
+  el.innerHTML = '';
+  groups.forEach(g => {
+    const { order, wins, played } = rank(g);
+    const box = document.createElement('div');
+    box.className = 'group card';
+    box.innerHTML = `<h4>${g.name}</h4>`;
+    const tbl = document.createElement('table');
+    tbl.innerHTML = '<tr><th>Team</th><th class="num">P</th><th class="num">W</th><th class="num">L</th></tr>' +
+      order.map((t, i) => `<tr${i < 2 ? ' class="qualified"' : ''}>
+        <td>${teamName(t)}</td><td class="num">${played.get(t)}</td><td class="num">${wins.get(t)}</td><td class="num">${played.get(t) - wins.get(t)}</td></tr>`).join('');
+    box.appendChild(tbl);
+    g.matches.forEach(m => {
+      const div = document.createElement('div');
+      div.className = 'match';
+      [m.a, m.b].forEach(t => {
+        const d = document.createElement('div');
+        d.className = 'm-team' + (m.winner ? (m.winner === t ? ' winner' : ' loser') : '') + (koStarted ? ' locked' : '');
+        d.textContent = teamName(t);
+        if (!koStarted) d.onclick = () => { m.winner = m.winner === t ? null : t; renderAll(); };
+        div.appendChild(d);
+        if (t === m.a) { const v = document.createElement('div'); v.className = 'vs'; v.textContent = 'VS'; div.appendChild(v); }
+      });
+      box.appendChild(div);
+    });
+    el.appendChild(box);
+  });
+  const allPlayed = groups.every(g => g.matches.every(m => m.winner));
+  $('koBtn').style.display = allPlayed && !koStarted && groups.length ? '' : 'none';
+  $('koBtn').onclick = startKnockout;
+}
+
+function startKnockout() {
+  koStarted = true;
+  if (groups.length === 2) {
+    const [ra, rb] = groups.map(g => rank(g).order);
+    // FIFA-style cross: A1 vs B2, B1 vs A2
+    koRounds = [
+      [{ a: ra[0], b: rb[1], winner: null }, { a: rb[0], b: ra[1], winner: null }],
+      [{ a: null, b: null, winner: null }],
+    ];
+  } else {
+    const r = rank(groups[0]).order;
+    koRounds = [[{ a: r[0], b: r[1], winner: null }]];
+  }
+  $('koSection').style.display = '';
+  $('koBtn').style.display = 'none';
+  renderAll();
+  $('koSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function setWinner(r, i, team) {
+  const match = koRounds[r][i];
+  const old = match.winner;
+  if (old === team) return;
+  match.winner = team;
+  if (r + 1 < koRounds.length) {
+    const next = koRounds[r + 1][Math.floor(i / 2)];
+    const slot = i % 2 === 0 ? 'a' : 'b';
+    if (old && next[slot] === old) clearDownstream(r + 1, Math.floor(i / 2), old);
+    next[slot] = team;
+  }
+}
+
+function clearDownstream(r, i, team) {
+  const match = koRounds[r][i];
+  if (match.winner === team) {
+    match.winner = null;
+    if (r + 1 < koRounds.length) {
+      clearDownstream(r + 1, Math.floor(i / 2), team);
+      koRounds[r + 1][Math.floor(i / 2)][i % 2 === 0 ? 'a' : 'b'] = null;
+    }
+  }
+}
+
+function renderBracket() {
+  const el = $('bracket');
+  el.innerHTML = '';
+  const titles = { 1: 'Grand Final', 2: 'Semifinals', 3: 'Quarterfinals' };
+  koRounds.forEach((matches, r) => {
+    const col = document.createElement('div');
+    col.className = 'round';
+    col.innerHTML = `<div class="round-title">${titles[koRounds.length - r] || 'Round ' + (r + 1)}</div>`;
+    matches.forEach((m, i) => {
+      const box = document.createElement('div');
+      box.className = 'bmatch card';
+      [m.a, m.b].forEach(t => {
+        const d = document.createElement('div');
+        d.className = 'slot' + (t === null ? ' empty' : '');
+        if (m.winner) d.classList.add(t === m.winner ? 'winner' : 'loser');
+        d.textContent = t ? teamName(t) : '—';
+        if (t && m.a && m.b) d.onclick = () => { setWinner(r, i, t); renderAll(); };
+        box.appendChild(d);
+      });
+      col.appendChild(box);
+    });
+    el.appendChild(col);
+  });
+  const final = koRounds[koRounds.length - 1][0];
+  $('champion').innerHTML = final.winner
+    ? `<div class="crown">🏆 Ollyo Cup Champions: <b>${teamName(final.winner)}</b></div>`
+    : '';
+}
+</script>
+</body>
+</html>
