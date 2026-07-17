@@ -141,7 +141,7 @@
   }
   .section-title::after { background: linear-gradient(90deg, #d9a51433, transparent); }
   .groups { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
-  .group { flex: 1; min-width: 330px; max-width: 530px; padding: 26px 26px 16px; }
+  .group { flex: 1; min-width: 340px; max-width: 540px; padding: 26px 26px 16px; }
   .group h4 {
     display: inline-block; font-size: 0.85rem; font-weight: 900; text-transform: uppercase;
     letter-spacing: 0.18em; color: #96660a; background: #fdf4dc;
@@ -152,7 +152,7 @@
     color: #a4aebc; text-transform: uppercase; font-size: 0.68rem; font-weight: 800;
     letter-spacing: 0.14em; padding: 8px 12px; text-align: left; border-bottom: 2px solid #eef2f8;
   }
-  th.num, td.num { text-align: center; width: 40px; }
+  th.num, td.num { text-align: center; width: 44px; }
   td { padding: 11px 12px; border-bottom: 1px solid #f1f4f9; font-weight: 600; font-size: 0.95rem; }
   tr:last-child td { border-bottom: none; }
   tr.qualified td { background: #fdf6e0; }
@@ -160,31 +160,37 @@
   tr.qualified td:last-child { border-radius: 0 10px 10px 0; }
   .match {
     display: flex; align-items: center; background: #f7f9fc; border: 1px solid #eaeff6;
-    border-radius: 14px; margin-bottom: 10px; overflow: hidden;
+    border-radius: 14px; margin-bottom: 10px; overflow: hidden; padding: 6px 10px; gap: 6px;
   }
-  .m-team { flex: 1; padding: 13px 16px; cursor: pointer; font-weight: 600; font-size: 0.95rem; transition: background 0.15s; }
+  .m-team { flex: 1; padding: 8px 6px; font-weight: 600; font-size: 0.95rem; border-radius: 10px; }
   .m-team:last-child { text-align: right; }
-  .m-team:hover { background: #edf2f9; }
-  .m-team.winner { background: #e1f5e8; color: #15803d; font-weight: 800; }
+  .m-team.winner { color: #15803d; font-weight: 800; }
   .m-team.loser { opacity: 0.45; }
-  .m-team.locked { cursor: default; }
-  .m-team.locked:hover { background: inherit; }
-  .m-team.locked.winner:hover { background: #e1f5e8; }
-  .vs { color: #c9a227; font-weight: 900; font-size: 0.72rem; padding: 0 10px; letter-spacing: 0.05em; }
+  .score {
+    width: 52px; padding: 8px 4px; text-align: center; font-family: inherit;
+    font-size: 1rem; font-weight: 800; color: #16233a;
+    background: #fff; border: 1.5px solid #dfe6ef; border-radius: 10px;
+    transition: border-color 0.15s;
+  }
+  .score:focus { outline: none; border-color: #ecc45c; }
+  .score:disabled { background: #f1f4f9; color: #8a96a8; }
+  .score.bad { border-color: #e05252; background: #fdeeee; }
+  .dash { color: #c9a227; font-weight: 900; font-size: 0.8rem; }
+  .tie-note { color: #b45309; font-size: 0.8rem; font-weight: 700; margin: -8px 0 12px; min-height: 1em; }
   /* knockout bracket */
   #bracket { display: flex; gap: 48px; overflow-x: auto; padding: 10px 0; justify-content: center; }
-  .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 220px; }
+  .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 250px; }
   .round-title {
     text-align: center; font-weight: 800; margin-bottom: 14px; color: #a4aebc;
     text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem;
   }
   .bmatch { margin: 10px 0; overflow: hidden; }
-  .slot { padding: 13px 18px; cursor: pointer; font-weight: 600; }
+  .slot { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-weight: 600; }
+  .slot .nm { flex: 1; }
   .slot + .slot { border-top: 1px solid #eef2f8; }
-  .slot.empty { color: #b3bdca; cursor: default; font-style: italic; }
+  .slot.empty { color: #b3bdca; font-style: italic; }
   .slot.winner { background: #e1f5e8; color: #15803d; font-weight: 800; }
   .slot.loser { opacity: 0.45; }
-  .slot:not(.empty):not(.winner):hover { background: #edf2f9; }
   #champion { display: flex; justify-content: center; margin: 36px 0 4px; min-height: 1em; }
   #champion .crown {
     background: linear-gradient(135deg, #fff8e6, #fdeec2);
@@ -260,7 +266,7 @@ Rashed</textarea>
 <!-- Screen 3: tournament -->
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Ollyo Cup</span></h1>
-  <div class="subtitle">Group stage first — every team plays. Top 2 per group advance to the knockout.</div>
+  <div class="subtitle">Enter each match score — ranking is wins, then goal difference, then goals for.</div>
   <div id="champion"></div>
   <div id="groupSection">
     <div class="section-title">Group Stage</div>
@@ -424,10 +430,12 @@ function finishDraft() {
 function teamName(t) { return `${t.fwd} + ${t.def}`; }
 
 /* ================= OLLYO CUP: group stage -> knockout =================
+   Matches are recorded as scores; winner = higher score (no draws in foosball).
+   Group ranking: wins -> goal difference -> goals for -> head-to-head.
    n >= 6: two groups, round robin, top 2 each -> semis -> final
    3-5:    one group, round robin, top 2 -> final
    2:      straight final */
-var groups = [];    // [{ name, teams, matches: [{a, b, winner}] }]
+var groups = [];    // [{ name, teams, matches: [{a, b, sa, sb, winner}] }]
 var koRounds = [], koStarted = false;
 
 function roundRobin(ts) {
@@ -437,7 +445,7 @@ function roundRobin(ts) {
   for (let r = 0; r < n - 1; r++) {
     for (let i = 0; i < n / 2; i++) {
       const a = arr[i], b = arr[n - 1 - i];
-      if (a && b) matches.push({ a, b, winner: null });
+      if (a && b) matches.push({ a, b, sa: null, sb: null, winner: null });
     }
     arr.splice(1, 0, arr.pop());
   }
@@ -449,7 +457,7 @@ function startCup() {
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
-    koRounds = [[{ a: teams[0], b: teams[1], winner: null }]];
+    koRounds = [[{ a: teams[0], b: teams[1], sa: null, sb: null, winner: null }]];
     $('groupSection').style.display = 'none';
   } else if (teams.length < 6) {
     groups = [{ name: 'Group A', teams: teams.slice(), matches: roundRobin(teams) }];
@@ -468,25 +476,40 @@ function startCup() {
   renderAll();
 }
 
+const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
+
+function setGroupScore(gi, mi, sa, sb) {
+  const m = groups[gi].matches[mi];
+  m.sa = sa; m.sb = sb;
+  m.winner = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
+  renderAll();
+}
+
 function rank(group) {
-  const wins = new Map(group.teams.map(t => [t, 0]));
-  const played = new Map(group.teams.map(t => [t, 0]));
+  const s = new Map(group.teams.map(t => [t, { p: 0, w: 0, gd: 0, gf: 0 }]));
   group.matches.forEach(m => {
     if (!m.winner) return;
-    played.set(m.a, played.get(m.a) + 1);
-    played.set(m.b, played.get(m.b) + 1);
-    wins.set(m.winner, wins.get(m.winner) + 1);
+    const A = s.get(m.a), B = s.get(m.b);
+    A.p++; B.p++;
+    A.gf += m.sa; B.gf += m.sb;
+    A.gd += m.sa - m.sb; B.gd += m.sb - m.sa;
+    s.get(m.winner).w++;
   });
-  const order = group.teams.slice().sort((x, y) => wins.get(y) - wins.get(x));
-  // head-to-head tiebreak for a pair tied on wins
-  // ponytail: 3-way ties fall back to draw order; add mini-table if it ever matters
+  const key = t => { const x = s.get(t); return [x.w, x.gd, x.gf]; };
+  const order = group.teams.slice().sort((a, b) => {
+    const ka = key(a), kb = key(b);
+    for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return kb[i] - ka[i];
+    return 0;
+  });
+  // head-to-head tiebreak for a pair still tied after wins/GD/GF
+  // ponytail: 3-way full ties fall back to draw order (near-impossible with scores)
   for (let i = 0; i < order.length - 1; i++) {
     const a = order[i], b = order[i + 1];
-    if (wins.get(a) !== wins.get(b)) continue;
+    if (String(key(a)) !== String(key(b))) continue;
     const m = group.matches.find(m => (m.a === a && m.b === b) || (m.a === b && m.b === a));
     if (m && m.winner === b) { order[i] = b; order[i + 1] = a; }
   }
-  return { order, wins, played };
+  return { order, stats: s };
 }
 
 function renderAll() {
@@ -494,32 +517,60 @@ function renderAll() {
   if (koStarted) renderBracket();
 }
 
+function scoreInput(value, disabled, onchange) {
+  const inp = document.createElement('input');
+  inp.type = 'number';
+  inp.min = 0;
+  inp.className = 'score';
+  inp.value = value ?? '';
+  inp.disabled = disabled;
+  inp.onchange = () => {
+    const v = inp.value === '' ? null : Math.max(0, Math.floor(Number(inp.value)) || 0);
+    onchange(v);
+  };
+  return inp;
+}
+
 function renderGroups() {
   const el = $('groups');
   el.innerHTML = '';
-  groups.forEach(g => {
-    const { order, wins, played } = rank(g);
+  const fmt = v => (v > 0 ? '+' : '') + v;
+  groups.forEach((g, gi) => {
+    const { order, stats } = rank(g);
     const box = document.createElement('div');
     box.className = 'group card';
     box.innerHTML = `<h4>${g.name}</h4>`;
     const tbl = document.createElement('table');
-    tbl.innerHTML = '<tr><th>Team</th><th class="num">P</th><th class="num">W</th><th class="num">L</th></tr>' +
-      order.map((t, i) => `<tr${i < 2 ? ' class="qualified"' : ''}>
-        <td>${teamName(t)}</td><td class="num">${played.get(t)}</td><td class="num">${wins.get(t)}</td><td class="num">${played.get(t) - wins.get(t)}</td></tr>`).join('');
+    tbl.innerHTML = '<tr><th>Team</th><th class="num">P</th><th class="num">W</th><th class="num">GD</th><th class="num">GF</th></tr>' +
+      order.map((t, i) => {
+        const s = stats.get(t);
+        return `<tr${i < 2 ? ' class="qualified"' : ''}>
+          <td>${teamName(t)}</td><td class="num">${s.p}</td><td class="num">${s.w}</td><td class="num">${fmt(s.gd)}</td><td class="num">${s.gf}</td></tr>`;
+      }).join('');
     box.appendChild(tbl);
-    g.matches.forEach(m => {
+    g.matches.forEach((m, mi) => {
       const div = document.createElement('div');
       div.className = 'match';
-      [m.a, m.b].forEach(t => {
-        const d = document.createElement('div');
-        d.className = 'm-team' + (m.winner ? (m.winner === t ? ' winner' : ' loser') : '') + (koStarted ? ' locked' : '');
-        d.textContent = teamName(t);
-        if (!koStarted) d.onclick = () => { m.winner = m.winner === t ? null : t; renderAll(); };
-        div.appendChild(d);
-        if (t === m.a) { const v = document.createElement('div'); v.className = 'vs'; v.textContent = 'VS'; div.appendChild(v); }
-      });
+      const bad = m.sa != null && m.sa === m.sb;
+      const nameA = document.createElement('div');
+      nameA.className = 'm-team' + (m.winner ? (m.winner === m.a ? ' winner' : ' loser') : '');
+      nameA.textContent = teamName(m.a);
+      const inA = scoreInput(m.sa, koStarted, v => setGroupScore(gi, mi, v, m.sb));
+      const dash = document.createElement('span'); dash.className = 'dash'; dash.textContent = '–';
+      const inB = scoreInput(m.sb, koStarted, v => setGroupScore(gi, mi, m.sa, v));
+      const nameB = document.createElement('div');
+      nameB.className = 'm-team' + (m.winner ? (m.winner === m.b ? ' winner' : ' loser') : '');
+      nameB.textContent = teamName(m.b);
+      if (bad) { inA.classList.add('bad'); inB.classList.add('bad'); }
+      div.append(nameA, inA, dash, inB, nameB);
       box.appendChild(div);
     });
+    if (g.matches.some(m => m.sa != null && m.sa === m.sb)) {
+      const note = document.createElement('div');
+      note.className = 'tie-note';
+      note.textContent = 'Foosball has no draws — scores can’t be equal.';
+      box.appendChild(note);
+    }
     el.appendChild(box);
   });
   const allPlayed = groups.every(g => g.matches.every(m => m.winner));
@@ -529,16 +580,17 @@ function renderGroups() {
 
 function startKnockout() {
   koStarted = true;
+  const blank = () => ({ sa: null, sb: null, winner: null });
   if (groups.length === 2) {
     const [ra, rb] = groups.map(g => rank(g).order);
     // FIFA-style cross: A1 vs B2, B1 vs A2
     koRounds = [
-      [{ a: ra[0], b: rb[1], winner: null }, { a: rb[0], b: ra[1], winner: null }],
-      [{ a: null, b: null, winner: null }],
+      [{ a: ra[0], b: rb[1], ...blank() }, { a: rb[0], b: ra[1], ...blank() }],
+      [{ a: null, b: null, ...blank() }],
     ];
   } else {
     const r = rank(groups[0]).order;
-    koRounds = [[{ a: r[0], b: r[1], winner: null }]];
+    koRounds = [[{ a: r[0], b: r[1], ...blank() }]];
   }
   $('koSection').style.display = '';
   $('koBtn').style.display = 'none';
@@ -546,27 +598,27 @@ function startKnockout() {
   $('koSection').scrollIntoView({ behavior: 'smooth' });
 }
 
-function setWinner(r, i, team) {
-  const match = koRounds[r][i];
-  const old = match.winner;
-  if (old === team) return;
-  match.winner = team;
-  if (r + 1 < koRounds.length) {
-    const next = koRounds[r + 1][Math.floor(i / 2)];
-    const slot = i % 2 === 0 ? 'a' : 'b';
-    if (old && next[slot] === old) clearDownstream(r + 1, Math.floor(i / 2), old);
-    next[slot] = team;
+function setKoScore(r, i, sa, sb) {
+  const m = koRounds[r][i];
+  m.sa = sa; m.sb = sb;
+  const w = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
+  const old = m.winner;
+  m.winner = w;
+  if (old !== w && r + 1 < koRounds.length) {
+    const ni = i >> 1, next = koRounds[r + 1][ni], slot = i % 2 ? 'b' : 'a';
+    resetChain(r + 1, ni); // the matchup changed — anything recorded after is void
+    next[slot] = w;
   }
+  renderAll();
 }
 
-function clearDownstream(r, i, team) {
-  const match = koRounds[r][i];
-  if (match.winner === team) {
-    match.winner = null;
-    if (r + 1 < koRounds.length) {
-      clearDownstream(r + 1, Math.floor(i / 2), team);
-      koRounds[r + 1][Math.floor(i / 2)][i % 2 === 0 ? 'a' : 'b'] = null;
-    }
+function resetChain(r, i) {
+  const m = koRounds[r][i];
+  const old = m.winner;
+  m.sa = m.sb = null; m.winner = null;
+  if (old && r + 1 < koRounds.length) {
+    const next = koRounds[r + 1][i >> 1], slot = i % 2 ? 'b' : 'a';
+    if (next[slot] === old) { next[slot] = null; resetChain(r + 1, i >> 1); }
   }
 }
 
@@ -581,12 +633,21 @@ function renderBracket() {
     matches.forEach((m, i) => {
       const box = document.createElement('div');
       box.className = 'bmatch card';
-      [m.a, m.b].forEach(t => {
+      const ready = m.a && m.b;
+      const bad = m.sa != null && m.sa === m.sb;
+      [['a', m.a, m.sa], ['b', m.b, m.sb]].forEach(([side, t, sc]) => {
         const d = document.createElement('div');
         d.className = 'slot' + (t === null ? ' empty' : '');
         if (m.winner) d.classList.add(t === m.winner ? 'winner' : 'loser');
-        d.textContent = t ? teamName(t) : '—';
-        if (t && m.a && m.b) d.onclick = () => { setWinner(r, i, t); renderAll(); };
+        const nm = document.createElement('span');
+        nm.className = 'nm';
+        nm.textContent = t ? teamName(t) : '—';
+        d.appendChild(nm);
+        if (ready) {
+          const inp = scoreInput(sc, false, v => side === 'a' ? setKoScore(r, i, v, m.sb) : setKoScore(r, i, m.sa, v));
+          if (bad) inp.classList.add('bad');
+          d.appendChild(inp);
+        }
         box.appendChild(d);
       });
       col.appendChild(box);
