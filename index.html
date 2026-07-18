@@ -263,6 +263,21 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #resetBtn:hover { color: #d43d3d; border-color: #f3c1c1; }
+  @media (max-width: 640px) {
+    body { padding: 24px 12px 96px; }
+    .wheels { gap: 34px; }
+    .wheel-col canvas { width: min(360px, 86vw); height: auto; }
+    .panel { max-width: none; }
+    .groups { flex-direction: column; align-items: stretch; }
+    .group { min-width: 0; max-width: none; padding: 18px 14px 10px; }
+    .m-team { min-width: 0; overflow-wrap: break-word; }
+    th, td { padding-left: 6px; padding-right: 6px; }
+    #bracket { justify-content: flex-start; } /* centered flex + overflow clips the first round */
+    .round { min-width: 210px; }
+    #shareBtn, #resetBtn { top: auto; bottom: 14px; }
+    #shareBtn { right: auto; left: 14px; }
+    #resetBtn { right: 14px; }
+  }
   .footer {
     text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
     font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
@@ -723,6 +738,7 @@ function scoreInput(value, disabled, onchange) {
   const inp = document.createElement('input');
   inp.type = 'number';
   inp.min = 0;
+  inp.inputMode = 'numeric';
   inp.className = 'score';
   inp.value = value ?? '';
   inp.disabled = disabled;
