@@ -247,6 +247,14 @@
     animation: rise-in 0.7s 1.2s ease backwards;
   }
   @keyframes rise-in { from { transform: translateY(18px); opacity: 0; } }
+  #shareBtn {
+    position: fixed; top: 18px; right: 148px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #shareBtn:hover { color: #17854a; border-color: #b9e3c8; }
   #resetBtn {
     position: fixed; top: 18px; right: 18px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
@@ -264,6 +272,7 @@
 <body>
 
 <div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
+<button id="shareBtn" style="display:none">🔗 Share Link</button>
 <button id="resetBtn" style="display:none">↺ Start Over</button>
 
 <div id="celebrate">
@@ -359,6 +368,13 @@ const show = id => {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   $(id).classList.add('active');
   $('resetBtn').style.display = id === 'setup' ? 'none' : '';
+  $('shareBtn').style.display = id === 'setup' ? 'none' : '';
+};
+
+$('shareBtn').onclick = async () => {
+  try { await navigator.clipboard.writeText(location.href); } catch (e) { prompt('Copy the link:', location.href); return; }
+  $('shareBtn').textContent = '✓ Copied!';
+  setTimeout(() => { $('shareBtn').textContent = '🔗 Share Link'; }, 1500);
 };
 
 // --- sound (Web Audio, no files) ---
@@ -388,6 +404,7 @@ $('resetBtn').onclick = () => {
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
   try { localStorage.removeItem('ollyoCup'); } catch (e) {}
+  history.replaceState(null, '', location.pathname + location.search);
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
 };
 
@@ -642,28 +659,35 @@ function renderAll() {
   save();
 }
 
-/* ================= PERSISTENCE (localStorage) =================
+/* ================= PERSISTENCE (URL hash + localStorage) =================
+   The full state is base64url-encoded into the URL hash, so any state can be
+   shared by copying the link; localStorage mirrors it as a same-device backup.
    Groups and the bracket are rebuilt deterministically from the team order,
    so only the raw inputs and scores are stored. */
 var restoring = false;
 
+const encodeState = o => btoa(unescape(encodeURIComponent(JSON.stringify(o))))
+  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const decodeState = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
+
 function save() {
   if (restoring) return;
-  try {
-    localStorage.setItem('ollyoCup', JSON.stringify({
-      screen: curScreen,
-      fwdText: $('fwdInput').value,
-      defText: $('defInput').value,
-      fwds, defs, teams, koStarted,
-      groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
-      koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
-    }));
-  } catch (e) {}
+  const enc = encodeState({
+    screen: curScreen,
+    fwdText: $('fwdInput').value,
+    defText: $('defInput').value,
+    fwds, defs, teams, koStarted,
+    groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
+    koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
+  });
+  try { localStorage.setItem('ollyoCup', enc); } catch (e) {}
+  history.replaceState(null, '', '#' + enc);
 }
 
 function restore() {
-  let s;
-  try { s = JSON.parse(localStorage.getItem('ollyoCup')); } catch (e) { return; }
+  let s = null;
+  try { s = decodeState(location.hash.slice(1)); } catch (e) {} // shared link wins
+  if (!s) try { s = decodeState(localStorage.getItem('ollyoCup') || ''); } catch (e) {}
   if (!s) return;
   restoring = true;
   if (s.fwdText != null) $('fwdInput').value = s.fwdText;
@@ -692,6 +716,7 @@ function restore() {
     }
   }
   restoring = false;
+  save(); // sync whichever source won back into both the URL and localStorage
 }
 
 function scoreInput(value, disabled, onchange) {
