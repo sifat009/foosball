@@ -295,6 +295,16 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #resetBtn:hover { color: #d43d3d; border-color: #f3c1c1; }
+  #authBtn {
+    position: fixed; top: 18px; left: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #authBtn:hover { color: #2563eb; border-color: #bcd3f7; }
+  /* Every fixed button must be declared above this block. A media query adds
+     no specificity, so a later #id rule beats the override inside it. */
   @media (max-width: 640px) {
     body { padding: 24px 12px 96px; }
     .wheels { gap: 34px; }
@@ -329,14 +339,6 @@
   body.view #viewBadge { display: flex; }
   #viewBadge.offline { background: #fdeeee; border-color: #f3c1c1; color: #b03636; }
   body.offline #viewBadge { display: flex; } /* show the warning to the admin too */
-  #authBtn {
-    position: fixed; top: 18px; left: 18px; z-index: 5;
-    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
-    border-radius: 999px; padding: 9px 18px; font-family: inherit;
-    font-size: 0.82rem; font-weight: 700; cursor: pointer;
-    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
-  }
-  #authBtn:hover { color: #2563eb; border-color: #bcd3f7; }
   /* hold the first paint until the database answers, or the setup screen
      flashes for a moment before the live cup replaces it */
   #boot {

@@ -150,6 +150,35 @@ assert.deepEqual(viewerLog, [], 'a viewer wrote to the champions record');
 await page.evaluate(() => window.setAdmin(false));
 console.log('past champions OK');
 
+// ---------- mobile layout ----------
+// the fixed buttons move to the bottom under @media (max-width: 640px). A media
+// query adds no specificity, so an #id rule declared after the block silently
+// beats it — which is exactly how the sign-in button ended up over the header.
+await page.setViewportSize({ width: 375, height: 667 });
+await page.evaluate(() => { window.setAdmin(true); show('tourney'); });
+await page.waitForTimeout(200);
+
+const { boxes, vw, vh } = await page.evaluate(() => ({
+  vw: window.innerWidth,
+  vh: window.innerHeight,
+  boxes: ['hallBtn', 'resetBtn', 'authBtn'].map(id => {
+    const r = document.getElementById(id).getBoundingClientRect();
+    return { id, l: r.left, r: r.right, t: r.top, b: r.bottom };
+  }),
+}));
+for (const box of boxes) {
+  assert.ok(box.l >= 0 && box.r <= vw, `${box.id} runs off the side of a phone screen`);
+  assert.ok(box.t > vh / 2, `${box.id} is not pinned to the bottom on mobile — a later #id rule is overriding the media query`);
+}
+const overlap = (a, b) => a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b;
+for (let i = 0; i < boxes.length; i++)
+  for (let j = i + 1; j < boxes.length; j++)
+    assert.ok(!overlap(boxes[i], boxes[j]), `${boxes[i].id} and ${boxes[j].id} overlap on mobile`);
+
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
+  'the page scrolls sideways on a phone');
+console.log('mobile layout OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
