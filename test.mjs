@@ -94,6 +94,40 @@ const relocked = await Promise.all((await page.$$('#groups .score')).map(s => s.
 assert.ok(relocked.every(Boolean), 'scores still editable after sign-out');
 console.log('sign-out re-lock OK');
 
+// ---------- past champions ----------
+assert.ok(await page.isVisible('#hallBtn'), 'a viewer cannot reach the past champions');
+assert.ok((await page.textContent('#hallList')).includes('No cups completed yet'), 'missing empty state');
+
+await page.evaluate(() => window.renderHall([
+  { champion: 'Nur + Rashed', date: Date.parse('2026-01-05') },
+  { champion: 'Rifat + Sifat', date: Date.parse('2026-03-11') },
+]));
+const rows = await page.$$eval('.hall-row', rs => rs.map(r => r.textContent));
+assert.equal(rows.length, 2, 'expected one row per recorded cup');
+assert.ok(rows[0].includes('Rifat + Sifat'), 'newest cup is not listed first');
+assert.ok(rows[0].includes('#2') && rows[1].includes('#1'), 'cup numbering does not follow chronology');
+
+await page.click('#hallBtn');
+assert.ok(await page.isVisible('#hall'), 'past champions did not open');
+await page.click('#hallClose');
+assert.ok(!(await page.isVisible('#hall')), 'past champions did not close');
+
+// starting over is the only thing that records a champion, and only a finished cup
+const recorded = await page.evaluate(() => {
+  const got = [];
+  window.recordChampion = c => got.push(c);
+  window.confirm = () => true;
+  window.setAdmin(true);
+  koRounds = [[{ a: { fwd: 'Nur', def: 'Rashed' }, b: { fwd: 'Rifat', def: 'Sifat' }, winner: null }]];
+  document.getElementById('resetBtn').onclick(); // unfinished cup — nothing to record
+  koRounds = [[{ a: { fwd: 'Nur', def: 'Rashed' }, b: { fwd: 'Rifat', def: 'Sifat' }, winner: { fwd: 'Nur', def: 'Rashed' } }]];
+  document.getElementById('resetBtn').onclick();
+  return got;
+});
+assert.deepEqual(recorded, ['Nur + Rashed'],
+  'start over should record exactly the champion of a finished cup');
+console.log('past champions OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

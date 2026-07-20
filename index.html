@@ -247,14 +247,46 @@
     animation: rise-in 0.7s 1.2s ease backwards;
   }
   @keyframes rise-in { from { transform: translateY(18px); opacity: 0; } }
-  #shareBtn {
+  /* past champions — an overlay, not a .screen, because applyState() calls
+     show() on every remote snapshot and would close a screen mid-read */
+  #hall {
+    position: fixed; inset: 0; z-index: 40; display: none;
+    align-items: center; justify-content: center; padding: 24px;
+    background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
+    animation: fade-in 0.3s ease;
+  }
+  #hall.open { display: flex; }
+  .hall-card {
+    background: #fff; border-radius: 18px; padding: 28px 26px 22px;
+    width: min(440px, 100%); max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(10,16,28,0.4);
+  }
+  .hall-title {
+    text-align: center; font-size: 1.15rem; font-weight: 900; color: #172b4d;
+    letter-spacing: -0.01em; margin-bottom: 20px;
+  }
+  .hall-row {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 11px 4px; border-bottom: 1px solid #eef1f6;
+  }
+  .hall-row:last-child { border-bottom: 0; }
+  .hall-n { color: #c3ccda; font-weight: 800; font-size: 0.8rem; min-width: 22px; }
+  .hall-name { flex: 1; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
+  .hall-date { color: #8fa0b8; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+  .hall-empty { text-align: center; color: #8fa0b8; font-size: 0.85rem; padding: 22px 0; }
+  #hallClose {
+    display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
+    border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  }
+  #hallBtn {
     position: fixed; top: 18px; right: 148px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
     border-radius: 999px; padding: 9px 18px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
-  #shareBtn:hover { color: #17854a; border-color: #b9e3c8; }
+  #hallBtn:hover { color: #b8860b; border-color: #f0d79a; }
   #resetBtn {
     position: fixed; top: 18px; right: 18px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
@@ -274,8 +306,8 @@
     th, td { padding-left: 6px; padding-right: 6px; }
     #bracket { justify-content: flex-start; } /* centered flex + overflow clips the first round */
     .round { min-width: 210px; }
-    #shareBtn, #resetBtn, #authBtn { top: auto; bottom: 14px; }
-    #shareBtn { right: auto; left: 14px; }
+    #hallBtn, #resetBtn, #authBtn { top: auto; bottom: 14px; }
+    #hallBtn { right: auto; left: 14px; }
     #resetBtn { right: 14px; }
     #authBtn { left: auto; right: 14px; bottom: 58px; }
   }
@@ -315,7 +347,7 @@
   @keyframes boot-pulse { 50% { opacity: 0.45; } }
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
-  body.booting #shareBtn, body.booting #resetBtn { display: none !important; }
+  body.booting #resetBtn, body.booting #hallBtn { display: none !important; }
 </style>
 </head>
 <body>
@@ -324,8 +356,16 @@
 <div id="viewBadge">👁 Live standings — updating automatically</div>
 <div id="boot">Loading the cup…</div>
 <button id="authBtn">Admin sign in</button>
-<button id="shareBtn" style="display:none">🔗 Share Link</button>
+<button id="hallBtn">🏆 Past Champions</button>
 <button id="resetBtn" style="display:none">↺ Start Over</button>
+
+<div id="hall">
+  <div class="hall-card">
+    <div class="hall-title">🏆 Past Champions</div>
+    <div id="hallList"><div class="hall-empty">No cups completed yet.</div></div>
+    <button id="hallClose">Close</button>
+  </div>
+</div>
 
 <div id="celebrate">
   <canvas id="confetti"></canvas>
@@ -421,7 +461,6 @@ const show = id => {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   $(id).classList.add('active');
   $('resetBtn').style.display = id === 'setup' ? 'none' : '';
-  $('shareBtn').style.display = id === 'setup' ? 'none' : '';
 };
 
 /* ================= ADMIN GATE =================
@@ -445,13 +484,6 @@ function setAdmin(v) {
 }
 setAdmin(false); // read-only until Firebase says otherwise
 
-$('shareBtn').onclick = async () => {
-  const url = location.origin + location.pathname; // one URL for everyone; access is decided by sign-in
-  try { await navigator.clipboard.writeText(url); } catch (e) { prompt('Copy the link:', url); return; }
-  $('shareBtn').textContent = '✓ Copied!';
-  setTimeout(() => { $('shareBtn').textContent = '🔗 Share Link'; }, 1500);
-};
-
 // --- sound (Web Audio, no files) ---
 var audioCtx = null;
 function ac() {
@@ -471,9 +503,39 @@ function tone(freq, at, dur, vol, type) {
 function tick() { try { tone(1800, 0, 0.035, 0.07, 'square'); } catch (e) {} }
 function ding() { try { tone(880, 0, 0.5, 0.12, 'triangle'); tone(1318.5, 0.09, 0.6, 0.12, 'triangle'); } catch (e) {} }
 
+/* ================= PAST CHAMPIONS =================
+   Written once per cup, when the admin starts over (a finished cup is only
+   ever cleared that way). renderHall is called by the history subscription at
+   the bottom, so every viewer's list stays current without a reload. */
+function renderHall(entries) {
+  const list = $('hallList');
+  if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
+  list.innerHTML = '';
+  entries.slice().reverse().forEach((e, i) => { // newest first
+    const row = document.createElement('div');
+    row.className = 'hall-row';
+    const n = document.createElement('div');
+    n.className = 'hall-n'; n.textContent = '#' + (entries.length - i);
+    const name = document.createElement('div');
+    name.className = 'hall-name'; name.textContent = e.champion; // textContent: player names are user input
+    const d = document.createElement('div');
+    d.className = 'hall-date';
+    d.textContent = new Date(e.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+    row.append(n, name, d);
+    list.appendChild(row);
+  });
+}
+window.renderHall = renderHall;
+
+$('hallBtn').onclick = () => $('hall').classList.add('open');
+$('hallClose').onclick = () => $('hall').classList.remove('open');
+$('hall').onclick = e => { if (e.target === $('hall')) $('hall').classList.remove('open'); };
+
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
 $('resetBtn').onclick = () => {
   if (!confirm('Start over? This wipes the cup for everyone watching, not just you.')) return;
+  const champ = koRounds.length && koRounds[koRounds.length - 1][0].winner;
+  if (champ && window.recordChampion) window.recordChampion(teamName(champ));
   session++;
   spinning = false;
   lastChamp = null; confettiRun = false;
@@ -1010,7 +1072,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, runTransaction }
+import { getDatabase, ref, onValue, set, push }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -1027,7 +1089,20 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
 const cupRef = ref(db, 'cup');
+const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
+
+window.recordChampion = champion => push(historyRef, { champion, date: Date.now() })
+  .catch(err => {
+    console.error('[history] write rejected:', err);
+    alert('Could not record the champion: ' + err.message);
+  });
+
+onValue(historyRef, snap => {
+  const v = snap.val() || {};
+  // push() keys sort chronologically, so key order is cup order
+  window.renderHall(Object.keys(v).sort().map(k => v[k]));
+}, err => console.error('[history] read failed:', err));
 
 // writes rejected by the rules land here — surface them instead of failing silently
 window.saveToDb = json => set(cupRef, json).catch(err => {
@@ -1045,28 +1120,12 @@ onValue(cupRef, snap => {
 
 onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
 
-/* One-time migration: seed the database from the ?#hash of an in-flight cup.
-   Guarded three ways — admin only (the rules reject anyone else), only when the
-   node is empty, and atomically, so a stale bookmarked link can never overwrite
-   a live tournament. The hash is stripped either way so it cannot fire twice. */
-function seedFromHash() {
-  const hash = location.hash.slice(1);
-  if (!hash) return;
-  let seed;
-  try { seed = window.decodeState(hash); } catch (e) { return; }
-  runTransaction(cupRef, cur => (cur === null ? JSON.stringify(seed) : undefined))
-    .then(r => console.log(r.committed ? '[cup] seeded from URL' : '[cup] database already has a cup — hash ignored'))
-    .catch(err => console.error('[cup] seed failed:', err))
-    .finally(() => history.replaceState(null, '', location.pathname + location.search));
-}
-
 onAuthStateChanged(auth, user => {
   const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
   window.setAdmin(admin);
   $('authBtn').textContent = user
     ? (admin ? '✓ Admin — sign out' : 'Not the admin — sign out')
     : 'Admin sign in';
-  if (admin) seedFromHash();
 });
 
 $('authBtn').onclick = () => {
