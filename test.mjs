@@ -170,6 +170,10 @@ console.log('rules sheet OK');
 await page.evaluate(h => { window.setAdmin(false); window.applyState(window.decodeState(h)); }, HASH);
 await page.waitForTimeout(200);
 
+// a signed-out viewer must be told that signing in unlocks suggesting
+assert.ok((await page.textContent('#tourneySub')).toLowerCase().includes('sign in to suggest'),
+  'nothing invites a viewer to sign in and suggest');
+
 const cup = await page.evaluate(() => {
   window.writes = [];
   window.sugLog = [];
@@ -179,6 +183,8 @@ const cup = await page.evaluate(() => {
   window.setSignedIn({ name: 'Nur', email: 'nur@example.com' }); // signed in, not the admin
   return cupId;
 });
+assert.ok((await page.textContent('#tourneySub')).toLowerCase().includes('suggest'),
+  'a signed-in suggester is not told they can suggest scores');
 
 // only the unrecorded matches open up — 2 of the 10 already have scores
 const sugDisabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));

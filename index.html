@@ -594,11 +594,22 @@ var isAdmin = false, gotRemote = false;
 
 const SUB_ADMIN = 'Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.';
 const SUB_VIEW = 'Live standings — updates automatically as the admin records results.';
+const SUB_SUGGEST = 'You can suggest scores — type into any match still showing empty boxes, and the admin confirms them.';
+// only shown before the knockout, since that's the only time a suggestion helps
+const SUB_INVITE = ' Played a match while the admin was away? Sign in to suggest the score.';
+
+// the subtitle is the one place a signed-out visitor learns suggesting exists
+function updateSub() {
+  $('tourneySub').textContent =
+    isAdmin ? SUB_ADMIN
+    : signedIn && !koStarted ? SUB_SUGGEST
+    : SUB_VIEW + (!koStarted ? SUB_INVITE : '');
+}
 
 function setAdmin(v) {
   isAdmin = v;
   document.body.classList.toggle('view', !v);
-  $('tourneySub').textContent = v ? SUB_ADMIN : SUB_VIEW;
+  updateSub();
   if (curScreen === 'tourney') renderAll();
 }
 setAdmin(false); // read-only until Firebase says otherwise
@@ -617,6 +628,7 @@ const sugOk = s => s && s.sa != null && s.sb != null && s.sa !== s.sb;
 
 window.setSignedIn = u => {
   signedIn = u;
+  updateSub();
   if (curScreen === 'tourney') renderGroups();
 };
 window.renderSuggestions = all => {
@@ -1064,6 +1076,7 @@ function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
 }
 
 function renderGroups() {
+  updateSub(); // koStarted may have just changed — keep the invite in step
   const el = $('groups');
   el.innerHTML = '';
   const fmt = v => (v > 0 ? '+' : '') + v;
