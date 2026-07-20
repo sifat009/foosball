@@ -238,6 +238,27 @@ await page.waitForTimeout(150);
 assert.equal((await page.$$('.sug-bar')).length, 0, 'a previous cup\'s suggestion leaked into this one');
 console.log('suggestions OK');
 
+// ---------- 5-team single group seeds top-4 crossed semis ----------
+// build one group of 5 with a clean 1>2>3>4>5 ranking (lower index always wins),
+// then start the knockout and check the bracket shape and seeding
+const ko = await page.evaluate(() => {
+  window.setAdmin(true);
+  const T = ['A','B','C','D','E'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  const matches = [];
+  for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++)
+    matches.push({ a: T[i], b: T[j], sa: 2, sb: 1, winner: T[i] });
+  groups = [{ name: 'Group A', teams: T.slice(), matches }];
+  koRounds = []; koStarted = false;
+  startKnockout();
+  const pair = m => [m.a && m.a.fwd, m.b && m.b.fwd];
+  return { rounds: koRounds.length, semis: koRounds[0].map(pair), final: koRounds[1].map(pair) };
+});
+assert.equal(ko.rounds, 2, 'a single group of 5 should produce semis + a final, not a straight final');
+assert.deepEqual(ko.semis, [['A', 'D'], ['B', 'C']], 'the semis should seed 1 v 4 and 2 v 3');
+assert.deepEqual(ko.final, [[null, null]], 'the final should start empty until the semis are decided');
+console.log('5-team semis OK');
+
 // ---------- mobile layout ----------
 // the fixed buttons move to the bottom under @media (max-width: 640px). A media
 // query adds no specificity, so an #id rule declared after the block silently

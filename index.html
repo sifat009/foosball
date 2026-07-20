@@ -575,13 +575,15 @@ Rashed</textarea>
       <div class="rules-h">Format</div>
       <ul>
         <li><b>2 teams</b> — no group stage at all, straight to the Grand Final.</li>
-        <li><b>3 to 5 teams</b> — one group, everyone plays everyone once, top two
+        <li><b>3 or 4 teams</b> — one group, everyone plays everyone once, top two
         meet in the Grand Final.</li>
+        <li><b>5 teams</b> — one group, top four reach the Semifinals, seeded
+        <b>1 v 4</b> and <b>2 v 3</b>.</li>
         <li><b>6 or more</b> — two groups, round robin inside each, top two from each
         reach the Semifinals.</li>
       </ul>
-      <p>Semifinals are crossed, so group winners avoid each other until the final:
-      <b>A1 v B2</b> and <b>B1 v A2</b>.</p>
+      <p>With two groups the Semifinals are crossed, so group winners avoid each
+      other until the final: <b>A1 v B2</b> and <b>B1 v A2</b>.</p>
 
       <div class="rules-h">Suggesting a score</div>
       <p>Played a group match while the admin wasn't around? <b>Sign in</b> with any
@@ -971,7 +973,8 @@ function teamName(t) { return `${t.fwd} + ${t.def}`; }
    Matches are recorded as scores; winner = higher score (no draws in foosball).
    Group ranking: wins -> goal difference -> goals for -> head-to-head.
    n >= 6: two groups, round robin, top 2 each -> semis -> final
-   3-5:    one group, round robin, top 2 -> final
+   5:      one group, round robin, top 4 -> semis (1v4, 2v3) -> final
+   3-4:    one group, round robin, top 2 -> final
    2:      straight final */
 var groups = [];    // [{ name, teams, matches: [{a, b, sa, sb, winner}] }]
 var koRounds = [], koStarted = false;
@@ -1156,6 +1159,8 @@ function renderGroups() {
   const fmt = v => (v > 0 ? '+' : '') + v;
   groups.forEach((g, gi) => {
     const { order, stats } = rank(g);
+    // a lone group of 5 sends its top four to the semis; every other shape sends two
+    const advance = groups.length === 1 && order.length >= 5 ? 4 : 2;
     const box = document.createElement('div');
     box.className = 'group card';
     box.innerHTML = `<h4>${g.name}</h4>`;
@@ -1163,7 +1168,7 @@ function renderGroups() {
     tbl.innerHTML = '<tr><th>Team</th><th class="num">P</th><th class="num">W</th><th class="num">GD</th><th class="num">GF</th></tr>' +
       order.map((t, i) => {
         const s = stats.get(t);
-        return `<tr${i < 2 ? ' class="qualified"' : ''}>
+        return `<tr${i < advance ? ' class="qualified"' : ''}>
           <td>${teamName(t)}</td><td class="num">${s.p}</td><td class="num">${s.w}</td><td class="num">${fmt(s.gd)}</td><td class="num">${s.gf}</td></tr>`;
       }).join('');
     box.appendChild(tbl);
@@ -1224,7 +1229,16 @@ function startKnockout() {
     ];
   } else {
     const r = rank(groups[0]).order;
-    koRounds = [[{ a: r[0], b: r[1], winner: null }]];
+    if (r.length >= 5) {
+      // 5 teams in one group: top four into crossed semis (1 v 4, 2 v 3),
+      // then the winners meet in the Grand Final
+      koRounds = [
+        [{ a: r[0], b: r[3], winner: null }, { a: r[1], b: r[2], winner: null }],
+        [{ a: null, b: null, winner: null }],
+      ];
+    } else {
+      koRounds = [[{ a: r[0], b: r[1], winner: null }]];
+    }
   }
   $('koSection').style.display = '';
   $('koBtn').style.display = 'none';
