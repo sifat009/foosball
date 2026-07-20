@@ -38,6 +38,22 @@
     text-align: center; letter-spacing: 0.02em;
     color: #7d8a9c; font-size: 1rem; margin: 12px 0 42px; font-weight: 600;
   }
+  /* every glyph in the UI is an inline SVG from the sprite at the top of <body>,
+     sized to the surrounding text (1em) and inheriting its colour via stroke */
+  .ico {
+    width: 1em; height: 1em; flex: none; vertical-align: -0.14em;
+    fill: none; stroke: currentColor; stroke-width: 2;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  /* the "sign in to suggest" invite: its own pill on a second line, not a
+     run-on tail of the subtitle */
+  .hint-pill {
+    display: inline-flex; align-items: center; gap: 7px; margin-top: 14px;
+    padding: 7px 16px; border-radius: 999px;
+    background: #fff8e6; border: 1px solid #f0dca0; color: #8a6d1f;
+    font-size: 0.82rem; font-weight: 700; letter-spacing: normal; text-transform: none;
+  }
+  .hint-pill b { color: #6f5610; }
   .screen { display: none; max-width: 1150px; margin: 0 auto; }
   .screen.active { display: block; }
   .btn {
@@ -186,6 +202,7 @@
   }
   .sug-bar .who { flex: 1; min-width: 0; overflow-wrap: break-word; }
   .sug-btn {
+    display: inline-flex; align-items: center; gap: 5px;
     border: none; border-radius: 9px; padding: 6px 11px; cursor: pointer;
     font-family: inherit; font-size: 0.82rem; font-weight: 800;
   }
@@ -235,10 +252,11 @@
   }
   @keyframes rays-spin { to { transform: translate(-50%, -58%) rotate(360deg); } }
   .trophy {
-    position: relative; font-size: 7.5rem; line-height: 1;
+    position: relative; font-size: 7.5rem; line-height: 1; color: #f0b429;
     animation: trophy-in 0.9s cubic-bezier(0.34, 1.56, 0.64, 1);
     filter: drop-shadow(0 12px 40px rgba(240,180,41,0.45));
   }
+  .trophy .ico { stroke-width: 1.6; } /* thinner lines read better at 7.5rem */
   @keyframes trophy-in {
     0% { transform: scale(0) rotate(-30deg); opacity: 0; }
     60% { transform: scale(1.25) rotate(6deg); opacity: 1; }
@@ -400,20 +418,37 @@
 </head>
 <body>
 
-<div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
-<div id="viewBadge">👁 Live standings — updating automatically</div>
+<!-- icon sprite: every UI glyph is a <use href="#i-…"> of one of these symbols,
+     so there are no emoji anywhere and each icon inherits colour + size from its
+     text. Line icons (stroke, 24px grid), styled by .ico in the stylesheet. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l3.8 2.8-1.45 4.5h-4.7L7.2 10z"/><path d="M12 2.5v4.7M21 9.2l-4.4 1.3M18.4 19l-3.6-3.4M5.6 19l3.6-3.4M3 9.2l4.4 1.3"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22"/><path d="M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></symbol>
+  <symbol id="i-list" viewBox="0 0 24 24"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 8h.01M9 12h6M9 16h6"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 18 9 18 8a6 6 0 0 0-12 0c0 1 .3 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10z"/><path d="M19 14l.6 1.6 1.6.6-1.6.6L19 18.4l-.6-1.6-1.6-.6 1.6-.6z"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+</defs></svg>
+
+<div class="eyebrow"><span><svg class="ico"><use href="#i-ball"/></svg> Ollyo Foosball Federation</span></div>
+<div id="viewBadge"><svg class="ico"><use href="#i-eye"/></svg> Live standings — updating automatically</div>
 <div id="boot">Loading the cup…</div>
 <!-- display:contents on desktop, so each button keeps its own fixed corner;
      on mobile the wrapper becomes the bottom bar and they line up inside it -->
 <div id="btnBar">
-  <button id="hallBtn" aria-label="Past Champions">🏆<span class="lbl"> Past Champions</span></button>
+  <button id="hallBtn" aria-label="Past Champions"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Past Champions</span></button>
   <button id="authBtn">Sign in</button>
-  <button id="resetBtn" style="display:none">↺ Start Over</button>
+  <button id="resetBtn" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg> Start Over</button>
 </div>
 
 <div id="hall">
   <div class="hall-card">
-    <div class="hall-title">🏆 Past Champions</div>
+    <div class="hall-title"><svg class="ico"><use href="#i-trophy"/></svg> Past Champions</div>
     <div id="hallList"><div class="hall-empty">No cups completed yet.</div></div>
     <button id="hallClose">Close</button>
   </div>
@@ -423,7 +458,7 @@
   <canvas id="confetti"></canvas>
   <div class="celebrate-inner">
     <div class="rays"></div>
-    <div class="trophy">🏆</div>
+    <div class="trophy"><svg class="ico"><use href="#i-trophy"/></svg></div>
     <div class="champs-label">Ollyo Cup Champions</div>
     <div class="champs-name" id="champsName"></div>
     <div class="tap-hint">tap anywhere to continue</div>
@@ -455,7 +490,7 @@ Rashed</textarea>
     </div>
   </div>
   <div class="center">
-    <button id="startBtn" class="btn btn-green">Open the Draft →</button>
+    <button id="startBtn" class="btn btn-green">Open the Draft <svg class="ico"><use href="#i-arrow"/></svg></button>
     <div id="error"></div>
   </div>
 </div>
@@ -478,7 +513,7 @@ Rashed</textarea>
   </div>
   <div class="actions">
     <button id="spinBtn" class="btn btn-green">Spin the Wheels</button>
-    <button id="tourneyBtn" class="btn btn-gold" style="display:none">Kick Off the Cup 🏆</button>
+    <button id="tourneyBtn" class="btn btn-gold" style="display:none">Kick Off the Cup <svg class="ico"><use href="#i-trophy"/></svg></button>
   </div>
   <div id="status"></div>
   <div id="teamList" class="team-grid"></div>
@@ -492,7 +527,7 @@ Rashed</textarea>
   <div id="groupSection">
     <div class="section-title">Group Stage</div>
     <div id="groups" class="groups"></div>
-    <div class="center"><button id="koBtn" class="btn btn-gold" style="display:none">Start Knockout Stage →</button></div>
+    <div class="center"><button id="koBtn" class="btn btn-gold" style="display:none">Start Knockout Stage <svg class="ico"><use href="#i-arrow"/></svg></button></div>
   </div>
   <div id="koSection" style="display:none">
     <div class="section-title">Knockout Stage</div>
@@ -506,7 +541,7 @@ Rashed</textarea>
 
 <div id="rules">
   <div class="hall-card">
-    <div class="hall-title">📋 How the Cup works</div>
+    <div class="hall-title"><svg class="ico"><use href="#i-list"/></svg> How the Cup works</div>
     <div class="sheet-body">
       <div class="rules-h">Teams</div>
       <p>Every player goes on one of two wheels — forwards and defenders. Each spin
@@ -573,6 +608,9 @@ Rashed</textarea>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
 const $ = id => document.getElementById(id);
+// markup for one sprite icon, for the glyphs built in JS (same as the inline
+// <svg class="ico"> used in the static HTML)
+const svg = n => `<svg class="ico" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 
 var curScreen = 'setup';
 const show = id => {
@@ -595,15 +633,20 @@ var isAdmin = false, gotRemote = false;
 const SUB_ADMIN = 'Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.';
 const SUB_VIEW = 'Live standings — updates automatically as the admin records results.';
 const SUB_SUGGEST = 'You can suggest scores — type into any match still showing empty boxes, and the admin confirms them.';
-// only shown before the knockout, since that's the only time a suggestion helps
-const SUB_INVITE = ' Played a match while the admin was away? Sign in to suggest the score.';
 
-// the subtitle is the one place a signed-out visitor learns suggesting exists
+// the subtitle is the one place a signed-out visitor learns suggesting exists.
+// the invite is a pill on its own line, not a run-on tail of the main sentence,
+// and only appears before the knockout — the only time a suggestion still helps.
 function updateSub() {
-  $('tourneySub').textContent =
-    isAdmin ? SUB_ADMIN
-    : signedIn && !koStarted ? SUB_SUGGEST
-    : SUB_VIEW + (!koStarted ? SUB_INVITE : '');
+  const sub = $('tourneySub');
+  sub.textContent = isAdmin ? SUB_ADMIN : signedIn && !koStarted ? SUB_SUGGEST : SUB_VIEW;
+  if (!isAdmin && !signedIn && !koStarted) {
+    sub.appendChild(document.createElement('br'));
+    const pill = document.createElement('span');
+    pill.className = 'hint-pill';
+    pill.innerHTML = svg('bulb') + ' Played a match while the admin was away? <b>Sign in</b> to suggest the score.';
+    sub.appendChild(pill);
+  }
 }
 
 function setAdmin(v) {
@@ -649,19 +692,20 @@ function sugBar(gi, mi, s) {
   bar.className = 'sug-bar';
   const who = document.createElement('div');
   who.className = 'who';
-  who.textContent = `💡 ${s.by} suggests ${s.sa ?? '?'} – ${s.sb ?? '?'}`; // textContent: name comes from outside
+  who.innerHTML = svg('bulb'); // icon is static markup...
+  who.append(` ${s.by} suggests ${s.sa ?? '?'} – ${s.sb ?? '?'}`); // ...name stays a text node
   bar.appendChild(who);
   if (isAdmin) {
     if (sugOk(s)) { // a half-filled or drawn suggestion isn't a score anyone can accept
       const ok = document.createElement('button');
       ok.className = 'sug-btn sug-ok';
-      ok.textContent = '✓ Accept';
+      ok.innerHTML = svg('check') + ' Accept';
       ok.onclick = () => setGroupScore(gi, mi, s.sa, s.sb);
       bar.appendChild(ok);
     }
     const no = document.createElement('button');
     no.className = 'sug-btn sug-no';
-    no.textContent = '✗ Dismiss';
+    no.innerHTML = svg('x') + ' Dismiss';
     no.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
     bar.appendChild(no);
   }
@@ -845,7 +889,7 @@ $('spinBtn').onclick = () => {
 
 function finishSpin(fi, di, sess) {
   ding();
-  $('status').innerHTML = `🎉 <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
+  $('status').innerHTML = `${svg('sparkles')} <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
   setTimeout(() => {
     if (sess !== session) return;
     formTeam(fi, di);
@@ -1208,7 +1252,7 @@ function renderBracket() {
   });
   const final = koRounds[koRounds.length - 1][0];
   $('champion').innerHTML = final.winner
-    ? `<div class="crown">🏆 Ollyo Cup Champions: <b>${teamName(final.winner)}</b></div>`
+    ? `<div class="crown">${svg('trophy')} Ollyo Cup Champions: <b>${teamName(final.winner)}</b></div>`
     : '';
   if (final.winner && final.winner !== lastChamp && !restoring) celebrate(teamName(final.winner));
   if (final.winner !== lastChamp) syncChampion(final.winner);
@@ -1277,9 +1321,10 @@ window.setAdmin = setAdmin;
 window.setConnected = ok => {
   document.body.classList.toggle('offline', !ok);
   $('viewBadge').classList.toggle('offline', !ok);
-  $('viewBadge').textContent = ok
-    ? '👁 Live standings — updating automatically'
-    : '⚠ Offline — showing the last standings received. Edits will not save.';
+  // static strings, so innerHTML is safe here — needed to keep the sprite icon
+  $('viewBadge').innerHTML = ok
+    ? svg('eye') + ' Live standings — updating automatically'
+    : svg('alert') + ' Offline — showing the last standings received. Edits will not save.';
 };
 window.markRemote = () => { gotRemote = true; };
 window.ADMIN_EMAIL = ADMIN_EMAIL;
@@ -1376,8 +1421,8 @@ onAuthStateChanged(auth, user => {
   window.setAdmin(admin);
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
-  $('authBtn').textContent = user
-    ? (admin ? '✓ Admin — sign out' : 'Signed in — sign out')
+  $('authBtn').innerHTML = user
+    ? (admin ? '<svg class="ico"><use href="#i-check"/></svg> Admin — sign out' : 'Signed in — sign out')
     : 'Sign in';
 });
 
