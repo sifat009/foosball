@@ -175,6 +175,21 @@ for (let i = 0; i < boxes.length; i++)
   for (let j = i + 1; j < boxes.length; j++)
     assert.ok(!overlap(boxes[i], boxes[j]), `${boxes[i].id} and ${boxes[j].id} overlap on mobile`);
 
+// all three share one row in the bottom bar — none stacked above another
+const tops = boxes.map(b => Math.round(b.t));
+assert.ok(Math.max(...tops) - Math.min(...tops) <= 1,
+  'the bottom buttons are not on a single row: ' + JSON.stringify(tops));
+const bar = await page.evaluate(() => {
+  const r = document.getElementById('btnBar').getBoundingClientRect();
+  return { b: Math.round(r.bottom), h: window.innerHeight };
+});
+assert.equal(bar.b, bar.h, 'the button bar is not flush with the bottom of the screen');
+
+// the score inputs must bring up a numeric keypad, not the full keyboard
+const kbd = await page.$eval('#groups .score', i => ({ type: i.type, mode: i.inputMode, pat: i.pattern }));
+assert.deepEqual(kbd, { type: 'number', mode: 'numeric', pat: '[0-9]*' },
+  'score inputs lost the numeric keypad hints');
+
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
   'the page scrolls sideways on a phone');
 console.log('mobile layout OK');

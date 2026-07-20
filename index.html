@@ -303,6 +303,7 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #authBtn:hover { color: #2563eb; border-color: #bcd3f7; }
+  #btnBar { display: contents; } /* desktop: the wrapper isn't a box at all */
   /* Every fixed button must be declared above this block. A media query adds
      no specificity, so a later #id rule beats the override inside it. */
   @media (max-width: 640px) {
@@ -316,10 +317,18 @@
     th, td { padding-left: 6px; padding-right: 6px; }
     #bracket { justify-content: flex-start; } /* centered flex + overflow clips the first round */
     .round { min-width: 210px; }
-    #hallBtn, #resetBtn, #authBtn { top: auto; bottom: 14px; }
-    #hallBtn { right: auto; left: 14px; }
-    #resetBtn { right: 14px; }
-    #authBtn { left: auto; right: 14px; bottom: 58px; }
+    /* one row along the bottom instead of three floating pills */
+    #btnBar {
+      display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+      justify-content: center; align-items: center; gap: 8px; padding: 12px;
+      background: linear-gradient(to top, #eef1f7 62%, rgba(238,241,247,0));
+    }
+    #hallBtn, #resetBtn, #authBtn {
+      position: static; top: auto; right: auto; bottom: auto; left: auto;
+      white-space: nowrap;
+    }
+    #hallBtn { padding: 9px 13px; font-size: 1rem; line-height: 1; }
+    #hallBtn .lbl { display: none; } /* trophy alone — three full labels don't fit at 320px */
   }
   .footer {
     text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
@@ -349,7 +358,8 @@
   @keyframes boot-pulse { 50% { opacity: 0.45; } }
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
-  body.booting #resetBtn, body.booting #hallBtn { display: none !important; }
+  body.booting #resetBtn, body.booting #hallBtn,
+  body.booting #btnBar { display: none !important; }
 </style>
 </head>
 <body>
@@ -357,9 +367,13 @@
 <div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
 <div id="viewBadge">👁 Live standings — updating automatically</div>
 <div id="boot">Loading the cup…</div>
-<button id="authBtn">Admin sign in</button>
-<button id="hallBtn">🏆 Past Champions</button>
-<button id="resetBtn" style="display:none">↺ Start Over</button>
+<!-- display:contents on desktop, so each button keeps its own fixed corner;
+     on mobile the wrapper becomes the bottom bar and they line up inside it -->
+<div id="btnBar">
+  <button id="hallBtn" aria-label="Past Champions">🏆<span class="lbl"> Past Champions</span></button>
+  <button id="authBtn">Admin sign in</button>
+  <button id="resetBtn" style="display:none">↺ Start Over</button>
+</div>
 
 <div id="hall">
   <div class="hall-card">
@@ -870,6 +884,7 @@ function scoreInput(value, disabled, onchange) {
   inp.type = 'number';
   inp.min = 0;
   inp.inputMode = 'numeric';
+  inp.pattern = '[0-9]*'; // iOS only opens the digits-only keypad for inputmode + pattern together
   inp.className = 'score';
   inp.value = value ?? '';
   inp.disabled = disabled || !isAdmin;
