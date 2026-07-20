@@ -1,75 +1,93 @@
 import { chromium } from 'playwright';
+import { createServer } from 'http';
+import { readFile } from 'fs/promises';
 import assert from 'assert';
 
-// run: npx playwright@1.61 install chromium && node test.mjs
-const FILE = new URL('./index.html', import.meta.url).href;
+/* run: npx playwright@1.61 install chromium && node test.mjs
+   Firebase itself is blocked here, so this covers the app logic and the admin
+   gate offline. Real Google sign-in and the live sync need the manual checks
+   listed in the README. */
+
+const HASH = 'eyJzY3JlZW4iOiJ0b3VybmV5IiwiZndkVGV4dCI6IlJpZmF0XG5OdXJcblNhemVkdWwgSGFxdWVcblNhamVlYlxuU2lkZGlxIiwiZGVmVGV4dCI6Ik9maVxuU2hld2FcblRvdWZpcVxuUmFzaGVkXG5TaWZhdFxuIiwiZndkcyI6W3sibmFtZSI6IlJpZmF0IiwicGlja2VkIjp0cnVlfSx7Im5hbWUiOiJOdXIiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNhemVkdWwgSGFxdWUiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNhamVlYiIsInBpY2tlZCI6dHJ1ZX0seyJuYW1lIjoiU2lkZGlxIiwicGlja2VkIjp0cnVlfV0sImRlZnMiOlt7Im5hbWUiOiJPZmkiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNoZXdhIiwicGlja2VkIjp0cnVlfSx7Im5hbWUiOiJUb3VmaXEiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlJhc2hlZCIsInBpY2tlZCI6dHJ1ZX0seyJuYW1lIjoiU2lmYXQiLCJwaWNrZWQiOnRydWV9XSwidGVhbXMiOlt7ImZ3ZCI6Ik51ciIsImRlZiI6IlJhc2hlZCJ9LHsiZndkIjoiU2lkZGlxIiwiZGVmIjoiU2hld2EifSx7ImZ3ZCI6IlJpZmF0IiwiZGVmIjoiU2lmYXQifSx7ImZ3ZCI6IlNhamVlYiIsImRlZiI6IlRvdWZpcSJ9LHsiZndkIjoiU2F6ZWR1bCBIYXF1ZSIsImRlZiI6Ik9maSJ9XSwia29TdGFydGVkIjpmYWxzZSwiZ3JvdXBTY29yZXMiOltbW251bGwsbnVsbF0sWzEwLDhdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFsxMCw3XSxbbnVsbCxudWxsXSxbbnVsbCxudWxsXV1dLCJrb1BpY2tzIjpbXX0';
+
+const server = createServer(async (req, res) => {
+  try {
+    res.end(await readFile(new URL('.' + req.url.split('?')[0], import.meta.url)));
+  } catch { res.statusCode = 404; res.end('nope'); }
+}).listen(0);
+const URL_BASE = `http://localhost:${server.address().port}/index.html`;
+
 const b = await chromium.launch();
 const page = await b.newPage();
-page.on('pageerror', e => { console.log('PAGE ERROR:', e.message); process.exitCode = 1; });
+const errors = [];
+page.on('pageerror', e => errors.push(e.message));
+// block Firebase so the suite runs offline and deterministically
+await page.route('**gstatic.com/**', r => r.abort());
 
-// ---------- admin: run a full cup ----------
-await page.goto(FILE);
-await page.evaluate(() => { SPIN_MS = 30; });
-await page.fill('#fwdInput', 'A1\nA2\nA3');
-await page.fill('#defInput', 'B1\nB2\nB3');
-await page.click('#startBtn');
-for (let i = 0; i < 5; i++) {
-  if (!(await page.isVisible('#spinBtn')) || await page.isDisabled('#spinBtn')) break;
-  await page.click('#spinBtn');
-  await page.waitForTimeout(2200);
-}
-await page.waitForSelector('#tourneyBtn:visible');
-await page.click('#tourneyBtn');
+await page.goto(URL_BASE);
+await page.waitForTimeout(400);
 
-assert.equal((await page.$$('#groups .score')).length, 6, 'expected 3 round-robin matches');
-// the group re-renders on every change, so re-query the input each time
-for (let i = 0; i < 6; i++) {
-  const inp = (await page.$$('#groups .score'))[i];
-  await inp.fill(i % 2 ? '1' : '3');
-  await inp.dispatchEvent('change');
-  await page.waitForTimeout(50);
-}
-await page.waitForSelector('#koBtn:visible');
-await page.click('#koBtn');
-await page.click('#bracket .slot:not(.empty)');
-await page.click('#celebrate');
-const champ = await page.textContent('#champion');
-assert.ok(champ.includes('Champions'), 'no champion recorded');
-const hash = await page.evaluate(() => location.hash);
-assert.ok(hash.length > 20, 'state not in hash');
+// ---------- default state is read-only ----------
+assert.ok(await page.isVisible('#viewBadge'), 'view badge should show for a signed-out visitor');
+assert.equal(await page.evaluate(() => isAdmin), false, 'nobody is admin before sign-in');
+assert.ok(await page.evaluate(() => document.body.classList.contains('view')), 'body should start in view mode');
+assert.ok(!(await page.isVisible('#startBtn')), 'draft button visible to a viewer');
+console.log('default read-only OK');
 
-// admin's Share button must hand out a ?view=1 link
-const shared = await page.evaluate(() => viewLink());
-assert.ok(shared.endsWith('index.html?view=1' + hash), 'view link malformed: ' + shared);
-console.log('admin flow OK — champion:', champ.trim());
+// ---------- the live cup renders from a pushed state ----------
+await page.evaluate(h => window.applyState(window.decodeState(h)), HASH);
+await page.waitForTimeout(200);
+const groupsText = await page.textContent('#groups');
+for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul Haque + Ofi'])
+  assert.ok(groupsText.includes(t), 'missing team: ' + t);
+assert.equal((await page.$$('#groups .score')).length, 20, 'expected 10 matches for 5 teams');
+const disabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
+assert.ok(disabled.every(Boolean), 'viewer can edit scores');
+assert.ok(!(await page.isVisible('#koBtn')), 'viewer sees the knockout button');
+console.log('viewer renders live cup OK');
 
-// ---------- viewer: same state, read-only ----------
-const v = await b.newPage();
-v.on('pageerror', e => { console.log('VIEW PAGE ERROR:', e.message); process.exitCode = 1; });
-await v.goto(FILE + '?view=1' + hash);
-await v.waitForTimeout(300);
+// ---------- admin unlocks editing and writes ----------
+await page.evaluate(() => {
+  window.writes = [];
+  window.saveToDb = j => window.writes.push(j);
+  window.markRemote();
+  window.setAdmin(true);
+});
+await page.waitForTimeout(200);
+assert.ok(!(await page.evaluate(() => document.body.classList.contains('view'))), 'admin still in view mode');
+const adminDisabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
+assert.ok(!adminDisabled.some(Boolean), 'admin cannot edit scores');
 
-assert.ok(await v.isVisible('#viewBadge'), 'view badge hidden');
-assert.ok((await v.textContent('#champion')).includes('Champions'), 'viewer sees no champion');
-assert.ok((await v.textContent('#groups')).includes('A1'), 'viewer sees no standings');
-for (const id of ['#spinBtn', '#tourneyBtn', '#koBtn', '#startBtn', '#resetBtn'])
-  assert.ok(!(await v.isVisible(id)), id + ' visible in view mode');
-assert.ok(await v.isVisible('#shareBtn'), 'viewer cannot re-share');
+const first = (await page.$$('#groups .score'))[0];
+await first.fill('9');
+await first.dispatchEvent('change');
+await page.waitForTimeout(150);
+const writes = await page.evaluate(() => window.writes);
+assert.ok(writes.length > 0, 'admin edit did not write to the database');
 
-const vScores = await v.$$('#groups .score');
-assert.ok(vScores.length > 0 && (await Promise.all(vScores.map(s => s.isDisabled()))).every(Boolean),
-  'score inputs editable in view mode');
+// the write must survive a round-trip with its nulls intact — the reason
+// state is stored as a JSON string rather than a nested RTDB object
+const last = JSON.parse(writes[writes.length - 1]);
+assert.equal(last.groupScores[0][0][0], 9, 'edited score not in the payload');
+assert.deepEqual(last.groupScores[0][2], [null, null], 'unplayed match lost its nulls');
+assert.equal(last.groupScores[0].length, 10, 'match list truncated');
+assert.equal(last.teams.length, 5, 'teams lost in the payload');
+console.log('admin edit + write payload OK');
 
-// clicking a bracket slot must not change the champion
-const before = await v.textContent('#champion');
-await v.click('#bracket .slot:not(.empty)', { force: true });
-await v.waitForTimeout(150);
-assert.equal(await v.textContent('#champion'), before, 'viewer changed the bracket');
+// ---------- writes are refused before the first snapshot ----------
+await page.evaluate(() => { window.writes = []; gotRemote = false; renderAll(); });
+assert.equal((await page.evaluate(() => window.writes)).length, 0,
+  'wrote to the database before knowing what was in it');
+console.log('pre-snapshot write guard OK');
 
-// viewer must not write state anywhere
-assert.equal(await v.evaluate(() => localStorage.getItem('ollyoCup')), null, 'viewer wrote localStorage');
-assert.equal(await v.evaluate(() => location.hash), hash, 'viewer rewrote the hash');
-console.log('view-only flow OK');
+// ---------- signing out re-locks ----------
+await page.evaluate(() => window.setAdmin(false));
+await page.waitForTimeout(150);
+const relocked = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
+assert.ok(relocked.every(Boolean), 'scores still editable after sign-out');
+console.log('sign-out re-lock OK');
 
+assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
+server.close();
 console.log('ALL PASS');

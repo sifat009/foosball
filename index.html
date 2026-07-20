@@ -274,33 +274,45 @@
     th, td { padding-left: 6px; padding-right: 6px; }
     #bracket { justify-content: flex-start; } /* centered flex + overflow clips the first round */
     .round { min-width: 210px; }
-    #shareBtn, #resetBtn { top: auto; bottom: 14px; }
+    #shareBtn, #resetBtn, #authBtn { top: auto; bottom: 14px; }
     #shareBtn { right: auto; left: 14px; }
     #resetBtn { right: 14px; }
+    #authBtn { left: auto; right: 14px; bottom: 58px; }
   }
   .footer {
     text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
     font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
   }
-  /* view-only mode: everything that writes state is hidden or inert */
+  /* view mode (anyone not signed in as admin): writes are hidden or inert */
   body.view #spinBtn, body.view #tourneyBtn, body.view #koBtn,
   body.view #startBtn, body.view #resetBtn { display: none !important; }
   body.view textarea { pointer-events: none; opacity: 0.65; }
   body.view .slot { cursor: default; }
   #viewBadge {
     display: none; justify-content: center; gap: 8px; align-items: center;
-    margin: -6px auto 26px; width: fit-content;
+    margin: -6px auto 26px; width: fit-content; text-align: center;
     background: #eef2f8; color: #5b6a7d; border: 1.5px solid #dfe6ef;
     border-radius: 999px; padding: 8px 18px; font-size: 0.78rem; font-weight: 700;
   }
   body.view #viewBadge { display: flex; }
+  #viewBadge.offline { background: #fdeeee; border-color: #f3c1c1; color: #b03636; }
+  body.offline #viewBadge { display: flex; } /* show the warning to the admin too */
+  #authBtn {
+    position: fixed; top: 18px; left: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #authBtn:hover { color: #2563eb; border-color: #bcd3f7; }
 </style>
 </head>
 <body>
 
 <div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
-<div id="viewBadge">👁 View only — ask the admin for a fresh link to see the latest standings</div>
-<button id="shareBtn" style="display:none">🔗 Share View Link</button>
+<div id="viewBadge">👁 Live standings — updating automatically</div>
+<button id="authBtn">Admin sign in</button>
+<button id="shareBtn" style="display:none">🔗 Share Link</button>
 <button id="resetBtn" style="display:none">↺ Start Over</button>
 
 <div id="celebrate">
@@ -391,19 +403,6 @@ var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
 const $ = id => document.getElementById(id);
 
-/* View-only mode: ?view=1 hides every control that writes state, so a shared
-   link is read-only. save() is a no-op so a viewer never clobbers their own
-   admin state on the same device.
-   ponytail: obfuscation, not auth — anyone can drop ?view=1 from the URL.
-   Real admin-only editing needs a backend with accounts; see the note in the
-   Share handler about live standings. */
-const viewOnly = new URLSearchParams(location.search).has('view');
-if (viewOnly) {
-  document.body.classList.add('view');
-  $('tourneySub').textContent = 'Live standings — group tables ranked by wins, then goal difference.';
-}
-const viewLink = () => location.origin + location.pathname + '?view=1' + location.hash;
-
 var curScreen = 'setup';
 const show = id => {
   curScreen = id;
@@ -413,11 +412,32 @@ const show = id => {
   $('shareBtn').style.display = id === 'setup' ? 'none' : '';
 };
 
+/* ================= ADMIN GATE =================
+   isAdmin drives the UI only. The real boundary is the Realtime Database rule
+   in database.rules.json, which rejects writes from every account but
+   ADMIN_EMAIL — so a viewer editing this flag in devtools gets a permission
+   error from the server, not an edit. Keep the two addresses in sync.
+   gotRemote blocks writes until the first snapshot arrives, so signing in on a
+   freshly loaded page can never push blank local state over a live cup. */
+const ADMIN_EMAIL = 'bhacker150@gmail.com'; // must match the .write rule in database.rules.json
+var isAdmin = false, gotRemote = false;
+
+const SUB_ADMIN = 'Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.';
+const SUB_VIEW = 'Live standings — updates automatically as the admin records results.';
+
+function setAdmin(v) {
+  isAdmin = v;
+  document.body.classList.toggle('view', !v);
+  $('tourneySub').textContent = v ? SUB_ADMIN : SUB_VIEW;
+  if (curScreen === 'tourney') renderAll();
+}
+setAdmin(false); // read-only until Firebase says otherwise
+
 $('shareBtn').onclick = async () => {
-  const url = viewLink(); // shared links are always view-only; the admin keeps their own URL
+  const url = location.origin + location.pathname; // one URL for everyone; access is decided by sign-in
   try { await navigator.clipboard.writeText(url); } catch (e) { prompt('Copy the link:', url); return; }
   $('shareBtn').textContent = '✓ Copied!';
-  setTimeout(() => { $('shareBtn').textContent = '🔗 Share View Link'; }, 1500);
+  setTimeout(() => { $('shareBtn').textContent = '🔗 Share Link'; }, 1500);
 };
 
 // --- sound (Web Audio, no files) ---
@@ -441,13 +461,13 @@ function ding() { try { tone(880, 0, 0.5, 0.12, 'triangle'); tone(1318.5, 0.09, 
 
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
 $('resetBtn').onclick = () => {
-  if (!confirm('Start over? All teams and results will be lost.')) return;
+  if (!confirm('Start over? This wipes the cup for everyone watching, not just you.')) return;
   session++;
   spinning = false;
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
-  try { localStorage.removeItem('ollyoCup'); } catch (e) {}
-  history.replaceState(null, '', location.pathname + location.search);
+  teams = []; groups = []; koRounds = []; koStarted = false;
+  if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
 };
 
@@ -702,36 +722,38 @@ function renderAll() {
   save();
 }
 
-/* ================= PERSISTENCE (URL hash + localStorage) =================
-   The full state is base64url-encoded into the URL hash, so any state can be
-   shared by copying the link; localStorage mirrors it as a same-device backup.
-   Groups and the bracket are rebuilt deterministically from the team order,
-   so only the raw inputs and scores are stored. */
+/* ================= PERSISTENCE (Firebase Realtime Database) =================
+   The database is the single source of truth. save() pushes on every admin
+   edit; the module script at the bottom subscribes and calls applyState() on
+   every change, so viewers update live without reloading.
+
+   State travels as ONE JSON STRING, not a nested object, because RTDB deletes
+   nulls: groupScores like [[null,null],[10,8]] comes back as {"1":[10,8]} with
+   the unplayed matches gone and the array turned into an object. Stringifying
+   sidesteps that whole class of bug, and we never query subfields anyway.
+
+   Groups and the bracket are rebuilt deterministically from the team order, so
+   only the raw inputs and scores are stored. */
 var restoring = false;
 
-const encodeState = o => btoa(unescape(encodeURIComponent(JSON.stringify(o))))
-  .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const decodeState = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
 function save() {
-  if (restoring || viewOnly) return;
-  const enc = encodeState({
+  // gotRemote: never write before we know what is already in the database,
+  // or signing in on a blank page would push it over a live cup
+  if (restoring || !isAdmin || !gotRemote || !window.saveToDb) return;
+  window.saveToDb(JSON.stringify({
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
     fwds, defs, teams, koStarted,
     groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
     koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
-  });
-  try { localStorage.setItem('ollyoCup', enc); } catch (e) {}
-  history.replaceState(null, '', '#' + enc);
+  }));
 }
 
-function restore() {
-  let s = null;
-  try { s = decodeState(location.hash.slice(1)); } catch (e) {} // shared link wins
-  if (!s) try { s = decodeState(localStorage.getItem('ollyoCup') || ''); } catch (e) {}
-  if (!s) return;
+function applyState(s) {
+  if (!s) return; // empty database — nothing published yet
   restoring = true;
   if (s.fwdText != null) $('fwdInput').value = s.fwdText;
   if (s.defText != null) $('defInput').value = s.defText;
@@ -759,7 +781,6 @@ function restore() {
     }
   }
   restoring = false;
-  save(); // sync whichever source won back into both the URL and localStorage
 }
 
 function scoreInput(value, disabled, onchange) {
@@ -769,7 +790,7 @@ function scoreInput(value, disabled, onchange) {
   inp.inputMode = 'numeric';
   inp.className = 'score';
   inp.value = value ?? '';
-  inp.disabled = disabled || viewOnly;
+  inp.disabled = disabled || !isAdmin;
   inp.onchange = () => {
     const v = inp.value === '' ? null : Math.max(0, Math.floor(Number(inp.value)) || 0);
     onchange(v);
@@ -885,7 +906,7 @@ function renderBracket() {
         nm.className = 'nm';
         nm.textContent = t ? teamName(t) : '—';
         d.appendChild(nm);
-        if (t && m.a && m.b && !viewOnly) d.onclick = () => setKoWinner(r, i, t);
+        if (t && m.a && m.b && isAdmin) d.onclick = () => setKoWinner(r, i, t);
         box.appendChild(d);
       });
       col.appendChild(box);
@@ -944,7 +965,93 @@ $('celebrate').onclick = () => {
   confettiRun = false;
 };
 
-restore();
+// bridge to the Firebase module below (module scope is not global)
+window.applyState = applyState;
+window.decodeState = decodeState;
+window.setAdmin = setAdmin;
+window.setConnected = ok => {
+  document.body.classList.toggle('offline', !ok);
+  $('viewBadge').classList.toggle('offline', !ok);
+  $('viewBadge').textContent = ok
+    ? '👁 Live standings — updating automatically'
+    : '⚠ Offline — showing the last standings received. Edits will not save.';
+};
+window.markRemote = () => { gotRemote = true; };
+window.ADMIN_EMAIL = ADMIN_EMAIL;
+</script>
+
+<script type="module">
+/* ================= FIREBASE WIRING =================
+   Kept in its own module so the app script above stays a classic script with
+   its globals intact (the console and test.mjs both reach into them). */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+  from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
+import { getDatabase, ref, onValue, set, runTransaction }
+  from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAro7bw59yU4JiP_0RusBSb9y4KzAUbyWA",
+  authDomain: "ollyo-foosball.firebaseapp.com",
+  databaseURL: "https://ollyo-foosball-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "ollyo-foosball",
+  storageBucket: "ollyo-foosball.firebasestorage.app",
+  messagingSenderId: "796892845246",
+  appId: "1:796892845246:web:64464f2e8591eeee1abaef"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+const cupRef = ref(db, 'cup');
+const $ = id => document.getElementById(id);
+
+// writes rejected by the rules land here — surface them instead of failing silently
+window.saveToDb = json => set(cupRef, json).catch(err => {
+  console.error('[cup] write rejected:', err);
+  alert('Could not save: ' + err.message + '\nAre you signed in as the admin account?');
+});
+
+onValue(cupRef, snap => {
+  window.markRemote();
+  const raw = snap.val();
+  try { window.applyState(raw ? JSON.parse(raw) : null); }
+  catch (e) { console.error('[cup] unreadable state in database:', e); }
+}, err => console.error('[cup] read failed:', err));
+
+onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
+
+/* One-time migration: seed the database from the ?#hash of an in-flight cup.
+   Guarded three ways — admin only (the rules reject anyone else), only when the
+   node is empty, and atomically, so a stale bookmarked link can never overwrite
+   a live tournament. The hash is stripped either way so it cannot fire twice. */
+function seedFromHash() {
+  const hash = location.hash.slice(1);
+  if (!hash) return;
+  let seed;
+  try { seed = window.decodeState(hash); } catch (e) { return; }
+  runTransaction(cupRef, cur => (cur === null ? JSON.stringify(seed) : undefined))
+    .then(r => console.log(r.committed ? '[cup] seeded from URL' : '[cup] database already has a cup — hash ignored'))
+    .catch(err => console.error('[cup] seed failed:', err))
+    .finally(() => history.replaceState(null, '', location.pathname + location.search));
+}
+
+onAuthStateChanged(auth, user => {
+  const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
+  window.setAdmin(admin);
+  $('authBtn').textContent = user
+    ? (admin ? '✓ Admin — sign out' : 'Not the admin — sign out')
+    : 'Admin sign in';
+  if (admin) seedFromHash();
+});
+
+$('authBtn').onclick = () => {
+  if (auth.currentUser) return signOut(auth);
+  signInWithPopup(auth, new GoogleAuthProvider()).catch(err => {
+    console.error('[auth]', err);
+    alert('Sign-in failed: ' + err.message);
+  });
+};
 </script>
 </body>
 </html>

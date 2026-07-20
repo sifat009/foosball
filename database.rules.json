@@ -2,7 +2,7 @@
   "rules": {
     "cup": {
       ".read": true,
-      ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'YOUR_GMAIL_HERE@gmail.com'"
+      ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'"
     }
   }
 }
