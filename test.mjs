@@ -112,20 +112,42 @@ assert.ok(await page.isVisible('#hall'), 'past champions did not open');
 await page.click('#hallClose');
 assert.ok(!(await page.isVisible('#hall')), 'past champions did not close');
 
-// starting over is the only thing that records a champion, and only a finished cup
-const recorded = await page.evaluate(() => {
+// deciding the final records the champion; undoing it takes the entry back out
+const log = await page.evaluate(() => {
   const got = [];
-  window.recordChampion = c => got.push(c);
-  window.confirm = () => true;
+  window.recordChampion = (id, c) => got.push(['set', id, c]);
+  window.clearChampion = id => got.push(['clear', id]);
   window.setAdmin(true);
-  koRounds = [[{ a: { fwd: 'Nur', def: 'Rashed' }, b: { fwd: 'Rifat', def: 'Sifat' }, winner: null }]];
-  document.getElementById('resetBtn').onclick(); // unfinished cup — nothing to record
-  koRounds = [[{ a: { fwd: 'Nur', def: 'Rashed' }, b: { fwd: 'Rifat', def: 'Sifat' }, winner: { fwd: 'Nur', def: 'Rashed' } }]];
-  document.getElementById('resetBtn').onclick();
+  window.markRemote();
+  const nur = { fwd: 'Nur', def: 'Rashed' }, rifat = { fwd: 'Rifat', def: 'Sifat' };
+  koStarted = true;
+  koRounds = [[{ a: nur, b: rifat, winner: null }]];
+  cupId = 'cup-1';
+  renderAll();                       // unfinished final — nothing recorded
+  setKoWinner(0, 0, nur);            // decided
+  setKoWinner(0, 0, rifat);          // corrected
+  setKoWinner(0, 0, rifat);          // clicking the winner again undoes it
   return got;
 });
-assert.deepEqual(recorded, ['Nur + Rashed'],
-  'start over should record exactly the champion of a finished cup');
+assert.deepEqual(log, [
+  ['set', 'cup-1', 'Nur + Rashed'],
+  ['set', 'cup-1', 'Rifat + Sifat'],
+  ['clear', 'cup-1'],
+], 'the final should drive the record: no write until decided, corrections overwrite the same entry, undo removes it');
+
+// a viewer replaying the same snapshot must never write
+const viewerLog = await page.evaluate(() => {
+  const got = [];
+  window.recordChampion = () => got.push('set');
+  window.clearChampion = () => got.push('clear');
+  window.setAdmin(false);
+  koRounds[0][0].winner = koRounds[0][0].a;
+  renderAll();
+  return got;
+});
+assert.deepEqual(viewerLog, [], 'a viewer wrote to the champions record');
+
+await page.evaluate(() => window.setAdmin(false));
 console.log('past champions OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));

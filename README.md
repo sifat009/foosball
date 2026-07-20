@@ -53,8 +53,9 @@ node test.mjs
 Firebase is blocked during the run, so the suite covers the app logic and the
 admin gate offline: read-only by default, standings render from a pushed
 state, admin unlocks editing, writes carry the right payload, no writes before
-the first snapshot, sign-out re-locks, and Past Champions lists cups
-newest-first and records only finished ones.
+the first snapshot, sign-out re-locks, Past Champions lists cups newest-first,
+and the final drives the record — nothing written until it's decided,
+corrections overwrite one entry, undo removes it, viewers never write.
 
 What the suite **cannot** cover, because it needs real Google OAuth — check
 these by hand after deploying:
@@ -65,8 +66,8 @@ these by hand after deploying:
 - Two browsers open at once: a score entered in one appears in the other
   within a second or so, without a reload.
 - Killing the network shows the offline warning and edits stop saving.
-- Finishing a cup and hitting Start Over adds the winner to Past Champions,
-  and a viewer's open list picks it up without a reload.
+- Deciding the Grand Final adds the winner to Past Champions, and a viewer's
+  open list picks it up without a reload.
 
 ## Notes
 
@@ -76,9 +77,12 @@ these by hand after deploying:
 - The Firebase config in `index.html` is public by design. It identifies the
   project; it does not grant access. The rules do that.
 - "Start Over" wipes the cup for everyone watching, not just the admin's tab.
-  It is also what records the champion, since a finished cup is only ever
-  cleared that way. Abandoning an unfinished cup records nothing. There is no
-  UI for editing the archive — fix a bad entry in the Firebase console.
+  It does not touch the archive.
+- The champion is recorded the moment the Grand Final is decided. Each cup
+  gets a `cupId` and its winner is stored at `history/<cupId>`, so correcting
+  the final overwrites that one entry and undoing it removes the entry
+  entirely — clicking around the bracket can't leave junk behind. There is no
+  UI for editing the archive; fix a bad entry in the Firebase console.
 - Past Champions is an overlay, not one of the `.screen` divs. `applyState()`
   calls `show()` on every remote snapshot, so a screen would close itself the
   moment the admin scored a match.

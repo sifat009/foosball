@@ -534,8 +534,6 @@ $('hall').onclick = e => { if (e.target === $('hall')) $('hall').classList.remov
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
 $('resetBtn').onclick = () => {
   if (!confirm('Start over? This wipes the cup for everyone watching, not just you.')) return;
-  const champ = koRounds.length && koRounds[koRounds.length - 1][0].winner;
-  if (champ && window.recordChampion) window.recordChampion(teamName(champ));
   session++;
   spinning = false;
   lastChamp = null; confettiRun = false;
@@ -715,6 +713,10 @@ function teamName(t) { return `${t.fwd} + ${t.def}`; }
    2:      straight final */
 var groups = [];    // [{ name, teams, matches: [{a, b, sa, sb, winner}] }]
 var koRounds = [], koStarted = false;
+/* Identifies this cup in the history node. The champion is stored at
+   history/<cupId>, so deciding the final, changing your mind, and undoing it
+   all rewrite one entry instead of appending a new one each time. */
+var cupId = null;
 
 function roundRobin(ts) {
   const arr = ts.slice();
@@ -732,6 +734,7 @@ function roundRobin(ts) {
 
 function startCup() {
   groups = []; koRounds = []; koStarted = false; lastChamp = null;
+  cupId = String(Date.now()); // applyState overwrites this when restoring an existing cup
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
@@ -820,7 +823,7 @@ function save() {
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
-    fwds, defs, teams, koStarted,
+    fwds, defs, teams, koStarted, cupId,
     groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
     koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
   }));
@@ -844,6 +847,9 @@ function applyState(s) {
     }
     if (s.screen === 'tourney') {
       startCup();
+      // keep the stored id, or adopt the freshly minted one for a cup that
+      // predates this field — save() writes it back on the next edit
+      cupId = s.cupId || cupId;
       (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb], mi) => {
         if (sa != null || sb != null) setGroupScore(gi, mi, sa, sb);
       }));
@@ -992,7 +998,19 @@ function renderBracket() {
     ? `<div class="crown">🏆 Ollyo Cup Champions: <b>${teamName(final.winner)}</b></div>`
     : '';
   if (final.winner && final.winner !== lastChamp && !restoring) celebrate(teamName(final.winner));
+  if (final.winner !== lastChamp) syncChampion(final.winner);
   lastChamp = final.winner;
+}
+
+/* The final decides the record, so it has to survive being changed: clicking
+   the same team again undoes the pick, and re-running an earlier round voids
+   everything after it. Writing to a fixed key per cup means an undo removes
+   the entry and a correction overwrites it — no duplicates, no stale winners.
+   Guarded like save(): viewers replaying a snapshot must not write. */
+function syncChampion(w) {
+  if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
+  if (w) window.recordChampion(cupId, teamName(w));
+  else window.clearChampion(cupId);
 }
 
 // --- champion celebration ---
@@ -1072,7 +1090,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, push }
+import { getDatabase, ref, onValue, set, remove }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -1092,16 +1110,18 @@ const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
 
-window.recordChampion = champion => push(historyRef, { champion, date: Date.now() })
+window.recordChampion = (id, champion) => set(ref(db, 'history/' + id), { champion, date: Date.now() })
   .catch(err => {
     console.error('[history] write rejected:', err);
     alert('Could not record the champion: ' + err.message);
   });
 
+window.clearChampion = id => remove(ref(db, 'history/' + id))
+  .catch(err => console.error('[history] undo failed:', err));
+
 onValue(historyRef, snap => {
   const v = snap.val() || {};
-  // push() keys sort chronologically, so key order is cup order
-  window.renderHall(Object.keys(v).sort().map(k => v[k]));
+  window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
 
 // writes rejected by the rules land here — surface them instead of failing silently
