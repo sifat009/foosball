@@ -282,12 +282,25 @@
     text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
     font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
   }
+  /* view-only mode: everything that writes state is hidden or inert */
+  body.view #spinBtn, body.view #tourneyBtn, body.view #koBtn,
+  body.view #startBtn, body.view #resetBtn { display: none !important; }
+  body.view textarea { pointer-events: none; opacity: 0.65; }
+  body.view .slot { cursor: default; }
+  #viewBadge {
+    display: none; justify-content: center; gap: 8px; align-items: center;
+    margin: -6px auto 26px; width: fit-content;
+    background: #eef2f8; color: #5b6a7d; border: 1.5px solid #dfe6ef;
+    border-radius: 999px; padding: 8px 18px; font-size: 0.78rem; font-weight: 700;
+  }
+  body.view #viewBadge { display: flex; }
 </style>
 </head>
 <body>
 
 <div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
-<button id="shareBtn" style="display:none">🔗 Share Link</button>
+<div id="viewBadge">👁 View only — ask the admin for a fresh link to see the latest standings</div>
+<button id="shareBtn" style="display:none">🔗 Share View Link</button>
 <button id="resetBtn" style="display:none">↺ Start Over</button>
 
 <div id="celebrate">
@@ -358,7 +371,7 @@ Rashed</textarea>
 <!-- Screen 3: tournament -->
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Ollyo Cup</span></h1>
-  <div class="subtitle">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
+  <div class="subtitle" id="tourneySub">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
   <div id="champion"></div>
   <div id="groupSection">
     <div class="section-title">Group Stage</div>
@@ -377,6 +390,20 @@ Rashed</textarea>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
 const $ = id => document.getElementById(id);
+
+/* View-only mode: ?view=1 hides every control that writes state, so a shared
+   link is read-only. save() is a no-op so a viewer never clobbers their own
+   admin state on the same device.
+   ponytail: obfuscation, not auth — anyone can drop ?view=1 from the URL.
+   Real admin-only editing needs a backend with accounts; see the note in the
+   Share handler about live standings. */
+const viewOnly = new URLSearchParams(location.search).has('view');
+if (viewOnly) {
+  document.body.classList.add('view');
+  $('tourneySub').textContent = 'Live standings — group tables ranked by wins, then goal difference.';
+}
+const viewLink = () => location.origin + location.pathname + '?view=1' + location.hash;
+
 var curScreen = 'setup';
 const show = id => {
   curScreen = id;
@@ -387,9 +414,10 @@ const show = id => {
 };
 
 $('shareBtn').onclick = async () => {
-  try { await navigator.clipboard.writeText(location.href); } catch (e) { prompt('Copy the link:', location.href); return; }
+  const url = viewLink(); // shared links are always view-only; the admin keeps their own URL
+  try { await navigator.clipboard.writeText(url); } catch (e) { prompt('Copy the link:', url); return; }
   $('shareBtn').textContent = '✓ Copied!';
-  setTimeout(() => { $('shareBtn').textContent = '🔗 Share Link'; }, 1500);
+  setTimeout(() => { $('shareBtn').textContent = '🔗 Share View Link'; }, 1500);
 };
 
 // --- sound (Web Audio, no files) ---
@@ -686,7 +714,7 @@ const encodeState = o => btoa(unescape(encodeURIComponent(JSON.stringify(o))))
 const decodeState = s => JSON.parse(decodeURIComponent(escape(atob(s.replace(/-/g, '+').replace(/_/g, '/')))));
 
 function save() {
-  if (restoring) return;
+  if (restoring || viewOnly) return;
   const enc = encodeState({
     screen: curScreen,
     fwdText: $('fwdInput').value,
@@ -741,7 +769,7 @@ function scoreInput(value, disabled, onchange) {
   inp.inputMode = 'numeric';
   inp.className = 'score';
   inp.value = value ?? '';
-  inp.disabled = disabled;
+  inp.disabled = disabled || viewOnly;
   inp.onchange = () => {
     const v = inp.value === '' ? null : Math.max(0, Math.floor(Number(inp.value)) || 0);
     onchange(v);
@@ -857,7 +885,7 @@ function renderBracket() {
         nm.className = 'nm';
         nm.textContent = t ? teamName(t) : '—';
         d.appendChild(nm);
-        if (t && m.a && m.b) d.onclick = () => setKoWinner(r, i, t);
+        if (t && m.a && m.b && !viewOnly) d.onclick = () => setKoWinner(r, i, t);
         box.appendChild(d);
       });
       col.appendChild(box);
