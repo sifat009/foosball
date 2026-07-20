@@ -710,7 +710,7 @@ function sugBar(gi, mi, s, mine) {
   who.innerHTML = svg(mine ? 'check' : 'bulb'); // icon is static markup...
   const score = `${s.sa ?? '?'} – ${s.sb ?? '?'}`;
   who.append(mine // ...name/score stay text nodes
-    ? ` Sent to the admin — your suggestion of ${score} is waiting to be approved.`
+    ? ' Sent — waiting for the admin’s approval.'
     : ` ${s.by} suggests ${score}`);
   bar.appendChild(who);
   if (isAdmin) {
