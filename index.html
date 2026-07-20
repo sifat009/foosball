@@ -210,6 +210,9 @@
   .sug-no { background: #f1f4f9; color: #64748b; }
   /* the suggester's own confirmation — green "sent", not the amber "someone else pending" */
   .sug-bar.mine { background: #eaf7ee; border-color: #86c99b; color: #1c6b39; }
+  /* withdraw is a quiet ghost button so it sits on the green bar without clashing */
+  .sug-withdraw { background: transparent; color: #1c6b39; border: 1px solid #86c99b; }
+  .sug-withdraw:hover { background: #dcefe1; }
   .tie-note { color: #b45309; font-size: 0.8rem; font-weight: 700; margin: -8px 0 12px; min-height: 1em; }
   /* knockout bracket */
   #bracket { display: flex; gap: 48px; overflow-x: auto; padding: 10px 0; justify-content: center; }
@@ -728,7 +731,7 @@ function sugBar(gi, mi, s, mine) {
     bar.appendChild(no);
   } else if (mine) { // the suggester can take back a score they sent by mistake
     const w = document.createElement('button');
-    w.className = 'sug-btn sug-no';
+    w.className = 'sug-btn sug-withdraw';
     w.innerHTML = svg('x') + ' Withdraw';
     w.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
     bar.appendChild(w);
