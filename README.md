@@ -1,4 +1,4 @@
-# Ollyo Foosball Cup
+# The Ollyo Foosball Cup
 
 Single-page tournament app: draft wheels, group stage, knockout bracket.
 Plain HTML — no build step, no npm. Deployed at
