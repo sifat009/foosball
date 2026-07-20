@@ -176,6 +176,21 @@
   .score:disabled { background: #f1f4f9; color: #8a96a8; }
   .score.bad { border-color: #e05252; background: #fdeeee; }
   .dash { color: #c9a227; font-weight: 900; font-size: 0.8rem; }
+  /* a pending suggestion — deliberately unlike a real score, because it isn't one */
+  .score.suggesting { border-color: #e6c65c; background: #fff8e6; }
+  .sug-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    margin: -4px 0 10px; padding: 7px 12px;
+    background: #fff8e6; border: 1px dashed #e6c65c; border-radius: 12px;
+    font-size: 0.82rem; font-weight: 700; color: #8a6d1f;
+  }
+  .sug-bar .who { flex: 1; min-width: 0; overflow-wrap: break-word; }
+  .sug-btn {
+    border: none; border-radius: 9px; padding: 6px 11px; cursor: pointer;
+    font-family: inherit; font-size: 0.82rem; font-weight: 800;
+  }
+  .sug-ok { background: #15803d; color: #fff; }
+  .sug-no { background: #f1f4f9; color: #64748b; }
   .tie-note { color: #b45309; font-size: 0.8rem; font-weight: 700; margin: -8px 0 12px; min-height: 1em; }
   /* knockout bracket */
   #bracket { display: flex; gap: 48px; overflow-x: auto; padding: 10px 0; justify-content: center; }
@@ -392,7 +407,7 @@
      on mobile the wrapper becomes the bottom bar and they line up inside it -->
 <div id="btnBar">
   <button id="hallBtn" aria-label="Past Champions">🏆<span class="lbl"> Past Champions</span></button>
-  <button id="authBtn">Admin sign in</button>
+  <button id="authBtn">Sign in</button>
   <button id="resetBtn" style="display:none">↺ Start Over</button>
 </div>
 
@@ -528,6 +543,13 @@ Rashed</textarea>
       <p>Semifinals are crossed, so group winners avoid each other until the final:
       <b>A1 v B2</b> and <b>B1 v A2</b>.</p>
 
+      <div class="rules-h">Suggesting a score</div>
+      <p>Played a group match while the admin wasn't around? <b>Sign in</b> with any
+      Google account and type the score straight into that match — it's sent as a
+      <i>suggestion</i>, shown to everyone with your name on it. It doesn't change
+      the standings; the admin accepts it (or corrects it) when they're back. Only
+      matches with no score yet can be suggested.</p>
+
       <div class="rules-h">When the knockout starts</div>
       <p>The <b>Start Knockout</b> button appears only once <b>every group match has a
       score</b> — no partial brackets. The admin starts it, and from that point the
@@ -580,6 +602,59 @@ function setAdmin(v) {
   if (curScreen === 'tourney') renderAll();
 }
 setAdmin(false); // read-only until Firebase says otherwise
+
+/* ================= SUGGESTIONS =================
+   Any signed-in account that isn't the admin can propose a score for a group
+   match nobody recorded. Suggestions live in their own node and never touch
+   `cup` — the admin accepting one is what writes the real score. Keyed by cup
+   so Start Over can't leave a stale score pointing at a team that never played
+   it, and one key per match so changing your mind overwrites rather than
+   stacks. Same shape as history/<cupId>. */
+var signedIn = null, allSug = {};
+const curSug = () => (cupId && allSug[cupId]) || {};
+const canSuggest = () => !!signedIn && !isAdmin && !koStarted;
+const sugOk = s => s && s.sa != null && s.sb != null && s.sa !== s.sb;
+
+window.setSignedIn = u => {
+  signedIn = u;
+  if (curScreen === 'tourney') renderGroups();
+};
+window.renderSuggestions = all => {
+  allSug = all || {};
+  if (curScreen === 'tourney') renderGroups(); // renderGroups, not renderAll — a viewer must not save()
+};
+
+function submitSug(gi, mi, sa, sb) {
+  const key = gi + '_' + mi;
+  if (restoring || !canSuggest() || !gotRemote || !cupId || !window.suggestScore) return;
+  // clearing both boxes retracts it, rather than storing an entry with no score
+  if (sa == null && sb == null) return window.clearSuggestion(cupId, key);
+  window.suggestScore(cupId, key, sa, sb, signedIn.name, signedIn.email);
+}
+
+function sugBar(gi, mi, s) {
+  const bar = document.createElement('div');
+  bar.className = 'sug-bar';
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = `💡 ${s.by} suggests ${s.sa ?? '?'} – ${s.sb ?? '?'}`; // textContent: name comes from outside
+  bar.appendChild(who);
+  if (isAdmin) {
+    if (sugOk(s)) { // a half-filled or drawn suggestion isn't a score anyone can accept
+      const ok = document.createElement('button');
+      ok.className = 'sug-btn sug-ok';
+      ok.textContent = '✓ Accept';
+      ok.onclick = () => setGroupScore(gi, mi, s.sa, s.sb);
+      bar.appendChild(ok);
+    }
+    const no = document.createElement('button');
+    no.className = 'sug-btn sug-no';
+    no.textContent = '✗ Dismiss';
+    no.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
+    bar.appendChild(no);
+  }
+  return bar;
+}
 
 // --- sound (Web Audio, no files) ---
 var audioCtx = null;
@@ -643,6 +718,7 @@ $('resetBtn').onclick = () => {
   $('celebrate').style.display = 'none';
   teams = []; groups = []; koRounds = []; koStarted = false;
   if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
+  if (window.clearAllSuggestions) window.clearAllSuggestions(); // old cups' suggestions would just accumulate
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
 };
 
@@ -866,6 +942,11 @@ function setGroupScore(gi, mi, sa, sb) {
   const m = groups[gi].matches[mi];
   m.sa = sa; m.sb = sb;
   m.winner = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
+  // a real score settles the match, so any suggestion for it is spent — whether
+  // the admin accepted it or just typed straight over it
+  if (isAdmin && !restoring && sa != null && cupId && window.clearSuggestion) {
+    window.clearSuggestion(cupId, gi + '_' + mi);
+  }
   renderAll();
 }
 
@@ -966,7 +1047,7 @@ function applyState(s) {
   restoring = false;
 }
 
-function scoreInput(value, disabled, onchange) {
+function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
   const inp = document.createElement('input');
   inp.type = 'number';
   inp.min = 0;
@@ -974,7 +1055,7 @@ function scoreInput(value, disabled, onchange) {
   inp.pattern = '[0-9]*'; // iOS only opens the digits-only keypad for inputmode + pattern together
   inp.className = 'score';
   inp.value = value ?? '';
-  inp.disabled = disabled || !isAdmin;
+  inp.disabled = disabled || !canEdit;
   inp.onchange = () => {
     const v = inp.value === '' ? null : Math.max(0, Math.floor(Number(inp.value)) || 0);
     onchange(v);
@@ -1006,15 +1087,30 @@ function renderGroups() {
       const nameA = document.createElement('div');
       nameA.className = 'm-team' + (m.winner ? (m.winner === m.a ? ' winner' : ' loser') : '');
       nameA.textContent = teamName(m.a);
-      const inA = scoreInput(m.sa, koStarted, v => setGroupScore(gi, mi, v, m.sb));
+      // only an unrecorded match is open to suggestions, so a pending score can
+      // never contradict something already standing in the table
+      const open = m.sa == null && m.sb == null;
+      const sug = open ? curSug()[gi + '_' + mi] : null;
+      const suggesting = open && canSuggest();
+      const sa = suggesting && sug ? sug.sa ?? null : m.sa;
+      const sb = suggesting && sug ? sug.sb ?? null : m.sb;
+      const inA = scoreInput(sa, koStarted,
+        v => suggesting ? submitSug(gi, mi, v, sb) : setGroupScore(gi, mi, v, m.sb),
+        isAdmin || suggesting);
       const dash = document.createElement('span'); dash.className = 'dash'; dash.textContent = '–';
-      const inB = scoreInput(m.sb, koStarted, v => setGroupScore(gi, mi, m.sa, v));
+      const inB = scoreInput(sb, koStarted,
+        v => suggesting ? submitSug(gi, mi, sa, v) : setGroupScore(gi, mi, m.sa, v),
+        isAdmin || suggesting);
       const nameB = document.createElement('div');
       nameB.className = 'm-team' + (m.winner ? (m.winner === m.b ? ' winner' : ' loser') : '');
       nameB.textContent = teamName(m.b);
       if (bad) { inA.classList.add('bad'); inB.classList.add('bad'); }
+      if (suggesting) { inA.classList.add('suggesting'); inB.classList.add('suggesting'); }
       div.append(nameA, inA, dash, inB, nameB);
       box.appendChild(div);
+      // the suggester edits their own numbers in the boxes; everyone else reads
+      // them off the bar, where the admin also gets accept/dismiss
+      if (sug && !suggesting) box.appendChild(sugBar(gi, mi, sug));
     });
     if (g.matches.some(m => m.sa != null && m.sa === m.sb)) {
       const note = document.createElement('div');
@@ -1228,6 +1324,24 @@ onValue(historyRef, snap => {
   window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
 
+window.suggestScore = (cup, key, sa, sb, by, email) =>
+  set(ref(db, `suggestions/${cup}/${key}`), { sa, sb, by, email, at: Date.now() })
+    .catch(err => {
+      console.error('[suggest] write rejected:', err);
+      alert('Could not send the suggestion: ' + err.message);
+    });
+
+window.clearSuggestion = (cup, key) => remove(ref(db, `suggestions/${cup}/${key}`))
+  .catch(err => console.error('[suggest] clear failed:', err));
+
+window.clearAllSuggestions = () => remove(ref(db, 'suggestions'))
+  .catch(err => console.error('[suggest] wipe failed:', err));
+
+// one subscription for every cup's suggestions — the node is tiny, and this
+// avoids resubscribing each time cupId changes
+onValue(ref(db, 'suggestions'), snap => window.renderSuggestions(snap.val() || {}),
+  err => console.error('[suggest] read failed:', err));
+
 // writes rejected by the rules land here — surface them instead of failing silently
 window.saveToDb = json => set(cupRef, json).catch(err => {
   console.error('[cup] write rejected:', err);
@@ -1247,9 +1361,11 @@ onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
 onAuthStateChanged(auth, user => {
   const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
   window.setAdmin(admin);
+  // a non-admin sign-in is no longer a dead end — it unlocks suggesting
+  window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
   $('authBtn').textContent = user
-    ? (admin ? '✓ Admin — sign out' : 'Not the admin — sign out')
-    : 'Admin sign in';
+    ? (admin ? '✓ Admin — sign out' : 'Signed in — sign out')
+    : 'Sign in';
 });
 
 $('authBtn').onclick = () => {

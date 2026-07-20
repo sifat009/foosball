@@ -5,7 +5,9 @@ Plain HTML — no build step, no npm. Deployed at
 <https://sifat009.github.io/foosball/>.
 
 State lives in a Firebase Realtime Database, so everyone sees the standings
-update live. One admin account can edit; everyone else is read-only.
+update live. One admin account can edit; everyone else is read-only. Any other
+signed-in Google account can *suggest* a score for an unrecorded group match —
+captured for the admin to accept, never applied on its own.
 
 Finished cups are archived: "Past Champions" opens a list of every previous
 winner, readable by anyone, at any point in a tournament. "How it works" in the
@@ -32,10 +34,16 @@ Don't run `firebase init database` — it offers to overwrite
 file into Console → Realtime Database → Rules works too.
 
 The admin account is set in two places and they must match:
-`ADMIN_EMAIL` in `index.html`, and the address in the `.write` rule. The one in
-`index.html` only decides whether the UI shows the editing controls; the one in
-the rules is the actual boundary, enforced by Firebase rather than by the page.
-Changing admin means editing both.
+`ADMIN_EMAIL` in `index.html`, and the address in the `cup`/`history` `.write`
+rule. The one in `index.html` only decides whether the UI shows the editing
+controls; the one in the rules is the actual boundary, enforced by Firebase
+rather than by the page. Changing admin means editing both.
+
+The `suggestions` node is writable by **any verified Google account**, not just
+the admin — that's what lets players suggest scores. It's a separate node;
+`cup` and `history` still take writes from the admin alone. If you want to
+narrow suggestions to your own organisation, add an email-domain check to that
+rule (e.g. `&& auth.token.email.endsWith('@yourdomain.com')`).
 
 ## Running it locally
 
@@ -70,6 +78,10 @@ these by hand after deploying:
 - Killing the network shows the offline warning and edits stop saving.
 - Deciding the Grand Final adds the winner to Past Champions, and a viewer's
   open list picks it up without a reload.
+- Signing in with a non-admin Google account lets you type a score into an
+  unrecorded group match; it appears to everyone as a pending suggestion with
+  your name, the standings don't move, and the admin sees Accept / Dismiss.
+  Accepting writes the real score and clears the suggestion.
 
 ## Notes
 

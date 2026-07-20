@@ -22,7 +22,7 @@ const page = await b.newPage();
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 // block Firebase so the suite runs offline and deterministically
-await page.route('**gstatic.com/**', r => r.abort());
+await page.route(/gstatic\.com|fonts\.googleapis\.com/, r => r.abort());
 
 await page.goto(URL_BASE);
 
@@ -164,6 +164,66 @@ for (const t of ['no points system', 'no draws', 'A1 v B2', 'every group match h
 await page.keyboard.press('Escape');
 assert.ok(!(await page.isVisible('#rules')), 'Escape did not close the rules');
 console.log('rules sheet OK');
+
+// ---------- player score suggestions ----------
+// the champion tests left a knockout running; replay the group-stage snapshot
+await page.evaluate(h => { window.setAdmin(false); window.applyState(window.decodeState(h)); }, HASH);
+await page.waitForTimeout(200);
+
+const cup = await page.evaluate(() => {
+  window.writes = [];
+  window.sugLog = [];
+  window.suggestScore = (...a) => window.sugLog.push(['set', ...a]);
+  window.clearSuggestion = (...a) => window.sugLog.push(['clear', ...a]);
+  window.markRemote();
+  window.setSignedIn({ name: 'Nur', email: 'nur@example.com' }); // signed in, not the admin
+  return cupId;
+});
+
+// only the unrecorded matches open up — 2 of the 10 already have scores
+const sugDisabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
+assert.equal(sugDisabled.filter(Boolean).length, 4, 'a suggester should only reach matches with no score yet');
+assert.ok(await page.evaluate(() => document.body.classList.contains('view')), 'a suggester is not an admin');
+
+const openInput = (await page.$$('#groups .score'))[0];
+await openInput.fill('7');
+await openInput.dispatchEvent('change');
+await page.waitForTimeout(150);
+assert.deepEqual(await page.evaluate(() => window.sugLog), [
+  ['set', cup, '0_0', 7, null, 'Nur', 'nur@example.com'],
+], 'the suggestion did not land in the suggestions node with its author');
+assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
+
+// everyone else reads it off the bar; a viewer gets no controls
+await page.evaluate(c => {
+  window.setSignedIn(null);
+  window.renderSuggestions({ [c]: { '0_0': { sa: 10, sb: 6, by: 'Nur', email: 'nur@example.com' } } });
+}, cup);
+await page.waitForTimeout(150);
+assert.equal((await page.$$('.sug-bar')).length, 1, 'the pending suggestion is not shown');
+const barText = await page.textContent('.sug-bar');
+assert.ok(barText.includes('Nur') && barText.includes('10') && barText.includes('6'), 'bar omits the author or the score');
+assert.equal((await page.$$('.sug-btn')).length, 0, 'a viewer can act on a suggestion');
+
+// the admin accepts: it becomes a real score and the suggestion is spent
+await page.evaluate(() => window.setAdmin(true));
+await page.waitForTimeout(150);
+assert.equal((await page.$$('.sug-ok')).length, 1, 'the admin has no way to accept');
+await page.evaluate(() => { window.writes = []; window.sugLog = []; });
+await page.click('.sug-ok');
+await page.waitForTimeout(150);
+const accepted = JSON.parse((await page.evaluate(() => window.writes)).pop());
+assert.deepEqual(accepted.groupScores[0][0], [10, 6], 'accepting did not write the suggested score to the cup');
+assert.deepEqual(await page.evaluate(() => window.sugLog), [['clear', cup, '0_0']], 'the accepted suggestion was not cleared');
+
+// a suggestion from an earlier cup must never surface in this one
+await page.evaluate(() => {
+  window.setAdmin(false);
+  window.renderSuggestions({ 'some-old-cup': { '0_2': { sa: 9, sb: 3, by: 'Ghost', email: 'g@example.com' } } });
+});
+await page.waitForTimeout(150);
+assert.equal((await page.$$('.sug-bar')).length, 0, 'a previous cup\'s suggestion leaked into this one');
+console.log('suggestions OK');
 
 // ---------- mobile layout ----------
 // the fixed buttons move to the bottom under @media (max-width: 640px). A media

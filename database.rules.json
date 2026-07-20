@@ -7,6 +7,10 @@
     "history": {
       ".read": true,
       ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'"
+    },
+    "suggestions": {
+      ".read": true,
+      ".write": "auth != null && auth.token.email_verified === true"
     }
   }
 }
