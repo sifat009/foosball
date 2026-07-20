@@ -200,6 +200,13 @@ assert.deepEqual(await page.evaluate(() => window.sugLog), [
 ], 'the suggestion did not land in the suggestions node with its author');
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
 
+// the suggester (still signed in) must see their score was sent, not just guess
+await page.evaluate(c => window.renderSuggestions({ [c]: { '0_0': { sa: 7, sb: 3, by: 'Nur', email: 'nur@example.com' } } }), cup);
+await page.waitForTimeout(150);
+const mineText = (await page.textContent('.sug-bar.mine')).toLowerCase();
+assert.ok(mineText.includes('sent') && mineText.includes('approv'), 'the suggester gets no confirmation their score was sent');
+assert.equal((await page.$$('.sug-bar.mine .sug-btn')).length, 1, 'the suggester cannot withdraw their own suggestion');
+
 // everyone else reads it off the bar; a viewer gets no controls
 await page.evaluate(c => {
   window.setSignedIn(null);

@@ -208,6 +208,8 @@
   }
   .sug-ok { background: #15803d; color: #fff; }
   .sug-no { background: #f1f4f9; color: #64748b; }
+  /* the suggester's own confirmation — green "sent", not the amber "someone else pending" */
+  .sug-bar.mine { background: #eaf7ee; border-color: #86c99b; color: #1c6b39; }
   .tie-note { color: #b45309; font-size: 0.8rem; font-weight: 700; margin: -8px 0 12px; min-height: 1em; }
   /* knockout bracket */
   #bracket { display: flex; gap: 48px; overflow-x: auto; padding: 10px 0; justify-content: center; }
@@ -669,6 +671,13 @@ setAdmin(false); // read-only until Firebase says otherwise
    stacks. Same shape as history/<cupId>. */
 var signedIn = null, allSug = {};
 const curSug = () => (cupId && allSug[cupId]) || {};
+// a shared, content-derived id for cups that never stored one, so every client
+// keys suggestions the same way. Different rosters → different id → no cross-cup leak.
+const cupKeyFrom = teams => {
+  const str = JSON.stringify(teams || []);
+  let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
+  return 'c' + (h >>> 0).toString(36);
+};
 const canSuggest = () => !!signedIn && !isAdmin && !koStarted;
 const sugOk = s => s && s.sa != null && s.sb != null && s.sa !== s.sb;
 
@@ -690,13 +699,19 @@ function submitSug(gi, mi, sa, sb) {
   window.suggestScore(cupId, key, sa, sb, signedIn.name, signedIn.email);
 }
 
-function sugBar(gi, mi, s) {
+// mine === the signed-in suggester looking at their own pending score. Without
+// this the suggester got no words at all — just numbers in a box — and couldn't
+// tell the score had actually been sent to the admin.
+function sugBar(gi, mi, s, mine) {
   const bar = document.createElement('div');
-  bar.className = 'sug-bar';
+  bar.className = 'sug-bar' + (mine ? ' mine' : '');
   const who = document.createElement('div');
   who.className = 'who';
-  who.innerHTML = svg('bulb'); // icon is static markup...
-  who.append(` ${s.by} suggests ${s.sa ?? '?'} – ${s.sb ?? '?'}`); // ...name stays a text node
+  who.innerHTML = svg(mine ? 'check' : 'bulb'); // icon is static markup...
+  const score = `${s.sa ?? '?'} – ${s.sb ?? '?'}`;
+  who.append(mine // ...name/score stay text nodes
+    ? ` Sent to the admin — your suggestion of ${score} is waiting to be approved.`
+    : ` ${s.by} suggests ${score}`);
   bar.appendChild(who);
   if (isAdmin) {
     if (sugOk(s)) { // a half-filled or drawn suggestion isn't a score anyone can accept
@@ -711,6 +726,12 @@ function sugBar(gi, mi, s) {
     no.innerHTML = svg('x') + ' Dismiss';
     no.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
     bar.appendChild(no);
+  } else if (mine) { // the suggester can take back a score they sent by mistake
+    const w = document.createElement('button');
+    w.className = 'sug-btn sug-no';
+    w.innerHTML = svg('x') + ' Withdraw';
+    w.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
+    bar.appendChild(w);
   }
   return bar;
 }
@@ -1090,9 +1111,12 @@ function applyState(s) {
     }
     if (s.screen === 'tourney') {
       startCup();
-      // keep the stored id, or adopt the freshly minted one for a cup that
-      // predates this field — save() writes it back on the next edit
-      cupId = s.cupId || cupId;
+      // keep the stored id; for a cup that predates this field, DON'T fall back
+      // to the per-client Date.now() from startCup — every browser would mint a
+      // different one and suggestions written under one would never match another
+      // client's lookup. The roster is identical across clients, so hash it into
+      // an id they all agree on.
+      cupId = s.cupId || cupKeyFrom(s.teams);
       (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb], mi) => {
         if (sa != null || sb != null) setGroupScore(gi, mi, sa, sb);
       }));
@@ -1168,9 +1192,10 @@ function renderGroups() {
       if (suggesting) { inA.classList.add('suggesting'); inB.classList.add('suggesting'); }
       div.append(nameA, inA, dash, inB, nameB);
       box.appendChild(div);
-      // the suggester edits their own numbers in the boxes; everyone else reads
-      // them off the bar, where the admin also gets accept/dismiss
-      if (sug && !suggesting) box.appendChild(sugBar(gi, mi, sug));
+      // the suggester edits numbers in the boxes AND gets a "sent, pending" bar
+      // as confirmation; everyone else reads the score off the bar, where the
+      // admin also gets accept/dismiss
+      if (sug) box.appendChild(sugBar(gi, mi, sug, suggesting));
     });
     if (g.matches.some(m => m.sa != null && m.sa === m.sb)) {
       const note = document.createElement('div');
