@@ -305,12 +305,24 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #authBtn:hover { color: #2563eb; border-color: #bcd3f7; }
+  /* hold the first paint until the database answers, or the setup screen
+     flashes for a moment before the live cup replaces it */
+  #boot {
+    display: none; text-align: center; padding: 90px 0; color: #a4aebc;
+    font-size: 0.78rem; font-weight: 700; letter-spacing: 0.18em;
+    text-transform: uppercase; animation: boot-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes boot-pulse { 50% { opacity: 0.45; } }
+  body.booting #boot { display: block; }
+  body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
+  body.booting #shareBtn, body.booting #resetBtn { display: none !important; }
 </style>
 </head>
 <body>
 
 <div class="eyebrow"><span>⚽ Ollyo Foosball Federation</span></div>
 <div id="viewBadge">👁 Live standings — updating automatically</div>
+<div id="boot">Loading the cup…</div>
 <button id="authBtn">Admin sign in</button>
 <button id="shareBtn" style="display:none">🔗 Share Link</button>
 <button id="resetBtn" style="display:none">↺ Start Over</button>
@@ -978,6 +990,17 @@ window.setConnected = ok => {
 };
 window.markRemote = () => { gotRemote = true; };
 window.ADMIN_EMAIL = ADMIN_EMAIL;
+
+/* Boot screen: hide everything until the first snapshot has been applied, so
+   the setup screen never flashes before the live cup replaces it. The timer is
+   the escape hatch — if Firebase can't load at all, show the app anyway rather
+   than leaving a spinner up forever. */
+document.body.classList.add('booting');
+window.bootDone = () => {
+  clearTimeout(bootTimer);
+  document.body.classList.remove('booting');
+};
+var bootTimer = setTimeout(window.bootDone, 3000);
 </script>
 
 <script type="module">
@@ -1017,7 +1040,8 @@ onValue(cupRef, snap => {
   const raw = snap.val();
   try { window.applyState(raw ? JSON.parse(raw) : null); }
   catch (e) { console.error('[cup] unreadable state in database:', e); }
-}, err => console.error('[cup] read failed:', err));
+  window.bootDone(); // same tick as applyState, so the right screen is the first one painted
+}, err => { console.error('[cup] read failed:', err); window.bootDone(); });
 
 onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
 

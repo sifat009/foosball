@@ -25,7 +25,14 @@ page.on('pageerror', e => errors.push(e.message));
 await page.route('**gstatic.com/**', r => r.abort());
 
 await page.goto(URL_BASE);
-await page.waitForTimeout(400);
+
+// ---------- boot gate: nothing paints until the database answers ----------
+assert.ok(await page.isVisible('#boot'), 'no loading state on first paint');
+assert.ok(!(await page.isVisible('#setup')), 'setup screen painted before the snapshot — this is the flicker');
+// Firebase is blocked here, so only the escape-hatch timer can clear it
+await page.waitForSelector('#setup', { timeout: 6000 });
+assert.ok(!(await page.isVisible('#boot')), 'loading state never cleared');
+console.log('boot gate + fallback OK');
 
 // ---------- default state is read-only ----------
 assert.ok(await page.isVisible('#viewBadge'), 'view badge should show for a signed-out visitor');
