@@ -150,6 +150,21 @@ assert.deepEqual(viewerLog, [], 'a viewer wrote to the champions record');
 await page.evaluate(() => window.setAdmin(false));
 console.log('past champions OK');
 
+// ---------- rules sheet ----------
+// the champion tests above fired the celebration — dismiss it the way a user does
+if (await page.isVisible('#celebrate')) await page.click('#celebrate');
+await page.waitForTimeout(150);
+assert.ok(!(await page.isVisible('#celebrate')), 'tapping the celebration did not dismiss it');
+
+await page.click('#rulesBtn');
+assert.ok(await page.isVisible('#rules'), 'the rules link did not open anything');
+const rules = (await page.textContent('#rules')).replace(/\s+/g, ' '); // source wraps mid-sentence
+for (const t of ['no points system', 'no draws', 'A1 v B2', 'every group match has a score'])
+  assert.ok(rules.includes(t), 'rules sheet is missing: ' + t);
+await page.keyboard.press('Escape');
+assert.ok(!(await page.isVisible('#rules')), 'Escape did not close the rules');
+console.log('rules sheet OK');
+
 // ---------- mobile layout ----------
 // the fixed buttons move to the bottom under @media (max-width: 640px). A media
 // query adds no specificity, so an #id rule declared after the block silently

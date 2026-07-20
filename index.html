@@ -249,13 +249,13 @@
   @keyframes rise-in { from { transform: translateY(18px); opacity: 0; } }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall {
+  #hall, #rules {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
-  #hall.open { display: flex; }
+  #hall.open, #rules.open { display: flex; }
   .hall-card {
     background: #fff; border-radius: 18px; padding: 28px 26px 22px;
     width: min(440px, 100%); max-height: 80vh; overflow-y: auto;
@@ -274,11 +274,32 @@
   .hall-name { flex: 1; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
   .hall-date { color: #8fa0b8; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
   .hall-empty { text-align: center; color: #8fa0b8; font-size: 0.85rem; padding: 22px 0; }
-  #hallClose {
+  #hallClose, #rulesClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
   }
+  /* rules sheet */
+  .rules-h {
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em;
+    text-transform: uppercase; color: #96660a; margin: 22px 0 8px;
+  }
+  .rules-h:first-of-type { margin-top: 4px; }
+  .sheet-body { font-size: 0.88rem; line-height: 1.55; color: #3d4a5c; }
+  .sheet-body p { margin: 0 0 8px; }
+  .sheet-body ul { margin: 0 0 8px; padding-left: 18px; }
+  .sheet-body li { margin-bottom: 5px; }
+  .sheet-body b { color: #172b4d; }
+  .sheet-body code {
+    background: #f1f4f9; border-radius: 5px; padding: 1px 5px;
+    font-family: ui-monospace, Menlo, monospace; font-size: 0.85em; color: #16233a;
+  }
+  #rulesBtn {
+    background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer;
+    color: #8b97a8; font-size: inherit; font-weight: 700; letter-spacing: inherit;
+    text-transform: inherit; text-decoration: underline; text-underline-offset: 3px;
+  }
+  #rulesBtn:hover { color: #17854a; }
   #hallBtn {
     position: fixed; top: 18px; right: 148px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
@@ -464,7 +485,67 @@ Rashed</textarea>
   </div>
 </div>
 
-<div class="footer">Ollyo Foosball Federation · est. 2026 · matches are settled at the table</div>
+<div class="footer">
+  Ollyo Foosball Federation · est. 2026 · <button id="rulesBtn">How it works</button>
+</div>
+
+<div id="rules">
+  <div class="hall-card">
+    <div class="hall-title">📋 How the Cup works</div>
+    <div class="sheet-body">
+      <div class="rules-h">Teams</div>
+      <p>Every player goes on one of two wheels — forwards and defenders. Each spin
+      pairs one from each wheel, and that pairing is your team for the whole cup.
+      The wheel order is random, and nobody is drafted twice.</p>
+
+      <div class="rules-h">Group matches</div>
+      <ul>
+        <li>Both scores are entered, and the <b>higher score wins</b>.</li>
+        <li>There are <b>no draws</b> — equal scores are rejected, not recorded.</li>
+        <li>A match counts for nothing until both scores are in.</li>
+      </ul>
+
+      <div class="rules-h">The table</div>
+      <p>There is no points system. Teams are ranked directly by results:</p>
+      <ul>
+        <li><code>P</code> — matches played &nbsp;·&nbsp; <code>W</code> — matches won</li>
+        <li><code>GD</code> — goal difference (goals scored minus conceded)</li>
+        <li><code>GF</code> — goals scored</li>
+      </ul>
+      <p>Order is decided by <b>wins</b> first, then <b>GD</b>, then <b>GF</b>. If two
+      teams are still exactly level, whoever <b>won the match between them</b> goes
+      above. The top two of each group are highlighted — those are the ones who go
+      through.</p>
+
+      <div class="rules-h">Format</div>
+      <ul>
+        <li><b>2 teams</b> — no group stage at all, straight to the Grand Final.</li>
+        <li><b>3 to 5 teams</b> — one group, everyone plays everyone once, top two
+        meet in the Grand Final.</li>
+        <li><b>6 or more</b> — two groups, round robin inside each, top two from each
+        reach the Semifinals.</li>
+      </ul>
+      <p>Semifinals are crossed, so group winners avoid each other until the final:
+      <b>A1 v B2</b> and <b>B1 v A2</b>.</p>
+
+      <div class="rules-h">When the knockout starts</div>
+      <p>The <b>Start Knockout</b> button appears only once <b>every group match has a
+      score</b> — no partial brackets. The admin starts it, and from that point the
+      group scores are locked, so the table behind the bracket can't shift.</p>
+
+      <div class="rules-h">Deciding a knockout match</div>
+      <ul>
+        <li>Knockout games are <b>not scored</b> — the admin taps the winning team.</li>
+        <li>Tapping the same team again undoes the pick.</li>
+        <li>Changing an earlier round clears everything after it, since those
+        matchups no longer exist.</li>
+      </ul>
+      <p>Winning the Grand Final takes the cup, and that team is added to
+      <b>Past Champions</b> the moment the final is decided.</p>
+    </div>
+    <button id="rulesClose">Close</button>
+  </div>
+</div>
 
 <script>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
@@ -543,9 +624,15 @@ function renderHall(entries) {
 }
 window.renderHall = renderHall;
 
-$('hallBtn').onclick = () => $('hall').classList.add('open');
-$('hallClose').onclick = () => $('hall').classList.remove('open');
-$('hall').onclick = e => { if (e.target === $('hall')) $('hall').classList.remove('open'); };
+// overlays: tap the backdrop or Close to dismiss, Esc closes whichever is open
+[['hallBtn', 'hall', 'hallClose'], ['rulesBtn', 'rules', 'rulesClose']].forEach(([btn, panel, close]) => {
+  $(btn).onclick = () => $(panel).classList.add('open');
+  $(close).onclick = () => $(panel).classList.remove('open');
+  $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') ['hall', 'rules'].forEach(p => $(p).classList.remove('open'));
+});
 
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
 $('resetBtn').onclick = () => {

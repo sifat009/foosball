@@ -8,7 +8,9 @@ State lives in a Firebase Realtime Database, so everyone sees the standings
 update live. One admin account can edit; everyone else is read-only.
 
 Finished cups are archived: "Past Champions" opens a list of every previous
-winner, readable by anyone, at any point in a tournament.
+winner, readable by anyone, at any point in a tournament. "How it works" in the
+footer explains the format, the table, and the knockout — keep it in step with
+`rank()` and `startKnockout()` if you change either.
 
 ## Before it works
 
