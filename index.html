@@ -631,22 +631,25 @@ const ADMIN_EMAIL = 'bhacker150@gmail.com'; // must match the .write rule in dat
 var isAdmin = false, gotRemote = false;
 
 const SUB_ADMIN = 'Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.';
-const SUB_VIEW = 'Live standings — updates automatically as the admin records results.';
 const SUB_SUGGEST = 'You can suggest scores — type into any match still showing empty boxes, and the admin confirms them.';
 
 // the subtitle is the one place a signed-out visitor learns suggesting exists.
-// the invite is a pill on its own line, not a run-on tail of the main sentence,
-// and only appears before the knockout — the only time a suggestion still helps.
+// the invite is a pill on its own line, and only appears before the knockout —
+// the only time a suggestion still helps. A plain viewer sees no subtitle at
+// all, so the element hides itself when there's nothing to say.
 function updateSub() {
   const sub = $('tourneySub');
-  sub.textContent = isAdmin ? SUB_ADMIN : signedIn && !koStarted ? SUB_SUGGEST : SUB_VIEW;
-  if (!isAdmin && !signedIn && !koStarted) {
-    sub.appendChild(document.createElement('br'));
+  const main = isAdmin ? SUB_ADMIN : signedIn && !koStarted ? SUB_SUGGEST : '';
+  sub.textContent = main;
+  const invite = !isAdmin && !signedIn && !koStarted;
+  if (invite) {
+    if (main) sub.appendChild(document.createElement('br'));
     const pill = document.createElement('span');
     pill.className = 'hint-pill';
     pill.innerHTML = svg('bulb') + ' Played a match while the admin was away? <b>Sign in</b> to suggest the score.';
     sub.appendChild(pill);
   }
+  sub.style.display = main || invite ? '' : 'none';
 }
 
 function setAdmin(v) {
