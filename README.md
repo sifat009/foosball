@@ -7,14 +7,27 @@ Plain HTML — no build step, no npm. Deployed at
 State lives in a Firebase Realtime Database, so everyone sees the standings
 update live. One admin account can edit; everyone else is read-only.
 
+Finished cups are archived: "Past Champions" opens a list of every previous
+winner, readable by anyone, at any point in a tournament.
+
 ## Before it works
 
 **Authorized domains.** Firebase Console → Authentication → Settings →
 Authorized domains → add `sifat009.github.io`. Google sign-in is rejected from
 any domain not on that list. `localhost` is already there.
 
-Then paste `database.rules.json` into Console → Realtime Database → Rules and
-hit Publish.
+**Database rules.** `firebase.json` and `.firebaserc` are checked in, so
+deploying is:
+
+```
+npm i -g firebase-tools
+firebase login
+firebase deploy --only database
+```
+
+Don't run `firebase init database` — it offers to overwrite
+`database.rules.json`, and that file is the real access boundary. Pasting the
+file into Console → Realtime Database → Rules works too.
 
 The admin account is set in two places and they must match:
 `ADMIN_EMAIL` in `index.html`, and the address in the `.write` rule. The one in
@@ -40,7 +53,8 @@ node test.mjs
 Firebase is blocked during the run, so the suite covers the app logic and the
 admin gate offline: read-only by default, standings render from a pushed
 state, admin unlocks editing, writes carry the right payload, no writes before
-the first snapshot, and sign-out re-locks.
+the first snapshot, sign-out re-locks, and Past Champions lists cups
+newest-first and records only finished ones.
 
 What the suite **cannot** cover, because it needs real Google OAuth — check
 these by hand after deploying:
@@ -51,14 +65,8 @@ these by hand after deploying:
 - Two browsers open at once: a score entered in one appears in the other
   within a second or so, without a reload.
 - Killing the network shows the offline warning and edits stop saving.
-
-## Migrating an in-flight cup
-
-The app used to keep state in the URL hash. If you have an old link with a
-tournament in it, open it while signed in as admin: the page seeds the
-database from the hash, but **only if the database is empty**, atomically, and
-then strips the hash from the URL. A stale bookmark can't overwrite a live
-cup. Once seeded, the hash is no longer used for anything.
+- Finishing a cup and hitting Start Over adds the winner to Past Champions,
+  and a viewer's open list picks it up without a reload.
 
 ## Notes
 
@@ -68,3 +76,9 @@ cup. Once seeded, the hash is no longer used for anything.
 - The Firebase config in `index.html` is public by design. It identifies the
   project; it does not grant access. The rules do that.
 - "Start Over" wipes the cup for everyone watching, not just the admin's tab.
+  It is also what records the champion, since a finished cup is only ever
+  cleared that way. Abandoning an unfinished cup records nothing. There is no
+  UI for editing the archive — fix a bad entry in the Firebase console.
+- Past Champions is an overlay, not one of the `.screen` divs. `applyState()`
+  calls `show()` on every remote snapshot, so a screen would close itself the
+  moment the admin scored a match.
