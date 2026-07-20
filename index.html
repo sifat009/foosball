@@ -1425,7 +1425,7 @@ onAuthStateChanged(auth, user => {
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
   $('authBtn').innerHTML = user
-    ? (admin ? '<svg class="ico"><use href="#i-check"/></svg> Admin — sign out' : 'Signed in — sign out')
+    ? (admin ? '<svg class="ico"><use href="#i-check"/></svg> Admin — sign out' : 'Sign out')
     : 'Sign in';
 });
 
