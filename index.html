@@ -56,7 +56,13 @@
     font-size: 0.82rem; font-weight: 700; letter-spacing: normal; text-transform: none;
   }
   .hint-pill .ico { margin-right: 6px; }
-  .hint-pill b { color: #6f5610; white-space: nowrap; }
+  /* the call to action sits on its own bottom line, kept to one line */
+  .hint-cta { display: block; margin-top: 3px; white-space: nowrap; }
+  .hint-signin {
+    color: #6f5610; font-weight: 800; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 2px;
+  }
+  .hint-signin:hover { color: #b45309; }
   .screen { display: none; max-width: 1150px; margin: 0 auto; }
   .screen.active { display: block; }
   .btn {
@@ -589,7 +595,7 @@ Rashed</textarea>
       other until the final: <b>A1 v B2</b> and <b>B1 v A2</b>.</p>
 
       <div class="rules-h">Suggesting a score</div>
-      <p>Played a group match while the admin wasn't around? <b>Sign in</b> with any
+      <p>Played a group match while the admin wasn't around? <a class="hint-signin" onclick="startSignIn()">Sign in</a> with any
       Google account and type the score straight into that match — it's sent as a
       <i>suggestion</i>, shown to everyone with your name on it. It doesn't change
       the standings; the admin accepts it (or corrects it) when they're back. Only
@@ -656,11 +662,21 @@ function updateSub() {
     if (main) sub.appendChild(document.createElement('br'));
     const pill = document.createElement('span');
     pill.className = 'hint-pill';
-    pill.innerHTML = svg('bulb') + ' Played a match while the admin was away? <b>Sign in</b> to suggest the score.';
+    pill.innerHTML = svg('bulb') + ' Played a match while the admin was away?' +
+      '<span class="hint-cta"><a class="hint-signin">Sign in</a> to suggest the score.</span>';
+    pill.querySelector('.hint-signin').onclick = startSignIn;
     sub.appendChild(pill);
   }
   sub.style.display = main || invite ? '' : 'none';
 }
+
+// one entry point for the "Sign in" links (the invite pill, the rules panel).
+// only fires when truly signed out, so the how-it-works link can't sign an
+// admin back out; closes the rules overlay if it's what was clicked.
+window.startSignIn = () => {
+  $('rules').classList.remove('open');
+  if (!signedIn && !isAdmin) $('authBtn').click();
+};
 
 function setAdmin(v) {
   isAdmin = v;
