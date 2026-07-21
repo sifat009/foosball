@@ -303,6 +303,31 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw
   'the page scrolls sideways on a phone');
 console.log('mobile layout OK');
 
+// ---------- coin toss ----------
+// anyone can open it, the two dropdowns come from the live roster and can't pick
+// the same team twice, and a flip always names a winner. It's ephemeral, so it
+// must not scroll the page or touch cup state.
+await page.evaluate(() => { window.setAdmin(false); show('tourney'); });
+await page.click('#tossBtn');
+await page.waitForTimeout(150);
+const toss = await page.evaluate(() => ({
+  open: document.getElementById('toss').classList.contains('open'),
+  a: tossA.options.length, b: tossB.options.length, dup: tossA.value === tossB.value,
+}));
+assert.ok(toss.open, 'the coin toss overlay did not open');
+assert.ok(toss.a >= 2 && toss.b >= 1, 'the toss dropdowns were not filled from the roster');
+assert.ok(!toss.dup, 'the toss let a team play itself');
+await page.click('#tossFlip');
+await page.waitForFunction(
+  () => /serves first/.test(document.getElementById('tossResult').textContent),
+  null, { timeout: 3000 });
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
+  'the coin toss overlay scrolls the page sideways');
+await page.click('#tossClose');
+assert.ok(!(await page.evaluate(() => document.getElementById('toss').classList.contains('open'))),
+  'the coin toss overlay would not close');
+console.log('coin toss OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

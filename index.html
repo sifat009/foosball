@@ -296,13 +296,13 @@
   @keyframes rise-in { from { transform: translateY(18px); opacity: 0; } }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules {
+  #hall, #rules, #toss {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
-  #hall.open, #rules.open { display: flex; }
+  #hall.open, #rules.open, #toss.open { display: flex; }
   .hall-card {
     background: #fff; border-radius: 18px; padding: 28px 26px 22px;
     width: min(440px, 100%); max-height: 80vh; overflow-y: auto;
@@ -321,10 +321,77 @@
   .hall-name { flex: 1; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
   .hall-date { color: #8fa0b8; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
   .hall-empty { text-align: center; color: #8fa0b8; font-size: 0.85rem; padding: 22px 0; }
-  #hallClose, #rulesClose {
+  #hallClose, #rulesClose, #tossClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  }
+
+  /* ---- coin toss overlay ---- */
+  #tossBtn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #fff; color: #96660a; border: 1.5px solid #f0d79a;
+    border-radius: 999px; padding: 10px 22px; font-family: inherit;
+    font-size: 0.86rem; font-weight: 800; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(229,185,63,0.18); transition: filter 0.15s, border-color 0.15s;
+  }
+  #tossBtn:hover { filter: brightness(1.03); border-color: #e6c153; }
+  .toss-launch { text-align: center; margin: -22px 0 34px; }
+  #toss .toss-sub { text-align: center; color: #8fa0b8; font-size: 0.8rem; margin: -14px 0 20px; }
+  #toss .pickers { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
+  #toss .picker { flex: 1; min-width: 0; }
+  #toss .picker label {
+    display: block; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em;
+    text-transform: uppercase; margin-bottom: 6px;
+  }
+  #toss .picker.a label { color: #2563eb; }
+  #toss .picker.b label { color: #dc5a1e; }
+  #toss select {
+    width: 100%; font: inherit; font-size: 0.9rem; font-weight: 700; color: #172b4d;
+    background: #f4f6fa; border: 1.5px solid #e2e8f1; border-radius: 12px;
+    padding: 11px 34px 11px 12px; cursor: pointer; -webkit-appearance: none; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, #5b6a7d 50%),
+                      linear-gradient(135deg, #5b6a7d 50%, transparent 50%);
+    background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  #toss .picker.a select:focus { border-color: #2563eb; outline: none; }
+  #toss .picker.b select:focus { border-color: #dc5a1e; outline: none; }
+  #toss .vs { color: #8fa0b8; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.1em; margin-top: 20px; flex: none; }
+  #toss .stage { position: relative; display: grid; place-items: center; padding: 8px 0 16px; }
+  #toss .flipwrap { position: relative; width: 150px; height: 150px; }
+  #toss .floor {
+    position: absolute; bottom: 6px; left: 50%; width: 92px; height: 13px;
+    transform: translateX(-50%); border-radius: 50%;
+    background: radial-gradient(ellipse at center, rgba(10,16,28,0.24), transparent 72%);
+  }
+  #tossCanvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 12px 16px rgba(10,16,28,0.26)); }
+  #toss .ribbon {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.82);
+    max-width: 86%; padding: 5px 13px; border-radius: 999px; color: #fff;
+    font-weight: 800; font-size: 0.74rem; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; box-shadow: 0 4px 12px rgba(0,0,0,0.32);
+    border: 1.5px solid rgba(255,255,255,0.6); pointer-events: none;
+    opacity: 0; transition: opacity 0.3s ease, transform 0.3s cubic-bezier(.2,1.3,.4,1);
+  }
+  #toss .flipwrap.reveal .ribbon { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  #tossFlip {
+    display: block; margin: 0 auto; border: none; border-radius: 999px;
+    padding: 13px 42px; font: inherit; font-weight: 800; letter-spacing: 0.02em;
+    color: #fff; cursor: pointer; background: linear-gradient(135deg, #22ab5f, #17854a);
+    box-shadow: 0 10px 26px rgba(31,157,85,0.35); transition: transform 0.12s, filter 0.2s;
+  }
+  #tossFlip:hover:not(:disabled) { transform: translateY(-2px); filter: brightness(1.05); }
+  #tossFlip:active:not(:disabled) { transform: translateY(0); }
+  #tossFlip:disabled { opacity: 0.5; cursor: default; }
+  #toss .toss-result { text-align: center; min-height: 1.4em; margin-top: 14px; font-weight: 800; font-size: 0.95rem; color: #172b4d; }
+  #toss .toss-result .who { padding: 3px 10px; border-radius: 7px; color: #fff; }
+  #toss .toss-result .idle { color: #8fa0b8; font-weight: 600; font-size: 0.85rem; }
+  @media (prefers-reduced-motion: reduce) { #toss .ribbon { transition: none; } }
+  @media (max-width: 640px) {
+    #toss .pickers { flex-direction: column; align-items: stretch; gap: 12px; }
+    #toss .vs { margin: 0; align-self: center; }
+    #toss .flipwrap { width: 134px; height: 134px; }
   }
   /* rules sheet */
   .rules-h {
@@ -537,6 +604,7 @@ Rashed</textarea>
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Battle Of Titans</span></h1>
   <div class="subtitle" id="tourneySub">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
+  <div class="toss-launch"><button id="tossBtn">🪙 Coin Toss</button></div>
   <div id="champion"></div>
   <div id="groupSection">
     <div class="section-title">Group Stage</div>
@@ -551,6 +619,28 @@ Rashed</textarea>
 
 <div class="footer">
   Ollyo Foosball Federation · est. 2026 · <button id="rulesBtn">How it works</button>
+</div>
+
+<div id="toss">
+  <div class="hall-card">
+    <div class="hall-title">🪙 Match Toss</div>
+    <div class="toss-sub">Spin the coin — the winner kicks off first.</div>
+    <div class="pickers">
+      <div class="picker a"><label>Blue side</label><select id="tossA"></select></div>
+      <div class="vs">VS</div>
+      <div class="picker b"><label>Orange side</label><select id="tossB"></select></div>
+    </div>
+    <div class="stage">
+      <div class="floor"></div>
+      <div class="flipwrap" id="tossWrap">
+        <canvas id="tossCanvas"></canvas>
+        <span class="ribbon" id="tossRibbon"></span>
+      </div>
+    </div>
+    <button id="tossFlip">Flip the Coin</button>
+    <div class="toss-result" id="tossResult"><span class="idle">Ready when you are.</span></div>
+    <button id="tossClose">Close</button>
+  </div>
 </div>
 
 <div id="rules">
@@ -810,7 +900,7 @@ window.renderHall = renderHall;
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') ['hall', 'rules'].forEach(p => $(p).classList.remove('open'));
+  if (e.key === 'Escape') ['hall', 'rules', 'toss'].forEach(p => $(p).classList.remove('open'));
 });
 
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
@@ -1403,6 +1493,173 @@ window.bootDone = () => {
   document.body.classList.remove('booting');
 };
 var bootTimer = setTimeout(window.bootDone, 3000);
+</script>
+
+<script>
+/* ================= COIN TOSS =================
+   A pre-match toss anyone can run: pick the two teams, spin a gold coin, the
+   winner kicks off. Purely local and ephemeral — it writes nothing and touches
+   no cup state. The coin is a real spinning sphere-of-a-disc: its face
+   foreshortens to an ellipse and turns edge-on as it rotates around the vertical
+   axis. Blue side / orange side is just slot colour for the two chosen teams. */
+(function () {
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = $('tossCanvas'), wrap = $('tossWrap'), ribbon = $('tossRibbon');
+  const selA = $('tossA'), selB = $('tossB');
+  const COL_A = '#2563eb', COL_B = '#dc5a1e';
+
+  function fit() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const r = canvas.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.round(r.width * dpr));
+    canvas.height = Math.max(1, Math.round(r.height * dpr));
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return { ctx, w: r.width, h: r.height };
+  }
+  function starPath(ctx, R) {
+    ctx.beginPath();
+    for (let i = 0; i < 10; i++) {
+      const rad = i % 2 ? R * 0.4 : R, a = -Math.PI / 2 + i * Math.PI / 5;
+      const px = rad * Math.cos(a), py = rad * Math.sin(a);
+      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+  }
+  function relief(ctx, path, mid, depth) {
+    const d = depth || 1;
+    ctx.save(); ctx.translate(d, d * 1.2); path(ctx); ctx.fillStyle = 'rgba(86,55,10,0.55)'; ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(-d, -d * 1.2); path(ctx); ctx.fillStyle = 'rgba(255,248,214,0.6)'; ctx.fill(); ctx.restore();
+    path(ctx); ctx.fillStyle = mid; ctx.fill();
+  }
+  function arcText(ctx, text, radius, size, bottom) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.font = `800 ${size}px "Inter", sans-serif`;
+    const step = size * 0.92 / radius, n = text.length;
+    for (let i = 0; i < n; i++) {
+      const off = i - (n - 1) / 2;
+      const ang = bottom ? (Math.PI / 2 - off * step) : (-Math.PI / 2 + off * step);
+      ctx.save();
+      ctx.translate(Math.cos(ang) * radius, Math.sin(ang) * radius);
+      ctx.rotate(bottom ? ang - Math.PI / 2 : ang + Math.PI / 2);
+      ctx.fillStyle = 'rgba(86,55,10,0.5)'; ctx.fillText(text[i], 0.6, 0.9);
+      ctx.fillStyle = 'rgba(255,248,214,0.55)'; ctx.fillText(text[i], -0.6, -0.9);
+      ctx.fillStyle = '#7c5310'; ctx.fillText(text[i], 0, 0);
+      ctx.restore();
+    }
+  }
+  function drawCoin(angle) {
+    const { ctx, w, h } = fit();
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 8, T = 13;
+    ctx.clearRect(0, 0, w, h);
+    const cos = Math.cos(angle), sin = Math.sin(angle), a = Math.abs(cos);
+    const rx = R * a, ry = R, edgeW = T * Math.abs(sin);
+
+    if (a < 0.045) { // edge-on: thin reeded gold bar
+      const bw = T, g = ctx.createLinearGradient(cx - bw / 2, 0, cx + bw / 2, 0);
+      g.addColorStop(0, '#6d480e'); g.addColorStop(.5, '#f3cf62'); g.addColorStop(1, '#6d480e');
+      ctx.beginPath(); ctx.roundRect(cx - bw / 2, cy - ry, bw, 2 * ry, bw / 2); ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = 'rgba(70,46,8,0.5)'; ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 2.4, cy - ry + 4); ctx.lineTo(cx + i * 2.4, cy + ry - 4); ctx.stroke(); }
+      return;
+    }
+    const eg = ctx.createLinearGradient(cx - rx - edgeW, 0, cx + rx + edgeW, 0);
+    eg.addColorStop(0, '#5f3e0c'); eg.addColorStop(.5, '#9a6d18'); eg.addColorStop(1, '#5f3e0c');
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx + edgeW, ry, 0, 0, 7); ctx.fillStyle = eg; ctx.fill();
+
+    let fg = ctx.createLinearGradient(cx, cy - ry, cx, cy + ry);
+    fg.addColorStop(0, '#fff4c6'); fg.addColorStop(.28, '#f4cf63'); fg.addColorStop(.5, '#e6b23a');
+    fg.addColorStop(.72, '#cf9526'); fg.addColorStop(1, '#a9741a');
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fillStyle = fg; ctx.fill();
+    let rg = ctx.createRadialGradient(cx - rx * 0.42, cy - ry * 0.44, 2, cx, cy, Math.max(rx, ry) * 1.05);
+    rg.addColorStop(0, 'rgba(255,252,235,0.85)'); rg.addColorStop(.4, 'rgba(255,245,205,0)'); rg.addColorStop(1, 'rgba(120,80,16,0.35)');
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fillStyle = rg; ctx.fill();
+
+    ctx.save(); ctx.translate(cx, cy); ctx.scale(a, 1);
+    ctx.strokeStyle = 'rgba(110,74,14,0.5)'; ctx.lineWidth = 1;
+    for (let i = 0; i < 76; i++) { const t = i / 76 * Math.PI * 2, c1 = Math.cos(t), s1 = Math.sin(t);
+      ctx.beginPath(); ctx.moveTo(c1 * R * 0.985, s1 * R * 0.985); ctx.lineTo(c1 * R * 0.9, s1 * R * 0.9); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.9, 0, 7); ctx.lineWidth = R * 0.05; ctx.strokeStyle = 'rgba(255,243,196,0.55)'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(0, 0, R * 0.82, 0, 7); ctx.lineWidth = R * 0.025; ctx.strokeStyle = 'rgba(110,74,14,0.55)'; ctx.stroke();
+    for (let i = 0; i < 40; i++) { const t = i / 40 * Math.PI * 2, bx = Math.cos(t) * R * 0.72, by = Math.sin(t) * R * 0.72;
+      relief(ctx, c => { c.beginPath(); c.arc(bx, by, R * 0.018, 0, 7); }, '#d9a838', 0.5); }
+    if (a > 0.28) {
+      arcText(ctx, 'OLLYO FOOSBALL CUP', R * 0.6, R * 0.13, false);
+      arcText(ctx, 'KICK-OFF TOSS', R * 0.6, R * 0.13, true);
+      relief(ctx, c => starPath(c, R * 0.34), '#eabf4c', Math.max(0.7, R * 0.02));
+    }
+    ctx.restore();
+
+    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.clip();
+    const c = Math.max(0, Math.min(1, Math.sin(angle * 1.5) * 0.5 + 0.5));
+    const sh = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
+    sh.addColorStop(Math.max(0, c - 0.16), 'rgba(255,255,255,0)');
+    sh.addColorStop(c, 'rgba(255,255,255,0.4)');
+    sh.addColorStop(Math.min(1, c + 0.16), 'rgba(255,255,255,0)');
+    ctx.fillStyle = sh; ctx.fillRect(cx - rx, cy - ry, 2 * rx, 2 * ry); ctx.restore();
+
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,240,190,0.6)'; ctx.stroke();
+  }
+
+  let idleAngle = 0;
+  const drawIdle = () => drawCoin(idleAngle);
+
+  function fillSelects(keepA, keepB) {
+    const names = teams.map(teamName);
+    selA.innerHTML = names.map(n => `<option${n === keepA ? ' selected' : ''}>${n}</option>`).join('');
+    selB.innerHTML = names.filter(n => n !== selA.value).map(n => `<option${n === keepB ? ' selected' : ''}>${n}</option>`).join('');
+    if (selB.value === selA.value || !selB.value) selB.selectedIndex = 0;
+  }
+  function resetResult() {
+    wrap.classList.remove('reveal');
+    drawIdle();
+    $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
+  }
+  selA.onchange = () => { fillSelects(selA.value, selB.value); resetResult(); };
+  selB.onchange = resetResult;
+
+  let busy = false;
+  function flip() {
+    if (busy || teams.length < 2) return;
+    busy = true;
+    wrap.classList.remove('reveal');
+    const btn = $('tossFlip'); btn.disabled = true;
+    $('tossResult').innerHTML = '<span class="idle">Spinning…</span>';
+    const aWins = Math.random() < 0.5;
+    const winName = aWins ? selA.value : selB.value;
+    const winColor = aWins ? COL_A : COL_B;
+    const start = idleAngle, endAngle = start + (5 + Math.random() * 2) * Math.PI * 2;
+    idleAngle = 0;
+    const finish = () => {
+      busy = false; btn.disabled = false;
+      drawCoin(0);
+      ribbon.textContent = winName; ribbon.style.background = winColor;
+      wrap.classList.add('reveal');
+      $('tossResult').innerHTML =
+        '<span class="who" style="background:' + winColor + '">' + winName + '</span> serves first';
+    };
+    if (reduce) { finish(); return; }
+    const dur = 1700, t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3);
+    (function step(now) {
+      const t = Math.min(1, (now - t0) / dur);
+      drawCoin(start + (endAngle - start) * ease(t));
+      if (t < 1) requestAnimationFrame(step); else finish();
+    })(t0);
+  }
+  $('tossFlip').onclick = flip;
+
+  function openToss() {
+    if (teams.length < 2) return; // nothing to toss between yet
+    fillSelects(teams[0] && teamName(teams[0]), teams[1] && teamName(teams[1]));
+    $('toss').classList.add('open');
+    wrap.classList.remove('reveal');
+    $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
+    requestAnimationFrame(drawIdle); // canvas has size only once the panel is visible
+  }
+  $('tossBtn').onclick = openToss;
+  $('tossClose').onclick = () => $('toss').classList.remove('open');
+  $('toss').onclick = e => { if (e.target === $('toss')) $('toss').classList.remove('open'); };
+})();
 </script>
 
 <script type="module">
