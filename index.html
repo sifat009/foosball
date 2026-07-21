@@ -47,13 +47,16 @@
   }
   /* the "sign in to suggest" invite: its own pill on a second line, not a
      run-on tail of the subtitle */
+  /* inline-block, not flex: the sentence must flow and wrap as one run.
+     flex would make each text node ("Sign in", the tail) a separate column. */
   .hint-pill {
-    display: inline-flex; align-items: center; gap: 7px; margin-top: 14px;
-    padding: 7px 16px; border-radius: 999px;
+    display: inline-block; max-width: 100%; margin-top: 14px;
+    padding: 8px 16px; border-radius: 16px; line-height: 1.5;
     background: #fff8e6; border: 1px solid #f0dca0; color: #8a6d1f;
     font-size: 0.82rem; font-weight: 700; letter-spacing: normal; text-transform: none;
   }
-  .hint-pill b { color: #6f5610; }
+  .hint-pill .ico { margin-right: 6px; }
+  .hint-pill b { color: #6f5610; white-space: nowrap; }
   .screen { display: none; max-width: 1150px; margin: 0 auto; }
   .screen.active { display: block; }
   .btn {
