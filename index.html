@@ -321,6 +321,27 @@
   .hall-name { flex: 1; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
   .hall-date { color: #8fa0b8; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
   .hall-empty { text-align: center; color: #8fa0b8; font-size: 0.85rem; padding: 22px 0; }
+  .hall-tabs {
+    display: flex; gap: 6px; background: #f4f6fa; border-radius: 999px;
+    padding: 4px; margin: -8px auto 18px; width: fit-content;
+  }
+  .hall-tab {
+    border: 0; background: transparent; color: #5b6a7d; cursor: pointer;
+    font-family: inherit; font-size: 0.8rem; font-weight: 700;
+    padding: 7px 18px; border-radius: 999px; transition: background 0.15s, color 0.15s;
+  }
+  .hall-tab.active { background: #fff; color: #172b4d; box-shadow: 0 1px 4px rgba(10,16,28,0.12); }
+  .pl-row {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    padding: 11px 4px; border-bottom: 1px solid #eef1f6;
+  }
+  .pl-row:last-child { border-bottom: 0; }
+  .pl-n { color: #c3ccda; font-weight: 800; font-size: 0.8rem; min-width: 22px; }
+  .pl-name { flex: 1; min-width: 90px; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
+  .pl-stats { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  .pl-stat { color: #5b6a7d; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
+  .pl-stat b { color: #172b4d; font-weight: 800; }
+  .pl-titles { color: #b8860b; font-weight: 800; font-size: 0.8rem; white-space: nowrap; }
   #hallClose, #rulesClose, #tossClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
@@ -529,8 +550,13 @@
 
 <div id="hall">
   <div class="hall-card">
-    <div class="hall-title"><svg class="ico"><use href="#i-trophy"/></svg> Past Champions</div>
+    <div class="hall-title"><svg class="ico"><use href="#i-trophy"/></svg> Hall of Fame</div>
+    <div class="hall-tabs">
+      <button class="hall-tab active" data-tab="cups">Cups</button>
+      <button class="hall-tab" data-tab="players">Players</button>
+    </div>
     <div id="hallList"><div class="hall-empty">No cups completed yet.</div></div>
+    <div id="hallPlayers" style="display:none"><div class="hall-empty">No player records yet.</div></div>
     <button id="hallClose">Close</button>
   </div>
 </div>
@@ -873,7 +899,50 @@ function ding() { try { tone(880, 0, 0.5, 0.12, 'triangle'); tone(1318.5, 0.09, 
    Written once per cup, when the admin starts over (a finished cup is only
    ever cleared that way). renderHall is called by the history subscription at
    the bottom, so every viewer's list stays current without a reload. */
+/* All-time player board, aggregated from every archived cup. Titles come from
+   the champion string so they count retroactively for cups saved before the
+   per-player rollup existed; plays/wins/goals only from cups that carry it. */
+function renderPlayers(entries) {
+  const box = $('hallPlayers');
+  const P = {};
+  const get = n => P[n] || (P[n] = { titles: 0, p: 0, w: 0, gf: 0, ga: 0 });
+  entries.forEach(e => {
+    (e.champion || '').split(' + ').forEach(n => { if (n) get(n).titles++; });
+    if (e.players) Object.entries(e.players).forEach(([n, s]) => {
+      const x = get(n);
+      x.p += s.p || 0; x.w += s.w || 0; x.gf += s.gf || 0; x.ga += s.ga || 0;
+    });
+  });
+  const rows = Object.entries(P).map(([name, s]) =>
+    ({ name, ...s, gd: s.gf - s.ga, pct: s.p ? Math.round((s.w / s.p) * 100) : null }));
+  if (!rows.length) { box.innerHTML = '<div class="hall-empty">No player records yet.</div>'; return; }
+  rows.sort((a, b) => b.titles - a.titles || (b.pct ?? -1) - (a.pct ?? -1) || b.gd - a.gd || a.name.localeCompare(b.name));
+  box.innerHTML = '';
+  rows.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'pl-row';
+    const n = document.createElement('div');
+    n.className = 'pl-n'; n.textContent = '#' + (i + 1);
+    const name = document.createElement('div');
+    name.className = 'pl-name'; name.textContent = r.name; // textContent: names are user input
+    const stats = document.createElement('div');
+    stats.className = 'pl-stats';
+    const cell = (cls, html) => { const s = document.createElement('span'); s.className = cls; s.innerHTML = html; return s; };
+    if (r.titles) stats.appendChild(cell('pl-titles', '🏆 ' + r.titles));
+    if (r.p) {
+      stats.appendChild(cell('pl-stat', `<b>${r.w}</b>–${r.p - r.w}`));
+      stats.appendChild(cell('pl-stat', `<b>${r.pct}%</b>`));
+      stats.appendChild(cell('pl-stat', (r.gd >= 0 ? '+' : '') + r.gd + ' GD'));
+    } else {
+      stats.appendChild(cell('pl-stat', '—'));
+    }
+    row.append(n, name, stats);
+    box.appendChild(row);
+  });
+}
+
 function renderHall(entries) {
+  renderPlayers(entries);
   const list = $('hallList');
   if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
   list.innerHTML = '';
@@ -901,6 +970,12 @@ window.renderHall = renderHall;
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') ['hall', 'rules', 'toss'].forEach(p => $(p).classList.remove('open'));
+});
+document.querySelectorAll('.hall-tab').forEach(tab => tab.onclick = () => {
+  document.querySelectorAll('.hall-tab').forEach(t => t.classList.toggle('active', t === tab));
+  const players = tab.dataset.tab === 'players';
+  $('hallList').style.display = players ? 'none' : '';
+  $('hallPlayers').style.display = players ? '' : 'none';
 });
 
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
@@ -1418,9 +1493,33 @@ function renderBracket() {
    everything after it. Writing to a fixed key per cup means an undo removes
    the entry and a correction overwrites it — no duplicates, no stale winners.
    Guarded like save(): viewers replaying a snapshot must not write. */
+/* Per-player rollup archived alongside the champion. Foosball is 2v2, so both
+   members of a team share that team's result — the board tracks people across
+   the partners they're re-drafted with each cup. Group matches carry scores;
+   KO matches are winner-only, so they add plays/wins but no goals. */
+function rollupPlayers() {
+  const P = {};
+  const add = (name, w, gf, ga) => {
+    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0 });
+    x.p++; x.w += w; x.gf += gf; x.ga += ga;
+  };
+  const credit = (team, won, gf, ga) => { if (team) { add(team.fwd, won, gf, ga); add(team.def, won, gf, ga); } };
+  groups.forEach(g => g.matches.forEach(m => {
+    if (!m.winner) return;
+    credit(m.a, m.winner === m.a ? 1 : 0, m.sa, m.sb);
+    credit(m.b, m.winner === m.b ? 1 : 0, m.sb, m.sa);
+  }));
+  koRounds.forEach(round => round.forEach(m => {
+    if (!m.winner || !m.a || !m.b) return; // KO has no scores — plays and wins only
+    credit(m.a, m.winner === m.a ? 1 : 0, 0, 0);
+    credit(m.b, m.winner === m.b ? 1 : 0, 0, 0);
+  }));
+  return P;
+}
+
 function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
-  if (w) window.recordChampion(cupId, teamName(w));
+  if (w) window.recordChampion(cupId, teamName(w), rollupPlayers());
   else window.clearChampion(cupId);
 }
 
@@ -1689,7 +1788,7 @@ const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
 
-window.recordChampion = (id, champion) => set(ref(db, 'history/' + id), { champion, date: Date.now() })
+window.recordChampion = (id, champion, players) => set(ref(db, 'history/' + id), { champion, date: Date.now(), players: players || null })
   .catch(err => {
     console.error('[history] write rejected:', err);
     alert('Could not record the champion: ' + err.message);
