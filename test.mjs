@@ -156,6 +156,46 @@ if (await page.isVisible('#celebrate')) await page.click('#celebrate');
 await page.waitForTimeout(150);
 assert.ok(!(await page.isVisible('#celebrate')), 'tapping the celebration did not dismiss it');
 
+// ---------- player leaderboard ----------
+// rollupPlayers: foosball is 2v2, so both partners share the team result;
+// group matches carry goals, KO matches add a play/win but no goals.
+const roll = await page.evaluate(() => {
+  const nur = { fwd: 'Nur', def: 'Rashed' }, rifat = { fwd: 'Rifat', def: 'Sifat' }, saj = { fwd: 'Sajeeb', def: 'Toufiq' };
+  groups = [{ name: 'A', teams: [nur, rifat, saj], matches: [
+    { a: nur, b: rifat, sa: 10, sb: 7, winner: nur },
+    { a: rifat, b: saj, sa: 8, sb: 9, winner: saj },
+    { a: nur, b: saj, sa: null, sb: null, winner: null }, // unplayed — ignored
+  ] }];
+  koRounds = [[{ a: nur, b: saj, winner: nur }]];         // final, no scores
+  koStarted = true;
+  return rollupPlayers();
+});
+assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 10, ga: 7 }, 'winner not credited group goals + KO win');
+assert.deepEqual(roll['Rashed'], roll['Nur'], 'both partners must share the team result');
+assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 8 }, 'KO loss should add a play, no goals');
+assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19 }, 'loser goals wrong');
+
+// renderPlayers: aggregate across cups; titles count retroactively for cups
+// archived before per-player stats existed (champion string only).
+await page.evaluate(() => window.renderHall([
+  { champion: 'Nur + Rashed', date: 1, players: { Nur: { p: 3, w: 3, gf: 20, ga: 10 }, Rashed: { p: 3, w: 3, gf: 20, ga: 10 }, Rifat: { p: 3, w: 0, gf: 5, ga: 18 } } },
+  { champion: 'Rifat + Sifat', date: 2 }, // old cup, no players — title only
+]));
+await page.click('#hallBtn');
+await page.click('.hall-tab[data-tab="players"]');
+assert.ok(await page.isVisible('#hallPlayers') && !(await page.isVisible('#hallList')), 'players tab did not swap panes');
+const pl = await page.$$eval('.pl-row', rs => rs.map(r => r.textContent));
+assert.equal(pl.length, 4, 'expected one row per distinct player');
+assert.ok(pl[0].includes('Nur') && pl[0].includes('🏆 1') && pl[0].includes('100%'), 'top player wrong');
+assert.ok(pl.find(r => r.includes('Sifat')).includes('🏆 1'), 'retroactive title (title-only old cup) missing');
+assert.ok(pl.find(r => r.includes('Rifat')).includes('🏆 1'), 'retroactive title from champion string missing');
+await page.click('.hall-tab[data-tab="cups"]');
+assert.ok(await page.isVisible('#hallList') && !(await page.isVisible('#hallPlayers')), 'cups tab did not restore');
+await page.click('#hallClose');
+// this block poked koRounds/groups directly — clear it so the next test starts fresh
+await page.evaluate(() => { groups = []; koRounds = []; koStarted = false; lastChamp = null; });
+console.log('player leaderboard OK');
+
 await page.click('#rulesBtn');
 assert.ok(await page.isVisible('#rules'), 'the rules link did not open anything');
 const rules = (await page.textContent('#rules')).replace(/\s+/g, ' '); // source wraps mid-sentence
