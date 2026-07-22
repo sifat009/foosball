@@ -1849,6 +1849,7 @@ onAuthStateChanged(auth, user => {
 $('authBtn').onclick = () => {
   if (auth.currentUser) return signOut(auth);
   signInWithPopup(auth, new GoogleAuthProvider()).catch(err => {
+    if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
     console.error('[auth]', err);
     alert('Sign-in failed: ' + err.message);
   });
