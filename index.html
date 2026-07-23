@@ -357,7 +357,10 @@
     box-shadow: 0 4px 14px rgba(229,185,63,0.18); transition: filter 0.15s, border-color 0.15s;
   }
   #tossBtn:hover { filter: brightness(1.03); border-color: #e6c153; }
-  .toss-launch { text-align: center; margin: -22px 0 34px; }
+  /* the button supplies its own gap, so the subtitle above it drops its
+     bottom margin — that way the spacing holds up when updateSub() hides it */
+  #tourneySub { margin-bottom: 0; }
+  .toss-launch { text-align: center; margin: 20px 0 34px; }
   #toss .toss-sub { text-align: center; color: #8fa0b8; font-size: 0.8rem; margin: -14px 0 20px; }
   #toss .pickers { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
   #toss .picker { flex: 1; min-width: 0; }
