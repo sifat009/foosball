@@ -1904,7 +1904,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, remove, get, update }
+import { getDatabase, ref, onValue, set, remove }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -1972,37 +1972,9 @@ onValue(cupRef, snap => {
 
 onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
 
-/* One-time rename: "Sazedul Haque" is the same person as "Sazedul". Rewrites
-   the substring in the Hall of Fame history — champion strings and per-player
-   score keys. Idempotent (no match = no write), admin-only because that node is
-   admin-writable, so it can safely run each admin session. */
-async function migrateName(from, to) {
-  const updates = {};
-  const hist = (await get(historyRef)).val() || {};
-  for (const [id, e] of Object.entries(hist)) {
-    const next = { ...e };
-    let changed = false;
-    if (typeof e.champion === 'string' && e.champion.includes(from)) {
-      next.champion = e.champion.split(from).join(to); changed = true;
-    }
-    if (e.players && Object.keys(e.players).some(k => k.includes(from))) {
-      next.players = {};
-      for (const [k, v] of Object.entries(e.players)) next.players[k.split(from).join(to)] = v;
-      changed = true;
-    }
-    if (changed) updates['history/' + id] = next;
-  }
-  if (Object.keys(updates).length) await update(ref(db), updates);
-}
-let renamed = false;
-
 onAuthStateChanged(auth, user => {
   const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
   window.setAdmin(admin);
-  if (admin && !renamed) {
-    renamed = true;
-    migrateName('Sazedul Haque', 'Sazedul').catch(err => console.error('[migrate]', err));
-  }
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
   $('authBtn').innerHTML = user
