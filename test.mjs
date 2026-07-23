@@ -45,7 +45,7 @@ console.log('default read-only OK');
 await page.evaluate(h => window.applyState(window.decodeState(h)), HASH);
 await page.waitForTimeout(200);
 const groupsText = await page.textContent('#groups');
-for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul Haque + Ofi'])
+for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul + Ofi'])
   assert.ok(groupsText.includes(t), 'missing team: ' + t);
 assert.equal((await page.$$('#groups .score')).length, 20, 'expected 10 matches for 5 teams');
 const disabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
@@ -109,6 +109,17 @@ assert.ok(rows[0].includes('#2') && rows[1].includes('#1'), 'cup numbering does 
 
 await page.click('#hallBtn');
 assert.ok(await page.isVisible('#hall'), 'past champions did not open');
+
+// a past cup's celebration outlives the cup itself — the hall row replays it
+assert.deepEqual(await page.$$eval('.hall-row', rs => [...new Set(rs.map(r => r.tagName))]), ['BUTTON'],
+  'hall rows must be real buttons so they are keyboard reachable');
+await page.click('.hall-row:nth-of-type(2)'); // the older cup, Nur + Rashed
+assert.ok(await page.isVisible('#celebrate'), 'tapping a past cup did not replay its celebration');
+assert.equal(await page.textContent('#champsName'), 'Nur + Rashed', 'replayed the wrong champion');
+await page.locator('#celebrate').dispatchEvent('click'); // the confetti canvas covers the overlay, so dispatch straight at it
+assert.ok(!(await page.isVisible('#celebrate')), 'celebration did not close');
+assert.ok(await page.isVisible('#hall'), 'closing the replay should leave the hall open behind it');
+
 await page.click('#hallClose');
 assert.ok(!(await page.isVisible('#hall')), 'past champions did not close');
 
@@ -135,6 +146,70 @@ assert.deepEqual(log, [
   ['clear', 'cup-1'],
 ], 'the final should drive the record: no write until decided, corrections overwrite the same entry, undo removes it');
 
+// the crown is the shortcut for the cup in progress, and a viewer — who never
+// gets the automatic celebration — must be able to trigger it
+await page.locator('#celebrate').dispatchEvent('click'); // the block above decided a final
+await page.evaluate(() => {
+  window.setAdmin(false);
+  restoring = true; // as if replaying a remote snapshot: no auto-celebration
+  koRounds = [[{ a: { fwd: 'Nur', def: 'Rashed' }, b: { fwd: 'Rifat', def: 'Sifat' }, winner: null }]];
+  koRounds[0][0].winner = koRounds[0][0].a;
+  renderAll();
+  restoring = false;
+});
+assert.ok(!(await page.isVisible('#celebrate')), 'a restored snapshot must not auto-celebrate');
+assert.equal(await page.$eval('.crown', c => c.tagName), 'BUTTON', 'the crown must be a real button');
+assert.ok((await page.textContent('.crown')).includes('Tap to replay'), 'no hint that the crown is tappable');
+await page.click('.crown');
+assert.ok(await page.isVisible('#celebrate'), 'the crown did not replay the celebration');
+assert.equal(await page.textContent('#champsName'), 'Nur + Rashed', 'crown replayed the wrong champion');
+// replaying while confetti is still falling must retire the old loop, not race it
+const reentry = await page.evaluate(() => {
+  celebrate('A + B');
+  const first = celebrateRun;
+  celebrate('C + D');
+  return { advanced: celebrateRun === first + 1, showing: document.getElementById('champsName').textContent };
+});
+assert.ok(reentry.advanced, 're-entering celebrate must retire the previous confetti loop');
+assert.equal(reentry.showing, 'C + D', 'the newer replay should own the screen');
+
+// the fireworks have to actually reach the canvas, and have to stand down for
+// anyone whose OS asks for less motion
+const inkOnCanvas = () => page.evaluate(() => {
+  const c = document.getElementById('confetti');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let s = 0;
+  for (let i = 3; i < d.length; i += 4 * 11) s += d[i];
+  return s;
+});
+// poll rather than sample one frame: a shell has to climb before it opens, so
+// any single instant may hold nothing but a thin trail
+let peak = 0;
+for (let i = 0; i < 12 && peak < 40000; i++) {
+  await page.waitForTimeout(250);
+  peak = Math.max(peak, await inkOnCanvas());
+}
+assert.ok(peak >= 40000, 'fireworks never burst on the canvas, peak ink ' + peak);
+await page.evaluate(() => {
+  const real = window.matchMedia;
+  window.matchMedia = q => /reduced-motion/.test(q) ? { matches: true } : real.call(window, q);
+  celebrate('E + F');
+  window.matchMedia = real;
+});
+await page.waitForTimeout(400);
+assert.equal(await inkOnCanvas(), 0, 'prefers-reduced-motion should leave the sky empty');
+await page.locator('#celebrate').dispatchEvent('click'); // the confetti canvas covers the overlay, so dispatch straight at it
+assert.ok(!(await page.isVisible('#celebrate')), 'celebration did not close');
+// names are user input and the crown builds with innerHTML — the name must not be markup
+await page.evaluate(() => {
+  koRounds = [[{ a: { fwd: '<img src=x onerror="window.__xss=1">', def: 'D' }, b: { fwd: 'B', def: 'C' }, winner: null }]];
+  koRounds[0][0].winner = koRounds[0][0].a;
+  renderAll();
+});
+assert.ok(!(await page.evaluate(() => window.__xss)) && !(await page.$('.crown img')),
+  'a player name reached the DOM as markup');
+console.log('celebration replay OK');
+
 // a viewer replaying the same snapshot must never write
 const viewerLog = await page.evaluate(() => {
   const got = [];
@@ -152,7 +227,7 @@ console.log('past champions OK');
 
 // ---------- rules sheet ----------
 // the champion tests above fired the celebration — dismiss it the way a user does
-if (await page.isVisible('#celebrate')) await page.click('#celebrate');
+if (await page.isVisible('#celebrate')) await page.locator('#celebrate').dispatchEvent('click');
 await page.waitForTimeout(150);
 assert.ok(!(await page.isVisible('#celebrate')), 'tapping the celebration did not dismiss it');
 
@@ -184,11 +259,32 @@ await page.evaluate(() => window.renderHall([
 await page.click('#hallBtn');
 await page.click('.hall-tab[data-tab="players"]');
 assert.ok(await page.isVisible('#hallPlayers') && !(await page.isVisible('#hallList')), 'players tab did not swap panes');
-const pl = await page.$$eval('.pl-row', rs => rs.map(r => r.textContent));
+const pl = await page.$$eval('.pl-row:not(.pl-head)', rs => rs.map(r => r.textContent));
 assert.equal(pl.length, 4, 'expected one row per distinct player');
 assert.ok(pl[0].includes('Nur') && pl[0].includes('🏆 1') && pl[0].includes('100%'), 'top player wrong');
 assert.ok(pl.find(r => r.includes('Sifat')).includes('🏆 1'), 'retroactive title (title-only old cup) missing');
 assert.ok(pl.find(r => r.includes('Rifat')).includes('🏆 1'), 'retroactive title from champion string missing');
+// best round is derived from play counts, not a stored field: in a 5-team cup
+// everyone plays 4 group matches, so finalists land on 6 and semi losers on 5
+await page.evaluate(() => {
+  const s = (p, w) => ({ p, w, gf: 20, ga: 20 });
+  window.renderHall([{ champion: 'Ofi + Sazedul', date: 1, players: {
+    Ofi: s(6, 3), Sazedul: s(6, 3),   // champions
+    Shewa: s(6, 2), Siddiq: s(6, 2),  // lost the final
+    Rifat: s(5, 4), Sifat: s(5, 4),   // lost a semi
+    Nur: s(4, 1), Rashed: s(4, 1),    // never left the group
+    Sajeeb: s(5, 3), Toufiq: s(5, 3),
+  } }]);
+});
+const best = Object.fromEntries(await page.$$eval('.pl-row:not(.pl-head)', rs =>
+  rs.map(r => [r.querySelector('.pl-name').textContent, r.querySelector('.pl-best').textContent])));
+assert.deepEqual(
+  [best.Ofi, best.Shewa, best.Rifat, best.Nur], ['Won', 'Final', 'Semi', 'Group'],
+  'best round should follow how deep the player went, not their win rate');
+// the columns only scan if every row emits the same cells — the whole point of the grid
+const widths = await page.$$eval('.pl-row', rs => rs.map(r => r.children.length));
+assert.ok(widths.every(n => n === 7), 'every row (header included) must emit all 7 cells');
+
 await page.click('.hall-tab[data-tab="cups"]');
 assert.ok(await page.isVisible('#hallList') && !(await page.isVisible('#hallPlayers')), 'cups tab did not restore');
 await page.click('#hallClose');
