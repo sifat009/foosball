@@ -66,6 +66,46 @@ assert.ok(await page.isVisible('#draw') && !(await page.isVisible('#countdown'))
 assert.ok(await page.isVisible('#draw .live-badge'), 'the live draft has no LIVE badge');
 assert.equal(await page.evaluate(() => cdTimer), null, 'the countdown timer kept ticking after the draft opened');
 
+// a spin is an animation, not state: the admin publishes it and viewers replay the
+// same turn, rather than snapping to the result
+const drawState = extra => ({ screen: 'draw', teams: [],
+  fwds: [{ name: 'A', picked: false }, { name: 'B', picked: false }],
+  defs: [{ name: 'a', picked: false }, { name: 'b', picked: false }], ...extra });
+await page.evaluate(() => { SPIN_MS = 300; lastSpinN = null; fwdAngle = 0; defAngle = 0; }); // a fresh viewer
+// joining mid-draft must NOT replay a spin that already happened
+await page.evaluate(s => window.applyState(s), drawState({ spin: { n: 4, fi: 0, di: 0, sf: 0, sd: 0 } }));
+const settled = await page.evaluate(() => fwdAngle);
+await page.waitForTimeout(120);
+assert.equal(await page.evaluate(() => fwdAngle), settled, 'joining mid-draft replayed an old spin');
+
+// the real sequence: "Open the Draft" carries spin:null, and the FIRST spin after
+// it must still register as new — this is the case that silently swallowed spin #1
+await page.evaluate(() => { lastSpinN = null; });
+await page.evaluate(s => window.applyState(s), drawState({}));           // no spin yet
+await page.evaluate(s => window.applyState(s), drawState({ spin: { n: 1, fi: 1, di: 1, sf: 0, sd: 0 } }));
+await page.waitForTimeout(80);
+assert.notEqual(await page.evaluate(() => fwdAngle), settled, 'the first spin after opening the draft never reached viewers');
+await page.waitForTimeout(400);
+
+// a NEW spin number turns the viewer's wheel
+await page.evaluate(() => { fwdAngle = 0; defAngle = 0; });
+await page.evaluate(s => window.applyState(s), drawState({ spin: { n: 5, fi: 1, di: 1, sf: 0, sd: 0 } }));
+await page.waitForTimeout(80);
+const midSpin = await page.evaluate(() => fwdAngle);
+assert.notEqual(midSpin, settled, 'a published spin did not turn the viewer wheel');
+await page.waitForTimeout(400);
+const endF = await page.evaluate(() => fwdAngle);
+assert.notEqual(endF, midSpin, 'the viewer wheel stopped before the spin finished');
+// it must land where the admin landed: winner segment centred under the top pointer
+assert.ok(Math.abs(((-Math.PI/2 - endF) % (2*Math.PI) + 2*Math.PI) % (2*Math.PI) - (1*Math.PI + Math.PI/2)) < 0.01,
+  'the viewer wheel landed on a different segment than the admin');
+// re-applying the same spin number must not spin again
+await page.evaluate(s => window.applyState(s), drawState({ spin: { n: 5, fi: 1, di: 1, sf: 0, sd: 0 } }));
+await page.waitForTimeout(120);
+assert.equal(await page.evaluate(() => fwdAngle), endF, 'the same spin replayed twice');
+await page.evaluate(() => { SPIN_MS = 4000; lastSpinN = null; });
+console.log('spin broadcast OK');
+
 // admin auth resolving while the viewer countdown is up must drop them onto setup,
 // never trap them on the countdown they can't act from
 await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t }), future);

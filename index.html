@@ -1121,6 +1121,7 @@ $('resetBtn').onclick = () => {
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
   teams = []; groups = []; koRounds = []; koStarted = false;
+  spin = null; lastSpinN = null;
   if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
   if (window.clearAllSuggestions) window.clearAllSuggestions(); // old cups' suggestions would just accumulate
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
@@ -1129,6 +1130,12 @@ $('resetBtn').onclick = () => {
 var fwds = [], defs = [];   // [{ name, picked }] — players stay on the wheel, locked once picked
 var teams = [];
 var fwdAngle = 0, defAngle = 0, spinning = false;
+/* A spin is an animation, not state, so the result alone would make viewers snap
+   to the outcome. The admin publishes the spin (winners + the angles it starts
+   from) before animating; every viewer replays the identical turn. formTeam's
+   1.1s delay lands the result well after the 4s animation, so the wheels finish
+   before the picked flags arrive. */
+var spin = null, lastSpinN = null;
 
 // --- setup ---
 $('startBtn').onclick = () => {
@@ -1141,6 +1148,7 @@ $('startBtn').onclick = () => {
   }
   session++;
   teams = []; groups = []; koRounds = []; koStarted = false;
+  spin = null; lastSpinN = null; // a new draft restarts the spin count
   $('champion').innerHTML = '';
   $('teamList').innerHTML = '';
   $('status').innerHTML = '';
@@ -1241,18 +1249,13 @@ function drawWheel(canvasId, players, angle, highlight) {
 
 const availIdx = players => players.map((p, i) => p.picked ? -1 : i).filter(i => i >= 0);
 
-$('spinBtn').onclick = () => {
-  if (spinning) return;
-  spinning = true;
-  $('spinBtn').disabled = true;
-  const af = availIdx(fwds), ad = availIdx(defs);
-  const fi = af[Math.floor(Math.random() * af.length)];
-  const di = ad[Math.floor(Math.random() * ad.length)];
+/* The one spin animation, run by the admin and replayed by every viewer from the
+   same published start angles, so both wheels land identically. */
+function animateSpin(fi, di, startF, startD, done) {
   const segF = 2 * Math.PI / fwds.length, segD = 2 * Math.PI / defs.length;
   // pointer at top (-90°); land each winner's segment center there
   const targetF = -Math.PI / 2 - (fi * segF + segF / 2);
   const targetD = -Math.PI / 2 - (di * segD + segD / 2);
-  const startF = fwdAngle, startD = defAngle;
   const deltaF = (targetF - startF) % (2 * Math.PI) - 2 * Math.PI * 6;
   const deltaD = (targetD - startD) % (2 * Math.PI) - 2 * Math.PI * 8; // different turn counts so wheels desync
   const t0 = performance.now();
@@ -1271,8 +1274,22 @@ $('spinBtn').onclick = () => {
     drawWheel('fwdWheel', fwds, fwdAngle, t === 1 ? fi : -1);
     drawWheel('defWheel', defs, defAngle, t === 1 ? di : -1);
     if (t < 1) requestAnimationFrame(frame);
-    else finishSpin(fi, di, sess);
+    else done();
   })(t0);
+}
+
+$('spinBtn').onclick = () => {
+  if (spinning) return;
+  spinning = true;
+  $('spinBtn').disabled = true;
+  const af = availIdx(fwds), ad = availIdx(defs);
+  const fi = af[Math.floor(Math.random() * af.length)];
+  const di = ad[Math.floor(Math.random() * ad.length)];
+  const sess = session;
+  // publish before animating, so viewers turn the same wheels at the same time
+  spin = { n: (spin ? spin.n : 0) + 1, fi, di, sf: fwdAngle, sd: defAngle };
+  save();
+  animateSpin(fi, di, spin.sf, spin.sd, () => finishSpin(fi, di, sess));
 };
 
 function finishSpin(fi, di, sess) {
@@ -1452,7 +1469,7 @@ function save() {
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
-    fwds, defs, teams, koStarted, cupId, draftStartAt,
+    fwds, defs, teams, koStarted, cupId, draftStartAt, spin,
     groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
     koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
   }));
@@ -1479,6 +1496,18 @@ function applyState(s) {
     show('draw');
     drawWheel('fwdWheel', fwds, fwdAngle, -1);
     drawWheel('defWheel', defs, defAngle, -1);
+    /* Replay the admin's spin. Track the count even when there is no spin yet —
+       the "Open the Draft" snapshot carries spin:null, and adopting 0 there is
+       what lets the very first spin register as new. The first snapshot only
+       adopts the count, so joining mid-draft never replays an old spin. */
+    if (!isAdmin) {
+      const n = s.spin ? s.spin.n : 0;
+      if (lastSpinN === null) lastSpinN = n;
+      else if (n !== lastSpinN) {
+        lastSpinN = n;
+        if (s.spin) animateSpin(s.spin.fi, s.spin.di, s.spin.sf, s.spin.sd, () => {});
+      }
+    }
     if (availIdx(fwds).length === 0 && teams.length) {
       $('status').innerHTML = `All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
       finishDraft();
