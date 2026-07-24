@@ -542,9 +542,16 @@
     body { padding: 24px 12px 96px; }
     /* Side by side, not stacked: a spin turns both wheels at once, so a phone
        viewer who has to scroll between them misses half of every draw. */
-    .wheels { gap: 10px; flex-wrap: nowrap; align-items: flex-start; }
+    .wheels { gap: 20px; flex-wrap: nowrap; align-items: flex-start; }
     .wheel-col { flex: 1; min-width: 0; }
-    .wheel-col canvas { width: 100%; height: auto; }
+    /* The ring is a box-shadow, so it paints outside the canvas box without
+       taking layout space: at desktop's 11px it overlapped the neighbouring
+       wheel and bled to the screen edge. Scale it with the smaller wheel, and
+       keep the gap wider than two rings so the circles never touch. */
+    .wheel-col canvas {
+      width: 100%; height: auto;
+      box-shadow: 0 0 0 5px #fff, 0 0 0 6px #e2e8f1, 0 10px 20px rgba(23,43,77,0.16);
+    }
     .wheel-col h3 {
       font-size: 0.66rem; padding: 6px 12px; letter-spacing: 0.08em; margin-bottom: 10px;
     }

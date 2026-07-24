@@ -534,6 +534,19 @@ const wh = await page.evaluate(() => {
 });
 assert.ok(wh.sameRow, 'the wheels stack on mobile — both must be watchable during one spin');
 assert.ok(wh.bothOnScreen, 'both wheels must fit on screen at once during a live spin');
+
+// the white ring is a box-shadow: it paints outside the canvas box without taking
+// layout space, so the gap and the page edge must both clear it or the circles touch
+const ring = await page.evaluate(() => {
+  const f = fwdWheel.getBoundingClientRect(), d = defWheel.getBoundingClientRect();
+  const spreads = [...getComputedStyle(fwdWheel).boxShadow.matchAll(/0px 0px 0px (\d+(?:\.\d+)?)px/g)]
+    .map(m => parseFloat(m[1]));
+  return { r: Math.max(...spreads), gap: d.left - f.right, edge: f.left, rightEdge: innerWidth - d.right };
+});
+assert.ok(ring.gap > 2 * ring.r,
+  `the wheel rings overlap: ${ring.gap}px gap vs two ${ring.r}px rings`);
+assert.ok(ring.edge > ring.r && ring.rightEdge > ring.r,
+  `the wheel rings bleed off the screen edge: ${ring.edge}/${ring.rightEdge}px vs a ${ring.r}px ring`);
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
   'the side-by-side wheels push the page sideways');
 console.log('mobile layout OK');
