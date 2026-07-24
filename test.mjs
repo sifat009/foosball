@@ -569,8 +569,9 @@ const fontFix = await page.evaluate(() => {
 });
 assert.ok(fontFix.shown > fontFix.hidden * 1.5,
   `boot gate left the wheel labels tiny: ${fontFix.hidden}px drawn hidden, still ${fontFix.shown}px after boot`);
-assert.ok(Math.abs(fontFix.shown - 15 * fontFix.ratio) < 0.5,
-  `wheel labels are not 15px on screen after boot (got ${fontFix.shown}px at a ${fontFix.ratio.toFixed(2)}x ratio)`);
+// 13px on screen for the narrow mobile wheels (15px on full-size ones)
+assert.ok(Math.abs(fontFix.shown - 13 * fontFix.ratio) < 0.5,
+  `wheel labels are not 13px on screen after boot (got ${fontFix.shown}px at a ${fontFix.ratio.toFixed(2)}x ratio)`);
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
   'the side-by-side wheels push the page sideways');
 console.log('mobile layout OK');
