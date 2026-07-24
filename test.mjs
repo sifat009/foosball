@@ -41,11 +41,51 @@ assert.ok(await page.evaluate(() => document.body.classList.contains('view')), '
 assert.ok(!(await page.isVisible('#startBtn')), 'draft button visible to a viewer');
 console.log('default read-only OK');
 
+// ---------- scheduled live draft: viewers count down, then drop into the draft ----------
+// a viewer whose cup carries a future draftStartAt (draft not opened yet) waits on a
+// ticking countdown; the admin still lands on setup so they can run the draft.
+const future = Date.now() + 3 * 3600 * 1000;
+await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t }), future);
+await page.waitForTimeout(50);
+assert.ok(await page.isVisible('#countdown'), 'a scheduled viewer never sees the countdown');
+assert.ok(!(await page.isVisible('#setup')), 'the setup screen is showing under the countdown');
+assert.match(await page.textContent('#cdClock'), /^0[0-3]:\d\d:\d\d$/, 'the countdown clock is not ticking HH:MM:SS');
+
+// past the scheduled instant but before the admin opens: hold on "Starting soon…"
+await page.evaluate(() => window.applyState({ screen: 'setup', draftStartAt: Date.now() - 60000 }));
+await page.waitForTimeout(50);
+assert.ok((await page.textContent('#cdClock')).includes('Starting soon'), 'a passed schedule should hold on Starting soon');
+
+// the admin opening the draft flips every viewer straight to the live wheels
+await page.evaluate(() => window.applyState({ screen: 'draw', draftStartAt: Date.now() - 60000,
+  fwds: [{ name: 'A', picked: false }, { name: 'B', picked: false }],
+  defs: [{ name: 'a', picked: false }, { name: 'b', picked: false }], teams: [] }));
+await page.waitForTimeout(50);
+assert.ok(await page.isVisible('#draw') && !(await page.isVisible('#countdown')),
+  'opening the draft did not switch the viewer to the live wheels');
+assert.ok(await page.isVisible('#draw .live-badge'), 'the live draft has no LIVE badge');
+assert.equal(await page.evaluate(() => cdTimer), null, 'the countdown timer kept ticking after the draft opened');
+
+// admin auth resolving while the viewer countdown is up must drop them onto setup,
+// never trap them on the countdown they can't act from
+await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t }), future);
+await page.waitForTimeout(30);
+assert.ok(await page.isVisible('#countdown'), 'precondition: the countdown should be up for a viewer');
+await page.evaluate(() => { window.markRemote(); window.setAdmin(true); });
+await page.waitForTimeout(50);
+assert.ok(await page.isVisible('#setup') && !(await page.isVisible('#countdown')), 'the admin was trapped on the viewer countdown');
+// re-applying the state as admin reflects the stored time in the schedule picker
+await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t }), future);
+await page.waitForTimeout(30);
+assert.equal((await page.evaluate(() => document.getElementById('schedInput').value)).length, 16, 'the schedule picker did not reflect the stored time');
+await page.evaluate(() => { window.setAdmin(false); draftStartAt = null; stopCountdown(); show('setup'); });
+console.log('scheduled live draft OK');
+
 // ---------- the live cup renders from a pushed state ----------
 await page.evaluate(h => window.applyState(window.decodeState(h)), HASH);
 await page.waitForTimeout(200);
 const groupsText = await page.textContent('#groups');
-for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul + Ofi'])
+for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul Haque + Ofi'])
   assert.ok(groupsText.includes(t), 'missing team: ' + t);
 assert.equal((await page.$$('#groups .score')).length, 20, 'expected 10 matches for 5 teams');
 const disabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));

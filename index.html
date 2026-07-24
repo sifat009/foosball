@@ -106,6 +106,37 @@
   textarea:focus { outline: none; border-color: #ecc45c; background: #fff; }
   .center { text-align: center; margin-top: 34px; }
   #error { color: #d43d3d; margin-top: 12px; min-height: 1.2em; font-weight: 600; }
+  /* admin: schedule a live draft */
+  #schedRow { margin-top: 30px; text-align: center; }
+  #schedRow label {
+    display: block; font-weight: 800; margin-bottom: 10px;
+    text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem; color: #7d8a9c;
+  }
+  #schedInput {
+    font-family: inherit; font-size: 1rem; padding: 10px 14px; border-radius: 12px;
+    border: 2px solid #e7ecf3; color: #16233a; background: #fff;
+  }
+  #schedInput:focus { border-color: #17854a; outline: none; }
+  #schedNote { margin-top: 10px; color: #17854a; font-weight: 700; font-size: 0.9rem; min-height: 1.2em; }
+  /* viewer: live-draft countdown */
+  #countdown { text-align: center; padding-top: 4vh; }
+  #cdClock {
+    font-variant-numeric: tabular-nums; font-weight: 900; letter-spacing: 0.02em;
+    font-size: clamp(2.8rem, 13vw, 6rem); color: #16233a; margin: 8px 0 6px;
+  }
+  #cdClock.soon { font-size: clamp(1.8rem, 8vw, 3.4rem); color: #17854a; }
+  #cdWhen { color: #7d8a9c; font-weight: 700; font-size: 1rem; }
+  .cd-live, .live-badge {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    color: #d43d3d; font-weight: 800; letter-spacing: 0.16em;
+    text-transform: uppercase; font-size: 0.8rem;
+  }
+  .cd-live { margin-bottom: 6px; }
+  .live-badge { margin: 10px 0 4px; } /* sits between the draft heading and its subtitle */
+  .live-dot { width: 9px; height: 9px; border-radius: 50%; background: #d43d3d;
+    animation: livePulse 1.4s ease-in-out infinite; }
+  @keyframes livePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.6); } }
+  @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
   /* wheels */
   .wheels { display: flex; gap: 70px; justify-content: center; flex-wrap: wrap; }
   .wheel-col { text-align: center; }
@@ -538,7 +569,7 @@
   }
   /* view mode (anyone not signed in as admin): writes are hidden or inert */
   body.view #spinBtn, body.view #tourneyBtn, body.view #koBtn,
-  body.view #startBtn, body.view #resetBtn { display: none !important; }
+  body.view #startBtn, body.view #resetBtn, body.view #schedRow { display: none !important; }
   body.view textarea { pointer-events: none; opacity: 0.65; }
   body.view .slot { cursor: default; }
   #viewBadge {
@@ -642,15 +673,30 @@ Irin
 Rashed</textarea>
     </div>
   </div>
+  <div id="schedRow">
+    <label for="schedInput">Schedule the live draft (optional)</label>
+    <input type="datetime-local" id="schedInput">
+    <div id="schedNote"></div>
+  </div>
   <div class="center">
     <button id="startBtn" class="btn btn-green">Open the Draft <svg class="ico"><use href="#i-arrow"/></svg></button>
     <div id="error"></div>
   </div>
 </div>
 
+<!-- Screen 1b: live-draft countdown (viewers only, before the draft opens) -->
+<div id="countdown" class="screen">
+  <h1>The <span class="accent">Ollyo Foosball Cup</span></h1>
+  <div class="subtitle">The live team draft is about to begin.</div>
+  <div class="cd-live">● Live soon</div>
+  <div id="cdClock">--:--:--</div>
+  <div id="cdWhen"></div>
+</div>
+
 <!-- Screen 2: draft wheels -->
 <div id="draw" class="screen">
   <h1>Team <span class="accent">Draft Wheel</span></h1>
+  <div class="live-badge"><span class="live-dot"></span> Live</div>
   <div class="subtitle">One spin pairs a forward with a defender. Drafted players stay on the wheel — locked.</div>
   <div class="wheels">
     <div class="wheel-col fwd">
@@ -845,6 +891,12 @@ function setAdmin(v) {
   document.body.classList.toggle('view', !v);
   updateSub();
   if (curScreen === 'tourney') renderAll();
+  // auth can resolve after the pre-draft view is already painted: an admin must
+  // land on setup (to run the draft), a viewer on the countdown if one's set.
+  if (curScreen === 'setup' || curScreen === 'countdown') {
+    if (!isAdmin && draftStartAt) startCountdown(draftStartAt);
+    else { stopCountdown(); show('setup'); }
+  }
 }
 setAdmin(false); // read-only until Firebase says otherwise
 
@@ -1103,6 +1155,46 @@ $('startBtn').onclick = () => {
 $('fwdInput').onchange = () => save();
 $('defInput').onchange = () => save();
 
+/* --- scheduled live draft ---
+   draftStartAt is an absolute ms instant stored in the cup, so every viewer
+   counts down in their own timezone. It only gates the pre-draft view: once the
+   admin opens the draft (screen !== 'setup') the countdown is irrelevant. */
+var draftStartAt = null, cdTimer = null;
+const pad2 = n => String(n).padStart(2, '0');
+// ms instant -> the local wall-clock string a datetime-local input expects
+const msToInput = ms => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+
+function tickCountdown() {
+  const clock = $('cdClock'), left = draftStartAt - Date.now();
+  if (left > 0) {
+    const s = Math.floor(left / 1000);
+    clock.textContent = `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s % 3600 / 60))}:${pad2(s % 60)}`;
+    clock.classList.remove('soon');
+  } else {
+    clock.textContent = 'Starting soon…';
+    clock.classList.add('soon');
+  }
+}
+function startCountdown(at) {
+  draftStartAt = at;
+  $('cdWhen').textContent = 'Scheduled for ' + new Date(at).toLocaleString([],
+    { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  show('countdown');
+  tickCountdown();
+  if (!cdTimer) cdTimer = setInterval(tickCountdown, 1000);
+}
+function stopCountdown() { clearInterval(cdTimer); cdTimer = null; }
+
+$('schedInput').onchange = () => {
+  const v = $('schedInput').value;
+  draftStartAt = v ? new Date(v).getTime() : null;
+  $('schedNote').textContent = draftStartAt
+    ? 'Viewers see a live countdown to ' + new Date(draftStartAt).toLocaleString([],
+        { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
+  save();
+};
+
 // --- wheels ---
 const WHEEL_SHADES = {
   fwdWheel: ['#d4e2fb', '#c2d6f9'],
@@ -1360,7 +1452,7 @@ function save() {
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
-    fwds, defs, teams, koStarted, cupId,
+    fwds, defs, teams, koStarted, cupId, draftStartAt,
     groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
     koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
   }));
@@ -1371,7 +1463,16 @@ function applyState(s) {
   restoring = true;
   if (s.fwdText != null) $('fwdInput').value = s.fwdText;
   if (s.defText != null) $('defInput').value = s.defText;
+  draftStartAt = s.draftStartAt || null;
+  if (isAdmin) {
+    $('schedInput').value = draftStartAt ? msToInput(draftStartAt) : '';
+    $('schedNote').textContent = draftStartAt
+      ? 'Viewers see a live countdown to ' + new Date(draftStartAt).toLocaleString([],
+          { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      : '';
+  }
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
+    stopCountdown();
     fwds = s.fwds; defs = s.defs; teams = s.teams || [];
     $('teamList').innerHTML = '';
     teams.forEach((t, i) => addTeamCard(t, i + 1));
@@ -1399,6 +1500,10 @@ function applyState(s) {
         if (side && koRounds[r][i][side]) setKoWinner(r, i, koRounds[r][i][side]);
       }));
     }
+  } else if (!isAdmin) {
+    // draft not opened yet: a scheduled viewer waits on the countdown, otherwise setup
+    if (draftStartAt) startCountdown(draftStartAt);
+    else { stopCountdown(); show('setup'); }
   }
   restoring = false;
 }
