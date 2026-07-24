@@ -517,6 +517,25 @@ assert.deepEqual(kbd, { type: 'number', mode: 'numeric', pat: '[0-9]*' },
 
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
   'the page scrolls sideways on a phone');
+
+// a spin turns both wheels at once, so on a phone they must share a row and fit
+// on screen together — stacked, a viewer scrolling between them misses half the draw
+await page.evaluate(() => {
+  fwds = [{ name: 'Sazedul Haque', picked: false }, { name: 'B', picked: false }];
+  defs = [{ name: 'a', picked: false }, { name: 'b', picked: false }];
+  show('draw');
+  drawWheel('fwdWheel', fwds, 0, -1);
+  drawWheel('defWheel', defs, 0, -1);
+});
+await page.waitForTimeout(100);
+const wh = await page.evaluate(() => {
+  const f = fwdWheel.getBoundingClientRect(), d = defWheel.getBoundingClientRect();
+  return { sameRow: Math.abs(f.top - d.top) < 2, bothOnScreen: Math.max(f.bottom, d.bottom) <= innerHeight };
+});
+assert.ok(wh.sameRow, 'the wheels stack on mobile — both must be watchable during one spin');
+assert.ok(wh.bothOnScreen, 'both wheels must fit on screen at once during a live spin');
+assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
+  'the side-by-side wheels push the page sideways');
 console.log('mobile layout OK');
 
 // ---------- coin toss ----------

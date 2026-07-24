@@ -540,8 +540,18 @@
      no specificity, so a later #id rule beats the override inside it. */
   @media (max-width: 640px) {
     body { padding: 24px 12px 96px; }
-    .wheels { gap: 34px; }
-    .wheel-col canvas { width: min(360px, 86vw); height: auto; }
+    /* Side by side, not stacked: a spin turns both wheels at once, so a phone
+       viewer who has to scroll between them misses half of every draw. */
+    .wheels { gap: 10px; flex-wrap: nowrap; align-items: flex-start; }
+    .wheel-col { flex: 1; min-width: 0; }
+    .wheel-col canvas { width: 100%; height: auto; }
+    .wheel-col h3 {
+      font-size: 0.66rem; padding: 6px 12px; letter-spacing: 0.08em; margin-bottom: 10px;
+    }
+    .pointer {
+      margin-bottom: -8px;
+      border-left-width: 9px; border-right-width: 9px; border-top-width: 16px;
+    }
     .panel { max-width: none; }
     .groups { flex-direction: column; align-items: stretch; }
     .group { min-width: 0; max-width: none; padding: 18px 14px 10px; }
@@ -1215,6 +1225,11 @@ const WHEEL_SHADES = {
 function drawWheel(canvasId, players, angle, highlight) {
   const c = $(canvasId), ctx = c.getContext('2d');
   const cx = c.width / 2, cy = c.height / 2, r = cx - 4;
+  /* The canvas is a fixed 360px grid that CSS scales to fit. Sizes drawn into it
+     shrink with the wheel, so a small phone wheel would render 7px names. Scale
+     them by the CSS ratio instead, and labels keep one on-screen size at any
+     wheel size. Hidden canvases report 0 width — fall back to 1:1. */
+  const scale = c.clientWidth ? c.width / c.clientWidth : 1;
   ctx.clearRect(0, 0, c.width, c.height);
   const n = players.length, seg = 2 * Math.PI / n;
   const shades = WHEEL_SHADES[canvasId];
@@ -1227,7 +1242,7 @@ function drawWheel(canvasId, players, angle, highlight) {
     if (i === highlight) ctx.fillStyle = '#c4ecd0';
     ctx.fill();
     ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 * scale;
     ctx.stroke();
     ctx.save();
     ctx.translate(cx, cy);
@@ -1235,12 +1250,18 @@ function drawWheel(canvasId, players, angle, highlight) {
     ctx.textAlign = 'right';
     ctx.fillStyle = players[i].picked ? '#b3bdca' : '#243447';
     if (i === highlight) ctx.fillStyle = '#15803d';
-    ctx.font = (players[i].picked ? '' : 'bold ') + '15px Inter, sans-serif';
-    ctx.fillText(players[i].name, r - 14, 5);
+    const weight = players[i].picked ? '' : 'bold ';
+    const inset = 14 * scale, avail = r - inset - 6 * scale;
+    let fs = 15 * scale;
+    ctx.font = weight + fs + 'px Inter, sans-serif';
+    // a long name on a small wheel would run past the hub — shrink it to fit
+    const nameW = ctx.measureText(players[i].name).width;
+    if (nameW > avail) { fs *= avail / nameW; ctx.font = weight + fs + 'px Inter, sans-serif'; }
+    ctx.fillText(players[i].name, r - inset, fs / 3);
     if (players[i].picked) { // strike through
       const w = ctx.measureText(players[i].name).width;
-      ctx.strokeStyle = '#b3bdca'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(r - 14 - w, 0); ctx.lineTo(r - 14, 0); ctx.stroke();
+      ctx.strokeStyle = '#b3bdca'; ctx.lineWidth = 1.5 * scale;
+      ctx.beginPath(); ctx.moveTo(r - inset - w, 0); ctx.lineTo(r - inset, 0); ctx.stroke();
     }
     ctx.restore();
   }
