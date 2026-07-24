@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>The Ollyo Foosball Cup</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#16233a">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -535,6 +538,14 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #authBtn:hover { color: #2563eb; border-color: #bcd3f7; }
+  #installBtn {
+    position: fixed; top: 64px; left: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #installBtn:hover { color: #17854a; border-color: #b6e3c9; }
   #btnBar { display: contents; } /* desktop: the wrapper isn't a box at all */
   /* Every fixed button must be declared above this block. A media query adds
      no specificity, so a later #id rule beats the override inside it. */
@@ -573,7 +584,7 @@
       justify-content: center; align-items: center; gap: 8px; padding: 12px;
       background: linear-gradient(to top, #eef1f7 62%, rgba(238,241,247,0));
     }
-    #hallBtn, #resetBtn, #authBtn {
+    #hallBtn, #resetBtn, #authBtn, #installBtn {
       position: static; top: auto; right: auto; bottom: auto; left: auto;
       white-space: nowrap;
     }
@@ -608,7 +619,7 @@
   @keyframes boot-pulse { 50% { opacity: 0.45; } }
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
-  body.booting #resetBtn, body.booting #hallBtn,
+  body.booting #resetBtn, body.booting #hallBtn, body.booting #installBtn,
   body.booting #btnBar { display: none !important; }
 </style>
 </head>
@@ -640,6 +651,7 @@
   <button id="hallBtn" aria-label="Hall of Fame"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Hall of Fame</span></button>
   <button id="authBtn">Sign in</button>
   <button id="resetBtn" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg> Start Over</button>
+  <button id="installBtn" style="display:none">Install app</button>
 </div>
 
 <div id="hall">
@@ -1895,6 +1907,24 @@ window.setConnected = ok => {
     : svg('alert') + ' Offline — showing the last standings received. Edits will not save.';
 };
 window.markRemote = () => { gotRemote = true; };
+
+// flash the tab title while it's in a background tab, so a change (score
+// entered, draft started...) is noticeable without the tab being focused
+const pageTitle = document.title;
+let titleFlashTimer = null;
+window.flashTitle = () => {
+  if (!document.hidden || titleFlashTimer) return;
+  let on = false;
+  titleFlashTimer = setInterval(() => {
+    document.title = (on = !on) ? 'Updated — ' + pageTitle : pageTitle;
+  }, 1000);
+};
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !titleFlashTimer) return;
+  clearInterval(titleFlashTimer);
+  titleFlashTimer = null;
+  document.title = pageTitle;
+});
 window.ADMIN_EMAIL = ADMIN_EMAIL;
 
 /* Boot screen: hide everything until the first snapshot has been applied, so
@@ -2077,6 +2107,28 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 })();
 </script>
 
+<script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+
+// Chrome/Edge/Android fire this when the install criteria are met and the
+// app isn't already installed; there is no equivalent event on iOS Safari,
+// so the button there just never appears (see README for the manual steps).
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  $('installBtn').style.display = '';
+});
+$('installBtn').onclick = async () => {
+  if (!deferredInstallPrompt) return;
+  $('installBtn').style.display = 'none';
+  deferredInstallPrompt.prompt();
+  await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+};
+window.addEventListener('appinstalled', () => { $('installBtn').style.display = 'none'; });
+</script>
+
 <script type="module">
 /* ================= FIREBASE WIRING =================
    Kept in its own module so the app script above stays a classic script with
@@ -2143,11 +2195,13 @@ window.saveToDb = json => set(cupRef, json).catch(err => {
 });
 
 onValue(cupRef, snap => {
+  const isUpdate = window.gotRemote; // false only for the first snapshot on boot
   window.markRemote();
   const raw = snap.val();
   try { window.applyState(raw ? JSON.parse(raw) : null); }
   catch (e) { console.error('[cup] unreadable state in database:', e); }
   window.bootDone(); // same tick as applyState, so the right screen is the first one painted
+  if (isUpdate) window.flashTitle();
 }, err => { console.error('[cup] read failed:', err); window.bootDone(); });
 
 onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
