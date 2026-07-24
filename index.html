@@ -1278,6 +1278,18 @@ function drawWheel(canvasId, players, angle, highlight) {
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.stroke();
 }
 
+/* A hidden canvas reports zero width, so drawWheel's CSS ratio falls back to 1:1
+   and labels come out at a sixth of their size. That is exactly what happens on
+   first paint: applyState draws the wheels while the boot gate still has every
+   screen display:none. Redraw once they are really on screen — and again on
+   resize, where the wheel changes size but nothing would otherwise redraw it. */
+function redrawWheels() {
+  if (!fwds.length || !$('fwdWheel').clientWidth) return;
+  drawWheel('fwdWheel', fwds, fwdAngle, -1);
+  drawWheel('defWheel', defs, defAngle, -1);
+}
+window.addEventListener('resize', redrawWheels);
+
 const availIdx = players => players.map((p, i) => p.picked ? -1 : i).filter(i => i >= 0);
 
 /* The one spin animation, run by the admin and replayed by every viewer from the
@@ -1890,6 +1902,7 @@ document.body.classList.add('booting');
 window.bootDone = () => {
   clearTimeout(bootTimer);
   document.body.classList.remove('booting');
+  redrawWheels(); // the wheels were drawn while the gate still hid them
 };
 var bootTimer = setTimeout(window.bootDone, 3000);
 </script>

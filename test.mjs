@@ -547,6 +547,30 @@ assert.ok(ring.gap > 2 * ring.r,
   `the wheel rings overlap: ${ring.gap}px gap vs two ${ring.r}px rings`);
 assert.ok(ring.edge > ring.r && ring.rightEdge > ring.r,
   `the wheel rings bleed off the screen edge: ${ring.edge}/${ring.rightEdge}px vs a ${ring.r}px ring`);
+
+// drawWheel sizes labels by the canvas's CSS ratio, but a hidden canvas reports
+// zero width and falls back to 1:1 — which is the real first-paint path, since
+// applyState runs while the boot gate still has every screen display:none.
+// Without a redraw the names sit at a sixth of their size until something spins.
+const fontFix = await page.evaluate(() => {
+  const seen = [];
+  const real = CanvasRenderingContext2D.prototype.__lookupSetter__('font');
+  Object.defineProperty(CanvasRenderingContext2D.prototype, 'font',
+    { configurable: true, set(v) { seen.push(v); real.call(this, v); }, get: () => '' });
+  document.body.classList.add('booting');
+  drawWheel('fwdWheel', fwds, 0, -1);          // drawn hidden, like first paint
+  const booting = seen.slice();
+  seen.length = 0;
+  window.bootDone();                            // gate lifts — must redraw
+  const after = seen.slice();
+  delete CanvasRenderingContext2D.prototype.font;
+  const px = a => a.length ? Math.max(...a.map(f => parseFloat(f.match(/([\d.]+)px/)[1]))) : 0;
+  return { hidden: px(booting), shown: px(after), ratio: 360 / fwdWheel.clientWidth };
+});
+assert.ok(fontFix.shown > fontFix.hidden * 1.5,
+  `boot gate left the wheel labels tiny: ${fontFix.hidden}px drawn hidden, still ${fontFix.shown}px after boot`);
+assert.ok(Math.abs(fontFix.shown - 15 * fontFix.ratio) < 0.5,
+  `wheel labels are not 15px on screen after boot (got ${fontFix.shown}px at a ${fontFix.ratio.toFixed(2)}x ratio)`);
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
   'the side-by-side wheels push the page sideways');
 console.log('mobile layout OK');
