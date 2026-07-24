@@ -1183,10 +1183,14 @@ function tickCountdown() {
     clock.classList.add('soon');
   }
 }
+/* Rendered in each viewer's own timezone — draftStartAt is an absolute instant.
+   hour12 is forced so a 24-hour browser locale can't turn 1:00 PM into 13:00. */
+const fmtWhen = (ms, weekday) => new Date(ms).toLocaleString([],
+  { weekday, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
+
 function startCountdown(at) {
   draftStartAt = at;
-  $('cdWhen').textContent = 'Scheduled for ' + new Date(at).toLocaleString([],
-    { weekday: 'long', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  $('cdWhen').textContent = 'Scheduled for ' + fmtWhen(at, 'long');
   show('countdown');
   tickCountdown();
   if (!cdTimer) cdTimer = setInterval(tickCountdown, 1000);
@@ -1197,8 +1201,7 @@ $('schedInput').onchange = () => {
   const v = $('schedInput').value;
   draftStartAt = v ? new Date(v).getTime() : null;
   $('schedNote').textContent = draftStartAt
-    ? 'Viewers see a live countdown to ' + new Date(draftStartAt).toLocaleString([],
-        { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    ? 'Viewers see a live countdown to ' + fmtWhen(draftStartAt, 'short')
     : '';
   save();
 };
@@ -1484,8 +1487,7 @@ function applyState(s) {
   if (isAdmin) {
     $('schedInput').value = draftStartAt ? msToInput(draftStartAt) : '';
     $('schedNote').textContent = draftStartAt
-      ? 'Viewers see a live countdown to ' + new Date(draftStartAt).toLocaleString([],
-          { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+      ? 'Viewers see a live countdown to ' + fmtWhen(draftStartAt, 'short')
       : '';
   }
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
