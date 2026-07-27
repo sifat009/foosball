@@ -205,6 +205,16 @@ await page.locator('#celebrate').dispatchEvent('click'); // the confetti canvas 
 assert.ok(!(await page.isVisible('#celebrate')), 'celebration did not close');
 assert.ok(await page.isVisible('#hall'), 'closing the replay should leave the hall open behind it');
 
+// Esc dismisses the top layer only — it used to fall straight through the
+// celebration and shut the hall the replay was opened from
+await page.click('.hall-row:nth-of-type(2)');
+await page.keyboard.press('Escape');
+assert.ok(!(await page.isVisible('#celebrate')), 'Esc did not close the celebration');
+assert.ok(await page.isVisible('#hall'), 'Esc closed the hall underneath the celebration');
+await page.keyboard.press('Escape');
+assert.ok(!(await page.isVisible('#hall')), 'Esc no longer closes the hall on its own');
+
+await page.click('#hallBtn');
 await page.click('#hallClose');
 assert.ok(!(await page.isVisible('#hall')), 'past champions did not close');
 
@@ -268,9 +278,11 @@ const inkOnCanvas = () => page.evaluate(() => {
   return s;
 });
 // poll rather than sample one frame: a shell has to climb before it opens, so
-// any single instant may hold nothing but a thin trail
+// any single instant may hold nothing but a thin trail. The sky needs ~3s to
+// fill — headless rAF is slow off the mark — so the window has to outlast the
+// ramp or this flakes; a healthy run breaks out of the loop early anyway
 let peak = 0;
-for (let i = 0; i < 12 && peak < 40000; i++) {
+for (let i = 0; i < 30 && peak < 40000; i++) {
   await page.waitForTimeout(250);
   peak = Math.max(peak, await inkOnCanvas());
 }

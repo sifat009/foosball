@@ -74,7 +74,9 @@ the first snapshot, sign-out re-locks, Past Champions lists cups newest-first,
 and the final drives the record — nothing written until it's decided,
 corrections overwrite one entry, undo removes it, viewers never write. The
 share card is checked for size, a rasterised trophy, a files-only payload with
-the right filename, and a cancelled sheet not reading as an error.
+the right filename, and a cancelled sheet not reading as an error. Esc is
+checked to dismiss only the top layer — a replayed celebration closes without
+taking the Hall of Fame behind it with it.
 
 What the suite **cannot** cover, because it needs real Google OAuth — check
 these by hand after deploying:
