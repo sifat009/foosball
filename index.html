@@ -334,9 +334,22 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: rise-in 0.7s 0.5s ease backwards;
   }
+  #shareBtn {
+    position: relative; margin-top: 30px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 13px 30px; border-radius: 999px;
+    background: rgba(240,180,41,0.12); border: 2px solid rgba(240,180,41,0.55);
+    color: #f7d878; font-family: inherit; font-size: 0.95rem; font-weight: 800;
+    letter-spacing: 0.04em;
+    transition: background 0.2s, border-color 0.2s, transform 0.12s;
+    animation: rise-in 0.7s 0.9s ease backwards;
+  }
+  #shareBtn:hover { background: rgba(240,180,41,0.22); border-color: #f0b429; }
+  #shareBtn:active { transform: translateY(1px); }
+  #shareBtn:focus-visible { outline: 3px solid #f0b429; outline-offset: 3px; }
   .tap-hint {
     position: relative; color: #8fa0b8; font-size: 0.8rem; font-weight: 600;
-    letter-spacing: 0.15em; text-transform: uppercase; margin-top: 34px;
+    letter-spacing: 0.15em; text-transform: uppercase; margin-top: 26px;
     animation: rise-in 0.7s 1.2s ease backwards;
   }
   @keyframes rise-in { from { transform: translateY(18px); opacity: 0; } }
@@ -640,6 +653,7 @@
   <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10z"/><path d="M19 14l.6 1.6 1.6.6-1.6.6L19 18.4l-.6-1.6-1.6-.6 1.6-.6z"/></symbol>
   <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></symbol>
 </defs></svg>
 
 <div class="eyebrow"><span><svg class="ico"><use href="#i-ball"/></svg> Ollyo Foosball Federation</span></div>
@@ -674,7 +688,8 @@
     <div class="champs-label">Champions</div>
     <div class="trophy"><svg class="cup-art" viewBox="0 0 100 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Champion cup"><defs><linearGradient id="cgv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e0"/><stop offset=".45" stop-color="#e8b74a"/><stop offset="1" stop-color="#a86f14"/></linearGradient><linearGradient id="cgh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5e3908"/><stop offset=".14" stop-color="#c8901f"/><stop offset=".36" stop-color="#ffe9a8"/><stop offset=".5" stop-color="#fff8e0"/><stop offset=".62" stop-color="#f0c25a"/><stop offset=".84" stop-color="#a86f14"/><stop offset="1" stop-color="#4e2f06"/></linearGradient><linearGradient id="cstreak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".7" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><!-- handles --><path d="M22 40 C2 38 2 70 24 70 L24 63 C12 63 12 47 24 47 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><path d="M78 40 C98 38 98 70 76 70 L76 63 C88 63 88 47 76 47 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><!-- bowl --><path d="M20 34 C21 60 34 84 50 84 C66 84 79 60 80 34 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><!-- glossy streak on bowl --><path d="M34 36 C35 58 42 78 46 82 C46 74 38 56 42 36 Z" fill="url(#cstreak)" filter="url(#soft)"/><!-- rim --><ellipse cx="50" cy="34" rx="30" ry="7" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/><ellipse cx="50" cy="34" rx="25" ry="5" fill="#5e3908" opacity=".35"/><ellipse cx="50" cy="33" rx="24" ry="4" fill="url(#cgh)"/><!-- neck --><path d="M45 84 C45 90 44 92 43 95 L57 95 C56 92 55 90 55 84 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><ellipse cx="50" cy="96" rx="8" ry="3.6" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/><!-- pedestal --><path d="M43 98 L57 98 L63 112 L37 112 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><path d="M39 100 C41 105 40 108 39 111" fill="none" stroke="#fff8e0" stroke-width="1" opacity=".4" filter="url(#soft)"/><ellipse cx="50" cy="112" rx="26" ry="5" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/><rect x="27" y="112" width="46" height="9" rx="2" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><ellipse cx="50" cy="121" rx="23" ry="4" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/></svg></div>
     <div class="champs-name" id="champsName"></div>
-    <div class="tap-hint">tap anywhere to continue</div>
+    <button id="shareBtn"><svg class="ico"><use href="#i-share"/></svg> <span>Share</span></button>
+    <div class="tap-hint">tap outside to continue</div>
   </div>
 </div>
 
@@ -1112,7 +1127,7 @@ function renderHall(entries) {
   entries.slice().reverse().forEach((e, i) => { // newest first
     const row = document.createElement('button');
     row.className = 'hall-row';
-    row.onclick = () => celebrate(e.champion);
+    row.onclick = () => celebrate(e.champion, e); // the entry dates the share card
     const n = document.createElement('div');
     n.className = 'hall-n'; n.textContent = '#' + (entries.length - i);
     const name = document.createElement('div');
@@ -1808,11 +1823,15 @@ function syncChampion(w) {
 // --- champion celebration ---
 var lastChamp = null, confettiRun = false, celebrateRun = 0;
 
-function celebrate(name) {
+function celebrate(name, entry) {
   // replay is a button now, so this can be re-entered while confetti is still
   // falling — the token retires the old loop instead of racing it
   const me = ++celebrateRun;
   $('champsName').textContent = name;
+  // what the share card will draw: an archived cup carries its own date, a
+  // cup being won right now is today
+  shareName = name;
+  shareDate = (entry && entry.date) || Date.now();
   $('celebrate').style.display = 'flex';
   confettiRun = true;
   const c = $('confetti'), ctx = c.getContext('2d');
@@ -1892,6 +1911,131 @@ function celebrate(name) {
 $('celebrate').onclick = () => {
   $('celebrate').style.display = 'none';
   confettiRun = false;
+};
+
+/* --- shareable champion card ---
+   Drawn from scratch on a canvas rather than screenshotted: the overlay is
+   CSS the browser cannot rasterise for us (conic-gradient rays, a
+   background-clip: text name), and every DOM-to-image library renders exactly
+   those two things wrong. The trophy is the real .cup-art node, serialized to
+   a data URL, so the card and the overlay can never drift apart.
+   The image is built in the page and handed straight to the OS — nothing is
+   uploaded, so there is no cup that a viewer is not allowed to share. */
+var shareName = '', shareDate = 0;
+const CARD = 1200;
+const CARD_FONT = 'Inter, -apple-system, "Segoe UI", sans-serif';
+
+function cupImage() {
+  const node = document.querySelector('#celebrate .cup-art').cloneNode(true);
+  node.setAttribute('width', 100);   // viewBox alone is enough for Chrome but
+  node.setAttribute('height', 128);  // not for Firefox — it needs both to rasterise
+  const svgText = new XMLSerializer().serializeToString(node);
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => res(img);
+    img.onerror = () => rej(new Error('trophy failed to load'));
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
+  });
+}
+
+// canvas has no letter-spacing, so wide tracking is drawn a character at a time
+function tracked(ctx, s, cx, y, space) {
+  const chars = [...s];
+  const w = chars.reduce((a, c) => a + ctx.measureText(c).width + space, -space);
+  let x = cx - w / 2;
+  for (const c of chars) { ctx.fillText(c, x, y); x += ctx.measureText(c).width + space; }
+}
+
+async function drawCard(name, date) {
+  const c = document.createElement('canvas');
+  c.width = c.height = CARD;
+  const ctx = c.getContext('2d');
+
+  const bg = ctx.createRadialGradient(600, 480, 60, 600, 700, 900);
+  bg.addColorStop(0, '#1d2d4a'); bg.addColorStop(1, '#0a101c');
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, CARD, CARD);
+
+  // rays: wedges clipped to a circle, faded out by a radial gradient fill
+  ctx.save();
+  ctx.beginPath(); ctx.arc(600, 500, 520, 0, Math.PI * 2); ctx.clip();
+  const fade = ctx.createRadialGradient(600, 500, 0, 600, 500, 520);
+  fade.addColorStop(0, 'rgba(240,180,41,0.30)');
+  fade.addColorStop(0.6, 'rgba(240,180,41,0.12)');
+  fade.addColorStop(1, 'rgba(240,180,41,0)');
+  ctx.fillStyle = fade;
+  for (let i = 0; i < 40; i++) {
+    const t = (i / 40) * Math.PI * 2;
+    ctx.beginPath(); ctx.moveTo(600, 500);
+    ctx.arc(600, 500, 520, t, t + Math.PI / 40);
+    ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
+
+  const colors = ['#f0b429', '#f7d878', '#e8f0ff', '#3ddc84', '#5b9cff', '#ff7a45'];
+  for (let i = 0; i < 70; i++) {
+    ctx.save();
+    ctx.translate(Math.random() * CARD, Math.random() * CARD);
+    ctx.rotate(Math.random() * Math.PI);
+    ctx.globalAlpha = 0.45 + Math.random() * 0.5;
+    ctx.fillStyle = colors[(Math.random() * colors.length) | 0];
+    ctx.fillRect(0, 0, 8 + Math.random() * 12, 14 + Math.random() * 16);
+    ctx.restore();
+  }
+
+  const cup = await cupImage();
+  ctx.save();
+  ctx.shadowColor = 'rgba(240,180,41,0.45)'; ctx.shadowBlur = 60; ctx.shadowOffsetY = 14;
+  ctx.drawImage(cup, 600 - (400 * 100 / 128) / 2, 215, 400 * 100 / 128, 400);
+  ctx.restore();
+
+  ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+  ctx.font = '800 34px ' + CARD_FONT; ctx.fillStyle = '#f3f6fb';
+  tracked(ctx, 'CHAMPIONS', 600, 745, 18);
+
+  // shrink to fit: two long names side by side would otherwise run off the card
+  let px = 118;
+  do { ctx.font = '900 ' + px + 'px ' + CARD_FONT; px -= 4; }
+  while (ctx.measureText(name).width > 1000 && px > 40);
+  px += 4;
+  const gold = ctx.createLinearGradient(100, 0, 1100, 0);
+  gold.addColorStop(0, '#f7d878'); gold.addColorStop(0.5, '#f0b429'); gold.addColorStop(1, '#d99a06');
+  ctx.fillStyle = gold; ctx.textAlign = 'center';
+  ctx.fillText(name, 600, 787 + px);
+
+  ctx.font = '600 32px ' + CARD_FONT; ctx.fillStyle = '#8fa0b8'; ctx.textAlign = 'left';
+  const when = new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+  tracked(ctx, when, 600, 859 + px, 4);
+  return c;
+}
+
+const cardFile = (name, date) => 'champions-' +
+  (name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'cup') +
+  '-' + new Date(date).toISOString().slice(0, 10) + '.png';
+
+$('shareBtn').onclick = async e => {
+  e.stopPropagation(); // the overlay dismisses on any click; this one is not a dismiss
+  const label = $('shareBtn').querySelector('span');
+  const say = t => { label.textContent = t; setTimeout(() => { label.textContent = 'Share'; }, 2000); };
+  try {
+    const canvas = await drawCard(shareName, shareDate);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    if (!blob) throw new Error('toBlob returned nothing');
+    const file = new File([blob], cardFile(shareName, shareDate), { type: 'image/png' });
+    // files-only payload: several targets post the text and silently drop the
+    // image when both are present, which loses the only thing worth sharing
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file] }); // the OS sheet is its own feedback
+      return;
+    }
+    const url = URL.createObjectURL(blob); // desktop has no file share sheet
+    const a = document.createElement('a');
+    a.href = url; a.download = file.name; a.click();
+    URL.revokeObjectURL(url);
+    say('Saved');
+  } catch (err) {
+    if (err.name === 'AbortError') return; // backed out of the sheet — not a failure
+    say('Couldn’t share');
+  }
 };
 
 // bridge to the Firebase module below (module scope is not global)

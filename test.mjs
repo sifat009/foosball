@@ -606,6 +606,51 @@ assert.ok(!(await page.evaluate(() => document.getElementById('toss').classList.
   'the coin toss overlay would not close');
 console.log('coin toss OK');
 
+// ---------- shareable champion card ----------
+// The card is drawn, not screenshotted, so the failures that matter are the
+// invisible ones: the trophy SVG not rasterising, toBlob handing back nothing,
+// a filename built from an undefined champion. Google Fonts is blocked above,
+// so this asserts the bytes and the plumbing — never the pixels.
+await page.evaluate(() => celebrate('Sifat + Ofi', { date: Date.UTC(2026, 6, 26) }));
+const card = await page.evaluate(async () => {
+  const img = await cupImage();
+  const c = await drawCard('Sifat + Ofi', Date.UTC(2026, 6, 26));
+  const ctx = c.getContext('2d');
+  // the bowl covers dead centre; unpainted background there is near-black
+  const [r, g] = ctx.getImageData(600, 400, 1, 1).data;
+  return { w: c.width, h: c.height, svg: img.naturalWidth, lit: r > 180 && g > 150 };
+});
+assert.equal(card.w, 1200, 'share card is not 1200 wide');
+assert.equal(card.h, 1200, 'share card is not 1200 tall');
+assert.ok(card.svg > 0, 'the trophy SVG data URL did not rasterise');
+assert.ok(card.lit, 'no trophy on the share card — centre of the canvas is still background');
+
+const shared = await page.evaluate(() => new Promise(res => {
+  navigator.canShare = () => true;
+  navigator.share = d => {
+    const f = d.files[0];
+    res({ keys: Object.keys(d), name: f.name, type: f.type, size: f.size });
+    return Promise.resolve();
+  };
+  document.getElementById('shareBtn').click();
+}));
+assert.deepEqual(shared.keys, ['files'], 'share payload carries more than the image: ' + shared.keys);
+assert.equal(shared.type, 'image/png', 'shared file is not a PNG');
+assert.ok(shared.size > 10000, `shared PNG is suspiciously small (${shared.size} bytes)`);
+assert.equal(shared.name, 'champions-sifat-ofi-2026-07-26.png', 'wrong filename: ' + shared.name);
+assert.ok(await page.isVisible('#celebrate'), 'sharing dismissed the celebration overlay');
+
+// backing out of the OS sheet is a cancel, not a failure
+await page.evaluate(() => {
+  navigator.canShare = () => true;
+  navigator.share = () => Promise.reject(Object.assign(new Error('cancel'), { name: 'AbortError' }));
+  document.getElementById('shareBtn').click();
+});
+await page.waitForTimeout(200);
+assert.equal(await page.textContent('#shareBtn span'), 'Share',
+  'cancelling the share sheet showed an error on the button');
+console.log('share card OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

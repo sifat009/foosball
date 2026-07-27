@@ -9,6 +9,13 @@ update live. One admin account can edit; everyone else is read-only. Any other
 signed-in Google account can *suggest* a score for an unrecorded group match —
 captured for the admin to accept, never applied on its own.
 
+The celebration overlay has a **Share** button that draws a 1200×1200 PNG of
+the moment and hands it to the OS share sheet (or downloads it, on desktops
+with no file sharing). It's drawn on a canvas rather than screenshotted, so
+`drawCard()` and the overlay's CSS have to be kept in step by hand. Anyone
+looking at the page can share any cup: the image is built locally and never
+uploaded, so there is nothing to authorise.
+
 Finished cups are archived: "Past Champions" opens a list of every previous
 winner, readable by anyone, at any point in a tournament. "How it works" in the
 footer explains the format, the table, and the knockout — keep it in step with
@@ -65,7 +72,9 @@ admin gate offline: read-only by default, standings render from a pushed
 state, admin unlocks editing, writes carry the right payload, no writes before
 the first snapshot, sign-out re-locks, Past Champions lists cups newest-first,
 and the final drives the record — nothing written until it's decided,
-corrections overwrite one entry, undo removes it, viewers never write.
+corrections overwrite one entry, undo removes it, viewers never write. The
+share card is checked for size, a rasterised trophy, a files-only payload with
+the right filename, and a cancelled sheet not reading as an error.
 
 What the suite **cannot** cover, because it needs real Google OAuth — check
 these by hand after deploying:
@@ -82,6 +91,9 @@ these by hand after deploying:
   unrecorded group match; it appears to everyone as a pending suggestion with
   your name, the standings don't move, and the admin sees Accept / Dismiss.
   Accepting writes the real score and clears the suggestion.
+- On a phone, Share in the celebration opens the real OS share sheet with the
+  PNG attached, and posting it to a chat shows the image rather than a link.
+  The suite stubs `navigator.share`, so only the plumbing is covered offline.
 
 ## Notes
 
