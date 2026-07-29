@@ -451,6 +451,28 @@
      bottom margin — that way the spacing holds up when updateSub() hides it */
   #tourneySub { margin-bottom: 0; }
   .toss-launch { text-align: center; margin: 20px 0 34px; }
+  /* fixture deadline banner — sits above whichever stage is live */
+  .deadline {
+    max-width: 560px; margin: -14px auto 30px; padding: 16px 20px 14px; border-radius: 18px;
+    background: #fdf6e3; border: 1px solid #f0d79a; color: #8a6414; text-align: center;
+  }
+  .dl-label {
+    font-size: 0.75rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.14em; opacity: 0.75;
+  }
+  .dl-clock {
+    font-variant-numeric: tabular-nums; font-weight: 900; letter-spacing: 0.01em;
+    font-size: clamp(2rem, 8vw, 3rem); line-height: 1.15; margin: 6px 0 4px; color: #6f5610;
+  }
+  .dl-note { font-size: 0.88rem; font-weight: 700; line-height: 1.45; opacity: 0.9; }
+  /* the consequence, stated while there's still time to avoid it */
+  .dl-warn {
+    margin: 10px -20px -14px; padding: 9px 20px; border-radius: 0 0 17px 17px;
+    background: rgba(180, 83, 9, 0.09); border-top: 1px solid #f0d79a;
+    font-size: 0.84rem; font-weight: 800; line-height: 1.4;
+  }
+  .deadline.over { background: #fdecec; border-color: #f3bcbc; color: #a33131; }
+  .deadline.over .dl-clock { color: #a33131; font-size: clamp(1.5rem, 6vw, 2.1rem); }
   #toss .toss-sub { text-align: center; color: #8fa0b8; font-size: 0.8rem; margin: -14px 0 20px; }
   #toss .pickers { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
   #toss .picker { flex: 1; min-width: 0; }
@@ -767,6 +789,7 @@ Rashed</textarea>
   <h1>The <span class="accent">Battle Of Titans</span></h1>
   <div class="subtitle" id="tourneySub">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
   <div class="toss-launch"><button id="tossBtn">🪙 Coin Toss</button></div>
+  <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
   <div id="groupSection">
     <div class="section-title">Group Stage</div>
@@ -821,6 +844,25 @@ Rashed</textarea>
         <li>A match counts for nothing until both scores are in.</li>
       </ul>
 
+      <div class="rules-h">Deadlines</div>
+      <p>Every match in the live stage is due <b>2 working days</b> after that stage
+      opens — the group stage from the draft, the knockout from the moment it starts.
+      <b>Weekends don't count</b>, so a Thursday draft is due Monday. The banner at the
+      top counts down to it.</p>
+      <ul>
+        <li>Play whenever both teams are in the office — there are no fixed slots.</li>
+        <li>A team that doesn't turn up by the deadline <b>forfeits 1-0</b>. It's recorded
+        as 1-0 rather than 10-0 so an unplayed match can never outrank a real
+        result on goal difference.</li>
+        <li>If <b>neither</b> team turns up, the group match goes down as <b>0-0</b>. It
+        counts for nobody: no win, no goals, and neither team is even marked as
+        having played it. A real match can't finish 0-0 — someone gets to 10 — so
+        that score means "nobody came", not "a draw".</li>
+        <li>In the <b>knockout</b> a 0-0 isn't possible, because somebody has to go
+        through. If neither team turns up, the <b>Coin Toss</b> decides it.</li>
+        <li><b>No substitutes.</b> Your drafted pair is your team for the whole cup.</li>
+      </ul>
+
       <div class="rules-h">The table</div>
       <p>There is no points system. Teams are ranked directly by results:</p>
       <ul>
@@ -854,9 +896,11 @@ Rashed</textarea>
       matches with no score yet can be suggested.</p>
 
       <div class="rules-h">When the knockout starts</div>
-      <p>The <b>Start Knockout</b> button appears only once <b>every group match has a
-      score</b> — no partial brackets. The admin starts it, and from that point the
-      group scores are locked, so the table behind the bracket can't shift.</p>
+      <p>The <b>Start Knockout</b> button appears only once <b>every group match is
+      settled</b> — a score, a forfeit, or a 0-0 — so there are no partial
+      brackets and no single unplayed match can hold the cup shut. The admin starts
+      it, and from that point the group scores are locked, so the table behind the
+      bracket can't shift.</p>
 
       <div class="rules-h">Deciding a knockout match</div>
       <ul>
@@ -1169,7 +1213,7 @@ $('resetBtn').onclick = () => {
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
   teams = []; groups = []; koRounds = []; koStarted = false;
-  spin = null; lastSpinN = null;
+  spin = null; lastSpinN = null; deadlineAt = null;
   if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
   if (window.clearAllSuggestions) window.clearAllSuggestions(); // old cups' suggestions would just accumulate
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
@@ -1453,6 +1497,10 @@ function roundRobin(ts) {
 function startCup() {
   groups = []; koRounds = []; koStarted = false; lastChamp = null;
   cupId = String(Date.now()); // applyState overwrites this when restoring an existing cup
+  // restoring means applyState is rebuilding an existing cup, not opening a new
+  // one — keep the stored wall, or every remote snapshot would push it two days
+  // further out and the deadline would never arrive
+  if (!restoring) deadlineAt = workDaysFrom(Date.now(), WORK_DAYS);
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
@@ -1475,7 +1523,89 @@ function startCup() {
   renderAll();
 }
 
+/* ================= FIXTURE DEADLINE =================
+   Every match in the live stage is due WORK_DAYS working days after that stage
+   opens — the group stage from the draw, the knockout from the moment it
+   starts. Weekends don't count: a Thursday draw is due Monday, not Saturday.
+   Stored as an absolute instant, like draftStartAt, so every viewer counts down
+   to the same wall in their own timezone. */
+const WORK_DAYS = 2;
+var deadlineAt = null;
+
+// n working days after ms, skipping Sat (6) and Sun (0) — the time of day rides along
+function workDaysFrom(ms, n) {
+  const d = new Date(ms);
+  while (n > 0) { d.setDate(d.getDate() + 1); if (d.getDay() % 6) n--; }
+  return d.getTime();
+}
+
+/* "1d 2h 5m 59s", dropping the units that are still zero from the left: "2h 5m 9s",
+   then "5m 9s", then "9s". Labelled rather than colons so it reads as a duration at
+   a glance — tabular-nums on .dl-clock keeps it from jittering as it ticks. */
+function fmtLeft(ms) {
+  const t = Math.floor(ms / 1000);
+  const p = [[Math.floor(t / 86400), 'd'], [Math.floor(t % 86400 / 3600), 'h'],
+             [Math.floor(t % 3600 / 60), 'm'], [t % 60, 's']];
+  while (p.length > 1 && p[0][0] === 0) p.shift();
+  return p.map(([v, u]) => v + u).join(' ');
+}
+
+/* Matches still without a result in the live stage. A knockout slot stays null
+   until the round before it is decided, so an undecided pairing only counts once
+   it actually has two teams in it. */
+function unplayedCount() {
+  return koStarted
+    ? koRounds.flat().filter(m => m.a && m.b && !m.winner).length
+    : groups.reduce((n, g) => n + g.matches.filter(m => !m.winner && !isVoid(m)).length, 0);
+}
+
+/* Both halves of the consequence, while there's still time to avoid it. The two
+   stages differ where it matters: a group match nobody turns up for can simply
+   not count, but a knockout tie has to produce someone to advance. */
+function warnText() {
+  return koStarted
+    ? 'Not played by then? A no-show <b>forfeits the tie</b>. If <b>neither</b> team turns up,'
+      + ' the <b>Coin Toss</b> decides who goes through — the bracket has to move.'
+    : 'Not played by then? It\'s a <b>1-0</b> to the team that turned up.'
+      + ' If <b>neither</b> team turns up it goes down as <b>0-0</b> — nothing for either team.';
+}
+
+function renderDeadline() {
+  const el = $('deadline');
+  if (!deadlineAt || curScreen !== 'tourney') { el.style.display = 'none'; return; }
+  const left = deadlineAt - Date.now(), stage = koStarted ? 'Knockout' : 'Group';
+  const n = unplayedCount(), s = n === 1 ? '' : 'es';
+  el.style.display = '';
+  el.className = 'deadline' + (left > 0 ? '' : ' over');
+  // past the wall the banner stops being a clock and becomes an instruction —
+  // whoever is looking needs to know what happens now, not how late it is
+  el.innerHTML = left > 0
+    ? `<div class="dl-label">${stage} matches due ${fmtWhen(deadlineAt, 'short')}</div>
+       <div class="dl-clock">${fmtLeft(left)}</div>
+       <div class="dl-note">${n ? `${n} match${s} still to play` : 'All matches played — nothing left to run'}</div>`
+       + (n ? `<div class="dl-warn">${warnText()}</div>` : '')
+    : `<div class="dl-label">Deadline passed · ${fmtWhen(deadlineAt, 'short')}</div>
+       <div class="dl-clock">Time up</div>
+       <div class="dl-note">${n
+         ? `${n} unplayed match${s} — each forfeits <b>1-0</b> to the team that turned up.<br>`
+           + (koStarted
+             ? 'Nobody turned up? Settle it on the Coin Toss and click the winner through.'
+             : 'Nobody turned up at all? That one goes in as <b>0-0</b>. The admin enters these to move the cup on.')
+         : 'Every match was played in time — no forfeits.'}</div>`;
+}
+// a visibly ticking clock, like the draft countdown — renderDeadline bails
+// immediately off the tournament screen, so this is one innerHTML a second at most
+setInterval(renderDeadline, 1000);
+
 const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
+
+/* A double no-show: neither team turned up, so nobody wins and nobody is
+   punished. Recorded as 0-0, which a played match can never be — it ends the
+   moment someone reaches 10. That makes it an unambiguous marker with no extra
+   field to store: rank() already skips matches with no winner, so a void costs
+   both teams nothing and doesn't count as played. The knockout can't use this —
+   somebody has to advance — so there the Coin Toss decides. */
+const isVoid = m => m.sa === 0 && m.sb === 0;
 
 function setGroupScore(gi, mi, sa, sb) {
   const m = groups[gi].matches[mi];
@@ -1519,6 +1649,7 @@ function rank(group) {
 function renderAll() {
   renderGroups();
   if (koStarted) renderBracket();
+  renderDeadline();
   save();
 }
 
@@ -1546,7 +1677,7 @@ function save() {
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
-    fwds, defs, teams, koStarted, cupId, draftStartAt, spin,
+    fwds, defs, teams, koStarted, cupId, draftStartAt, deadlineAt, spin,
     groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
     koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
   }));
@@ -1558,6 +1689,7 @@ function applyState(s) {
   if (s.fwdText != null) $('fwdInput').value = s.fwdText;
   if (s.defText != null) $('defInput').value = s.defText;
   draftStartAt = s.draftStartAt || null;
+  deadlineAt = s.deadlineAt || null; // cups started before deadlines existed just have none
   if (isAdmin) {
     $('schedInput').value = draftStartAt ? msToInput(draftStartAt) : '';
     $('schedNote').textContent = draftStartAt
@@ -1682,21 +1814,26 @@ function renderGroups() {
       // admin also gets accept/dismiss
       if (sug) box.appendChild(sugBar(gi, mi, sug, suggesting));
     });
-    if (g.matches.some(m => m.sa != null && m.sa === m.sb)) {
+    // 0-0 is the void marker, not a draw, so it must not trip the no-draws warning
+    if (g.matches.some(m => m.sa != null && m.sa === m.sb && !isVoid(m))) {
       const note = document.createElement('div');
       note.className = 'tie-note';
-      note.textContent = 'Foosball has no draws — scores can’t be equal.';
+      note.textContent = 'Foosball has no draws — scores can’t be equal. '
+        + '0-0 is the one exception: it means nobody turned up.';
       box.appendChild(note);
     }
     el.appendChild(box);
   });
-  const allPlayed = groups.every(g => g.matches.every(m => m.winner));
+  // a voided match is settled, not outstanding — otherwise one double no-show
+  // holds the whole knockout shut for good
+  const allPlayed = groups.every(g => g.matches.every(m => m.winner || isVoid(m)));
   $('koBtn').style.display = allPlayed && !koStarted && groups.length ? '' : 'none';
   $('koBtn').onclick = startKnockout;
 }
 
 function startKnockout() {
   koStarted = true;
+  if (!restoring) deadlineAt = workDaysFrom(Date.now(), WORK_DAYS); // the knockout gets its own clock
   if (groups.length === 2) {
     const [ra, rb] = groups.map(g => rank(g).order);
     // FIFA-style cross: A1 vs B2, B1 vs A2
@@ -2283,9 +2420,9 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
    Kept in its own module so the app script above stays a classic script with
    its globals intact (the console and test.mjs both reach into them). */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut }
+import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, remove }
+import { getDatabase, ref, onValue, set, remove, connectDatabaseEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -2301,6 +2438,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
+
+/* Localhost talks to the Firebase emulators, never the live cup — so a local
+   Start Over can't wipe a tournament people are watching. Run them first:
+     firebase emulators:start --only auth,database
+   Without them running the page just sits offline, which is the intended
+   failure: local edits have nowhere to go but the emulator. Both connects must
+   land before any read or write, hence right here. */
+if (['localhost', '127.0.0.1'].includes(location.hostname)) {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
+  connectDatabaseEmulator(db, '127.0.0.1', 9000);
+  console.info('[firebase] emulators: auth :9099, database :9000 — the live cup is not connected');
+}
+
 const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);

@@ -392,7 +392,8 @@ console.log('player leaderboard OK');
 await page.click('#rulesBtn');
 assert.ok(await page.isVisible('#rules'), 'the rules link did not open anything');
 const rules = (await page.textContent('#rules')).replace(/\s+/g, ' '); // source wraps mid-sentence
-for (const t of ['no points system', 'no draws', 'A1 v B2', 'every group match has a score'])
+for (const t of ['no points system', 'no draws', 'A1 v B2', 'every group match is settled',
+                 '2 working days', 'forfeits 1-0', 'goes down as 0-0', 'Coin Toss decides it'])
   assert.ok(rules.includes(t), 'rules sheet is missing: ' + t);
 await page.keyboard.press('Escape');
 assert.ok(!(await page.isVisible('#rules')), 'Escape did not close the rules');
@@ -662,6 +663,136 @@ await page.waitForTimeout(200);
 assert.equal(await page.textContent('#shareBtn span'), 'Share',
   'cancelling the share sheet showed an error on the button');
 console.log('share card OK');
+
+// ---------- fixture deadline: 2 working days, weekends skipped ----------
+// The arithmetic is the part that can be quietly wrong all week, so it's checked
+// against the calendar rather than against itself: Thu 2 Jul 2026 is due Mon 6th,
+// and no start day anywhere in a fortnight may land the wall on a weekend.
+const wd = await page.evaluate(() => {
+  const day = ms => new Date(ms).getDate();
+  const landed = [];
+  for (let i = 0; i < 14; i++) {
+    const start = new Date(2026, 6, 1 + i, 9).getTime();
+    const end = workDaysFrom(start, 2);
+    if (new Date(end).getDay() % 6 === 0) landed.push(new Date(end).toDateString());
+    if (end <= start) landed.push('not in the future: ' + new Date(end).toDateString());
+  }
+  return { thu: day(workDaysFrom(new Date(2026, 6, 2, 9).getTime(), 2)),   // Thu -> Mon
+           fri: day(workDaysFrom(new Date(2026, 6, 3, 9).getTime(), 2)),   // Fri -> Tue
+           mon: day(workDaysFrom(new Date(2026, 6, 6, 9).getTime(), 2)),   // Mon -> Wed
+           landed };
+});
+assert.deepEqual(wd.landed, [], 'deadline landed on a weekend: ' + wd.landed.join('; '));
+assert.equal(wd.thu, 6, 'Thursday + 2 working days should be Monday the 6th, got the ' + wd.thu);
+assert.equal(wd.fri, 7, 'Friday + 2 working days should be Tuesday the 7th, got the ' + wd.fri);
+assert.equal(wd.mon, 8, 'Monday + 2 working days should be Wednesday the 8th, got the ' + wd.mon);
+
+// a cup carrying a deadline shows a live countdown above the stage
+await page.evaluate(h => {
+  const s = window.decodeState(h);
+  s.deadlineAt = Date.now() + (26 * 60 + 5) * 60000; // 1d 2h 5m out
+  window.applyState(s);
+}, HASH);
+assert.ok(await page.isVisible('#deadline'), 'no deadline banner on a cup that has one');
+assert.match(await page.textContent('.dl-label'), /Group matches due /, 'deadline banner has no due date');
+assert.match(await page.textContent('.dl-clock'), /^1d 2h [45]m \d{1,2}s$/,
+  'the clock is not counting down in labelled units: ' + await page.textContent('.dl-clock'));
+// the cup in HASH has 8 of its 10 group matches unplayed
+assert.match(await page.textContent('.dl-note'), /8 matches still to play/,
+  'wrong outstanding-match count: ' + await page.textContent('.dl-note'));
+// the penalty has to be legible BEFORE it lands, or the forfeit is an ambush
+assert.match(await page.textContent('.dl-warn'), /It's a 1-0 to the team that turned up/,
+  'no forfeit warning while there is still time: ' + await page.textContent('.dl-warn'));
+assert.match(await page.textContent('.dl-warn'), /neither team turns up it goes down as 0-0/,
+  'the double no-show rule is never stated: ' + await page.textContent('.dl-warn'));
+
+// the leading zero units drop off as it runs down, so it never reads "0d 0h 9s"
+assert.deepEqual(await page.evaluate(() => [90061000, 7509000, 309000, 9000].map(fmtLeft)),
+  ['1d 1h 1m 1s', '2h 5m 9s', '5m 9s', '9s'], 'the clock keeps units that are already zero');
+
+/* and the clock has to actually tick. Wait for the change rather than sleeping a
+   fixed span: the interval's phase comes from page load, not from the moment the
+   deadline was set, so the displayed second can legitimately stay put for nearly
+   two ticks — a fixed 1.2s sleep here failed three runs in five. */
+const t1 = await page.textContent('.dl-clock');
+await page.waitForFunction(prev => document.querySelector('.dl-clock').textContent !== prev,
+  t1, { timeout: 4000 }).catch(() => { throw new Error('the deadline clock is frozen at ' + t1); });
+
+// past it, the banner turns and names the forfeit
+await page.evaluate(h => {
+  const s = window.decodeState(h);
+  s.deadlineAt = Date.now() - 60000;
+  window.applyState(s);
+}, HASH);
+assert.equal(await page.textContent('.dl-clock'), 'Time up', 'a passed deadline still shows a clock');
+assert.match(await page.textContent('.dl-note'), /8 unplayed matches — each forfeits 1-0/,
+  'a passed deadline never says what happens next: ' + await page.textContent('.dl-note'));
+assert.ok(await page.evaluate(() => $('deadline').classList.contains('over')),
+  'a passed deadline is not styled as passed');
+
+// with every match played there is nothing to forfeit, and it must not claim there is
+await page.evaluate(() => {
+  groups.forEach(g => g.matches.forEach((m, mi) => setGroupScore(groups.indexOf(g), mi, 10, 5)));
+  renderDeadline();
+});
+assert.match(await page.textContent('.dl-note'), /no forfeits/,
+  'a fully played group still threatens forfeits: ' + await page.textContent('.dl-note'));
+// nothing outstanding, so nothing to warn about
+await page.evaluate(() => { deadlineAt = Date.now() + 3600e3; renderDeadline(); });
+assert.equal(await page.locator('.dl-warn').count(), 0,
+  'still warning about forfeits with every match played');
+
+/* ---- a double no-show is settled, not outstanding ----
+   The whole point of voiding: one match nobody turned up for must not hold the
+   knockout shut forever. 0-0 is the marker because a real match can't end 0-0. */
+const voided = await page.evaluate(h => {
+  window.applyState(window.decodeState(h));            // fresh cup
+  // every match played but one: the cup is one no-show away from frozen
+  groups[0].matches.forEach((m, mi) => { if (mi !== 3) setGroupScore(0, mi, 10, 5); });
+  const m = groups[0].matches[3], stat = t => ({ ...rank(groups[0]).stats.get(t) });
+  const blocked = $('koBtn').style.display;
+  const before = [stat(m.a), stat(m.b)];               // the match simply unplayed
+  setGroupScore(0, 3, 0, 0);                           // neither team showed
+  return {
+    blocked, koBtn: $('koBtn').style.display, outstanding: unplayedCount(),
+    before, after: [stat(m.a), stat(m.b)],
+    tieNote: document.querySelector('.tie-note')?.textContent ?? null,
+  };
+}, HASH);
+assert.equal(voided.blocked, 'none', 'the knockout opened with a match still outstanding');
+assert.notEqual(voided.koBtn, 'none', 'a voided match still blocks the knockout — the freeze is back');
+assert.equal(voided.outstanding, 0, 'a voided match still counts as outstanding');
+// a void has to leave the table exactly as if the match had never happened
+assert.deepEqual(voided.after, voided.before,
+  'a void moved the table: ' + JSON.stringify(voided.before) + ' -> ' + JSON.stringify(voided.after));
+assert.equal(voided.tieNote, null, 'a 0-0 void trips the "no draws" warning');
+
+// a genuine equal score is still an error, not a void
+await page.evaluate(() => setGroupScore(0, 3, 5, 5));
+assert.match(await page.textContent('.tie-note'), /no draws/,
+  'an equal score other than 0-0 is no longer flagged');
+assert.equal(await page.evaluate(() => $('koBtn').style.display), 'none',
+  '5-5 was treated as a settled match');
+
+// applyState rebuilds the cup through startCup(), so the stored wall must survive
+// every remote snapshot — otherwise the deadline walks two days further out each
+// time anyone scores and never arrives
+const fixed = await page.evaluate(h => {
+  const s = window.decodeState(h);
+  s.deadlineAt = Date.UTC(2026, 6, 6, 9);
+  window.applyState(s);
+  window.applyState(s);
+  window.applyState(s);
+  return deadlineAt;
+}, HASH);
+assert.equal(fixed, Date.UTC(2026, 6, 6, 9), 'a remote snapshot moved the deadline');
+
+// and it has to reach the database, or only the admin's own tab knows the wall
+await page.evaluate(() => { window.setAdmin(true); window.writes = []; gotRemote = true; renderAll(); });
+assert.equal(JSON.parse((await page.evaluate(() => window.writes)).pop()).deadlineAt,
+  Date.UTC(2026, 6, 6, 9), 'deadline missing from the saved payload');
+await page.evaluate(() => window.setAdmin(false));
+console.log('fixture deadline OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();

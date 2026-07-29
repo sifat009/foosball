@@ -54,11 +54,33 @@ rule (e.g. `&& auth.token.email.endsWith('@yourdomain.com')`).
 
 ## Running it locally
 
-Google sign-in refuses to run from a `file://` page, so open it over HTTP:
+Localhost is wired to the **Firebase emulators**, not the live project — a local
+Start Over can't wipe a cup people are watching. Start them first, in their own
+terminal:
+
+```
+firebase emulators:start --only auth,database
+```
+
+Then serve the page (Google sign-in refuses to run from a `file://` page):
 
 ```
 npx serve .        # then visit the printed localhost URL
 ```
+
+Sign-in opens the emulator's fake account picker instead of Google's — add an
+account with the admin address from `ADMIN_EMAIL` and you get the admin UI, add
+any other address and you're a viewer. `database.rules.json` is loaded by the
+emulator, so the real write boundary is enforced locally too. Emulator state is
+in memory: stopping it wipes the test cup. The emulator UI is at
+<http://localhost:4000>.
+
+The database emulator needs a Java runtime (`brew install openjdk`). If the
+emulators aren't running the page just sits offline — that's deliberate, local
+edits have nowhere to go but the emulator.
+
+The switch is a hostname check next to `initializeApp` in `index.html`; a
+deployed page never takes that branch.
 
 ## Tests
 
