@@ -2373,7 +2373,9 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     busy = true;
     const btn = $('tossFlip'); btn.disabled = true;
     $('tossResult').innerHTML = '<span class="idle">Spinning…</span>';
-    const aWins = Math.random() < 0.5;
+    // crypto, not Math.random: same 50/50, but a real entropy source rather than a
+    // seeded PRNG, so a run of one side is chance and never the generator's pattern
+    const aWins = crypto.getRandomValues(new Uint8Array(1))[0] < 128;
     const winName = aWins ? selA.value : selB.value;
     const winColor = aWins ? COL_A : COL_B;
     /* Land on the middle of the winner's half. Always travel clockwise: whole
