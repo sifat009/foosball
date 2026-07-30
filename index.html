@@ -465,6 +465,15 @@
     font-size: clamp(2rem, 8vw, 3rem); line-height: 1.15; margin: 6px 0 4px; color: #6f5610;
   }
   .dl-note { font-size: 0.88rem; font-weight: 700; line-height: 1.45; opacity: 0.9; }
+  /* the clock as a shrinking bar — the number says how long, this says how little */
+  .dl-bar {
+    height: 9px; margin: 4px 2px 10px; border-radius: 99px;
+    background: rgba(138, 100, 20, 0.16); overflow: hidden;
+  }
+  .dl-bar i {
+    display: block; height: 100%; border-radius: 99px; background: #b8860f;
+  }
+  .dl-bar.low i { background: #c2410c; }
   /* the consequence, stated while there's still time to avoid it */
   .dl-warn {
     margin: 10px -20px -14px; padding: 9px 20px; border-radius: 0 0 17px 17px;
@@ -1217,7 +1226,7 @@ $('resetBtn').onclick = () => {
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
   teams = []; groups = []; koRounds = []; koStarted = false;
-  spin = null; lastSpinN = null; deadlineAt = null;
+  spin = null; lastSpinN = null; deadlineAt = null; deadlineFrom = null;
   if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
   if (window.clearAllSuggestions) window.clearAllSuggestions(); // old cups' suggestions would just accumulate
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
@@ -1504,7 +1513,7 @@ function startCup() {
   // restoring means applyState is rebuilding an existing cup, not opening a new
   // one — keep the stored wall, or every remote snapshot would push it two days
   // further out and the deadline would never arrive
-  if (!restoring) deadlineAt = workDaysFrom(Date.now(), WORK_DAYS);
+  if (!restoring) { deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS); }
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
@@ -1534,7 +1543,7 @@ function startCup() {
    Stored as an absolute instant, like draftStartAt, so every viewer counts down
    to the same wall in their own timezone. */
 const WORK_DAYS = 2;
-var deadlineAt = null;
+var deadlineAt = null, deadlineFrom = null;
 
 // n working days after ms, skipping Sat (6) and Sun (0) — the time of day rides along
 function workDaysFrom(ms, n) {
@@ -1579,6 +1588,9 @@ function renderDeadline() {
   if (!deadlineAt || curScreen !== 'tourney') { el.style.display = 'none'; return; }
   const left = deadlineAt - Date.now(), stage = koStarted ? 'Knockout' : 'Group';
   const n = unplayedCount(), s = n === 1 ? '' : 'es';
+  // cups started before the bar existed have no window start — assume the usual one
+  const span = deadlineAt - (deadlineFrom || deadlineAt - WORK_DAYS * 864e5);
+  const pct = Math.max(0, Math.min(100, left / span * 100));
   el.style.display = '';
   el.className = 'deadline' + (left > 0 ? '' : ' over');
   // past the wall the banner stops being a clock and becomes an instruction —
@@ -1586,6 +1598,7 @@ function renderDeadline() {
   el.innerHTML = left > 0
     ? `<div class="dl-label">${stage} matches due ${fmtWhen(deadlineAt, 'short')}</div>
        <div class="dl-clock">${fmtLeft(left)}</div>
+       <div class="dl-bar${pct < 25 ? ' low' : ''}"><i style="width:${pct}%"></i></div>
        <div class="dl-note">${n ? `${n} match${s} still to play` : 'All matches played — nothing left to run'}</div>`
        + (n ? `<div class="dl-warn">${warnText()}</div>` : '')
     : `<div class="dl-label">Deadline passed · ${fmtWhen(deadlineAt, 'short')}</div>
@@ -1681,7 +1694,7 @@ function save() {
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
-    fwds, defs, teams, koStarted, cupId, draftStartAt, deadlineAt, spin,
+    fwds, defs, teams, koStarted, cupId, draftStartAt, deadlineAt, deadlineFrom, spin,
     groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
     koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
   }));
@@ -1694,6 +1707,7 @@ function applyState(s) {
   if (s.defText != null) $('defInput').value = s.defText;
   draftStartAt = s.draftStartAt || null;
   deadlineAt = s.deadlineAt || null; // cups started before deadlines existed just have none
+  deadlineFrom = s.deadlineFrom || null;
   if (isAdmin) {
     $('schedInput').value = draftStartAt ? msToInput(draftStartAt) : '';
     $('schedNote').textContent = draftStartAt
@@ -1837,7 +1851,8 @@ function renderGroups() {
 
 function startKnockout() {
   koStarted = true;
-  if (!restoring) deadlineAt = workDaysFrom(Date.now(), WORK_DAYS); // the knockout gets its own clock
+  // the knockout gets its own clock
+  if (!restoring) { deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS); }
   if (groups.length === 2) {
     const [ra, rb] = groups.map(g => rank(g).order);
     // FIFA-style cross: A1 vs B2, B1 vs A2

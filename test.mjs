@@ -796,6 +796,21 @@ await page.evaluate(() => { window.setAdmin(true); window.writes = []; gotRemote
 assert.equal(JSON.parse((await page.evaluate(() => window.writes)).pop()).deadlineAt,
   Date.UTC(2026, 6, 6, 9), 'deadline missing from the saved payload');
 await page.evaluate(() => window.setAdmin(false));
+
+// the bar has to drain with the window, not just exist — half the window gone
+// means half a bar, and it must survive a snapshot the same way the wall does
+const dlBar = await page.evaluate(h => {
+  const s = window.decodeState(h), now = Date.now();
+  s.deadlineFrom = now - 36e5; s.deadlineAt = now + 36e5; // half of a 2h window left
+  window.applyState(s); window.applyState(s);
+  const half = document.querySelector('#deadline .dl-bar i').style.width;
+  s.deadlineFrom = now - 36e5 * 7; s.deadlineAt = now + 36e5; // 1h of 8 left
+  window.applyState(s);
+  return { half, low: document.querySelector('#deadline .dl-bar').className, thin: document.querySelector('#deadline .dl-bar i').style.width };
+}, HASH);
+assert.equal(Math.round(parseFloat(dlBar.half)), 50, 'bar is not half full halfway through: ' + dlBar.half);
+assert.ok(parseFloat(dlBar.thin) < 15, 'bar did not drain near the wall: ' + dlBar.thin);
+assert.match(dlBar.low, /low/, 'bar stayed amber with an eighth of the window left');
 console.log('fixture deadline OK');
 
 // ---------- install button ----------
