@@ -438,7 +438,7 @@
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
   }
 
-  /* ---- coin toss overlay ---- */
+  /* ---- match toss overlay ---- */
   #tossBtn {
     display: inline-flex; align-items: center; gap: 8px;
     background: #fff; color: #96660a; border: 1.5px solid #f0d79a;
@@ -495,22 +495,9 @@
   #toss .picker.b select:focus { border-color: #dc5a1e; outline: none; }
   #toss .vs { color: #8fa0b8; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.1em; margin-top: 20px; flex: none; }
   #toss .stage { position: relative; display: grid; place-items: center; padding: 8px 0 16px; }
-  #toss .flipwrap { position: relative; width: 150px; height: 150px; }
-  #toss .floor {
-    position: absolute; bottom: 6px; left: 50%; width: 92px; height: 13px;
-    transform: translateX(-50%); border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(10,16,28,0.24), transparent 72%);
-  }
-  #tossCanvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 12px 16px rgba(10,16,28,0.26)); }
-  #toss .ribbon {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%) scale(0.82);
-    max-width: 86%; padding: 5px 13px; border-radius: 999px; color: #fff;
-    font-weight: 800; font-size: 0.74rem; white-space: nowrap; overflow: hidden;
-    text-overflow: ellipsis; box-shadow: 0 4px 12px rgba(0,0,0,0.32);
-    border: 1.5px solid rgba(255,255,255,0.6); pointer-events: none;
-    opacity: 0; transition: opacity 0.3s ease, transform 0.3s cubic-bezier(.2,1.3,.4,1);
-  }
-  #toss .flipwrap.reveal .ribbon { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+  /* the dial carries the team names now, so it needs more room than the coin did */
+  #toss .dialwrap { position: relative; width: 176px; height: 176px; }
+  #tossCanvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 8px 18px rgba(10,16,28,0.16)); }
   #tossFlip {
     display: block; margin: 0 auto; border: none; border-radius: 999px;
     padding: 13px 42px; font: inherit; font-weight: 800; letter-spacing: 0.02em;
@@ -523,11 +510,10 @@
   #toss .toss-result { text-align: center; min-height: 1.4em; margin-top: 14px; font-weight: 800; font-size: 0.95rem; color: #172b4d; }
   #toss .toss-result .who { padding: 3px 10px; border-radius: 7px; color: #fff; }
   #toss .toss-result .idle { color: #8fa0b8; font-weight: 600; font-size: 0.85rem; }
-  @media (prefers-reduced-motion: reduce) { #toss .ribbon { transition: none; } }
   @media (max-width: 640px) {
     #toss .pickers { flex-direction: column; align-items: stretch; gap: 12px; }
     #toss .vs { margin: 0; align-self: center; }
-    #toss .flipwrap { width: 134px; height: 134px; }
+    #toss .dialwrap { width: 158px; height: 158px; }
   }
   /* rules sheet */
   .rules-h {
@@ -788,7 +774,7 @@ Rashed</textarea>
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Battle Of Titans</span></h1>
   <div class="subtitle" id="tourneySub">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
-  <div class="toss-launch"><button id="tossBtn">🪙 Coin Toss</button></div>
+  <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
   <div id="groupSection">
@@ -808,21 +794,17 @@ Rashed</textarea>
 
 <div id="toss">
   <div class="hall-card">
-    <div class="hall-title">🪙 Match Toss</div>
-    <div class="toss-sub">Spin the coin — the winner kicks off first.</div>
+    <div class="hall-title">🕓 Match Toss</div>
+    <div class="toss-sub">Spin the ticker — the winner kicks off first.</div>
     <div class="pickers">
       <div class="picker a"><label>Blue side</label><select id="tossA"></select></div>
       <div class="vs">VS</div>
       <div class="picker b"><label>Orange side</label><select id="tossB"></select></div>
     </div>
     <div class="stage">
-      <div class="floor"></div>
-      <div class="flipwrap" id="tossWrap">
-        <canvas id="tossCanvas"></canvas>
-        <span class="ribbon" id="tossRibbon"></span>
-      </div>
+      <div class="dialwrap"><canvas id="tossCanvas"></canvas></div>
     </div>
-    <button id="tossFlip">Flip the Coin</button>
+    <button id="tossFlip">Spin the Ticker</button>
     <div class="toss-result" id="tossResult"><span class="idle">Ready when you are.</span></div>
     <button id="tossClose">Close</button>
   </div>
@@ -859,7 +841,7 @@ Rashed</textarea>
         having played it. A real match can't finish 0-0 — someone gets to 10 — so
         that score means "nobody came", not "a draw".</li>
         <li>In the <b>knockout</b> a 0-0 isn't possible, because somebody has to go
-        through. If neither team turns up, the <b>Coin Toss</b> decides it.</li>
+        through. If neither team turns up, the <b>Match Toss</b> decides it.</li>
         <li><b>No substitutes.</b> Your drafted pair is your team for the whole cup.</li>
       </ul>
 
@@ -1565,7 +1547,7 @@ function unplayedCount() {
 function warnText() {
   return koStarted
     ? 'Not played by then? A no-show <b>forfeits the tie</b>. If <b>neither</b> team turns up,'
-      + ' the <b>Coin Toss</b> decides who goes through — the bracket has to move.'
+      + ' the <b>Match Toss</b> decides who goes through — the bracket has to move.'
     : 'Not played by then? It\'s a <b>1-0</b> to the team that turned up.'
       + ' If <b>neither</b> team turns up it goes down as <b>0-0</b> — nothing for either team.';
 }
@@ -1589,7 +1571,7 @@ function renderDeadline() {
        <div class="dl-note">${n
          ? `${n} unplayed match${s} — each forfeits <b>1-0</b> to the team that turned up.<br>`
            + (koStarted
-             ? 'Nobody turned up? Settle it on the Coin Toss and click the winner through.'
+             ? 'Nobody turned up? Settle it on the Match Toss and click the winner through.'
              : 'Nobody turned up at all? That one goes in as <b>0-0</b>. The admin enters these to move the cup on.')
          : 'Every match was played in time — no forfeits.'}</div>`;
 }
@@ -1604,7 +1586,7 @@ const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
    moment someone reaches 10. That makes it an unambiguous marker with no extra
    field to store: rank() already skips matches with no winner, so a void costs
    both teams nothing and doesn't count as played. The knockout can't use this —
-   somebody has to advance — so there the Coin Toss decides. */
+   somebody has to advance — so there the Match Toss decides. */
 const isVoid = m => m.sa === 0 && m.sb === 0;
 
 function setGroupScore(gi, mi, sa, sb) {
@@ -2227,17 +2209,21 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 </script>
 
 <script>
-/* ================= COIN TOSS =================
-   A pre-match toss anyone can run: pick the two teams, spin a gold coin, the
+/* ================= MATCH TOSS =================
+   A pre-match toss anyone can run: pick the two teams, spin the ticker, the
    winner kicks off. Purely local and ephemeral — it writes nothing and touches
-   no cup state. The coin is a real spinning sphere-of-a-disc: its face
-   foreshortens to an ellipse and turns edge-on as it rotates around the vertical
-   axis. Blue side / orange side is just slot colour for the two chosen teams. */
+   no cup state. The dial itself never moves: it is a fixed clock face split down
+   the middle, blue team on the left, orange on the right. Only the hand turns,
+   and it comes to rest pointing at the middle of the winner's half — 9 o'clock
+   for blue, 3 o'clock for orange. At rest before a spin it sits on the divider
+   at 12, pointing at neither team, so an untouched dial never reads as a result. */
 (function () {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const canvas = $('tossCanvas'), wrap = $('tossWrap'), ribbon = $('tossRibbon');
+  const canvas = $('tossCanvas');
   const selA = $('tossA'), selB = $('tossB');
   const COL_A = '#2563eb', COL_B = '#dc5a1e';
+  const UP = -Math.PI / 2, LEFT = Math.PI, RIGHT = 0; // 12, 9 and 3 o'clock
+  const MARK = Math.PI / 6; // 12 clock marks — also the tick spacing
 
   function fit() {
     const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -2248,92 +2234,102 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     return { ctx, w: r.width, h: r.height };
   }
-  function starPath(ctx, R) {
-    ctx.beginPath();
-    for (let i = 0; i < 10; i++) {
-      const rad = i % 2 ? R * 0.4 : R, a = -Math.PI / 2 + i * Math.PI / 5;
-      const px = rad * Math.cos(a), py = rad * Math.sin(a);
-      i ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-    }
-    ctx.closePath();
-  }
-  function relief(ctx, path, mid, depth) {
-    const d = depth || 1;
-    ctx.save(); ctx.translate(d, d * 1.2); path(ctx); ctx.fillStyle = 'rgba(86,55,10,0.55)'; ctx.fill(); ctx.restore();
-    ctx.save(); ctx.translate(-d, -d * 1.2); path(ctx); ctx.fillStyle = 'rgba(255,248,214,0.6)'; ctx.fill(); ctx.restore();
-    path(ctx); ctx.fillStyle = mid; ctx.fill();
-  }
-  function arcText(ctx, text, radius, size, bottom) {
+
+  /* A team name is "fwd + def" — "Sazedul Haque + Ofi" is far too wide to sit in
+     half a 170px dial on one line. Wrap it greedily onto as many lines as it needs
+     and only shrink when a single word still won't fit, so a long name loses height
+     rather than legibility. Shrinking alone would put it on screen at ~8px. */
+  function halfLabel(ctx, name, cx, bottom, avail, size) {
+    let fs = size;
+    const wrap = () => {
+      ctx.font = '800 ' + fs + 'px Inter, sans-serif';
+      const out = [];
+      name.split(' ').forEach(word => {
+        const joined = out.length ? out[out.length - 1] + ' ' + word : word;
+        if (out.length && ctx.measureText(joined).width <= avail) out[out.length - 1] = joined;
+        else out.push(word);
+      });
+      return out;
+    };
+    let lines = wrap();
+    // one unbreakable word wider than the half — now scaling is the only option left
+    const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
+    if (widest > avail) { fs *= avail / widest; lines = wrap(); }
+    /* Grow upwards from a fixed bottom edge, not outwards from a centre: the block
+       then clears the resting hand no matter how many lines the name wrapped onto. */
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `800 ${size}px "Inter", sans-serif`;
-    const step = size * 0.92 / radius, n = text.length;
-    for (let i = 0; i < n; i++) {
-      const off = i - (n - 1) / 2;
-      const ang = bottom ? (Math.PI / 2 - off * step) : (-Math.PI / 2 + off * step);
-      ctx.save();
-      ctx.translate(Math.cos(ang) * radius, Math.sin(ang) * radius);
-      ctx.rotate(bottom ? ang - Math.PI / 2 : ang + Math.PI / 2);
-      ctx.fillStyle = 'rgba(86,55,10,0.5)'; ctx.fillText(text[i], 0.6, 0.9);
-      ctx.fillStyle = 'rgba(255,248,214,0.55)'; ctx.fillText(text[i], -0.6, -0.9);
-      ctx.fillStyle = '#7c5310'; ctx.fillText(text[i], 0, 0);
-      ctx.restore();
-    }
+    const lh = fs * 1.2, top = bottom - (lines.length - 1) * lh;
+    lines.forEach((l, i) => ctx.fillText(l, cx, top + i * lh));
   }
-  function drawCoin(angle) {
+
+  function drawDial(angle) {
     const { ctx, w, h } = fit();
-    const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 8, T = 13;
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 5;
     ctx.clearRect(0, 0, w, h);
-    const cos = Math.cos(angle), sin = Math.sin(angle), a = Math.abs(cos);
-    const rx = R * a, ry = R, edgeW = T * Math.abs(sin);
 
-    if (a < 0.045) { // edge-on: thin reeded gold bar
-      const bw = T, g = ctx.createLinearGradient(cx - bw / 2, 0, cx + bw / 2, 0);
-      g.addColorStop(0, '#6d480e'); g.addColorStop(.5, '#f3cf62'); g.addColorStop(1, '#6d480e');
-      ctx.beginPath(); ctx.roundRect(cx - bw / 2, cy - ry, bw, 2 * ry, bw / 2); ctx.fillStyle = g; ctx.fill();
-      ctx.strokeStyle = 'rgba(70,46,8,0.5)'; ctx.lineWidth = 1;
-      for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 2.4, cy - ry + 4); ctx.lineTo(cx + i * 2.4, cy + ry - 4); ctx.stroke(); }
-      return;
+    // the two halves: blue owns the left semicircle, orange the right
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, Math.PI / 2, -Math.PI / 2);
+    ctx.fillStyle = '#eef3fd'; ctx.fill();
+    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2);
+    ctx.fillStyle = '#fdf0e8'; ctx.fill();
+
+    /* Team names, one per half — sat above the midline on purpose. The hand comes
+       to rest at 9 or 3 o'clock, dead level, and a centred label would have the
+       winning name struck through by it at exactly the moment it has to be read. */
+    const labelBottom = cy - R * 0.22; // clears the hand, which is R*0.052 thick
+    ctx.fillStyle = COL_A;
+    halfLabel(ctx, selA.value || 'Blue', cx - R * 0.47, labelBottom, R * 0.8, R * 0.16);
+    ctx.fillStyle = COL_B;
+    halfLabel(ctx, selB.value || 'Orange', cx + R * 0.47, labelBottom, R * 0.8, R * 0.16);
+
+    // clock marks, longer on the quarters
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 12; i++) {
+      const a = UP + i * MARK, quarter = i % 3 === 0;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a) * R * 0.93, cy + Math.sin(a) * R * 0.93);
+      ctx.lineTo(cx + Math.cos(a) * R * (quarter ? 0.8 : 0.86), cy + Math.sin(a) * R * (quarter ? 0.8 : 0.86));
+      ctx.lineWidth = quarter ? 2.4 : 1.4;
+      ctx.strokeStyle = quarter ? 'rgba(23,43,77,0.42)' : 'rgba(23,43,77,0.2)';
+      ctx.stroke();
     }
-    const eg = ctx.createLinearGradient(cx - rx - edgeW, 0, cx + rx + edgeW, 0);
-    eg.addColorStop(0, '#5f3e0c'); eg.addColorStop(.5, '#9a6d18'); eg.addColorStop(1, '#5f3e0c');
-    ctx.beginPath(); ctx.ellipse(cx, cy, rx + edgeW, ry, 0, 0, 7); ctx.fillStyle = eg; ctx.fill();
 
-    let fg = ctx.createLinearGradient(cx, cy - ry, cx, cy + ry);
-    fg.addColorStop(0, '#fff4c6'); fg.addColorStop(.28, '#f4cf63'); fg.addColorStop(.5, '#e6b23a');
-    fg.addColorStop(.72, '#cf9526'); fg.addColorStop(1, '#a9741a');
-    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fillStyle = fg; ctx.fill();
-    let rg = ctx.createRadialGradient(cx - rx * 0.42, cy - ry * 0.44, 2, cx, cy, Math.max(rx, ry) * 1.05);
-    rg.addColorStop(0, 'rgba(255,252,235,0.85)'); rg.addColorStop(.4, 'rgba(255,245,205,0)'); rg.addColorStop(1, 'rgba(120,80,16,0.35)');
-    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.fillStyle = rg; ctx.fill();
+    // the divider, dashed so it reads as a boundary rather than a second hand
+    ctx.save(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(23,43,77,0.28)';
+    ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke(); ctx.restore();
 
-    ctx.save(); ctx.translate(cx, cy); ctx.scale(a, 1);
-    ctx.strokeStyle = 'rgba(110,74,14,0.5)'; ctx.lineWidth = 1;
-    for (let i = 0; i < 76; i++) { const t = i / 76 * Math.PI * 2, c1 = Math.cos(t), s1 = Math.sin(t);
-      ctx.beginPath(); ctx.moveTo(c1 * R * 0.985, s1 * R * 0.985); ctx.lineTo(c1 * R * 0.9, s1 * R * 0.9); ctx.stroke(); }
-    ctx.beginPath(); ctx.arc(0, 0, R * 0.9, 0, 7); ctx.lineWidth = R * 0.05; ctx.strokeStyle = 'rgba(255,243,196,0.55)'; ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, R * 0.82, 0, 7); ctx.lineWidth = R * 0.025; ctx.strokeStyle = 'rgba(110,74,14,0.55)'; ctx.stroke();
-    for (let i = 0; i < 40; i++) { const t = i / 40 * Math.PI * 2, bx = Math.cos(t) * R * 0.72, by = Math.sin(t) * R * 0.72;
-      relief(ctx, c => { c.beginPath(); c.arc(bx, by, R * 0.018, 0, 7); }, '#d9a838', 0.5); }
-    if (a > 0.28) {
-      arcText(ctx, 'OLLYO FOOSBALL CUP', R * 0.6, R * 0.13, false);
-      arcText(ctx, 'KICK-OFF TOSS', R * 0.6, R * 0.13, true);
-      relief(ctx, c => starPath(c, R * 0.34), '#eabf4c', Math.max(0.7, R * 0.02));
-    }
+    // gold bezel
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7);
+    ctx.lineWidth = 4; ctx.strokeStyle = '#e5a922'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R - 3.5, 0, 7);
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,248,214,0.7)'; ctx.stroke();
+
+    // the hand: a tapered blade with a stubby counterweight behind the pivot
+    const len = R * 0.74, tail = R * 0.17, half = R * 0.052;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(len, 0);
+    ctx.lineTo(half * 0.5, -half); ctx.lineTo(-tail, -half * 0.85);
+    ctx.arc(-tail, 0, half * 0.85, -Math.PI / 2, Math.PI / 2, true);
+    ctx.lineTo(half * 0.5, half);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(-tail, 0, len, 0);
+    g.addColorStop(0, '#b8801a'); g.addColorStop(.45, '#f4cf63'); g.addColorStop(1, '#e0a52c');
+    ctx.fillStyle = g; ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(94,62,12,0.5)'; ctx.stroke();
     ctx.restore();
 
-    ctx.save(); ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.clip();
-    const c = Math.max(0, Math.min(1, Math.sin(angle * 1.5) * 0.5 + 0.5));
-    const sh = ctx.createLinearGradient(cx - rx, cy - ry, cx + rx, cy + ry);
-    sh.addColorStop(Math.max(0, c - 0.16), 'rgba(255,255,255,0)');
-    sh.addColorStop(c, 'rgba(255,255,255,0.4)');
-    sh.addColorStop(Math.min(1, c + 0.16), 'rgba(255,255,255,0)');
-    ctx.fillStyle = sh; ctx.fillRect(cx - rx, cy - ry, 2 * rx, 2 * ry); ctx.restore();
-
-    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, 7); ctx.lineWidth = 1.6; ctx.strokeStyle = 'rgba(255,240,190,0.6)'; ctx.stroke();
+    // pivot hub, drawn last so the hand tucks under it
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.085, 0, 7);
+    ctx.fillStyle = '#e5a922'; ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.beginPath(); ctx.arc(cx, cy, R * 0.03, 0, 7);
+    ctx.fillStyle = 'rgba(94,62,12,0.55)'; ctx.fill();
   }
 
-  let idleAngle = 0;
-  const drawIdle = () => drawCoin(idleAngle);
+  let angle = UP; // where the hand is now; starts on the divider
+  const drawIdle = () => drawDial(angle);
 
   function fillSelects(keepA, keepB) {
     const names = teams.map(teamName);
@@ -2342,7 +2338,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     if (selB.value === selA.value || !selB.value) selB.selectedIndex = 0;
   }
   function resetResult() {
-    wrap.classList.remove('reveal');
+    angle = UP; // a changed team makes the old result meaningless — back to the divider
     drawIdle();
     $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
   }
@@ -2350,46 +2346,62 @@ var bootTimer = setTimeout(window.bootDone, 3000);
   selB.onchange = resetResult;
 
   let busy = false;
-  function flip() {
+  function spin() {
     if (busy || teams.length < 2) return;
     busy = true;
-    wrap.classList.remove('reveal');
     const btn = $('tossFlip'); btn.disabled = true;
     $('tossResult').innerHTML = '<span class="idle">Spinning…</span>';
     const aWins = Math.random() < 0.5;
     const winName = aWins ? selA.value : selB.value;
     const winColor = aWins ? COL_A : COL_B;
-    const start = idleAngle, endAngle = start + (5 + Math.random() * 2) * Math.PI * 2;
-    idleAngle = 0;
+    /* Land on the middle of the winner's half. Always travel clockwise: whole
+       turns plus however far short of the target the hand currently sits. */
+    const target = aWins ? LEFT : RIGHT;
+    const start = angle, turns = 9 + Math.floor(Math.random() * 4);
+    const sweep = 2 * Math.PI * turns + (((target - start) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
     const finish = () => {
       busy = false; btn.disabled = false;
-      drawCoin(0);
-      ribbon.textContent = winName; ribbon.style.background = winColor;
-      wrap.classList.add('reveal');
+      angle = target;
+      drawDial(angle);
+      ding();
       $('tossResult').innerHTML =
         '<span class="who" style="background:' + winColor + '">' + winName + '</span> serves first';
     };
     if (reduce) { finish(); return; }
-    const dur = 1700, t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3);
+    // same duration as the draw wheels, and shortened by the tests the same way
+    const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3);
+    let lastMark = 0, lastTick = 0;
     (function step(now) {
-      const t = Math.min(1, (now - t0) / dur);
-      drawCoin(start + (endAngle - start) * ease(t));
+      const t = Math.min(1, (now - t0) / SPIN_MS);
+      const travelled = sweep * ease(t);
+      angle = start + travelled;
+      /* One tick per clock mark passed, so the clicking slows with the hand — but
+         at full speed the marks pass every ~10ms against a 35ms tone, which buzzes
+         instead of ticking. Drop the ones that would overlap; by the time the hand
+         is slow enough to read, every mark gets its own click. */
+      const mark = Math.floor(travelled / MARK);
+      if (mark !== lastMark) {
+        if (now - lastTick >= 34) { tick(); lastTick = now; }
+        lastMark = mark;
+      }
+      drawDial(angle);
       if (t < 1) requestAnimationFrame(step); else finish();
     })(t0);
   }
-  $('tossFlip').onclick = flip;
+  $('tossFlip').onclick = spin;
 
   function openToss() {
     if (teams.length < 2) return; // nothing to toss between yet
     fillSelects(teams[0] && teamName(teams[0]), teams[1] && teamName(teams[1]));
     $('toss').classList.add('open');
-    wrap.classList.remove('reveal');
+    angle = UP;
     $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
     requestAnimationFrame(drawIdle); // canvas has size only once the panel is visible
   }
   $('tossBtn').onclick = openToss;
   $('tossClose').onclick = () => $('toss').classList.remove('open');
   $('toss').onclick = e => { if (e.target === $('toss')) $('toss').classList.remove('open'); };
+  window.addEventListener('resize', () => { if ($('toss').classList.contains('open')) drawIdle(); });
 })();
 </script>
 

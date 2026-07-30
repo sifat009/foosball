@@ -393,7 +393,7 @@ await page.click('#rulesBtn');
 assert.ok(await page.isVisible('#rules'), 'the rules link did not open anything');
 const rules = (await page.textContent('#rules')).replace(/\s+/g, ' '); // source wraps mid-sentence
 for (const t of ['no points system', 'no draws', 'A1 v B2', 'every group match is settled',
-                 '2 working days', 'forfeits 1-0', 'goes down as 0-0', 'Coin Toss decides it'])
+                 '2 working days', 'forfeits 1-0', 'goes down as 0-0', 'Match Toss decides it'])
   assert.ok(rules.includes(t), 'rules sheet is missing: ' + t);
 await page.keyboard.press('Escape');
 assert.ok(!(await page.isVisible('#rules')), 'Escape did not close the rules');
@@ -594,7 +594,7 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw
   'the side-by-side wheels push the page sideways');
 console.log('mobile layout OK');
 
-// ---------- coin toss ----------
+// ---------- match toss ----------
 // anyone can open it, the two dropdowns come from the live roster and can't pick
 // the same team twice, and a flip always names a winner. It's ephemeral, so it
 // must not scroll the page or touch cup state.
@@ -605,19 +605,23 @@ const toss = await page.evaluate(() => ({
   open: document.getElementById('toss').classList.contains('open'),
   a: tossA.options.length, b: tossB.options.length, dup: tossA.value === tossB.value,
 }));
-assert.ok(toss.open, 'the coin toss overlay did not open');
+assert.ok(toss.open, 'the match toss overlay did not open');
 assert.ok(toss.a >= 2 && toss.b >= 1, 'the toss dropdowns were not filled from the roster');
 assert.ok(!toss.dup, 'the toss let a team play itself');
+// the ticker runs for SPIN_MS, same as the draw wheels — shorten it as the draw
+// test does rather than sit through the full spin
+await page.evaluate(() => { SPIN_MS = 300; });
 await page.click('#tossFlip');
 await page.waitForFunction(
   () => /serves first/.test(document.getElementById('tossResult').textContent),
   null, { timeout: 3000 });
+await page.evaluate(() => { SPIN_MS = 4000; });
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
-  'the coin toss overlay scrolls the page sideways');
+  'the match toss overlay scrolls the page sideways');
 await page.click('#tossClose');
 assert.ok(!(await page.evaluate(() => document.getElementById('toss').classList.contains('open'))),
-  'the coin toss overlay would not close');
-console.log('coin toss OK');
+  'the match toss overlay would not close');
+console.log('match toss OK');
 
 // ---------- shareable champion card ----------
 // The card is drawn, not screenshotted, so the failures that matter are the
