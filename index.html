@@ -568,6 +568,22 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #installBtn:hover { color: #17854a; border-color: #b6e3c9; }
+  /* shown on browsers with no install event (iOS Safari, Firefox) — the only
+     way in there is the browser's own menu, so spell the steps out */
+  #installTip {
+    display: none; position: fixed; z-index: 7; left: 50%; top: 50%;
+    transform: translate(-50%, -50%); max-width: min(320px, calc(100vw - 32px));
+    background: #fff; color: #3d4a5c; border: 1.5px solid #e2e8f1;
+    border-radius: 14px; padding: 18px 20px; font-size: 0.88rem; line-height: 1.55;
+    box-shadow: 0 12px 40px rgba(23,43,77,0.18);
+  }
+  #installTip.open { display: block; }
+  #installTip b { color: #16233a; }
+  #installTip button {
+    margin-top: 12px; width: 100%; background: #16233a; color: #fff; border: 0;
+    border-radius: 999px; padding: 9px 0; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  }
   #btnBar { display: contents; } /* desktop: the wrapper isn't a box at all */
   /* Every fixed button must be declared above this block. A media query adds
      no specificity, so a later #id rule beats the override inside it. */
@@ -603,6 +619,9 @@
     /* one row along the bottom instead of three floating pills */
     #btnBar {
       display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
+      /* four pills (admin + install) don't fit one 375px row, so let the last
+         one drop to a second line instead of running off the screen edge */
+      flex-wrap: wrap;
       justify-content: center; align-items: center; gap: 8px; padding: 12px;
       background: linear-gradient(to top, #eef1f7 62%, rgba(238,241,247,0));
     }
@@ -676,6 +695,8 @@
   <button id="resetBtn" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg> Start Over</button>
   <button id="installBtn" style="display:none">Install app</button>
 </div>
+
+<div id="installTip"><div id="installSteps"></div><button id="installTipClose">Got it</button></div>
 
 <div id="hall">
   <div class="hall-card">
@@ -1177,6 +1198,7 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   // the celebration covers every panel, so Esc has to dismiss the top layer
   // only — otherwise it shuts the Hall of Fame the replay was opened from
+  if ($('installTip').classList.contains('open')) { $('installTip').classList.remove('open'); return; }
   if ($('celebrate').style.display === 'flex') { closeCelebration(); return; }
   ['hall', 'rules', 'toss'].forEach(p => $(p).classList.remove('open'));
 });
@@ -2408,22 +2430,44 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 <script>
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
-// Chrome/Edge/Android fire this when the install criteria are met and the
-// app isn't already installed; there is no equivalent event on iOS Safari,
-// so the button there just never appears (see README for the manual steps).
+// The button is shown to everyone who isn't already running the installed app.
+// Chrome/Edge/Android hand us a beforeinstallprompt event we can replay on the
+// click; iOS Safari and Firefox never fire it, so there the same button opens
+// the manual steps instead of staying hidden forever — that silence was why
+// phone users never saw an install option at all.
+const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
 let deferredInstallPrompt = null;
+if (!installed) $('installBtn').style.display = '';
+
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredInstallPrompt = e;
-  $('installBtn').style.display = '';
+  if (!installed) $('installBtn').style.display = '';
 });
+
+const manualInstallSteps = () => {
+  const ua = navigator.userAgent;
+  // iPadOS 13+ reports itself as a Mac, so touch support is the giveaway
+  const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (ios && /CriOS|FxiOS|EdgiOS/.test(ua))
+    return 'Open this page in <b>Safari</b>, then tap <b>Share</b> and choose <b>Add to Home Screen</b>. Other iPhone browsers cannot install apps.';
+  if (ios)
+    return 'Tap the <b>Share</b> button in the Safari toolbar, then choose <b>Add to Home Screen</b>.';
+  return 'Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.';
+};
+
 $('installBtn').onclick = async () => {
-  if (!deferredInstallPrompt) return;
+  if (!deferredInstallPrompt) {
+    $('installSteps').innerHTML = manualInstallSteps();
+    $('installTip').classList.add('open');
+    return;
+  }
   $('installBtn').style.display = 'none';
   deferredInstallPrompt.prompt();
   await deferredInstallPrompt.userChoice;
   deferredInstallPrompt = null;
 };
+$('installTipClose').onclick = () => $('installTip').classList.remove('open');
 window.addEventListener('appinstalled', () => { $('installBtn').style.display = 'none'; });
 </script>
 

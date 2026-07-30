@@ -798,6 +798,46 @@ assert.equal(JSON.parse((await page.evaluate(() => window.writes)).pop()).deadli
 await page.evaluate(() => window.setAdmin(false));
 console.log('fixture deadline OK');
 
+// ---------- install button ----------
+// Chromium here never fires beforeinstallprompt, which is exactly the iOS
+// Safari / Firefox case: the button used to stay hidden and those phones got
+// no install option at all. It must be offered anyway, with manual steps.
+await page.evaluate(() => { closeCelebration(); }); // it covers the whole screen by now
+await page.setViewportSize({ width: 375, height: 667 });
+await page.waitForTimeout(100);
+assert.ok(await page.isVisible('#installBtn'), 'no install button without beforeinstallprompt');
+const ibox = await page.$eval('#installBtn', el => {
+  const r = el.getBoundingClientRect();
+  return { l: r.left, r: r.right, t: r.top, w: window.innerWidth, h: window.innerHeight };
+});
+assert.ok(ibox.l >= 0 && ibox.r <= ibox.w, 'the install button runs off the side of a phone screen');
+assert.ok(ibox.t > ibox.h / 2, 'the install button is not in the bottom bar on mobile');
+
+await page.click('#installBtn');
+assert.ok(await page.isVisible('#installTip'), 'no manual steps shown when the browser has no prompt');
+assert.ok(/Add to Home|Install app|Add to Home screen/.test(await page.$eval('#installSteps', e => e.innerText)),
+  'the manual steps do not name the browser menu item');
+const tbox = await page.$eval('#installTip', el => {
+  const r = el.getBoundingClientRect();
+  return { l: r.left, r: r.right, w: window.innerWidth };
+});
+assert.ok(tbox.l >= 0 && tbox.r <= tbox.w, 'the install steps overflow a phone screen');
+await page.keyboard.press('Escape');
+assert.ok(!(await page.isVisible('#installTip')), 'Esc does not close the install steps');
+
+// a browser that does offer a prompt must replay it instead of showing steps
+const native = await page.evaluate(async () => {
+  const e = new Event('beforeinstallprompt');
+  e.prompt = () => { window.__prompted = true; };
+  e.userChoice = Promise.resolve({ outcome: 'accepted' });
+  window.dispatchEvent(e);
+  document.getElementById('installBtn').click();
+  await new Promise(r => setTimeout(r, 50));
+  return { prompted: !!window.__prompted, tip: document.getElementById('installTip').classList.contains('open') };
+});
+assert.deepEqual(native, { prompted: true, tip: false }, 'the native install prompt was not used');
+console.log('install button OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
