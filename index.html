@@ -2245,16 +2245,21 @@ var bootTimer = setTimeout(window.bootDone, 3000);
    winner kicks off. Purely local and ephemeral — it writes nothing and touches
    no cup state. The dial itself never moves: it is a fixed clock face split down
    the middle, blue team on the left, orange on the right. Only the hand turns,
-   and it comes to rest pointing at the middle of the winner's half — 9 o'clock
-   for blue, 3 o'clock for orange. At rest before a spin it sits on the divider
+   and it stops anywhere in the half it lands in — the winner is read off the
+   resting angle rather than decided beforehand, so the dial can never disagree
+   with the text under it. Nothing rests within one clock mark of the divider
+   (between 11 and 1, or 5 and 7): at a 176px dial a hand a few degrees off the
+   middle is something two people squint at and argue over. The halves stay equal,
+   so it is still exactly 50/50. At rest before a spin the hand sits on the divider
    at 12, pointing at neither team, so an untouched dial never reads as a result. */
 (function () {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const canvas = $('tossCanvas');
   const selA = $('tossA'), selB = $('tossB');
   const COL_A = '#2563eb', COL_B = '#dc5a1e';
-  const UP = -Math.PI / 2, LEFT = Math.PI, RIGHT = 0; // 12, 9 and 3 o'clock
+  const UP = -Math.PI / 2; // 12 o'clock, and the divider
   const MARK = Math.PI / 6; // 12 clock marks — also the tick spacing
+  const LIVE = Math.PI - 2 * MARK; // landable arc per half, one mark clear of each divider
 
   function fit() {
     const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -2270,7 +2275,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
      half a 170px dial on one line. Wrap it greedily onto as many lines as it needs
      and only shrink when a single word still won't fit, so a long name loses height
      rather than legibility. Shrinking alone would put it on screen at ~8px. */
-  function halfLabel(ctx, name, cx, bottom, avail, size) {
+  function halfLabel(ctx, name, cx, bottom, avail, size, halo) {
     let fs = size;
     const wrap = () => {
       ctx.font = '800 ' + fs + 'px Inter, sans-serif';
@@ -2290,6 +2295,10 @@ var bootTimer = setTimeout(window.bootDone, 3000);
        then clears the resting hand no matter how many lines the name wrapped onto. */
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const lh = fs * 1.2, top = bottom - (lines.length - 1) * lh;
+    /* Halo in the half's own tint, so the name stays readable with the hand lying
+       across it — the hand can now rest at any angle, including straight through here. */
+    ctx.lineJoin = 'round'; ctx.lineWidth = fs * 0.32; ctx.strokeStyle = halo;
+    lines.forEach((l, i) => ctx.strokeText(l, cx, top + i * lh));
     lines.forEach((l, i) => ctx.fillText(l, cx, top + i * lh));
   }
 
@@ -2303,15 +2312,6 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     ctx.fillStyle = '#eef3fd'; ctx.fill();
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2);
     ctx.fillStyle = '#fdf0e8'; ctx.fill();
-
-    /* Team names, one per half — sat above the midline on purpose. The hand comes
-       to rest at 9 or 3 o'clock, dead level, and a centred label would have the
-       winning name struck through by it at exactly the moment it has to be read. */
-    const labelBottom = cy - R * 0.22; // clears the hand, which is R*0.052 thick
-    ctx.fillStyle = COL_A;
-    halfLabel(ctx, selA.value || 'Blue', cx - R * 0.47, labelBottom, R * 0.8, R * 0.16);
-    ctx.fillStyle = COL_B;
-    halfLabel(ctx, selB.value || 'Orange', cx + R * 0.47, labelBottom, R * 0.8, R * 0.16);
 
     // clock marks, longer on the quarters
     ctx.lineCap = 'round';
@@ -2357,6 +2357,15 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.stroke();
     ctx.beginPath(); ctx.arc(cx, cy, R * 0.03, 0, 7);
     ctx.fillStyle = 'rgba(94,62,12,0.55)'; ctx.fill();
+
+    /* Team names last, over the hand rather than dodging it: the hand rests at any
+       angle now, so there is no longer a strip of the half it is guaranteed to miss.
+       Still above the midline, where the fewest resting angles cross them. */
+    const labelBottom = cy - R * 0.22;
+    ctx.fillStyle = COL_A;
+    halfLabel(ctx, selA.value || 'Blue', cx - R * 0.47, labelBottom, R * 0.8, R * 0.16, '#eef3fd');
+    ctx.fillStyle = COL_B;
+    halfLabel(ctx, selB.value || 'Orange', cx + R * 0.47, labelBottom, R * 0.8, R * 0.16, '#fdf0e8');
   }
 
   let angle = UP; // where the hand is now; starts on the divider
@@ -2382,19 +2391,23 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     busy = true;
     const btn = $('tossFlip'); btn.disabled = true;
     $('tossResult').innerHTML = '<span class="idle">Spinning…</span>';
-    // crypto, not Math.random: same 50/50, but a real entropy source rather than a
-    // seeded PRNG, so a run of one side is chance and never the generator's pattern
-    const aWins = crypto.getRandomValues(new Uint8Array(1))[0] < 128;
+    /* Draw the resting place, then read the winner off it — the hand is not steered
+       to a decision made before it moved. crypto, not Math.random: a real entropy
+       source, so a run of one side is chance and never the generator's pattern.
+       The draw is uniform over the two live arcs laid end to end, then the dead
+       band around each divider is added back in, which keeps it exactly 50/50. */
+    const raw = crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32 * 2 * LIVE;
+    const target = UP + raw + (raw < LIVE ? MARK : 3 * MARK); // clockwise from 12
+    const aWins = Math.cos(target) < 0; // left half is blue, and the dial says so
     const winName = aWins ? selA.value : selB.value;
     const winColor = aWins ? COL_A : COL_B;
-    /* Land on the middle of the winner's half. Always travel clockwise: whole
-       turns plus however far short of the target the hand currently sits. */
-    const target = aWins ? LEFT : RIGHT;
+    /* Always travel clockwise: whole turns plus however far short of the target
+       the hand currently sits. */
     const start = angle, turns = 9 + Math.floor(Math.random() * 4);
     const sweep = 2 * Math.PI * turns + (((target - start) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
     const finish = () => {
       busy = false; btn.disabled = false;
-      angle = target;
+      angle = window.tossAngle = target; // exported only so the test can see where it stopped
       drawDial(angle);
       ding();
       $('tossResult').innerHTML =

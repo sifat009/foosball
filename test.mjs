@@ -639,14 +639,40 @@ const toss = await page.evaluate(() => ({
 assert.ok(toss.open, 'the match toss overlay did not open');
 assert.ok(toss.a >= 2 && toss.b >= 1, 'the toss dropdowns were not filled from the roster');
 assert.ok(!toss.dup, 'the toss let a team play itself');
-// the ticker runs for SPIN_MS, same as the draw wheels — shorten it as the draw
-// test does rather than sit through the full spin
-await page.evaluate(() => { SPIN_MS = 300; });
-await page.click('#tossFlip');
-await page.waitForFunction(
-  () => /serves first/.test(document.getElementById('tossResult').textContent),
-  null, { timeout: 3000 });
+/* The hand lands somewhere random and the winner is read off where it stopped, so
+   one spin proves nothing: it would pass just as happily against the old version
+   that only ever stopped at 9 and 3. Spin it a dozen times and check the whole
+   contract — the named winner is the half the hand is actually in, the hand never
+   rests within a clock mark of a divider where the side is arguable, and the
+   landings are genuinely spread rather than a couple of fixed spots.
+   The ticker runs for SPIN_MS, same as the draw wheels — shorten it as the draw
+   test does rather than sit through twelve full spins. */
+await page.evaluate(() => { SPIN_MS = 60; });
+const spins = [];
+for (let i = 0; i < 12; i++) {
+  await page.evaluate(() => { window.tossAngle = null; });
+  await page.click('#tossFlip');
+  await page.waitForFunction(() => window.tossAngle !== null, null, { timeout: 3000 });
+  spins.push(await page.evaluate(() => ({
+    angle: window.tossAngle,
+    result: document.getElementById('tossResult').textContent,
+    a: tossA.value, b: tossB.value,
+  })));
+}
 await page.evaluate(() => { SPIN_MS = 4000; });
+for (const s of spins) {
+  const inBlueHalf = Math.cos(s.angle) < 0;   // left half of the dial is the blue team
+  assert.ok(s.result.startsWith(inBlueHalf ? s.a : s.b),
+    `the hand stopped in the ${inBlueHalf ? 'blue' : 'orange'} half but the toss said "${s.result}"`);
+  assert.ok(Math.abs(Math.cos(s.angle)) >= Math.sin(Math.PI / 6) - 1e-9,
+    `the hand rested less than a clock mark from the divider — which side is that?`);
+}
+assert.ok(new Set(spins.map(s => s.angle.toFixed(3))).size >= 8,
+  `the ticker keeps stopping in the same places: ${new Set(spins.map(s => s.angle.toFixed(2))).size} distinct spots in 12 spins`);
+// catches half the dial being unreachable, which the checks above cannot see — a
+// fair toss trips this 1 run in 2048, and that is the price of catching it at all
+assert.ok(spins.some(s => Math.cos(s.angle) < 0) && spins.some(s => Math.cos(s.angle) > 0),
+  'twelve spins and the toss never picked one of the two sides');
 assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw,
   'the match toss overlay scrolls the page sideways');
 await page.click('#tossClose');
