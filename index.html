@@ -225,6 +225,12 @@
   .m-team:last-child { text-align: right; }
   .m-team.winner { color: #15803d; font-weight: 800; }
   .m-team.loser { opacity: 0.45; }
+  .played-div {
+    display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
+    color: #a4aebc; text-transform: uppercase; font-size: 0.68rem;
+    font-weight: 800; letter-spacing: 0.14em;
+  }
+  .played-div::after { content: ''; flex: 1; height: 1px; background: #eef2f8; }
   .score {
     width: 52px; padding: 8px 4px; text-align: center; font-family: inherit;
     font-size: 1rem; font-weight: 800; color: #16233a;
@@ -1564,7 +1570,7 @@ function fmtLeft(ms) {
 function unplayedCount() {
   return koStarted
     ? koRounds.flat().filter(m => m.a && m.b && !m.winner).length
-    : groups.reduce((n, g) => n + g.matches.filter(m => !m.winner && !isVoid(m)).length, 0);
+    : groups.reduce((n, g) => n + g.matches.filter(m => !settled(m)).length, 0);
 }
 
 /* Both halves of the consequence, while there's still time to avoid it. The two
@@ -1618,6 +1624,12 @@ const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
    both teams nothing and doesn't count as played. The knockout can't use this —
    somebody has to advance — so there the Match Toss decides. */
 const isVoid = m => m.sa === 0 && m.sb === 0;
+/* Nothing more will happen to this match — it has a result, or nobody turned up.
+   A 5-5 is neither: it's an impossible score waiting to be corrected. */
+const settled = m => !!m.winner || isVoid(m);
+/* A void has no winner, so grey both sides — otherwise it reads as unplayed
+   while sitting in the played block. */
+const teamMark = (m, t) => m.winner ? (m.winner === t ? ' winner' : ' loser') : isVoid(m) ? ' loser' : '';
 
 function setGroupScore(gi, mi, sa, sb) {
   const m = groups[gi].matches[mi];
@@ -1795,12 +1807,26 @@ function renderGroups() {
           <td>${teamName(t)}</td><td class="num">${s.p}</td><td class="num">${s.w}</td><td class="num">${fmt(s.gd)}</td><td class="num">${s.gf}</td></tr>`;
       }).join('');
     box.appendChild(tbl);
-    g.matches.forEach((m, mi) => {
+    // settled matches sink to the bottom so what's still to play is the first
+    // thing you see; the sort is stable, so fixture order survives inside each
+    // block, and mi stays the real index the score handlers write through
+    const rows = g.matches.map((m, mi) => [m, mi]);
+    rows.sort(([x], [y]) => settled(x) - settled(y));
+    rows.forEach(([m, mi], pos) => {
+      // only worth a divider when there's something above it
+      if (settled(m) && pos > 0 && !settled(rows[pos - 1][0])) {
+        const hr = document.createElement('div');
+        hr.className = 'played-div';
+        hr.textContent = 'Played';
+        box.appendChild(hr);
+      }
       const div = document.createElement('div');
       div.className = 'match';
-      const bad = m.sa != null && m.sa === m.sb;
+      // 0-0 is the no-show marker, not an impossible score — the tie-note already
+      // makes that distinction, and a settled row must not sit down there in red
+      const bad = m.sa != null && m.sa === m.sb && !isVoid(m);
       const nameA = document.createElement('div');
-      nameA.className = 'm-team' + (m.winner ? (m.winner === m.a ? ' winner' : ' loser') : '');
+      nameA.className = 'm-team' + teamMark(m, m.a);
       nameA.textContent = teamName(m.a);
       // only an unrecorded match is open to suggestions, so a pending score can
       // never contradict something already standing in the table
@@ -1817,7 +1843,7 @@ function renderGroups() {
         v => suggesting ? submitSug(gi, mi, sa, v) : setGroupScore(gi, mi, m.sa, v),
         isAdmin || suggesting);
       const nameB = document.createElement('div');
-      nameB.className = 'm-team' + (m.winner ? (m.winner === m.b ? ' winner' : ' loser') : '');
+      nameB.className = 'm-team' + teamMark(m, m.b);
       nameB.textContent = teamName(m.b);
       if (bad) { inA.classList.add('bad'); inB.classList.add('bad'); }
       if (suggesting) { inA.classList.add('suggesting'); inB.classList.add('suggesting'); }
@@ -1840,7 +1866,7 @@ function renderGroups() {
   });
   // a voided match is settled, not outstanding — otherwise one double no-show
   // holds the whole knockout shut for good
-  const allPlayed = groups.every(g => g.matches.every(m => m.winner || isVoid(m)));
+  const allPlayed = groups.every(g => g.matches.every(settled));
   $('koBtn').style.display = allPlayed && !koStarted && groups.length ? '' : 'none';
   $('koBtn').onclick = startKnockout;
 }

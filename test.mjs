@@ -828,6 +828,30 @@ assert.deepEqual(voided.after, voided.before,
   'a void moved the table: ' + JSON.stringify(voided.before) + ' -> ' + JSON.stringify(voided.after));
 assert.equal(voided.tieNote, null, 'a 0-0 void trips the "no draws" warning');
 
+/* ---- settled matches sink to the bottom ----
+   Ten fixtures fill more than a phone screen. If a scored match keeps its slot
+   you scroll past results to find what's still to play. */
+const sunk = await page.evaluate(h => {
+  window.applyState(window.decodeState(h));            // matches 1 and 7 arrive scored
+  setGroupScore(0, 4, 0, 0);                           // a no-show is settled too
+  const key = m => teamName(m.a) + '|' + teamName(m.b);
+  const rows = [...document.querySelectorAll('#groups .match')];
+  return {
+    dom: rows.map(d => [...d.querySelectorAll('.m-team')].map(t => t.textContent).join('|')),
+    todo: groups[0].matches.filter(m => !settled(m)).map(key),
+    done: groups[0].matches.filter(settled).map(key),
+    divs: document.querySelectorAll('.played-div').length,
+    // the void has no winner, so both names must be greyed by hand
+    greyed: rows.filter(d => d.querySelectorAll('.m-team.loser').length === 2).length,
+  };
+}, HASH);
+assert.equal(sunk.todo.length, 7, 'wrong fixture seeded — this checks the mixed case');
+// one deepEqual covers both halves: the split AND fixture order surviving inside each
+assert.deepEqual(sunk.dom, [...sunk.todo, ...sunk.done],
+  'played matches did not sink below the unplayed ones, or fixture order was lost');
+assert.equal(sunk.divs, 1, 'no single "Played" divider between the two blocks');
+assert.equal(sunk.greyed, 1, 'the 0-0 void reads as unplayed while sitting in the played block');
+
 // a genuine equal score is still an error, not a void
 await page.evaluate(() => setGroupScore(0, 3, 5, 5));
 assert.match(await page.textContent('.tie-note'), /no draws/,
