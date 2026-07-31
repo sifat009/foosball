@@ -417,9 +417,10 @@
   .pl-titles { color: #b8860b; font-weight: 800; font-size: 0.8rem; white-space: nowrap; }
   /* furthest round reached, shaded so the deep runs stand out from the crowd */
   .pl-best { font-size: 0.7rem; font-weight: 800; white-space: nowrap; color: #b3bdca; }
-  .pl-best.b3 { color: #b8860b; }
-  .pl-best.b2 { color: #172b4d; }
-  .pl-best.b1 { color: #5b6a7d; }
+  .pl-best.b4 { color: #b8860b; }
+  .pl-best.b3 { color: #172b4d; }
+  .pl-best.b2 { color: #5b6a7d; }
+  .pl-best.b1 { color: #8895a5; }
   @media (max-width: 430px) {
     /* seven columns can't fit a phone, so the name takes the first line on its
        own and the stats line up underneath it. GD goes — it's the least read. */
@@ -884,21 +885,21 @@ Rashed</textarea>
       </ul>
       <p>Order is decided by <b>wins</b> first, then <b>GD</b>, then <b>GF</b>. If two
       teams are still exactly level, whoever <b>won the match between them</b> goes
-      above. The <b>highlighted rows</b> are the ones who go through — the top two of
-      each group, or the top four when all five teams share a single group.</p>
+      above. The <b>highlighted rows</b> are the ones who go through.</p>
 
       <div class="rules-h">Format</div>
+      <p>There is always <b>one group</b> — every team plays every other team once,
+      whatever the team count. How many go through depends on the size:</p>
       <ul>
         <li><b>2 teams</b> — no group stage at all, straight to the Grand Final.</li>
-        <li><b>3 or 4 teams</b> — one group, everyone plays everyone once, top two
-        meet in the Grand Final.</li>
-        <li><b>5 teams</b> — one group, top four reach the Semifinals, seeded
+        <li><b>3 or 4 teams</b> — top two meet in the Grand Final.</li>
+        <li><b>5 to 9 teams</b> — top four reach the Semifinals, seeded
         <b>1 v 4</b> and <b>2 v 3</b>.</li>
-        <li><b>6 or more</b> — two groups, round robin inside each, top two from each
-        reach the Semifinals.</li>
+        <li><b>10 or more</b> — top eight reach the Quarterfinals, seeded
+        <b>1 v 8</b>, <b>4 v 5</b>, <b>2 v 7</b> and <b>3 v 6</b>.</li>
       </ul>
-      <p>With two groups the Semifinals are crossed, so group winners avoid each
-      other until the final: <b>A1 v B2</b> and <b>B1 v A2</b>.</p>
+      <p>Seeding is crossed at every size, so the teams who topped the group meet
+      as late as the bracket allows.</p>
 
       <div class="rules-h">Suggesting a score</div>
       <p>Played a group match while the admin wasn't around? <a class="hint-signin" onclick="startSignIn()">Sign in</a> with any
@@ -1102,20 +1103,21 @@ function ding() { try { tone(880, 0, 0.5, 0.12, 'triangle'); tone(1318.5, 0.09, 
    per-player rollup existed; plays/wins/goals only from cups that carry it. */
 /* Furthest round reached, derived from the play counts already archived rather
    than a new stored field — so it works on cups saved before this column
-   existed. Everyone in a cup plays the same group matches, so the finalists
-   end on the most plays and the semi losers one fewer.
-   ponytail: an odd team count of 7+ splits into unequal groups, where a
-   non-qualifier from the bigger group can tie the semi losers' play count and
-   read as "Semi". Store the round in rollupPlayers() if that ever matters. */
-const BEST = ['Group', 'Semi', 'Final', 'Won'];
+   existed. Everyone plays the same single group, so the play counts line up
+   exactly: the finalists end on the most, the semi losers one fewer, the
+   quarterfinal losers one below that. */
+const BEST = ['Group', 'Quarter', 'Semi', 'Final', 'Won'];
 function bestRounds(e) {
   const ps = Object.entries(e.players || {});
   const maxP = Math.max(0, ...ps.map(([, s]) => s.p || 0));
-  const hadSemis = ps.length / 2 >= 5; // 5 in one group, or 6+ across two, both cross into semis
+  const teams = ps.length / 2;
+  const hadSemis = teams >= 5, hadQuarters = teams >= 10;
   const out = {};
   ps.forEach(([n, s]) => {
     const p = s.p || 0;
-    out[n] = p === maxP ? 2 : p === maxP - 1 && hadSemis ? 1 : 0;
+    out[n] = p === maxP ? 3
+      : p === maxP - 1 && hadSemis ? 2
+      : p === maxP - 2 && hadQuarters ? 1 : 0;
   });
   return out;
 }
@@ -1126,7 +1128,7 @@ function renderPlayers(entries) {
   const get = n => P[n] || (P[n] = { titles: 0, p: 0, w: 0, gf: 0, ga: 0, best: 0 });
   entries.forEach(e => {
     // the champion string is the one signal every archived cup carries
-    (e.champion || '').split(' + ').forEach(n => { if (n) { const x = get(n); x.titles++; x.best = 3; } });
+    (e.champion || '').split(' + ').forEach(n => { if (n) { const x = get(n); x.titles++; x.best = 4; } });
     const br = bestRounds(e);
     if (e.players) Object.entries(e.players).forEach(([n, s]) => {
       const x = get(n);
@@ -1482,10 +1484,11 @@ function teamName(t) { return `${t.fwd} + ${t.def}`; }
 /* ================= OLLYO CUP: group stage -> knockout =================
    Matches are recorded as scores; winner = higher score (no draws in foosball).
    Group ranking: wins -> goal difference -> goals for -> head-to-head.
-   n >= 6: two groups, round robin, top 2 each -> semis -> final
-   5:      one group, round robin, top 4 -> semis (1v4, 2v3) -> final
-   3-4:    one group, round robin, top 2 -> final
-   2:      straight final */
+   One group always: everyone plays everyone once, whatever the team count.
+   n >= 10: top 8 -> quarterfinals -> semis -> final
+   5-9:     top 4 -> semis (1v4, 2v3) -> final
+   3-4:     top 2 -> final
+   2:       straight final */
 var groups = [];    // [{ name, teams, matches: [{a, b, sa, sb, winner}] }]
 var koRounds = [], koStarted = false;
 /* Identifies this cup in the history node. The champion is stored at
@@ -1519,16 +1522,8 @@ function startCup() {
     koStarted = true;
     koRounds = [[{ a: teams[0], b: teams[1], winner: null }]];
     $('groupSection').style.display = 'none';
-  } else if (teams.length < 6) {
-    groups = [{ name: 'Group A', teams: teams.slice(), matches: roundRobin(teams) }];
-    $('groupSection').style.display = '';
   } else {
-    const half = Math.ceil(teams.length / 2); // wheel order is already random — first half A, rest B
-    const a = teams.slice(0, half), b = teams.slice(half);
-    groups = [
-      { name: 'Group A', teams: a, matches: roundRobin(a) },
-      { name: 'Group B', teams: b, matches: roundRobin(b) },
-    ];
+    groups = [{ name: 'Group', teams: teams.slice(), matches: roundRobin(teams) }];
     $('groupSection').style.display = '';
   }
   $('koSection').style.display = koStarted ? '' : 'none';
@@ -1786,8 +1781,9 @@ function renderGroups() {
   const fmt = v => (v > 0 ? '+' : '') + v;
   groups.forEach((g, gi) => {
     const { order, stats } = rank(g);
-    // a lone group of 5 sends its top four to the semis; every other shape sends two
-    const advance = groups.length === 1 && order.length >= 5 ? 4 : 2;
+    // 10+ send eight to the quarterfinals, 5-9 send four to the semis, 3-4 send
+    // two straight to the final
+    const advance = order.length >= 10 ? 8 : order.length >= 5 ? 4 : 2;
     const box = document.createElement('div');
     box.className = 'group card';
     box.innerHTML = `<h4>${g.name}</h4>`;
@@ -1853,25 +1849,23 @@ function startKnockout() {
   koStarted = true;
   // the knockout gets its own clock
   if (!restoring) { deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS); }
-  if (groups.length === 2) {
-    const [ra, rb] = groups.map(g => rank(g).order);
-    // FIFA-style cross: A1 vs B2, B1 vs A2
+  const r = rank(groups[0]).order;
+  const m = (a, b) => ({ a, b, winner: null });
+  const blanks = n => Array.from({ length: n }, () => m(null, null));
+  if (r.length >= 10) {
+    // top eight into quarterfinals, paired so the seeds meet as late as possible:
+    // the winners of QF1/QF2 fill one semi, QF3/QF4 the other (setKoWinner sends
+    // match i to slot i%2 of match i>>1 in the next round)
     koRounds = [
-      [{ a: ra[0], b: rb[1], winner: null }, { a: rb[0], b: ra[1], winner: null }],
-      [{ a: null, b: null, winner: null }],
+      [m(r[0], r[7]), m(r[3], r[4]), m(r[1], r[6]), m(r[2], r[5])],
+      blanks(2), blanks(1),
     ];
+  } else if (r.length >= 5) {
+    // top four into crossed semis (1 v 4, 2 v 3), then the winners meet in the
+    // Grand Final
+    koRounds = [[m(r[0], r[3]), m(r[1], r[2])], blanks(1)];
   } else {
-    const r = rank(groups[0]).order;
-    if (r.length >= 5) {
-      // 5 teams in one group: top four into crossed semis (1 v 4, 2 v 3),
-      // then the winners meet in the Grand Final
-      koRounds = [
-        [{ a: r[0], b: r[3], winner: null }, { a: r[1], b: r[2], winner: null }],
-        [{ a: null, b: null, winner: null }],
-      ];
-    } else {
-      koRounds = [[{ a: r[0], b: r[1], winner: null }]];
-    }
+    koRounds = [[m(r[0], r[1])]];
   }
   $('koSection').style.display = '';
   $('koBtn').style.display = 'none';

@@ -392,7 +392,7 @@ console.log('player leaderboard OK');
 await page.click('#rulesBtn');
 assert.ok(await page.isVisible('#rules'), 'the rules link did not open anything');
 const rules = (await page.textContent('#rules')).replace(/\s+/g, ' '); // source wraps mid-sentence
-for (const t of ['no points system', 'no draws', 'A1 v B2', 'every group match is settled',
+for (const t of ['no points system', 'no draws', 'one group', '1 v 8', 'every group match is settled',
                  '2 working days', 'forfeits 1-0', 'goes down as 0-0', 'Match Toss decides it'])
   assert.ok(rules.includes(t), 'rules sheet is missing: ' + t);
 await page.keyboard.press('Escape');
@@ -492,6 +492,37 @@ assert.equal(ko.rounds, 2, 'a single group of 5 should produce semis + a final, 
 assert.deepEqual(ko.semis, [['A', 'D'], ['B', 'C']], 'the semis should seed 1 v 4 and 2 v 3');
 assert.deepEqual(ko.final, [[null, null]], 'the final should start empty until the semis are decided');
 console.log('5-team semis OK');
+
+// ---------- one group at every size: 10 teams round-robin -> quarterfinals ----------
+// startCup must never split the field; 10 teams means 45 fixtures in a single
+// group and a top-8 bracket, with 8 rows highlighted as qualified
+const big = await page.evaluate(() => {
+  window.setAdmin(true);
+  const T = 'ABCDEFGHIJ'.split('').map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  startCup();
+  const played = new Set(groups[0].matches.map(m => [m.a.fwd, m.b.fwd].sort().join('')));
+  // lower letter always wins, so the table ranks A>B>...>J
+  groups[0].matches.forEach((m, mi) => setGroupScore(0, mi, m.a.fwd < m.b.fwd ? 2 : 1, m.a.fwd < m.b.fwd ? 1 : 2));
+  const qualified = document.querySelectorAll('#groups tr.qualified').length;
+  startKnockout();
+  const pair = m => [m.a && m.a.fwd, m.b && m.b.fwd];
+  return { groups: groups.length, fixtures: groups[0].matches.length, distinct: played.size,
+           qualified, rounds: koRounds.length, qf: koRounds[0].map(pair),
+           titles: [...document.querySelectorAll('.round-title')].map(e => e.textContent) };
+});
+assert.equal(big.groups, 1, '10 teams were split into more than one group');
+assert.equal(big.fixtures, 45, 'a 10-team round robin is 45 matches, got ' + big.fixtures);
+assert.equal(big.distinct, 45, 'every pair must meet exactly once — some fixture is duplicated or missing');
+assert.equal(big.qualified, 8, 'the group table should highlight the top eight at 10 teams');
+assert.equal(big.rounds, 3, '10 teams should play quarterfinals, semis and a final');
+assert.deepEqual(big.qf, [['A', 'H'], ['D', 'E'], ['B', 'G'], ['C', 'F']],
+  'quarterfinals must seed 1v8 / 4v5 / 2v7 / 3v6 so the top seeds meet as late as possible');
+assert.deepEqual(big.titles, ['Quarterfinals', 'Semifinals', 'Grand Final'], 'bracket rounds are mislabelled');
+// this block replaced the cup wholesale — put the 5-team snapshot back for what follows
+await page.evaluate(h => { window.applyState(window.decodeState(h)); window.setAdmin(true); }, HASH);
+await page.waitForTimeout(200);
+console.log('10-team single group + quarterfinals OK');
 
 // ---------- mobile layout ----------
 // the fixed buttons move to the bottom under @media (max-width: 640px). A media
