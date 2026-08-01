@@ -806,7 +806,10 @@ const bar = await page.evaluate(() => {
   const r = document.getElementById('btnBar').getBoundingClientRect();
   return { b: Math.round(r.bottom), h: window.innerHeight };
 });
-assert.equal(bar.b, bar.h, 'the button bar is not flush with the bottom of the screen');
+// the bar floats as a card, so it sits just clear of the bottom edge — but it
+// must stay parked there, not drift up the screen with the content
+assert.ok(bar.h - bar.b >= 0 && bar.h - bar.b <= 16,
+  `the button bar is not parked at the bottom of the screen (${bar.h - bar.b}px above it)`);
 
 // the score inputs must bring up a numeric keypad, not the full keyboard
 const kbd = await page.$eval('#groups .score', i => ({ type: i.type, mode: i.inputMode, pat: i.pattern }));

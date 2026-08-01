@@ -677,7 +677,7 @@
   /* Every fixed button must be declared above this block. A media query adds
      no specificity, so a later #id rule beats the override inside it. */
   @media (max-width: 640px) {
-    body { padding: 24px 12px 96px; }
+    body { padding: 24px 12px calc(98px + env(safe-area-inset-bottom)); }
     /* Side by side, not stacked: a spin turns both wheels at once, so a phone
        viewer who has to scroll between them misses half of every draw. */
     .wheels { gap: 20px; flex-wrap: nowrap; align-items: flex-start; }
@@ -715,21 +715,49 @@
     /* four boxes on a row instead of one, so they give back what they can */
     .score { width: 44px; padding: 8px 2px; }
     #golden { padding: 18px 14px 10px; }
-    /* one row along the bottom instead of three floating pills */
+    /* a phone-native tab bar along the bottom instead of floating pills:
+       equal-width icon-over-label tabs, one row, five at most. It floats clear
+       of every edge as a rounded card — the shadow under it is what separates
+       the bar from the page, since both are near-white. */
     #btnBar {
-      display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
-      /* four pills (admin + install) don't fit one 375px row, so let the last
-         one drop to a second line instead of running off the screen edge */
-      flex-wrap: wrap;
-      justify-content: center; align-items: center; gap: 8px; padding: 12px;
-      background: linear-gradient(to top, #eef1f7 62%, rgba(238,241,247,0));
+      display: flex; position: fixed; z-index: 5;
+      left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom));
+      align-items: stretch; gap: 2px; padding: 9px 6px;
+      background: #fff;
+      border: 1px solid #e7ecf4; border-radius: 22px;
+      box-shadow: 0 8px 24px rgba(23,43,77,0.16), 0 1px 3px rgba(23,43,77,0.10);
+    }
+    /* The card is inset from the edges, so without this a table row scrolls
+       through the gaps beside and under it and gets sliced by the screen edge.
+       The scrim fades the page out behind the card, down past the bottom. */
+    #btnBar::before {
+      content: ''; position: absolute; z-index: -1; pointer-events: none;
+      top: -30px; left: -10px; right: -10px;
+      bottom: calc(-10px - env(safe-area-inset-bottom));
+      background: linear-gradient(to top, #e4eaf3 55%, rgba(228,234,243,0));
     }
     #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn {
       position: static; top: auto; right: auto; bottom: auto; left: auto;
-      white-space: nowrap;
+      flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 4px;
+      background: none; border: 0; border-radius: 12px; box-shadow: none;
+      padding: 6px 2px; color: #7c8899;
+      -webkit-tap-highlight-color: transparent;
     }
-    #hallBtn { padding: 9px 13px; font-size: 1rem; line-height: 1; }
-    #hallBtn .lbl { display: none; } /* trophy alone — three full labels don't fit at 320px */
+    /* the icon carries the tab, so it's sized in px rather than off a 0.62rem label */
+    #btnBar .ico { width: 23px; height: 23px; vertical-align: 0; stroke-width: 1.8; }
+    #btnBar .lbl { display: none; } /* the long, state-carrying label is desktop's */
+    #btnBar button::after {
+      content: attr(data-lbl); font-size: 0.62rem; font-weight: 700;
+      letter-spacing: 0.02em; line-height: 1; white-space: nowrap;
+    }
+    /* pressed state only — these are actions, not a "you are here" nav */
+    #hallBtn:active, #resetBtn:active, #authBtn:active,
+    #installBtn:active, #notifyBtn:active { background: #eef2f8; }
+    #hallBtn:active { color: #b8860b; }
+    #resetBtn:active { color: #d43d3d; }
+    #authBtn:active { color: #2563eb; }
+    #installBtn:active, #notifyBtn.on { color: #17854a; }
   }
   .footer {
     text-align: center; margin-top: 60px; color: #a4aebc; font-size: 0.78rem;
@@ -780,19 +808,24 @@
   <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
   <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></symbol>
 </defs></svg>
 
 <div class="eyebrow"><span><svg class="ico"><use href="#i-ball"/></svg> Ollyo Foosball Federation</span></div>
 <div id="viewBadge"><svg class="ico"><use href="#i-eye"/></svg> Live standings — updating automatically</div>
 <div id="boot">Loading the cup…</div>
 <!-- display:contents on desktop, so each button keeps its own fixed corner;
-     on mobile the wrapper becomes the bottom bar and they line up inside it -->
+     on mobile the wrapper becomes the bottom tab bar. data-lbl is the short
+     label the bar shows there — .lbl (the long one, which JS rewrites as state
+     changes) is hidden, so the tabs stay one word wide on a 320px phone. -->
 <div id="btnBar">
-  <button id="hallBtn" aria-label="Hall of Fame"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Hall of Fame</span></button>
-  <button id="authBtn">Sign in</button>
-  <button id="resetBtn" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg> Start Over</button>
-  <button id="installBtn" style="display:none">Install app</button>
-  <button id="notifyBtn" style="display:none">Notify me</button>
+  <button id="hallBtn" data-lbl="Hall" aria-label="Hall of Fame"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Hall of Fame</span></button>
+  <button id="authBtn" data-lbl="Account"><svg class="ico"><use href="#i-user"/></svg><span class="lbl"> Sign in</span></button>
+  <button id="resetBtn" data-lbl="Reset" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg><span class="lbl"> Start Over</span></button>
+  <button id="installBtn" data-lbl="Install" style="display:none"><svg class="ico"><use href="#i-download"/></svg><span class="lbl"> Install app</span></button>
+  <button id="notifyBtn" data-lbl="Alerts" style="display:none"><svg class="ico"><use href="#i-bell"/></svg><span class="lbl"> Notify me</span></button>
 </div>
 
 <div id="installTip"><div id="installSteps"></div><button id="installTipClose">Got it</button></div>
@@ -3105,7 +3138,7 @@ const saveToken = async () => {
     $('installTip').classList.add('open');
   };
   const paint = () => {
-    btn.textContent = pushToken ? 'Notifications on' : 'Notify me';
+    btn.querySelector('.lbl').textContent = pushToken ? ' Notifications on' : ' Notify me';
     btn.classList.toggle('on', !!pushToken);
   };
   /* Granted on an earlier visit: re-register silently. Tokens rotate, and a
@@ -3152,9 +3185,11 @@ onAuthStateChanged(auth, user => {
   if (pushToken) saveToken(); // signing in re-labels this device, so admin pings land
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
-  $('authBtn').innerHTML = user
-    ? (admin ? '<svg class="ico"><use href="#i-check"/></svg> Admin — sign out' : 'Sign out')
-    : 'Sign in';
+  // only the label moves — the icon and data-lbl are what the mobile tab bar shows
+  $('authBtn').querySelector('use').setAttribute('href', admin ? '#i-check' : '#i-user');
+  $('authBtn').querySelector('.lbl').textContent = user
+    ? (admin ? ' Admin — sign out' : ' Sign out')
+    : ' Sign in';
 });
 
 $('authBtn').onclick = () => {
