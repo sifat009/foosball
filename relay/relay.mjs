@@ -64,7 +64,16 @@ async function main() {
     const res = await fcm.sendEachForMulticast({
       tokens: list,
       notification: { title, body },
-      webpush: { fcmOptions: { link: SITE_URL } },
+      /* Only `icon` is set here, not title and body: FCM merges the
+         platform-specific block field by field over the common one, so the
+         text above still stands. Without an icon Chrome draws a circle with
+         the first letter of the domain in it, which reads as a stray "S".
+         Built with the URL constructor so a SITE_URL without a trailing slash
+         can't silently produce a 404 and put the "S" back. */
+      webpush: {
+        notification: { icon: new URL('icons/icon-192.png', SITE_URL).href },
+        fcmOptions: { link: SITE_URL },
+      },
     });
     console.log(`[send] ${title} -> ${res.successCount}/${list.length}`);
     /* Uninstalled apps and cleared browsers leave tokens behind that fail
