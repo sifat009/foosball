@@ -3094,6 +3094,12 @@ const saveToken = async () => {
   }
 
   const btn = $('notifyBtn');
+  /* localStorage throws in some private-browsing modes. An opt-out we can't
+     remember is not worth breaking the button over — fall back to "not opted
+     out", which is the same behaviour this had before the flag existed. */
+  const OPT_OUT = 'foosball-push-off';
+  const optedOut = () => { try { return !!localStorage.getItem(OPT_OUT); } catch { return false; } };
+  const setOptedOut = on => { try { on ? localStorage.setItem(OPT_OUT, '1') : localStorage.removeItem(OPT_OUT); } catch {} };
   const failTip = msg => {
     $('installSteps').textContent = msg;
     $('installTip').classList.add('open');
@@ -3102,9 +3108,15 @@ const saveToken = async () => {
     btn.textContent = pushToken ? 'Notifications on' : 'Notify me';
     btn.classList.toggle('on', !!pushToken);
   };
-  // Granted on an earlier visit: re-register silently. Tokens rotate, and a
-  // stale one is a phone that quietly stopped being notified months ago.
-  if (Notification.permission === 'granted') await subscribe().catch(e => console.error('[push]', e));
+  /* Granted on an earlier visit: re-register silently. Tokens rotate, and a
+     stale one is a phone that quietly stopped being notified months ago.
+
+     Unless this device has opted out. Turning notifications off drops the
+     token, but the browser permission stays granted — so without a memory of
+     the choice, the next reload re-registered and the off switch did nothing.
+     The flag is per-device, which is right: it's this phone that opted out. */
+  if (Notification.permission === 'granted' && !optedOut())
+    await subscribe().catch(e => console.error('[push]', e));
   paint();
   btn.style.display = '';
   btn.onclick = async () => {
@@ -3115,10 +3127,13 @@ const saveToken = async () => {
         // by the user in browser settings, but the relay stops sending here
         await remove(ref(db, 'pushTokens/' + pushToken));
         pushToken = null;
-      } else if (!await subscribe()) {
-        failTip(Notification.permission === 'denied'
-          ? 'Notifications are blocked for this site. Turn them back on in your browser’s site settings, then tap Notify me again.'
-          : 'Could not turn notifications on. Try again in a moment.');
+        setOptedOut(true);
+      } else {
+        setOptedOut(false); // opting back in, before the attempt that may fail
+        if (!await subscribe())
+          failTip(Notification.permission === 'denied'
+            ? 'Notifications are blocked for this site. Turn them back on in your browser’s site settings, then tap Notify me again.'
+            : 'Could not turn notifications on. Try again in a moment.');
       }
     } catch (e) {
       /* On screen, not just in the console. This runs on a phone, where nobody
