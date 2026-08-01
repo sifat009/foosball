@@ -376,18 +376,30 @@
     animation: rise-in 0.7s 0.5s ease backwards;
   }
   /* the two individual awards, under the champions — drawCard() repeats these
-     lines on the PNG, so the two have to be changed together */
+     panels on the PNG, so the two have to be changed together */
   #awards {
-    position: relative; margin-top: 26px; display: flex; flex-direction: column; gap: 10px;
+    position: relative; margin-top: 26px; display: flex; flex-wrap: wrap;
+    justify-content: center; gap: 14px;
     animation: rise-in 0.7s 0.7s ease backwards;
   }
   #awards:empty { display: none; }
-  .award { color: #f3f6fb; font-size: 1rem; font-weight: 700; }
+  .award {
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    min-width: 158px; padding: 16px 20px 15px; border-radius: 18px;
+    color: #f3f6fb; font-size: 1rem; font-weight: 700;
+    background: linear-gradient(180deg, rgba(240,180,41,0.17), rgba(240,180,41,0.04));
+    border: 1px solid rgba(240,180,41,0.45);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,248,224,0.28);
+  }
+  /* the artwork is cloned out of #awardArt, so it is the same node the share
+     card rasterises — the panel and the PNG can never drift */
+  .award-art { display: block; height: 52px; width: auto; filter: drop-shadow(0 5px 12px rgba(240,180,41,0.4)); }
   .award b { color: #f7d878; font-weight: 900; }
   .award i {
     display: block; font-style: normal; color: #8fa0b8; font-size: 0.64rem;
-    font-weight: 800; letter-spacing: 0.24em; text-transform: uppercase; margin-bottom: 3px;
+    font-weight: 800; letter-spacing: 0.24em; text-transform: uppercase;
   }
+  .award u { text-decoration: none; color: #cdb478; font-size: 0.76rem; font-weight: 800; }
   #shareBtn {
     position: relative; margin-top: 30px; cursor: pointer;
     display: inline-flex; align-items: center; gap: 9px;
@@ -682,6 +694,13 @@
     .groups { flex-direction: column; align-items: stretch; }
     .group { min-width: 0; max-width: none; padding: 18px 14px 10px; }
     #champion .crown { padding: 13px 22px; font-size: 1.08rem; }
+    /* the two award panels stay side by side on a phone rather than wrapping */
+    /* shrink-to-fit leaves the inner narrower than the phone, which is enough
+       to wrap the two panels onto separate rows — take the full width instead */
+    .celebrate-inner { padding: 30px 14px; width: 100%; }
+    #awards { gap: 10px; }
+    .award { min-width: 0; flex: 1 1 130px; max-width: 200px; padding: 13px 10px 12px; }
+    .award-art { height: 42px; }
     .m-team { min-width: 0; overflow-wrap: break-word; }
     th, td { padding-left: 6px; padding-right: 6px; }
     #bracket { justify-content: flex-start; } /* centered flex + overflow clips the first round */
@@ -781,6 +800,15 @@
     <div id="hallPlayers" style="display:none"><div class="hall-empty">No player records yet.</div></div>
     <button id="hallClose">Close</button>
   </div>
+</div>
+
+<!-- award artwork: cloned into the celebration panels and serialized straight
+     onto the share card, so both always show the identical boot and ball -->
+<!-- not hidden with display:none: Chrome will not resolve url(#gradient) into a
+     clone when the gradient's own subtree is unrendered -->
+<div id="awardArt" style="position:absolute;width:0;height:0;overflow:hidden">
+  <svg class="award-art" data-a="boot" viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Golden boot"><defs><linearGradient id="abg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e0"/><stop offset=".34" stop-color="#f0c25a"/><stop offset=".72" stop-color="#c8901f"/><stop offset="1" stop-color="#8a5a0e"/></linearGradient><linearGradient id="abs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><g fill="url(#abg)" stroke="#4e2f06" stroke-width="1.6"><rect x="12" y="74" width="14" height="12" rx="4"/><rect x="38" y="74" width="14" height="12" rx="4"/><rect x="74" y="74" width="14" height="12" rx="4"/><rect x="96" y="74" width="14" height="12" rx="4"/></g><path d="M6 66 C6 54 14 46 30 43 C45 40 54 37 62 29 C69 22 75 16 85 16 C97 16 102 27 102 42 C102 55 106 62 113 66 L113 76 L6 76 Z" fill="url(#abg)" stroke="#4e2f06" stroke-width="2" stroke-linejoin="round"/><path d="M6 66 L113 66" fill="none" stroke="#4e2f06" stroke-width="1.8" opacity=".5"/><g stroke="#5e3908" stroke-width="2.4" stroke-linecap="round" opacity=".55" fill="none"><path d="M45 37 L51 48"/><path d="M53 32 L59 43"/><path d="M61 27 L67 38"/></g><path d="M84 18 C93 20 97 29 97 41" fill="none" stroke="#5e3908" stroke-width="2.2" opacity=".4"/><path d="M14 60 C16 51 24 46 34 44 C29 50 24 57 24 64 Z" fill="url(#abs)" opacity=".6"/></svg>
+  <svg class="award-art" data-a="ball" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Golden ball"><defs><radialGradient id="ablg" cx=".34" cy=".28" r=".9"><stop offset="0" stop-color="#fff8e0"/><stop offset=".45" stop-color="#f0c25a"/><stop offset="1" stop-color="#8a5a0e"/></radialGradient></defs><circle cx="12" cy="12" r="9.5" fill="url(#ablg)" stroke="#4e2f06" stroke-width=".9"/><path d="M12 7.2l3.8 2.8-1.45 4.5h-4.7L7.2 10z" fill="#5e3908" opacity=".6"/><g stroke="#5e3908" stroke-width="1" stroke-linecap="round" opacity=".6" fill="none"><path d="M12 2.5v4.7M21 9.2l-4.4 1.3M18.4 19l-3.6-3.4M5.6 19l3.6-3.4M3 9.2l4.4 1.3"/></g><ellipse cx="8.4" cy="7.2" rx="3" ry="1.9" fill="#fff" opacity=".35" transform="rotate(-35 8.4 7.2)"/></svg>
 </div>
 
 <div id="celebrate">
@@ -2338,25 +2366,27 @@ function celebrate(name, entry) {
 }
 
 /* The two individual awards under the champions. drawCard() paints the same
-   two lines onto the PNG, so a change here needs the same change there. */
+   two panels onto the PNG, so a change here needs the same change there. */
 const awardLines = aw => aw ? [
-  aw.boot && aw.boot.length ? ['Golden Boot', aw.boot.join(' & '),
+  aw.boot && aw.boot.length ? ['boot', 'Golden Boot', aw.boot.join(' & '),
     aw.bootGoals + (aw.bootGoals === 1 ? ' goal' : ' goals')] : null,
-  aw.ball && aw.ball.length ? ['Golden Ball', aw.ball.join(' & '), ''] : null,
+  aw.ball && aw.ball.length ? ['ball', 'Golden Ball', aw.ball.join(' & '), ''] : null,
 ].filter(Boolean) : [];
+
+const awardArt = key => document.querySelector('#awardArt [data-a="' + key + '"]');
 
 function renderAwards(aw) {
   const box = $('awards');
   box.innerHTML = '';
-  awardLines(aw).forEach(([label, who, tail]) => {
+  awardLines(aw).forEach(([key, label, who, tail]) => {
     const d = document.createElement('div');
     d.className = 'award';
     const i = document.createElement('i');
     i.textContent = label;
     const b = document.createElement('b');
     b.textContent = who; // textContent: names are user input
-    d.append(i, b);
-    if (tail) d.append(' · ' + tail);
+    d.append(awardArt(key).cloneNode(true), i, b);
+    if (tail) { const u = document.createElement('u'); u.textContent = tail; d.append(u); }
     box.appendChild(d);
   });
 }
@@ -2379,18 +2409,20 @@ var shareName = '', shareDate = 0, shareAwards = null;
 const CARD = 1200;
 const CARD_FONT = 'Inter, -apple-system, "Segoe UI", sans-serif';
 
-function cupImage() {
-  const node = document.querySelector('#celebrate .cup-art').cloneNode(true);
-  node.setAttribute('width', 100);   // viewBox alone is enough for Chrome but
-  node.setAttribute('height', 128);  // not for Firefox — it needs both to rasterise
-  const svgText = new XMLSerializer().serializeToString(node);
+function svgImage(node) {
+  const clone = node.cloneNode(true);
+  const [, , w, h] = (clone.getAttribute('viewBox') || '0 0 100 100').split(/\s+/).map(Number);
+  clone.setAttribute('width', w);   // viewBox alone is enough for Chrome but
+  clone.setAttribute('height', h);  // not for Firefox — it needs both to rasterise
+  const svgText = new XMLSerializer().serializeToString(clone);
   return new Promise((res, rej) => {
     const img = new Image();
     img.onload = () => res(img);
-    img.onerror = () => rej(new Error('trophy failed to load'));
+    img.onerror = () => rej(new Error('artwork failed to load'));
     img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgText);
   });
 }
+const cupImage = () => svgImage(document.querySelector('#celebrate .cup-art'));
 
 // canvas has no letter-spacing, so wide tracking is drawn a character at a time
 function tracked(ctx, s, cx, y, space) {
@@ -2460,18 +2492,39 @@ async function drawCard(name, date, awards) {
   const when = new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
   tracked(ctx, when, 600, 859 + px, 4);
 
-  // the individual awards, same two lines the overlay shows — shrunk to fit,
-  // because a shared award can carry two or four names on one line
-  let y = 935 + px;
-  ctx.textAlign = 'center';
-  awardLines(awards).forEach(([label, who, tail]) => {
-    const line = label + ' · ' + who + (tail ? ' · ' + tail : '');
-    let fs = 34;
-    do { ctx.font = '700 ' + fs + 'px ' + CARD_FONT; fs -= 2; }
-    while (ctx.measureText(line).width > 1020 && fs > 16);
+  // the individual awards, the same two gold panels the overlay shows — laid
+  // out sideways here because the card has only ~150px left under the date
+  const lines = awardLines(awards);
+  const arts = await Promise.all(lines.map(l => svgImage(awardArt(l[0]))));
+  const PW = 430, PH = 132, GAP = 36, y = 906 + px;
+  let x = 600 - (lines.length * PW + (lines.length - 1) * GAP) / 2;
+  lines.forEach(([, label, who, tail], i) => {
+    ctx.fillStyle = 'rgba(240,180,41,0.13)';
+    ctx.strokeStyle = 'rgba(240,180,41,0.5)'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    // square corners rather than a thrown share on iOS before 16.4
+    if (ctx.roundRect) ctx.roundRect(x, y, PW, PH, 24); else ctx.rect(x, y, PW, PH);
+    ctx.fill(); ctx.stroke();
+
+    const art = arts[i], aw = 84 * art.width / art.height;
+    ctx.drawImage(art, x + 30, y + (PH - 84) / 2, aw, 84);
+    const cx = x + 30 + aw + (PW - 60 - aw) / 2;  // centre of the text column
+
+    ctx.textAlign = 'left';
+    ctx.font = '800 20px ' + CARD_FONT; ctx.fillStyle = '#8fa0b8';
+    tracked(ctx, label.toUpperCase(), cx, y + (tail ? 46 : 56), 5);
+    ctx.textAlign = 'center';
+    // shrink to fit: a shared award can carry two or four names on one line
+    let fs = 36;
+    do { ctx.font = '900 ' + fs + 'px ' + CARD_FONT; fs -= 2; }
+    while (ctx.measureText(who).width > PW - 70 - aw && fs > 16);
     ctx.fillStyle = '#f7d878';
-    ctx.fillText(line, 600, y);
-    y += 52;
+    ctx.fillText(who, cx, y + (tail ? 84 : 94));
+    if (tail) {
+      ctx.font = '800 24px ' + CARD_FONT; ctx.fillStyle = '#cdb478';
+      ctx.fillText(tail, cx, y + 114);
+    }
+    x += PW + GAP;
   });
   return c;
 }
