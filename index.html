@@ -3042,13 +3042,22 @@ const VAPID_KEY = 'BNYpmVPBQ5FXiGWn6gxEZJ7t7gs69pq7RT6DOgdcQRleK9Ydx5KG3n6iSEtsf
 let pushToken = null;
 
 /* One row per device, keyed by the token, so re-registering the same phone
-   overwrites instead of stacking. The value is the signed-in address, or a
-   timestamp when signed out — that is how the relay picks the admin's devices
-   out for suggestion pings, and the rules only let an account write its own
-   address, so a viewer can't claim to be the admin. */
-const saveToken = () => set(ref(db, 'pushTokens/' + pushToken),
-  auth.currentUser ? auth.currentUser.email : Date.now())
-  .catch(err => console.error('[push] token write failed:', err));
+   overwrites instead of stacking.
+
+   Written in two steps, and the order is the point. Registering is what every
+   device needs; labelling the row with an account is an extra that only the
+   admin's phones need, so the relay can pick them out for suggestion pings.
+   Doing the label first meant a signed-in device whose auth wasn't accepted by
+   the rules — an expired session, a token still refreshing — failed to register
+   at all and silently got no notifications. So: register with a plain timestamp,
+   which validates for anybody; then upgrade to the address best-effort. A
+   rejected upgrade costs that device the suggestion pings and nothing else. */
+const saveToken = async () => {
+  await set(ref(db, 'pushTokens/' + pushToken), Date.now());
+  if (auth.currentUser)
+    await set(ref(db, 'pushTokens/' + pushToken), auth.currentUser.email)
+      .catch(err => console.warn('[push] token left unlabelled:', err.code || err.message));
+};
 
 (async () => {
   // imported here rather than at the top so a deploy with no key configured
@@ -3076,11 +3085,19 @@ const saveToken = () => set(ref(db, 'pushTokens/' + pushToken),
     const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './fcm-scope/' });
     pushToken = await getToken(getMessaging(app), { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
     if (!pushToken) return false;
-    await saveToken();
+    /* The button must never say "on" for a device the relay can't reach. A
+       token that only exists in this tab is exactly that, so a failed write
+       puts it back to off rather than reporting a subscription nobody has. */
+    try { await saveToken(); }
+    catch (err) { pushToken = null; throw err; }
     return true;
   }
 
   const btn = $('notifyBtn');
+  const failTip = msg => {
+    $('installSteps').textContent = msg;
+    $('installTip').classList.add('open');
+  };
   const paint = () => {
     btn.textContent = pushToken ? 'Notifications on' : 'Notify me';
     btn.classList.toggle('on', !!pushToken);
@@ -3099,12 +3116,16 @@ const saveToken = () => set(ref(db, 'pushTokens/' + pushToken),
         await remove(ref(db, 'pushTokens/' + pushToken));
         pushToken = null;
       } else if (!await subscribe()) {
-        $('installSteps').textContent = Notification.permission === 'denied'
+        failTip(Notification.permission === 'denied'
           ? 'Notifications are blocked for this site. Turn them back on in your browser’s site settings, then tap Notify me again.'
-          : 'Could not turn notifications on. Try again in a moment.';
-        $('installTip').classList.add('open');
+          : 'Could not turn notifications on. Try again in a moment.');
       }
-    } catch (e) { console.error('[push]', e); }
+    } catch (e) {
+      /* On screen, not just in the console. This runs on a phone, where nobody
+         is going to open devtools to find out why the button bounced back. */
+      console.error('[push]', e);
+      failTip('Could not turn notifications on: ' + (e.code || e.message || e));
+    }
     btn.disabled = false;
     paint();
   };
