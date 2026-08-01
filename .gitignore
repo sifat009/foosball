@@ -1,2 +1,6 @@
 local-test.html
 *-debug.log
+node_modules/
+package-lock.json
+# the relay's service-account key — never commit one
+*service-account*.json

@@ -648,6 +648,15 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #installBtn:hover { color: #17854a; border-color: #b6e3c9; }
+  #notifyBtn {
+    position: fixed; top: 110px; left: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #notifyBtn:hover { color: #b8860b; border-color: #f0d79a; }
+  #notifyBtn.on { color: #17854a; border-color: #b6e3c9; }
   /* shown on browsers with no install event (iOS Safari, Firefox) — the only
      way in there is the browser's own menu, so spell the steps out */
   #installTip {
@@ -715,7 +724,7 @@
       justify-content: center; align-items: center; gap: 8px; padding: 12px;
       background: linear-gradient(to top, #eef1f7 62%, rgba(238,241,247,0));
     }
-    #hallBtn, #resetBtn, #authBtn, #installBtn {
+    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn {
       position: static; top: auto; right: auto; bottom: auto; left: auto;
       white-space: nowrap;
     }
@@ -750,7 +759,7 @@
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
   body.booting #resetBtn, body.booting #hallBtn, body.booting #installBtn,
-  body.booting #btnBar { display: none !important; }
+  body.booting #notifyBtn, body.booting #btnBar { display: none !important; }
 </style>
 </head>
 <body>
@@ -783,6 +792,7 @@
   <button id="authBtn">Sign in</button>
   <button id="resetBtn" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg> Start Over</button>
   <button id="installBtn" style="display:none">Install app</button>
+  <button id="notifyBtn" style="display:none">Notify me</button>
 </div>
 
 <div id="installTip"><div id="installSteps"></div><button id="installTipClose">Got it</button></div>
@@ -1437,6 +1447,19 @@ $('schedInput').onchange = () => {
   $('schedNote').textContent = draftStartAt
     ? 'Viewers see a live countdown to ' + fmtWhen(draftStartAt, 'short')
     : '';
+  /* Two notifications from the one control: the announcement now, and the
+     reminder when the countdown runs out. Both sit at fixed keys so moving the
+     draft replaces them instead of stacking a second reminder on the first,
+     and clearing the date calls the reminder off. The relay holds the timer —
+     it survives everyone closing the page. */
+  if (isAdmin && window.notify) {
+    if (draftStartAt) {
+      window.notify('Draft scheduled', 'The draw is set for ' + fmtWhen(draftStartAt, 'long') + '.', null, 'drawSet');
+      window.notify('Time for the draw', 'The draft is starting — open the cup to watch the wheels.', draftStartAt, 'drawDue');
+    } else {
+      window.cancelNotify('drawDue');
+    }
+  }
   save();
 };
 
@@ -1790,8 +1813,15 @@ var heldRow = null; // 'gi_mi'
 function setGroupScore(gi, mi, sa, sb, pa, pb) {
   if (!restoring) heldRow = gi + '_' + mi;
   const m = groups[gi].matches[mi];
+  const was = m.winner;
   m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);
   m.winner = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
+  /* One announcement per settled match, not one per goal box. A score is typed
+     four boxes at a time and each keystroke lands here, so the news is the box
+     that decides it — a later correction only re-announces if it actually
+     changed who won. */
+  if (isAdmin && !restoring && m.winner && m.winner !== was && window.notify)
+    window.notify('Group match recorded', `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`);
   // a real score settles the match, so any suggestion for it is spent — whether
   // the admin accepted it or just typed straight over it
   if (isAdmin && !restoring && sa != null && cupId && window.clearSuggestion) {
@@ -2113,7 +2143,11 @@ function startKnockout() {
   $('koSection').style.display = '';
   $('koBtn').style.display = 'none';
   renderAll();
-  if (!restoring) $('koSection').scrollIntoView({ behavior: 'smooth' });
+  if (!restoring) {
+    if (isAdmin && window.notify)
+      window.notify('Knockout is live', 'The group stage is over — the bracket is up.');
+    $('koSection').scrollIntoView({ behavior: 'smooth' });
+  }
 }
 
 /* The knockout is scored, not tapped: the winner is whoever's goals add up
@@ -2127,9 +2161,20 @@ function setKoScore(r, i, sa, sb, pa, pb) {
 }
 const setKoGoals = (r, i, pa, pb) => setKoScore(r, i, teamGoals(pa), teamGoals(pb), pa, pb);
 
+/* Rounds are named from the end — the last one is always the Grand Final,
+   whatever the bracket's depth. Shared by the bracket headings and the
+   notification, so a match can't be announced as a semi and drawn as a
+   quarter. */
+const KO_TITLES = { 1: 'Grand Final', 2: 'Semifinals', 3: 'Quarterfinals' };
+const koRoundName = r => KO_TITLES[koRounds.length - r] || 'Round ' + (r + 1);
+
 function setKoWinner(r, i, team) {
   const m = koRounds[r][i];
   if (m.winner !== team) {
+    /* The final is deliberately silent here: crowning the champion sends its
+       own notification a moment later, and nobody needs both. */
+    if (isAdmin && !restoring && team && r + 1 < koRounds.length && window.notify)
+      window.notify(koRoundName(r), `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`);
     m.winner = team;
     if (r + 1 < koRounds.length) {
       const ni = i >> 1, next = koRounds[r + 1][ni], slot = i % 2 ? 'b' : 'a';
@@ -2155,11 +2200,10 @@ function resetChain(r, i) {
 function renderBracket() {
   const el = $('bracket');
   el.innerHTML = '';
-  const titles = { 1: 'Grand Final', 2: 'Semifinals', 3: 'Quarterfinals' };
   koRounds.forEach((matches, r) => {
     const col = document.createElement('div');
     col.className = 'round';
-    col.innerHTML = `<div class="round-title">${titles[koRounds.length - r] || 'Round ' + (r + 1)}</div>`;
+    col.innerHTML = `<div class="round-title">${koRoundName(r)}</div>`;
     matches.forEach((m, i) => {
       const box = matchBox(m, {
         ko: true, edit: isAdmin && !!(m.a && m.b), pa: m.pa, pb: m.pb,
@@ -2190,7 +2234,11 @@ function renderBracket() {
     crown.onclick = () => celebrate(won);
     $('champion').appendChild(crown);
   }
-  if (final.winner && final.winner !== lastChamp && !restoring) celebrate(teamName(final.winner));
+  if (final.winner && final.winner !== lastChamp && !restoring) {
+    celebrate(teamName(final.winner));
+    if (isAdmin && window.notify)
+      window.notify('We have a champion', teamName(final.winner) + ' have won the Ollyo Cup.');
+  }
   if (final.winner !== lastChamp) syncChampion(final.winner);
   lastChamp = final.winner;
 }
@@ -2850,10 +2898,13 @@ const manualInstallSteps = () => {
   const ua = navigator.userAgent;
   // iPadOS 13+ reports itself as a Mac, so touch support is the giveaway
   const ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  // iOS only delivers push to an installed app, so the install step is also the
+  // only way an iPhone ever gets a notification — say so here rather than
+  // leaving the Notify button mysteriously absent
   if (ios && /CriOS|FxiOS|EdgiOS/.test(ua))
-    return 'Open this page in <b>Safari</b>, then tap <b>Share</b> and choose <b>Add to Home Screen</b>. Other iPhone browsers cannot install apps.';
+    return 'Open this page in <b>Safari</b>, then tap <b>Share</b> and choose <b>Add to Home Screen</b>. Other iPhone browsers cannot install apps. Notifications work only in the installed app.';
   if (ios)
-    return 'Tap the <b>Share</b> button in the Safari toolbar, then choose <b>Add to Home Screen</b>.';
+    return 'Tap the <b>Share</b> button in the Safari toolbar, then choose <b>Add to Home Screen</b>. Notifications work only in the installed app.';
   return 'Open your browser menu (⋮) and choose <b>Install app</b> or <b>Add to Home screen</b>.';
 };
 
@@ -2879,7 +2930,7 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, remove, connectDatabaseEmulator }
+import { getDatabase, ref, onValue, set, remove, push, connectDatabaseEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -2963,9 +3014,106 @@ onValue(cupRef, snap => {
 
 onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
 
+/* ================= PUSH =================
+   The page never sends a notification: an FCM send needs a service-account key,
+   which can't ship to a browser. Its only job is to say what happened —
+   window.notify queues a row under /notify and the relay in relay/ drains it.
+   Admin-only by the rules, which is the point: the admin's browser is the one
+   that knows a score was just recorded, and nobody else can push to everyone.
+
+   `key` overwrites a fixed row instead of queueing a new one — that is what
+   lets the draft reminder be rescheduled or cancelled instead of piling up. */
+window.notify = (title, body, at, key) => {
+  const row = { title, body: body || null, at: at || null };
+  return (key ? set(ref(db, 'notify/' + key), row) : push(ref(db, 'notify'), row))
+    .catch(err => console.error('[notify] write rejected:', err));
+};
+
+window.cancelNotify = key => remove(ref(db, 'notify/' + key))
+  .catch(err => console.error('[notify] cancel failed:', err));
+
+/* Web Push certificate — Firebase Console → Project settings → Cloud Messaging
+   → Web Push certificates → Generate key pair. Public by design: it only
+   identifies this site to the push service. While it is empty the Notify
+   button stays hidden, so an unconfigured deploy is the app exactly as it was
+   rather than an error in front of every visitor. */
+const VAPID_KEY = 'BNYpmVPBQ5FXiGWn6gxEZJ7t7gs69pq7RT6DOgdcQRleK9Ydx5KG3n6iSEtsfFbMc2k_5Xu12-pHBw5LQMFqkjQ';
+
+let pushToken = null;
+
+/* One row per device, keyed by the token, so re-registering the same phone
+   overwrites instead of stacking. The value is the signed-in address, or a
+   timestamp when signed out — that is how the relay picks the admin's devices
+   out for suggestion pings, and the rules only let an account write its own
+   address, so a viewer can't claim to be the admin. */
+const saveToken = () => set(ref(db, 'pushTokens/' + pushToken),
+  auth.currentUser ? auth.currentUser.email : Date.now())
+  .catch(err => console.error('[push] token write failed:', err));
+
+(async () => {
+  // imported here rather than at the top so a deploy with no key configured
+  // doesn't make every visitor download the messaging SDK for nothing
+  if (!VAPID_KEY) return;
+  let getMessaging, getToken;
+  /* One catch for both the fetch and the support check. A blocked or offline
+     gstatic must leave the page exactly as it is — no button, no unhandled
+     rejection — and isSupported() is false on an iPhone that hasn't installed
+     the app, or anything else without a push service. */
+  try {
+    let isSupported;
+    ({ getMessaging, getToken, isSupported } =
+      await import("https://www.gstatic.com/firebasejs/12.16.0/firebase-messaging.js"));
+    if (!(await isSupported())) return;
+  } catch (e) { console.info('[push] messaging unavailable:', e.message); return; }
+
+  async function subscribe() {
+    if (await Notification.requestPermission() !== 'granted') return false;
+    /* Its own scope: sw.js already owns ./, and a second registration there
+       would evict the worker that makes the site installable. The path doesn't
+       have to exist — a scope is a namespace, not a page. Registering by
+       relative path also matters on GitHub Pages, where the app lives under
+       /foosball/ and the SDK's own default looks at the domain root. */
+    const reg = await navigator.serviceWorker.register('firebase-messaging-sw.js', { scope: './fcm-scope/' });
+    pushToken = await getToken(getMessaging(app), { vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+    if (!pushToken) return false;
+    await saveToken();
+    return true;
+  }
+
+  const btn = $('notifyBtn');
+  const paint = () => {
+    btn.textContent = pushToken ? 'Notifications on' : 'Notify me';
+    btn.classList.toggle('on', !!pushToken);
+  };
+  // Granted on an earlier visit: re-register silently. Tokens rotate, and a
+  // stale one is a phone that quietly stopped being notified months ago.
+  if (Notification.permission === 'granted') await subscribe().catch(e => console.error('[push]', e));
+  paint();
+  btn.style.display = '';
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      if (pushToken) {
+        // off means dropping the token — permission itself can only be revoked
+        // by the user in browser settings, but the relay stops sending here
+        await remove(ref(db, 'pushTokens/' + pushToken));
+        pushToken = null;
+      } else if (!await subscribe()) {
+        $('installSteps').textContent = Notification.permission === 'denied'
+          ? 'Notifications are blocked for this site. Turn them back on in your browser’s site settings, then tap Notify me again.'
+          : 'Could not turn notifications on. Try again in a moment.';
+        $('installTip').classList.add('open');
+      }
+    } catch (e) { console.error('[push]', e); }
+    btn.disabled = false;
+    paint();
+  };
+})();
+
 onAuthStateChanged(auth, user => {
   const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
   window.setAdmin(admin);
+  if (pushToken) saveToken(); // signing in re-labels this device, so admin pings land
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
   $('authBtn').innerHTML = user

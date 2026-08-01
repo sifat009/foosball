@@ -1,0 +1,13 @@
+{
+  "name": "foosball-push-relay",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node relay.mjs",
+    "test": "node test-relay.mjs"
+  },
+  "dependencies": {
+    "@firebase/app": "^0.16.0",
+    "firebase-admin": "^13.6.0"
+  }
+}

@@ -94,12 +94,190 @@ edits have nowhere to go but the emulator.
 The switch is a hostname check next to `initializeApp` in `index.html`; a
 deployed page never takes that branch.
 
+Push is the exception: there is no FCM emulator, so notifications only really
+happen against the live project with the relay running.
+
+## Push notifications
+
+Six things reach a phone: a group match recorded, a knockout match decided, the
+knockout opening, a champion crowned, a draft being scheduled, and the draft
+falling due. Suggestions ping the admin alone.
+
+Sending needs a service-account key, which can never live in a page — so the
+page only *says what happened*. It writes a row to `/notify`, and a small
+always-on process (`relay/relay.mjs`) holding the key reads the row, sends it,
+and deletes it. It keeps an open Firebase listener rather than polling, so a
+score reaches a phone in about a second, and it knows nothing about foosball:
+all six messages are composed in `index.html`, next to the code that already
+knew the match was over.
+
+`/notify` is admin-writable only. That is why suggestions are the one thing the
+relay watches directly — opening the node to every signed-in account would let
+any Google user push to every phone in the office.
+
+**Until it's configured nothing changes.** `VAPID_KEY` in `index.html` is empty
+by default and the Notify button stays hidden, so the app is exactly what it
+was before.
+
+### 1. Keys
+
+Firebase Console → Project settings → **Cloud Messaging** → Web Push
+certificates → *Generate key pair*. Paste it into `VAPID_KEY` in `index.html`.
+It's a public key — it belongs in the page, like the rest of `firebaseConfig`.
+
+Then Project settings → **Service accounts** → *Generate new private key*. That
+JSON is a real secret: it goes on the relay host only, never in this repo
+(`.gitignore` already covers `*service-account*.json`).
+
+Deploy the new rules — `notify` and `pushTokens` won't exist otherwise:
+
+```
+firebase deploy --only database
+```
+
+### 2. The relay host
+
+It needs to be always on, so a Firebase listener can stay open. An **Oracle
+Cloud Always Free** ARM VM (Ampere A1) is free permanently, even on a
+pay-as-you-go account, and is what this is written for — but any box that stays
+up works, including a Raspberry Pi.
+
+The live one shares a box with an unrelated project, so it's deliberately built
+to touch nothing outside its own directory: a system user, a private Node, and
+`/opt` rather than a home directory. Everything below is additive and the
+uninstall at the end removes all of it.
+
+```
+sudo useradd --system --no-create-home --shell /usr/sbin/nologin foosrelay
+```
+
+**Its own Node, not the system's.** Don't `apt install nodejs` — that can change
+what `node` resolves to for whatever else runs on the box. Don't point at an
+nvm install either: systemd can't see it, and `ProtectHome` below hides it
+anyway. Build the tree in `/tmp` first (adjust arch and version to taste):
+
+```
+mkdir -p /tmp/foosball-build && cd /tmp/foosball-build
+curl -fsSLO https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-arm64.tar.xz
+tar xf node-v20.18.1-linux-arm64.tar.xz && mv node-v20.18.1-linux-arm64 node
+```
+
+Copy `relay/*.mjs`, `relay/package.json` and the service-account JSON (as
+`sa.json`) into that directory, then:
+
+```
+./node/bin/node test-relay.mjs                              # "ok"
+PATH=/tmp/foosball-build/node/bin:$PATH ./node/bin/npm i
+```
+
+`@firebase/app` is a **direct** dependency in `package.json` and it looks
+unused, because nothing here imports it. Leave it. `firebase-admin` loads
+`@firebase/database-compat/standalone`, whose whole point is not needing
+`@firebase/app` — but it requires it anyway, while `database-compat` declares
+it an *optional* peer so npm skips installing it. Without the explicit
+dependency the relay dies on boot with `Cannot find module '@firebase/app'`.
+The dependency-free `test-relay.mjs` won't catch it; only starting it will.
+
+Then hand the finished tree to the service user:
+
+```
+rm -f /tmp/foosball-build/node-*.tar.xz
+sudo mv /tmp/foosball-build /opt/foosball-relay
+sudo chown -R foosrelay:foosrelay /opt/foosball-relay
+sudo chmod 600 /opt/foosball-relay/sa.json
+```
+
+`/etc/systemd/system/foosball-relay.service`:
+
+```
+[Unit]
+Description=Foosball push relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/opt/foosball-relay/node/bin/node /opt/foosball-relay/relay.mjs
+WorkingDirectory=/opt/foosball-relay
+Environment=GOOGLE_APPLICATION_CREDENTIALS=/opt/foosball-relay/sa.json
+Environment=DB_URL=https://ollyo-foosball-default-rtdb.asia-southeast1.firebasedatabase.app
+Environment=ADMIN_EMAIL=bhacker150@gmail.com
+Environment=SITE_URL=https://sifat009.github.io/foosball/
+User=foosrelay
+Restart=always
+RestartSec=10
+
+# containment: enforced by systemd, not by good intentions
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+NoNewPrivileges=true
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target
+```
+
+`ProtectSystem=strict` works because the relay writes nothing to disk — all its
+state is in Firebase. `ProtectHome` means the co-tenant project's files don't
+exist as far as it's concerned. `MemoryMax` is a leak guard: it idles around
+20 MB, so the cap only ever fires on a runaway, and it fires on the relay
+rather than on whatever else shares the box.
+
+`ADMIN_EMAIL` must match the one in `index.html` and the `.write` rule — it's
+how the relay knows which devices are yours for the suggestion pings.
+
+```
+sudo systemctl daemon-reload
+sudo systemctl enable --now foosball-relay
+journalctl -u foosball-relay -f      # want: [relay] listening
+```
+
+Oracle's default security list blocks nothing outbound, so no firewall rule is
+needed — the relay only makes outgoing connections. Don't open any port; it
+listens on none, and `ss -tulpn` should be identical before and after.
+
+To remove every trace of it:
+
+```
+sudo systemctl disable --now foosball-relay
+sudo rm /etc/systemd/system/foosball-relay.service
+sudo systemctl daemon-reload
+sudo rm -rf /opt/foosball-relay
+sudo userdel foosrelay
+```
+
+A scheduled draft reminder is a `setTimeout` in that process, but the row stays
+in `/notify` until it's actually sent, so a restart re-arms it. A reboot can't
+swallow the reminder.
+
+### 3. On the phone
+
+Tap **Notify me** and accept the permission prompt. Tapping it again drops the
+device's token and the notifications stop.
+
+**iPhone must install the app first** — iOS delivers web push only to a
+home-screen app, not to a Safari tab, so the button is hidden until then (the
+install steps say so). Android and desktop Chrome work in a plain tab.
+
+Tokens live at `/pushTokens`, keyed by token, valued with the owner's email or
+a timestamp when signed out. The rules only let a signed-in account write its
+own address, so nobody can pose as the admin to receive the suggestion pings.
+Dead tokens (uninstalled apps) are pruned by the relay when a send rejects
+them.
+
 ## Tests
 
 ```
 npx playwright@1.61 install chromium
 node test.mjs
+node relay/test-relay.mjs   # no database, no key, nothing installed
 ```
+
+The relay check covers the two decisions worth getting wrong: when a queued row
+fires (an unscheduled row goes at once, a past time isn't a negative timeout, a
+draft months out is clamped rather than fired immediately by `setTimeout`'s
+overflow) and who receives it (an admin-only ping reaching the admin's devices
+and nothing else).
 
 Firebase is blocked during the run, so the suite covers the app logic and the
 admin gate offline: read-only by default, standings render from a pushed
@@ -136,6 +314,12 @@ these by hand after deploying:
 - On a phone, Share in the celebration opens the real OS share sheet with the
   PNG attached, and posting it to a chat shows the image rather than a link.
   The suite stubs `navigator.share`, so only the plumbing is covered offline.
+- Push, once the relay is running (there is no FCM emulator): Notify me on a
+  second device, then record a group score as admin — the notification arrives
+  with the app closed. Typing all four goal boxes sends **one** notification,
+  not four. Scheduling the draft announces it at once and again when the
+  countdown runs out; moving the date replaces that reminder rather than
+  leaving two. A suggestion from another account pings only the admin.
 
 ## Notes
 

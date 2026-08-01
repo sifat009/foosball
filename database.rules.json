@@ -11,6 +11,17 @@
     "suggestions": {
       ".read": true,
       ".write": "auth != null && auth.token.email_verified === true"
+    },
+    "notify": {
+      ".read": false,
+      ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'"
+    },
+    "pushTokens": {
+      ".read": false,
+      "$token": {
+        ".write": true,
+        ".validate": "newData.isNumber() || (auth != null && newData.val() === auth.token.email)"
+      }
     }
   }
 }
