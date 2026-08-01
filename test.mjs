@@ -718,24 +718,47 @@ assert.deepEqual(ff.void, [null, true, ['b', 'void']], 'a group void is not sett
 assert.equal(ff.goals, 0, 'a forfeited match handed somebody a goal they never scored');
 assert.deepEqual(ff.retyped, [10, '', ['void']], 'entering real goals did not clear the forfeit');
 
-// ---------- the Golden Boot race runs live ----------
-// the group table is live for everyone, so the scoring race is too
+// ---------- the Golden Boot and Golden Ball races run live ----------
+// the group table is live for everyone, so both races are too
 const race = await page.evaluate(h => {
   window.applyState(window.decodeState(h));
   window.setAdmin(true);
-  const hidden = $('golden').style.display;             // nothing scored yet
+  // results are in but nobody is credited a goal yet: a Ball standing exists,
+  // a scoring race does not
+  const scoreless = [...document.querySelectorAll('.gb-race h4')].map(e => e.textContent);
   setGroupGoals(0, 0, { fwd: 9, def: 1 }, { fwd: 2, def: 3 });
   setGroupGoals(0, 2, { fwd: 4, def: 6 }, { fwd: 1, def: 1 });
-  const names = [...document.querySelectorAll('.gb-name')].map(e => e.textContent);
-  return { hidden, names, top: document.querySelector('.gb-row').textContent,
-           lead: [...document.querySelectorAll('.gb-row.lead')].length,
+  const board = i => {
+    const b = document.querySelectorAll('.gb-race')[i];
+    return { title: b.querySelector('h4').textContent,
+             note: b.querySelector('.gb-note').textContent,
+             names: [...b.querySelectorAll('.gb-name')].map(e => e.textContent),
+             top: b.querySelector('.gb-row').textContent,
+             lead: b.querySelectorAll('.gb-row.lead').length };
+  };
+  return { scoreless, boards: document.querySelectorAll('.gb-race').length,
+           boot: board(0), ball: board(1),
            visible: $('golden').style.display !== 'none' };
 }, HASH);
-assert.equal(race.hidden, 'none', 'the Golden Boot board shows before anybody has scored');
-assert.ok(race.visible, 'the Golden Boot board never appeared once goals went in');
-assert.ok(race.top.includes('9'), 'the leading scorer is not on top of the board: ' + race.top);
-assert.equal(race.lead, 1, 'exactly one player leads this race');
-assert.ok(race.names.length <= 5, 'the live board should stay to the top few, got ' + race.names.length);
+assert.deepEqual(race.scoreless, ['Golden Ball race'],
+  'a cup with results but no scorers should show the Ball race alone: ' + race.scoreless);
+assert.ok(race.visible, 'the board never appeared once results went in');
+assert.equal(race.boards, 2, 'both races should be on the board, got ' + race.boards);
+assert.ok(race.boot.title.includes('Boot') && race.ball.title.includes('Ball'),
+  'the two races are mislabelled or out of order: ' + race.boot.title + ' / ' + race.ball.title);
+assert.ok(race.boot.top.includes('9'), 'the leading scorer is not on top of the board: ' + race.boot.top);
+assert.equal(race.boot.lead, 1, 'exactly one player leads the scoring race');
+assert.ok(race.ball.top.includes('100%'), 'the Golden Ball race is not led by a winner: ' + race.ball.top);
+// the note has to describe the ranking actually in use, and the round part of
+// it is not in use until the knockouts
+assert.ok(!race.ball.note.includes('round') && race.ball.note.includes('GD'),
+  'the group-stage Ball note misdescribes the ranking: ' + race.ball.note);
+assert.ok(race.boot.note.includes('goals'), 'the Boot note says nothing about goals: ' + race.boot.note);
+// the tie-breaks the note promises have to be on the row, signed
+assert.ok(/\+\d+ GD/.test(race.ball.top) && /\dg/.test(race.ball.top),
+  'the Ball row hides the GD and goals it was ordered by: ' + race.ball.top);
+assert.ok(race.ball.names.length <= 5 && race.boot.names.length <= 5,
+  'the live boards should stay to the top few, got ' + race.boot.names.length + '/' + race.ball.names.length);
 
 // ---------- awards on the celebration and the share card ----------
 // the canvas is drawn by hand, so the overlay and the PNG have to be moved

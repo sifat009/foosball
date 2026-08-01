@@ -288,6 +288,10 @@
     letter-spacing: 0.18em; color: #96660a; background: #fdf4dc;
     padding: 7px 18px; border-radius: 999px; margin-bottom: 14px;
   }
+  .gb-race + .gb-race { margin-top: 20px; }
+  /* sits beside the pill where there is room, wraps under it on a phone */
+  .gb-note { font-size: 0.72rem; color: #97a3b3; margin: 0 0 14px 10px; display: inline-block; }
+  .gb-sub { font-size: 0.74rem; font-weight: 700; color: #97a3b3; }
   .gb-row {
     display: flex; align-items: baseline; gap: 10px;
     padding: 8px 2px; border-bottom: 1px solid #f1f4f9; font-size: 0.92rem;
@@ -2435,48 +2439,87 @@ function rollupPlayers() {
    team-level and therefore identical for two teammates, so without the goals
    the formula could only ever separate teams, never a pair. Anything still
    level after all four is shared — no arbitrary tie-break. */
+const cmpKey = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i] - a[i]; return 0; };
+// the two rankings, shared by the live race and the trophy handed out at the
+// end — so the board never disagrees with the award it is counting down to
+const bootKey = P => n => [P[n].g];
+const ballKey = (P, best) => n => [best[n] || 0, P[n].p ? P[n].w / P[n].p : 0, P[n].gf - P[n].ga, P[n].g];
+
 function cupAwards(P, champion) {
   const ns = Object.keys(P);
   if (!ns.length) return null;
   const best = bestRounds({ players: P });
   if (champion) [champion.fwd, champion.def].forEach(n => { if (P[n]) best[n] = 4; });
-  const cmp = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i] - a[i]; return 0; };
   const lead = key => {
-    const top = ns.map(key).sort(cmp)[0];
-    return ns.filter(n => cmp(key(n), top) === 0).sort();
+    const top = ns.map(key).sort(cmpKey)[0];
+    return ns.filter(n => cmpKey(key(n), top) === 0).sort();
   };
-  const boot = ns.some(n => P[n].g > 0) ? lead(n => [P[n].g]) : [];
+  const boot = ns.some(n => P[n].g > 0) ? lead(bootKey(P)) : [];
   return {
     boot, bootGoals: boot.length ? P[boot[0]].g : 0,
-    ball: lead(n => [best[n] || 0, P[n].p ? P[n].w / P[n].p : 0, P[n].gf - P[n].ga, P[n].g]),
+    ball: lead(ballKey(P, best)),
   };
 }
 
 // the team that has actually won the cup, or null while the final is open
 const champTeam = () => (koStarted && koRounds.length && koRounds[koRounds.length - 1][0].winner) || null;
 
-/* The scoring race, live for everyone while the cup runs — same reason the
-   group table is live rather than a reveal at the end. */
+/* Both races, live for everyone while the cup runs — same reason the group
+   table is live rather than a reveal at the end. The Ball standing leans on
+   the same key as the award, so mid-cup it is really win % then goal
+   difference: the round part only starts separating people in the knockouts. */
 function renderGolden() {
   const el = $('golden');
-  const rows = Object.entries(rollupPlayers())
-    .filter(([, s]) => s.g > 0).sort((a, b) => b[1].g - a[1].g || a[0].localeCompare(b[0]));
-  if (!rows.length || curScreen !== 'tourney') { el.style.display = 'none'; return; }
-  el.style.display = '';
-  el.innerHTML = '<h4>Golden Boot race</h4>';
-  const lead = rows[0][1].g;
-  rows.slice(0, 5).forEach(([name, s], i) => {
-    const row = document.createElement('div');
-    row.className = 'gb-row' + (s.g === lead ? ' lead' : '');
-    const n = document.createElement('div');
-    n.className = 'gb-n'; n.textContent = '#' + (i + 1);
-    const nm = document.createElement('div');
-    nm.className = 'gb-name'; nm.textContent = name; // textContent: names are user input
-    const g = document.createElement('div');
-    g.className = 'gb-g'; g.textContent = s.g;
-    row.append(n, nm, g);
-    el.appendChild(row);
-  });
+  const P = rollupPlayers();
+  const ns = Object.keys(P);
+  el.innerHTML = '';
+
+  const race = (title, note, names, key, val, sub) => {
+    if (!names.length) return;
+    const box = document.createElement('div');
+    box.className = 'gb-race';
+    const h = document.createElement('h4');
+    h.textContent = title;
+    const info = document.createElement('span');
+    info.className = 'gb-note'; info.textContent = note;
+    box.append(h, info);
+    const top = key(names[0]);
+    names.slice(0, 5).forEach((name, i) => {
+      const row = document.createElement('div');
+      row.className = 'gb-row' + (cmpKey(key(name), top) === 0 ? ' lead' : '');
+      const n = document.createElement('div');
+      n.className = 'gb-n'; n.textContent = '#' + (i + 1);
+      const nm = document.createElement('div');
+      nm.className = 'gb-name'; nm.textContent = name; // textContent: names are user input
+      const g = document.createElement('div');
+      g.className = 'gb-g'; g.textContent = val(name);
+      // the tie-breaks the ordering actually used, next to the headline number
+      if (sub) {
+        const s = document.createElement('span');
+        s.className = 'gb-sub'; s.textContent = sub(name);
+        g.appendChild(s);
+      }
+      row.append(n, nm, g);
+      box.appendChild(row);
+    });
+    el.appendChild(box);
+  };
+
+  /* bestRounds reads rounds off play counts, which only means anything once
+     the groups are done — mid-group it would just rank whoever has played the
+     most, so until the knockouts the race is win % then GD then goals */
+  const bk = ballKey(P, koStarted ? bestRounds({ players: P }) : {}), gk = bootKey(P);
+  race('Golden Boot race', 'individual goals — a forfeit credits nobody',
+    ns.filter(n => P[n].g > 0).sort((a, b) => cmpKey(gk(a), gk(b)) || a.localeCompare(b)),
+    gk, n => P[n].g);
+  const gd = n => (P[n].gf - P[n].ga >= 0 ? '+' : '') + (P[n].gf - P[n].ga);
+  race('Golden Ball race',
+    (koStarted ? 'round reached, then ' : '') + 'win %, then GD, then goals',
+    ns.filter(n => P[n].p > 0).sort((a, b) => cmpKey(bk(a), bk(b)) || a.localeCompare(b)),
+    bk, n => Math.round(P[n].w / P[n].p * 100) + '%',
+    n => ' ' + gd(n) + ' GD · ' + P[n].g + 'g');
+
+  el.style.display = el.firstChild && curScreen === 'tourney' ? '' : 'none';
 }
 
 function syncChampion(w) {
