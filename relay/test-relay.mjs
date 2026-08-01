@@ -18,4 +18,18 @@ assert.deepEqual(recipients(tokens, false, 'boss@x.com'), ['anon', 'boss', 'mate
 assert.deepEqual(recipients(tokens, true, 'boss@x.com'), ['boss']);
 assert.deepEqual(recipients({}, false, 'boss@x.com'), []);
 
+// the alerts drawer: a kind switched off drops that device and nobody else
+const prefs = { anon: { draw: true, result: false }, boss: { result: true } };
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'result', prefs), ['boss', 'mate']);
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'draw', prefs), ['anon', 'boss', 'mate']);
+// silence is consent: no prefs row, no entry for the kind, or no kind on the
+// row all mean the device still gets it
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'milestone', prefs), ['anon', 'boss', 'mate']);
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'result', null), ['anon', 'boss', 'mate']);
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, prefs), ['anon', 'boss', 'mate']);
+// admin-only and the kind filter both apply — one can't smuggle past the other
+assert.deepEqual(recipients(tokens, true, 'boss@x.com', 'result', prefs), ['boss']);
+assert.deepEqual(recipients(tokens, true, 'boss@x.com', 'suggest',
+  { boss: { suggest: false } }), []);
+
 console.log('ok');

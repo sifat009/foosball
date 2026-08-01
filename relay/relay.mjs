@@ -28,11 +28,18 @@
 export const delayFor = (n, now = Date.now()) =>
   Math.min(Math.max(((n && n.at) || 0) - now, 0), 2 ** 31 - 1);
 
-// Suggestion pings go to the admin's devices alone. A token's value is its
-// owner's email, and the rules only let a signed-in account write its own
-// address — so an anonymous viewer can't claim to be the admin and eavesdrop.
-export const recipients = (tokens, adminOnly, adminEmail) =>
-  Object.keys(tokens || {}).filter(t => !adminOnly || tokens[t] === adminEmail);
+/* Suggestion pings go to the admin's devices alone. A token's value is its
+   owner's email, and the rules only let a signed-in account write its own
+   address — so an anonymous viewer can't claim to be the admin and eavesdrop.
+
+   `kind` is the alerts drawer: a device that switched this kind off wrote so
+   under /pushPrefs. Only an explicit false drops a device — no prefs row, no
+   entry for this kind, or a row for a kind the page never sends all mean yes,
+   so a phone that subscribed before the drawer existed keeps its alerts. */
+export const recipients = (tokens, adminOnly, adminEmail, kind, prefs) =>
+  Object.keys(tokens || {}).filter(t =>
+    (!adminOnly || tokens[t] === adminEmail) &&
+    !(kind && ((prefs || {})[t] || {})[kind] === false));
 
 async function main() {
   const { initializeApp, applicationDefault } = await import('firebase-admin/app');
@@ -55,11 +62,14 @@ async function main() {
   // signed-out majority. Held in memory, kept fresh by the listener.
   let tokens = {};
   db.ref('pushTokens').on('value', s => { tokens = s.val() || {}; });
+  // what each device asked for in the alerts drawer, same shape: token -> kinds
+  let prefs = {};
+  db.ref('pushPrefs').on('value', s => { prefs = s.val() || {}; });
 
   // ponytail: sendEachForMulticast caps at 500 tokens; chunk it if a cup ever
   // outgrows that, which for one office's foosball it will not
-  async function send(title, body, adminOnly) {
-    const list = recipients(tokens, adminOnly, ADMIN_EMAIL);
+  async function send(title, body, adminOnly, kind) {
+    const list = recipients(tokens, adminOnly, ADMIN_EMAIL, kind, prefs);
     if (!list.length) return;
     const res = await fcm.sendEachForMulticast({
       tokens: list,
@@ -98,7 +108,7 @@ async function main() {
     if (!n || !n.title) return;
     const fire = () => {
       timers.delete(key);
-      send(n.title, n.body).catch(e => console.error('[send] failed:', e))
+      send(n.title, n.body, false, n.kind).catch(e => console.error('[send] failed:', e))
         .finally(() => db.ref('notify/' + key).remove());
     };
     const wait = delayFor(n);
@@ -121,7 +131,7 @@ async function main() {
         const id = cup + '/' + key;
         now.add(id);
         if (seen && !seen.has(id))
-          send('Score suggested', `${v.by} suggested ${v.sa}–${v.sb} — tap to accept or reject.`, true)
+          send('Score suggested', `${v.by} suggested ${v.sa}–${v.sb} — tap to accept or reject.`, true, 'suggest')
             .catch(e => console.error('[send] failed:', e));
       }));
     seen = now;

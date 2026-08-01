@@ -335,6 +335,7 @@
     animation: fade-in 0.4s ease; cursor: pointer;
   }
   @keyframes fade-in { from { opacity: 0; } }
+  @keyframes sheet-up { from { transform: translateY(100%); } }
   #confetti { position: absolute; inset: 0; width: 100%; height: 100%; }
   .celebrate-inner { position: relative; text-align: center; padding: 40px; }
   .rays {
@@ -414,13 +415,13 @@
   @keyframes rise-in { from { transform: translateY(18px); opacity: 0; } }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss {
+  #hall, #rules, #toss, #alerts {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
-  #hall.open, #rules.open, #toss.open { display: flex; }
+  #hall.open, #rules.open, #toss.open, #alerts.open { display: flex; }
   .hall-card {
     background: #fff; border-radius: 18px; padding: 28px 26px 22px;
     width: min(520px, 100%); max-height: 80vh; overflow-y: auto;
@@ -503,7 +504,40 @@
     .pl-row > :nth-child(7) { grid-area: 3 / 2; text-align: left; }
     .pl-row > :nth-child(8) { grid-area: 3 / 3 / auto / -1; text-align: left; }
   }
-  #hallClose, #rulesClose, #tossClose {
+  /* alerts drawer: the same overlay as the Hall, but on a phone the card
+     becomes a sheet that comes up from the bottom, off the Alerts tab */
+  .al-sheet { padding-top: 14px; }
+  .al-grip {
+    display: none; width: 38px; height: 4px; border-radius: 999px;
+    background: #dfe5ee; margin: 0 auto 14px;
+  }
+  .al-row {
+    display: flex; align-items: center; gap: 14px; width: 100%;
+    padding: 13px 4px; border-bottom: 1px solid #eef1f6; cursor: pointer;
+  }
+  .al-row:last-of-type { border-bottom: 0; }
+  .al-all { border-bottom: 2px solid #eef1f6; }
+  .al-txt { flex: 1; min-width: 0; }
+  .al-txt b { display: block; font-size: 0.92rem; font-weight: 700; color: #172b4d; }
+  .al-txt i { display: block; font-style: normal; font-size: 0.76rem; color: #8fa0b8; margin-top: 2px; }
+  /* the switch is a checkbox — the keyboard, screen readers and the form state
+     all come free, only the paint is ours */
+  .sw {
+    appearance: none; -webkit-appearance: none; flex: none; margin: 0;
+    width: 46px; height: 28px; border-radius: 999px; background: #dfe5ee;
+    position: relative; cursor: pointer; transition: background 0.18s;
+  }
+  .sw::after {
+    content: ''; position: absolute; top: 3px; left: 3px; width: 22px; height: 22px;
+    border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(10,16,28,0.3);
+    transition: transform 0.18s;
+  }
+  .sw:checked { background: #1f9d55; }
+  .sw:checked::after { transform: translateX(18px); }
+  .sw:disabled { opacity: 0.45; cursor: default; }
+  .sw:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+  #alerts.off .al-row:not(.al-all) { opacity: 0.5; cursor: default; }
+  #hallClose, #rulesClose, #tossClose, #alertsClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -751,6 +785,15 @@
       content: attr(data-lbl); font-size: 0.62rem; font-weight: 700;
       letter-spacing: 0.02em; line-height: 1; white-space: nowrap;
     }
+    /* the alerts panel is a drawer on a phone: full width, off the bottom edge,
+       rounded at the top only, with the grip a sheet is expected to have */
+    #alerts { align-items: flex-end; padding: 0; }
+    #alerts .al-sheet {
+      width: 100%; border-radius: 22px 22px 0 0; max-height: 86vh;
+      padding: 14px 20px calc(20px + env(safe-area-inset-bottom));
+      animation: sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+    #alerts .al-grip { display: block; }
     /* pressed state only — these are actions, not a "you are here" nav */
     #hallBtn:active, #resetBtn:active, #authBtn:active,
     #installBtn:active, #notifyBtn:active { background: #eef2f8; }
@@ -1087,6 +1130,37 @@ Rashed</textarea>
   </div>
 </div>
 
+<!-- what this phone wants to be told about. The master switch is the
+     subscription itself; the rest are per-kind and ride along to the relay,
+     which is what actually filters — see window.savePushPrefs. -->
+<div id="alerts">
+  <div class="hall-card al-sheet">
+    <div class="al-grip"></div>
+    <div class="hall-title">Notifications</div>
+    <label class="al-row al-all">
+      <div class="al-txt"><b>All notifications</b><i>Alerts on this device</i></div>
+      <input type="checkbox" class="sw" id="alertsAll">
+    </label>
+    <label class="al-row">
+      <div class="al-txt"><b>Draw &amp; draft times</b><i>The draw is set, and when it starts</i></div>
+      <input type="checkbox" class="sw" data-kind="draw">
+    </label>
+    <label class="al-row">
+      <div class="al-txt"><b>Match results</b><i>Every group and knockout score</i></div>
+      <input type="checkbox" class="sw" data-kind="result">
+    </label>
+    <label class="al-row">
+      <div class="al-txt"><b>Cup milestones</b><i>Knockout is live, and the champions</i></div>
+      <input type="checkbox" class="sw" data-kind="milestone">
+    </label>
+    <label class="al-row al-admin" style="display:none">
+      <div class="al-txt"><b>Score suggestions</b><i>Someone suggested a score to accept</i></div>
+      <input type="checkbox" class="sw" data-kind="suggest">
+    </label>
+    <button id="alertsClose">Close</button>
+  </div>
+</div>
+
 <script>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
@@ -1144,6 +1218,50 @@ window.startSignIn = () => {
   if (!signedIn && !isAdmin) $('authBtn').click();
 };
 
+/* ---- alerts drawer ----
+   Which announcements this phone wants. The choice is per-device, so it lives
+   in localStorage — but the page never sends a notification, so the same set is
+   mirrored to /pushPrefs under this device's token and the relay is what drops
+   the kinds nobody here asked for. Anything missing means yes: a device that
+   subscribed before this existed keeps getting everything. */
+const ALERT_KINDS = ['draw', 'result', 'milestone', 'suggest'];
+const PREFS_KEY = 'foosball-push-prefs';
+window.alertPrefs = () => {
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch {}
+  return Object.fromEntries(ALERT_KINDS.map(k => [k, saved[k] !== false]));
+};
+const writeAlertPrefs = p => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {} };
+const kindBoxes = () => [...document.querySelectorAll('#alerts [data-kind]')];
+
+function paintAlerts() {
+  const on = !!window.pushOn;
+  const prefs = window.alertPrefs();
+  $('alerts').classList.toggle('off', !on);
+  $('alertsAll').checked = on;
+  kindBoxes().forEach(box => {
+    box.checked = on && prefs[box.dataset.kind];
+    box.disabled = !on; // off means off — no half-lit rows promising alerts
+  });
+  document.querySelector('.al-admin').style.display = isAdmin ? '' : 'none';
+}
+
+// the master row is the subscription itself, and turning it back on means all
+// of them: an off switch that left three kinds silently disabled would be a
+// notification that never arrives with nothing on screen explaining why
+$('alertsAll').onchange = async e => {
+  const want = e.target.checked;
+  if (want) writeAlertPrefs(Object.fromEntries(ALERT_KINDS.map(k => [k, true])));
+  if (window.setPushOn) await window.setPushOn(want);
+  paintAlerts();
+};
+kindBoxes().forEach(box => box.onchange = () => {
+  const prefs = window.alertPrefs();
+  prefs[box.dataset.kind] = box.checked;
+  writeAlertPrefs(prefs);
+  if (window.savePushPrefs) window.savePushPrefs();
+});
+
 function setAdmin(v) {
   isAdmin = v;
   document.body.classList.toggle('view', !v);
@@ -1155,6 +1273,7 @@ function setAdmin(v) {
     if (!isAdmin && draftStartAt) startCountdown(draftStartAt);
     else { stopCountdown(); show('setup'); }
   }
+  paintAlerts(); // the suggestions row is the admin's alone
 }
 setAdmin(false); // read-only until Firebase says otherwise
 
@@ -1370,7 +1489,8 @@ function renderHall(entries) {
 window.renderHall = renderHall;
 
 // overlays: tap the backdrop or Close to dismiss, Esc closes whichever is open
-[['hallBtn', 'hall', 'hallClose'], ['rulesBtn', 'rules', 'rulesClose']].forEach(([btn, panel, close]) => {
+[['hallBtn', 'hall', 'hallClose'], ['rulesBtn', 'rules', 'rulesClose'],
+ ['notifyBtn', 'alerts', 'alertsClose']].forEach(([btn, panel, close]) => {
   $(btn).onclick = () => $(panel).classList.add('open');
   $(close).onclick = () => $(panel).classList.remove('open');
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
@@ -1381,7 +1501,7 @@ document.addEventListener('keydown', e => {
   // only — otherwise it shuts the Hall of Fame the replay was opened from
   if ($('installTip').classList.contains('open')) { $('installTip').classList.remove('open'); return; }
   if ($('celebrate').style.display === 'flex') { closeCelebration(); return; }
-  ['hall', 'rules', 'toss'].forEach(p => $(p).classList.remove('open'));
+  ['hall', 'rules', 'toss', 'alerts'].forEach(p => $(p).classList.remove('open'));
 });
 document.querySelectorAll('.hall-tab').forEach(tab => tab.onclick = () => {
   document.querySelectorAll('.hall-tab').forEach(t => t.classList.toggle('active', t === tab));
@@ -1487,8 +1607,8 @@ $('schedInput').onchange = () => {
      it survives everyone closing the page. */
   if (isAdmin && window.notify) {
     if (draftStartAt) {
-      window.notify('Draft scheduled', 'The draw is set for ' + fmtWhen(draftStartAt, 'long') + '.', null, 'drawSet');
-      window.notify('Time for the draw', 'The draft is starting — open the cup to watch the wheels.', draftStartAt, 'drawDue');
+      window.notify('Draft scheduled', 'The draw is set for ' + fmtWhen(draftStartAt, 'long') + '.', null, 'drawSet', 'draw');
+      window.notify('Time for the draw', 'The draft is starting — open the cup to watch the wheels.', draftStartAt, 'drawDue', 'draw');
     } else {
       window.cancelNotify('drawDue');
     }
@@ -1854,7 +1974,7 @@ function setGroupScore(gi, mi, sa, sb, pa, pb) {
      that decides it — a later correction only re-announces if it actually
      changed who won. */
   if (isAdmin && !restoring && m.winner && m.winner !== was && window.notify)
-    window.notify('Group match recorded', `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`);
+    window.notify('Group match recorded', `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`, null, null, 'result');
   // a real score settles the match, so any suggestion for it is spent — whether
   // the admin accepted it or just typed straight over it
   if (isAdmin && !restoring && sa != null && cupId && window.clearSuggestion) {
@@ -2178,7 +2298,7 @@ function startKnockout() {
   renderAll();
   if (!restoring) {
     if (isAdmin && window.notify)
-      window.notify('Knockout is live', 'The group stage is over — the bracket is up.');
+      window.notify('Knockout is live', 'The group stage is over — the bracket is up.', null, null, 'milestone');
     $('koSection').scrollIntoView({ behavior: 'smooth' });
   }
 }
@@ -2207,7 +2327,7 @@ function setKoWinner(r, i, team) {
     /* The final is deliberately silent here: crowning the champion sends its
        own notification a moment later, and nobody needs both. */
     if (isAdmin && !restoring && team && r + 1 < koRounds.length && window.notify)
-      window.notify(koRoundName(r), `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`);
+      window.notify(koRoundName(r), `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`, null, null, 'result');
     m.winner = team;
     if (r + 1 < koRounds.length) {
       const ni = i >> 1, next = koRounds[r + 1][ni], slot = i % 2 ? 'b' : 'a';
@@ -2270,7 +2390,7 @@ function renderBracket() {
   if (final.winner && final.winner !== lastChamp && !restoring) {
     celebrate(teamName(final.winner));
     if (isAdmin && window.notify)
-      window.notify('We have a champion', teamName(final.winner) + ' have won the Ollyo Cup.');
+      window.notify('We have a champion', teamName(final.winner) + ' have won the Ollyo Cup.', null, null, 'milestone');
   }
   if (final.winner !== lastChamp) syncChampion(final.winner);
   lastChamp = final.winner;
@@ -3055,9 +3175,12 @@ onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
    that knows a score was just recorded, and nobody else can push to everyone.
 
    `key` overwrites a fixed row instead of queueing a new one — that is what
-   lets the draft reminder be rescheduled or cancelled instead of piling up. */
-window.notify = (title, body, at, key) => {
-  const row = { title, body: body || null, at: at || null };
+   lets the draft reminder be rescheduled or cancelled instead of piling up.
+
+   `kind` is what the alerts drawer switches off: the relay skips a device whose
+   /pushPrefs say no to it. A row without one goes to everybody. */
+window.notify = (title, body, at, key, kind) => {
+  const row = { title, body: body || null, at: at || null, kind: kind || null };
   return (key ? set(ref(db, 'notify/' + key), row) : push(ref(db, 'notify'), row))
     .catch(err => console.error('[notify] write rejected:', err));
 };
@@ -3092,6 +3215,16 @@ const saveToken = async () => {
       .catch(err => console.warn('[push] token left unlabelled:', err.code || err.message));
 };
 
+/* The kinds this device wants, alongside its token for the relay to read. The
+   page can't filter what it doesn't send — a switch in the drawer only means
+   anything once it has landed here. Tokens rotate, so this is written on every
+   subscribe as well as on every change. */
+const savePrefs = () => pushToken
+  ? set(ref(db, 'pushPrefs/' + pushToken), window.alertPrefs())
+  : Promise.resolve();
+window.savePushPrefs = () => savePrefs()
+  .catch(err => console.error('[push] prefs write rejected:', err));
+
 (async () => {
   // imported here rather than at the top so a deploy with no key configured
   // doesn't make every visitor download the messaging SDK for nothing
@@ -3121,7 +3254,7 @@ const saveToken = async () => {
     /* The button must never say "on" for a device the relay can't reach. A
        token that only exists in this tab is exactly that, so a failed write
        puts it back to off rather than reporting a subscription nobody has. */
-    try { await saveToken(); }
+    try { await saveToken(); await savePrefs(); }
     catch (err) { pushToken = null; throw err; }
     return true;
   }
@@ -3140,6 +3273,8 @@ const saveToken = async () => {
   const paint = () => {
     btn.querySelector('.lbl').textContent = pushToken ? ' Notifications on' : ' Notify me';
     btn.classList.toggle('on', !!pushToken);
+    window.pushOn = !!pushToken; // what the drawer's master switch reads
+    paintAlerts();
   };
   /* Granted on an earlier visit: re-register silently. Tokens rotate, and a
      stale one is a phone that quietly stopped being notified months ago.
@@ -3152,15 +3287,20 @@ const saveToken = async () => {
     await subscribe().catch(e => console.error('[push]', e));
   paint();
   btn.style.display = '';
-  btn.onclick = async () => {
-    btn.disabled = true;
+  /* The tab opens the drawer; this is what its master switch calls. Everything
+     else in here is unchanged — on means a token the relay can reach, off means
+     no token at all. */
+  window.setPushOn = async want => {
     try {
-      if (pushToken) {
+      if (!want) {
         // off means dropping the token — permission itself can only be revoked
         // by the user in browser settings, but the relay stops sending here
-        await remove(ref(db, 'pushTokens/' + pushToken));
-        pushToken = null;
         setOptedOut(true);
+        if (pushToken) {
+          await remove(ref(db, 'pushTokens/' + pushToken));
+          await remove(ref(db, 'pushPrefs/' + pushToken));
+          pushToken = null;
+        }
       } else {
         setOptedOut(false); // opting back in, before the attempt that may fail
         if (!await subscribe())
@@ -3170,11 +3310,10 @@ const saveToken = async () => {
       }
     } catch (e) {
       /* On screen, not just in the console. This runs on a phone, where nobody
-         is going to open devtools to find out why the button bounced back. */
+         is going to open devtools to find out why the switch bounced back. */
       console.error('[push]', e);
       failTip('Could not turn notifications on: ' + (e.code || e.message || e));
     }
-    btn.disabled = false;
     paint();
   };
 })();

@@ -129,7 +129,8 @@ Then Project settings → **Service accounts** → *Generate new private key*. T
 JSON is a real secret: it goes on the relay host only, never in this repo
 (`.gitignore` already covers `*service-account*.json`).
 
-Deploy the new rules — `notify` and `pushTokens` won't exist otherwise:
+Deploy the new rules — `notify`, `pushTokens` and `pushPrefs` won't exist
+otherwise:
 
 ```
 firebase deploy --only database
@@ -252,8 +253,10 @@ swallow the reminder.
 
 ### 3. On the phone
 
-Tap **Notify me** and accept the permission prompt. Tapping it again drops the
-device's token and the notifications stop.
+Tap **Alerts** (**Notify me** on desktop) to open the notifications drawer, and
+accept the permission prompt. *All notifications* is the subscription itself:
+switching it off drops the device's token and everything stops; switching it
+back on turns every kind on again.
 
 **iPhone must install the app first** — iOS delivers web push only to a
 home-screen app, not to a Safari tab, so the button is hidden until then (the
@@ -264,6 +267,14 @@ a timestamp when signed out. The rules only let a signed-in account write its
 own address, so nobody can pose as the admin to receive the suggestion pings.
 Dead tokens (uninstalled apps) are pruned by the relay when a send rejects
 them.
+
+Under it are the kinds — draw times, match results, cup milestones, and score
+suggestions for the admin. Each `/notify` row carries its `kind`, each device
+mirrors its switches to `/pushPrefs/<token>`, and the **relay** is what drops a
+device that said no: the page can't filter what it doesn't send. Silence means
+yes, so a phone that subscribed before the drawer existed still gets
+everything — which also means an old relay ignores the switches entirely.
+Restart the relay after deploying this.
 
 ## Tests
 

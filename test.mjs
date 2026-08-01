@@ -1206,7 +1206,7 @@ await page.evaluate(() => closeCelebration());
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.evaluate(() => {
   window.__notes = [];
-  window.notify = (title, body, at, key) => { window.__notes.push({ title, body, at, key }); return Promise.resolve(); };
+  window.notify = (title, body, at, key, kind) => { window.__notes.push({ title, body, at, key, kind }); return Promise.resolve(); };
   window.cancelNotify = key => { window.__notes.push({ cancelled: key }); return Promise.resolve(); };
   window.saveToDb = () => {};
   const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
@@ -1232,6 +1232,7 @@ assert.equal(firstNote.length, 1,
 assert.equal(firstNote[0].title, 'Group match recorded', 'wrong title for a group result');
 assert.equal(firstNote[0].body, 'A + a 10–5 B + b', 'the group notification does not name both teams and the score');
 assert.equal(firstNote[0].key, undefined, 'a match result must queue, not overwrite a fixed key');
+assert.equal(firstNote[0].kind, 'result', 'a group result is not tagged for the Match results switch');
 
 // a correction that leaves the winner alone is not news; one that flips it is
 await type(1, 5);
@@ -1278,6 +1279,7 @@ const koOpen = await page.evaluate(() => {
 });
 assert.equal(koOpen.length, 1, 'opening the knockout sent ' + koOpen.length + ' notifications, expected one');
 assert.equal(koOpen[0].title, 'Knockout is live', 'wrong title when the bracket goes up');
+assert.equal(koOpen[0].kind, 'milestone', 'the bracket going up is not tagged as a milestone');
 
 /* The draft timer is two notifications from one control: the announcement now
    and the reminder when the countdown runs out. Both sit at fixed keys, so
@@ -1302,6 +1304,8 @@ assert.deepEqual(sched.set.map(n => n.key), ['drawSet', 'drawDue'],
 assert.equal(sched.set[0].at, null, 'the announcement should go out at once, not be scheduled');
 assert.equal(sched.set[1].at, sched.expected, 'the reminder is not armed for the scheduled instant');
 assert.deepEqual(sched.cleared, [{ cancelled: 'drawDue' }], 'clearing the draft date left the reminder armed');
+assert.deepEqual(sched.set.map(n => n.kind), ['draw', 'draw'],
+  'the draft rows are not tagged for the Draw & draft times switch');
 
 // a viewer, and an admin replaying a snapshot, both stay silent
 const quiet = await page.evaluate(() => {
@@ -1327,6 +1331,66 @@ assert.deepEqual(quiet.viewer, [],
 assert.deepEqual(quiet.replay, [],
   'replaying a snapshot re-announced a match that was already recorded');
 console.log('notifications OK');
+
+// ---------- the alerts drawer ----------
+/* The switches are only real because the relay reads them: what this checks is
+   that a tap ends up in the prefs the relay is handed (mirrored by
+   savePushPrefs), and that they can't say "on" while the subscription is off.
+   The push module itself needs Firebase messaging, which is blocked here, so
+   window.pushOn and setPushOn are stubbed the way it sets them. */
+const drawer = await page.evaluate(async () => {
+  localStorage.removeItem('foosball-push-prefs');
+  const saved = [];
+  window.savePushPrefs = () => saved.push(window.alertPrefs());
+  const boxes = () => [...document.querySelectorAll('#alerts [data-kind]')];
+  const tap = box => { box.click(); };
+
+  // subscription off: nothing may claim to be on, and nothing is tappable
+  window.pushOn = false; paintAlerts();
+  const off = { all: alertsAll.checked, on: boxes().filter(b => b.checked).length,
+                live: boxes().filter(b => !b.disabled).length };
+
+  window.pushOn = true; paintAlerts();
+  const on = { all: alertsAll.checked, on: boxes().filter(b => b.checked).length };
+
+  const result = boxes().find(b => b.dataset.kind === 'result');
+  tap(result);
+  const afterOff = { pref: window.alertPrefs().result, saved: saved.length,
+                     stored: JSON.parse(localStorage.getItem('foosball-push-prefs')).result };
+  tap(result);
+  const afterOn = window.alertPrefs().result;
+
+  // the master switch is select-all: off and back on restores every kind
+  tap(result);
+  window.setPushOn = want => { window.pushOn = want; };
+  alertsAll.click(); // off
+  const masterOff = { on: window.pushOn, pref: window.alertPrefs().result };
+  alertsAll.click(); // on again
+  await new Promise(r => setTimeout(r, 0)); // onchange awaits setPushOn
+  const masterOn = { on: window.pushOn, kinds: window.alertPrefs() };
+
+  // the suggestions row is the admin's
+  window.setAdmin(false);
+  const viewerSees = getComputedStyle(document.querySelector('.al-admin')).display;
+  window.setAdmin(true);
+  const adminSees = getComputedStyle(document.querySelector('.al-admin')).display;
+  return { off, on, afterOff, afterOn, masterOff, masterOn, viewerSees, adminSees };
+});
+assert.deepEqual(drawer.off, { all: false, on: 0, live: 0 },
+  'with notifications off the drawer still showed kinds switched on, or let them be tapped');
+assert.deepEqual(drawer.on, { all: true, on: 4 }, 'a fresh device does not start with every kind on');
+assert.equal(drawer.afterOff.pref, false, 'switching a kind off did not stick');
+assert.equal(drawer.afterOff.stored, false, 'the choice was not remembered on this device');
+assert.equal(drawer.afterOff.saved, 1, 'the relay was never told the kind was switched off');
+assert.equal(drawer.afterOn, true, 'switching a kind back on did not stick');
+assert.deepEqual(drawer.masterOff, { on: false, pref: false },
+  'the master switch did not drop the subscription');
+assert.equal(drawer.masterOn.on, true, 'the master switch did not resubscribe');
+assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true],
+  'turning notifications back on left a kind silently switched off');
+assert.equal(drawer.viewerSees, 'none', 'a viewer was offered the admin-only suggestions switch');
+assert.notEqual(drawer.adminSees, 'none', 'the admin lost the suggestions switch');
+console.log('alerts drawer OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
