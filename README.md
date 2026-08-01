@@ -295,6 +295,17 @@ race, and the two new all-time columns. Esc is
 checked to dismiss only the top layer — a replayed celebration closes without
 taking the Hall of Fame behind it with it.
 
+Notifications are covered by stubbing `window.notify` and driving the real code
+paths: a group match typed four boxes at a time announces **once**, on the box
+that settles it; a correction re-announces only if it changed who won; the
+knockout names its round and the final stays silent because the champion
+notification covers it; the draft timer emits an announcement plus a reminder at
+fixed keys, and clearing the date cancels the reminder. Two silence checks carry
+the most weight — a viewer must never announce (the call sites run in *every*
+watcher's browser, so a missing admin check means one notification per person
+watching) and replaying a snapshot must not re-announce a recorded match. All
+four guards are mutation-tested: removing any one of them fails the suite.
+
 What the suite **cannot** cover, because it needs real Google OAuth — check
 these by hand after deploying:
 
@@ -314,12 +325,16 @@ these by hand after deploying:
 - On a phone, Share in the celebration opens the real OS share sheet with the
   PNG attached, and posting it to a chat shows the image rather than a link.
   The suite stubs `navigator.share`, so only the plumbing is covered offline.
-- Push, once the relay is running (there is no FCM emulator): Notify me on a
-  second device, then record a group score as admin — the notification arrives
-  with the app closed. Typing all four goal boxes sends **one** notification,
-  not four. Scheduling the draft announces it at once and again when the
-  countdown runs out; moving the date replaces that reminder rather than
-  leaving two. A suggestion from another account pings only the admin.
+- Push **delivery**, once the relay is running — there is no FCM emulator, so
+  this is the one part no suite can reach. Tap Notify me on a phone, then record
+  a group score as admin: it should arrive with the app closed. Which
+  notifications fire, and how many, is covered offline (see Tests); what needs a
+  real device is the last hop, FCM to the handset. A suggestion from another
+  account pinging only the admin also needs two real accounts.
+
+  To check delivery without touching a cup that's mid-season, write a row to
+  `/notify` by hand in the Console — `{ "title": "test", "body": "hello" }`.
+  The node is independent of `cup`, so nothing a viewer sees moves.
 
 ## Notes
 

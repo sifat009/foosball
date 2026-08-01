@@ -1191,6 +1191,140 @@ const native = await page.evaluate(async () => {
 assert.deepEqual(native, { prompted: true, tip: false }, 'the native install prompt was not used');
 console.log('install button OK');
 
+// ---------- notifications fire once per event, and only for the admin ----------
+/* Every notify() call site is guarded, and the guards are the feature. A group
+   score is typed four boxes at a time and every keystroke lands in
+   setGroupScore, so announcing per call would buzz everyone four times a match;
+   and the call sites run in each viewer's browser, so a missing admin check
+   would mean one notification per person watching. window.notify is stubbed
+   here — the real one writes to /notify for the relay to drain, which is not
+   something an offline suite should reach. */
+await page.evaluate(() => closeCelebration());
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.evaluate(() => {
+  window.__notes = [];
+  window.notify = (title, body, at, key) => { window.__notes.push({ title, body, at, key }); return Promise.resolve(); };
+  window.cancelNotify = key => { window.__notes.push({ cancelled: key }); return Promise.resolve(); };
+  window.saveToDb = () => {};
+  const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  groups = [{ name: 'Group A', teams: T.slice(), matches: [
+    { a: T[0], b: T[1], sa: null, sb: null, pa: null, pb: null, winner: null },
+    { a: T[2], b: T[3], sa: null, sb: null, pa: null, pb: null, winner: null },
+  ] }];
+  koRounds = []; koStarted = false; restoring = false; lastChamp = null;
+  window.markRemote(); window.setAdmin(true);
+  renderAll();
+});
+await page.waitForTimeout(150);
+const notes = () => page.evaluate(() => window.__notes);
+
+// the box that settles the match is the news, not the three before it
+await type(0, 6); await type(1, 4); await type(2, 3);
+assert.deepEqual(await notes(), [], 'a half-entered match already sent a notification');
+await type(3, 2);
+const firstNote = await notes();
+assert.equal(firstNote.length, 1,
+  'a match typed four boxes at a time sent ' + firstNote.length + ' notifications instead of one');
+assert.equal(firstNote[0].title, 'Group match recorded', 'wrong title for a group result');
+assert.equal(firstNote[0].body, 'A + a 10–5 B + b', 'the group notification does not name both teams and the score');
+assert.equal(firstNote[0].key, undefined, 'a match result must queue, not overwrite a fixed key');
+
+// a correction that leaves the winner alone is not news; one that flips it is
+await type(1, 5);
+assert.equal((await notes()).length, 1, 'a correction that did not change the winner still notified');
+await type(2, 20);
+const flipped = await notes();
+assert.equal(flipped.length, 2, 'a correction that changed the winner did not re-notify');
+assert.equal(flipped[1].body, 'A + a 11–22 B + b', 'the re-notification does not carry the corrected score');
+
+// the knockout names its round, and the final stays quiet because the champion covers it
+const koNotes = await page.evaluate(() => {
+  window.__notes = [];
+  const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  const blank = (a, b) => ({ a, b, sa: null, sb: null, pa: null, pb: null, winner: null });
+  teams = T;
+  koRounds = [[blank(T[0], T[1]), blank(T[2], T[3])], [blank(null, null)]];
+  koStarted = true; lastChamp = null; restoring = false;
+  setKoScore(0, 0, 10, 5);
+  const afterSemi = window.__notes.slice();
+  setKoScore(0, 1, 10, 4);
+  setKoScore(1, 0, 10, 7);
+  return { afterSemi, titles: window.__notes.map(n => n.title) };
+});
+assert.equal(koNotes.afterSemi.length, 1, 'a decided semifinal sent no notification');
+assert.equal(koNotes.afterSemi[0].title, 'Semifinals', 'the knockout notification is not titled by its round');
+assert.ok(!koNotes.titles.includes('Grand Final'),
+  'the final announced itself as a match — the champion notification already covers it');
+assert.equal(koNotes.titles.filter(t => t === 'We have a champion').length, 1,
+  'crowning the champion sent ' + koNotes.titles.filter(t => t === 'We have a champion').length
+  + ' notifications, expected exactly one');
+
+// opening the bracket
+const koOpen = await page.evaluate(() => {
+  window.__notes = [];
+  const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  const matches = [];
+  for (let i = 0; i < 4; i++) for (let j = i + 1; j < 4; j++)
+    matches.push({ a: T[i], b: T[j], sa: 2, sb: 1, pa: null, pb: null, winner: T[i] });
+  groups = [{ name: 'Group A', teams: T.slice(), matches }];
+  koRounds = []; koStarted = false; lastChamp = null; restoring = false;
+  startKnockout();
+  return window.__notes.slice();
+});
+assert.equal(koOpen.length, 1, 'opening the knockout sent ' + koOpen.length + ' notifications, expected one');
+assert.equal(koOpen[0].title, 'Knockout is live', 'wrong title when the bracket goes up');
+
+/* The draft timer is two notifications from one control: the announcement now
+   and the reminder when the countdown runs out. Both sit at fixed keys, so
+   moving the draft replaces them rather than stacking a second reminder on the
+   first, and clearing the date has to call the reminder off. */
+const sched = await page.evaluate(() => {
+  window.__notes = [];
+  window.setAdmin(true);
+  const el = document.getElementById('schedInput');
+  el.value = '2031-03-04T17:30';
+  el.dispatchEvent(new Event('change'));
+  const set = window.__notes.slice();
+  window.__notes = [];
+  el.value = '';
+  el.dispatchEvent(new Event('change'));
+  return { set, cleared: window.__notes.slice(), expected: new Date('2031-03-04T17:30').getTime() };
+});
+assert.equal(sched.set.length, 2,
+  'scheduling the draft should announce it and arm the reminder, got ' + sched.set.length);
+assert.deepEqual(sched.set.map(n => n.key), ['drawSet', 'drawDue'],
+  'the draft rows must sit at fixed keys, or rescheduling stacks a second reminder on the first');
+assert.equal(sched.set[0].at, null, 'the announcement should go out at once, not be scheduled');
+assert.equal(sched.set[1].at, sched.expected, 'the reminder is not armed for the scheduled instant');
+assert.deepEqual(sched.cleared, [{ cancelled: 'drawDue' }], 'clearing the draft date left the reminder armed');
+
+// a viewer, and an admin replaying a snapshot, both stay silent
+const quiet = await page.evaluate(() => {
+  window.__notes = [];
+  const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  const fresh = () => [{ name: 'Group A', teams: T.slice(), matches: [
+    { a: T[0], b: T[1], sa: null, sb: null, pa: null, pb: null, winner: null } ] }];
+  koRounds = []; koStarted = false; restoring = false;
+  groups = fresh();
+  window.setAdmin(false);
+  setGroupScore(0, 0, 10, 5);           // every watcher runs this on the live update
+  const viewer = window.__notes.slice();
+  groups = fresh();
+  window.setAdmin(true);
+  restoring = true;
+  setGroupScore(0, 0, 10, 5);           // the admin's own echo coming back from the database
+  restoring = false;
+  return { viewer, replay: window.__notes.slice() };
+});
+assert.deepEqual(quiet.viewer, [],
+  'a viewer announced a live update — every phone would get one notification per person watching');
+assert.deepEqual(quiet.replay, [],
+  'replaying a snapshot re-announced a match that was already recorded');
+console.log('notifications OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
