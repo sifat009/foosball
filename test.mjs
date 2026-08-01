@@ -132,9 +132,11 @@ await page.waitForTimeout(200);
 const groupsText = await page.textContent('#groups');
 for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul Haque + Ofi'])
   assert.ok(groupsText.includes(t), 'missing team: ' + t);
-// four boxes a match now — one per player, and the team score is their sum
-assert.equal((await page.$$('#groups .score')).length, 40, 'expected 10 matches x 4 goal boxes for 5 teams');
-assert.equal((await page.$$('#groups .score.fwd')).length, 20, 'each team needs a forward box and a defender box');
+/* Four boxes a match now — one per player, and the team score is their sum.
+   The two matches this state carries were played before the boxes existed: a
+   team score with no breakdown behind it, so those rows show no boxes at all. */
+assert.equal((await page.$$('#groups .score')).length, 32, 'expected 8 open matches x 4 goal boxes, and none on the 2 already played');
+assert.equal((await page.$$('#groups .score.fwd')).length, 16, 'each team needs a forward box and a defender box');
 const disabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
 assert.ok(disabled.every(Boolean), 'viewer can edit scores');
 assert.ok(!(await page.isVisible('#koBtn')), 'viewer sees the knockout button');
@@ -515,9 +517,10 @@ assert.ok((await page.textContent('#tourneySub')).toLowerCase().includes('sugges
   'a signed-in suggester is not told they can suggest scores');
 
 // only the unrecorded matches open up — 2 of the 10 already have scores, and
-// each match is four boxes now
+// a recorded match carries no boxes at all, so every box on screen is live
 const sugDisabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
-assert.equal(sugDisabled.filter(Boolean).length, 8, 'a suggester should only reach matches with no score yet');
+assert.deepEqual([sugDisabled.length, sugDisabled.filter(Boolean).length], [32, 0],
+  'a suggester should reach every box of the 8 matches with no score yet, and no others');
 assert.ok(await page.evaluate(() => document.body.classList.contains('view')), 'a suggester is not an admin');
 // a forfeit is the admin ruling on a deadline, not a score anyone watched
 assert.equal((await page.$$('#groups .ff')).length, 0, 'a suggester can forfeit a match');
@@ -1079,11 +1082,18 @@ assert.equal(voided.tieNote, null, 'a 0-0 void trips the "no draws" warning');
    you scroll past results to find what's still to play. */
 const sunk = await page.evaluate(h => {
   window.applyState(window.decodeState(h));            // matches 1 and 7 arrive scored
-  setGroupScore(0, 4, 0, 0);                           // a no-show is settled too
   const key = m => teamName(m.a) + '|' + teamName(m.b);
+  const dom = () => [...document.querySelectorAll('#groups .match')]
+    .map(d => [...d.querySelectorAll('.m-team')].map(t => t.textContent).join('|'));
+  const before = dom();
+  setGroupScore(0, 4, 0, 0);                           // a no-show is settled too
+  // the row just recorded holds its slot rather than jumping out from under you
+  const heldAt = [before.indexOf(key(groups[0].matches[4])), dom().indexOf(key(groups[0].matches[4]))];
+  heldRow = null; renderAll();                         // ...until the next render says otherwise
   const rows = [...document.querySelectorAll('#groups .match')];
   return {
-    dom: rows.map(d => [...d.querySelectorAll('.m-team')].map(t => t.textContent).join('|')),
+    heldAt,
+    dom: dom(),
     todo: groups[0].matches.filter(m => !settled(m)).map(key),
     done: groups[0].matches.filter(settled).map(key),
     divs: document.querySelectorAll('.played-div').length,
@@ -1092,6 +1102,7 @@ const sunk = await page.evaluate(h => {
   };
 }, HASH);
 assert.equal(sunk.todo.length, 7, 'wrong fixture seeded — this checks the mixed case');
+assert.equal(sunk.heldAt[0], sunk.heldAt[1], 'the match just scored sank away under the cursor instead of holding its slot');
 // one deepEqual covers both halves: the split AND fixture order surviving inside each
 assert.deepEqual(sunk.dom, [...sunk.todo, ...sunk.done],
   'played matches did not sink below the unplayed ones, or fixture order was lost');

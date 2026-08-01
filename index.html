@@ -59,8 +59,6 @@
     font-size: 0.82rem; font-weight: 700; letter-spacing: normal; text-transform: none;
   }
   .hint-pill .ico { margin-right: 6px; }
-  /* the call to action sits on its own bottom line, kept to one line */
-  .hint-cta { display: block; margin-top: 3px; white-space: nowrap; }
   .hint-signin {
     color: #6f5610; font-weight: 800; cursor: pointer;
     text-decoration: underline; text-underline-offset: 2px;
@@ -1088,8 +1086,7 @@ function updateSub() {
     if (main) sub.appendChild(document.createElement('br'));
     const pill = document.createElement('span');
     pill.className = 'hint-pill';
-    pill.innerHTML = svg('bulb') + ' Played a match while the admin was away?' +
-      '<span class="hint-cta"><a class="hint-signin">Sign in</a> to suggest the score.</span>';
+    pill.innerHTML = svg('bulb') + '<a class="hint-signin">Sign in</a> to suggest a score.';
     pill.querySelector('.hint-signin').onclick = startSignIn;
     sub.appendChild(pill);
   }
@@ -1759,6 +1756,13 @@ const teamGoals = p => p && p.fwd != null && p.def != null ? p.fwd + p.def : nul
 const forfeitOf = m => m.pa || m.pb || m.sa == null ? ''
   : isVoid(m) ? 'void' : m.sa + m.sb === 1 ? (m.sa ? 'b' : 'a') : '';
 const FORFEIT = { a: [0, 1], b: [1, 0], void: [0, 0] };
+/* A match played before the per-player boxes shipped: a real team score with no
+   breakdown behind it. There are no goals left to enter for it, so it shows no
+   boxes — empty ones would only invite a number that wipes the recorded score,
+   since one player's goals alone are not a team total. Set the picker back to
+   "Played" to clear the result and enter it properly.
+   Forfeits are excluded: their boxes are how you type a real score over one. */
+const noBreakdown = m => m.sa != null && !m.pa && !m.pb && !forfeitOf(m);
 // 0-0 is the group's void marker, but the knockout has no such thing — somebody
 // has to go through — so there a 0-0 is just another rejected draw
 const badScore = (m, ko) => m.sa != null && m.sa === m.sb && (ko || !isVoid(m));
@@ -1777,7 +1781,14 @@ const settled = m => !!m.winner || isVoid(m);
    while sitting in the played block. */
 const teamMark = (m, t) => m.winner ? (m.winner === t ? ' winner' : ' loser') : isVoid(m) ? ' loser' : '';
 
+/* The fixture just recorded stays where it is instead of sinking to the played
+   block under the cursor — the last box you type into would otherwise scroll
+   away the moment it takes, and a correction means hunting for the row again.
+   One row at a time; it sinks on the next reload like everything else. */
+var heldRow = null; // 'gi_mi'
+
 function setGroupScore(gi, mi, sa, sb, pa, pb) {
+  if (!restoring) heldRow = gi + '_' + mi;
   const m = groups[gi].matches[mi];
   m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);
   m.winner = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
@@ -1968,7 +1979,7 @@ function matchBox(m, o) {
     tot.className = 'm-tot';
     tot.textContent = m[sk] ?? '·';
     row.appendChild(tot);
-    ['fwd', 'def'].forEach(role => {
+    if (!noBreakdown(m)) ['fwd', 'def'].forEach(role => {
       const inp = scoreInput(p[role], !o.edit, v => {
         const next = { ...p, [role]: v };
         o.onGoals(side === 'a' ? next : o.pa, side === 'a' ? o.pb : next);
@@ -1989,7 +2000,7 @@ function matchBox(m, o) {
     sel.className = 'ff' + (cur ? ' on' : '');
     sel.disabled = !o.edit;
     sel.setAttribute('aria-label', 'Played, or who forfeited');
-    [['', 'Played — enter the goals above'],
+    [['', noBreakdown(m) ? 'Played' : 'Played — enter the goals above'],
      ['a', teamName(m.a) + ' didn’t turn up — 1-0'],
      ['b', teamName(m.b) + ' didn’t turn up — 1-0'],
      ...(o.ko ? [] : [['void', 'Nobody turned up — 0-0, counts for neither']])]
@@ -2029,11 +2040,11 @@ function renderGroups() {
     // settled matches sink to the bottom so what's still to play is the first
     // thing you see; the sort is stable, so fixture order survives inside each
     // block, and mi stays the real index the score handlers write through
-    const rows = g.matches.map((m, mi) => [m, mi]);
-    rows.sort(([x], [y]) => settled(x) - settled(y));
-    rows.forEach(([m, mi], pos) => {
+    const rows = g.matches.map((m, mi) => [m, mi, settled(m) && heldRow !== gi + '_' + mi ? 1 : 0]);
+    rows.sort((x, y) => x[2] - y[2]);
+    rows.forEach(([m, mi, sunk], pos) => {
       // only worth a divider when there's something above it
-      if (settled(m) && pos > 0 && !settled(rows[pos - 1][0])) {
+      if (sunk && pos > 0 && !rows[pos - 1][2]) {
         const hr = document.createElement('div');
         hr.className = 'played-div';
         hr.textContent = 'Played';
