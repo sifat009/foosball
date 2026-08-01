@@ -132,7 +132,9 @@ await page.waitForTimeout(200);
 const groupsText = await page.textContent('#groups');
 for (const t of ['Nur + Rashed', 'Siddiq + Shewa', 'Rifat + Sifat', 'Sajeeb + Toufiq', 'Sazedul Haque + Ofi'])
   assert.ok(groupsText.includes(t), 'missing team: ' + t);
-assert.equal((await page.$$('#groups .score')).length, 20, 'expected 10 matches for 5 teams');
+// four boxes a match now — one per player, and the team score is their sum
+assert.equal((await page.$$('#groups .score')).length, 40, 'expected 10 matches x 4 goal boxes for 5 teams');
+assert.equal((await page.$$('#groups .score.fwd')).length, 20, 'each team needs a forward box and a defender box');
 const disabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
 assert.ok(disabled.every(Boolean), 'viewer can edit scores');
 assert.ok(!(await page.isVisible('#koBtn')), 'viewer sees the knockout button');
@@ -150,20 +152,52 @@ assert.ok(!(await page.evaluate(() => document.body.classList.contains('view')))
 const adminDisabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
 assert.ok(!adminDisabled.some(Boolean), 'admin cannot edit scores');
 
-const first = (await page.$$('#groups .score'))[0];
-await first.fill('9');
-await first.dispatchEvent('change');
-await page.waitForTimeout(150);
+/* Per-player entry: a team score is nothing but its two players added up, and a
+   half-filled team is not a result yet — the partner who scored nothing has to
+   say so with a 0 rather than an empty box. */
+const goalBoxes = () => page.$$('#groups .score');
+const type = async (i, v) => {
+  const inp = (await goalBoxes())[i];
+  await inp.fill(String(v));
+  await inp.dispatchEvent('change');
+  await page.waitForTimeout(60);
+};
+const firstMatch = () => page.evaluate(() => {
+  const m = groups[0].matches[0];
+  return { sa: m.sa, sb: m.sb, pa: m.pa, pb: m.pb, a: teamName(m.a), winner: m.winner && teamName(m.winner) };
+});
+await type(0, 6);                                   // A forward
+assert.deepEqual((await firstMatch()).sa, null, 'one player entered should not settle a team score');
+await type(1, 4);                                   // A defender
+await type(2, 3);                                   // B forward
+assert.equal((await firstMatch()).winner, null, 'three boxes in is still not a match');
+await type(3, 2);                                   // B defender
+const scored = await firstMatch();
+assert.equal(scored.sa, 10, 'the team score is not its two players added up');
+assert.equal(scored.sb, 5, 'the team score is not its two players added up');
+assert.deepEqual(scored.pa, { fwd: 6, def: 4 }, 'per-player goals were not kept');
+assert.equal(scored.winner, scored.a, 'the higher total did not win');
+
 const writes = await page.evaluate(() => window.writes);
 assert.ok(writes.length > 0, 'admin edit did not write to the database');
 
 // the write must survive a round-trip with its nulls intact — the reason
 // state is stored as a JSON string rather than a nested RTDB object
 const last = JSON.parse(writes[writes.length - 1]);
-assert.equal(last.groupScores[0][0][0], 9, 'edited score not in the payload');
-assert.deepEqual(last.groupScores[0][2], [null, null], 'unplayed match lost its nulls');
+assert.deepEqual(last.groupScores[0][0], [10, 5, { fwd: 6, def: 4 }, { fwd: 3, def: 2 }],
+  'the per-player breakdown did not reach the payload');
+assert.deepEqual(last.groupScores[0][2], [null, null, null, null], 'unplayed match lost its nulls');
 assert.equal(last.groupScores[0].length, 10, 'match list truncated');
 assert.equal(last.teams.length, 5, 'teams lost in the payload');
+
+// and it has to come back the same way it went out
+const roundTrip = await page.evaluate(j => {
+  window.applyState(JSON.parse(j));
+  const m = groups[0].matches[0];
+  return [m.sa, m.sb, m.pa, m.pb];
+}, writes[writes.length - 1]);
+assert.deepEqual(roundTrip, [10, 5, { fwd: 6, def: 4 }, { fwd: 3, def: 2 }],
+  'the breakdown did not survive a round trip through applyState');
 console.log('admin edit + write payload OK');
 
 // ---------- writes are refused before the first snapshot ----------
@@ -218,7 +252,8 @@ await page.click('#hallBtn');
 await page.click('#hallClose');
 assert.ok(!(await page.isVisible('#hall')), 'past champions did not close');
 
-// deciding the final records the champion; undoing it takes the entry back out
+// deciding the final records the champion; clearing the score takes it back out.
+// the final is scored like any other match now — there is no tap-to-win left.
 const log = await page.evaluate(() => {
   const got = [];
   window.recordChampion = (id, c) => got.push(['set', id, c]);
@@ -227,12 +262,12 @@ const log = await page.evaluate(() => {
   window.markRemote();
   const nur = { fwd: 'Nur', def: 'Rashed' }, rifat = { fwd: 'Rifat', def: 'Sifat' };
   koStarted = true;
-  koRounds = [[{ a: nur, b: rifat, winner: null }]];
+  koRounds = [[{ a: nur, b: rifat, sa: null, sb: null, pa: null, pb: null, winner: null }]];
   cupId = 'cup-1';
-  renderAll();                       // unfinished final — nothing recorded
-  setKoWinner(0, 0, nur);            // decided
-  setKoWinner(0, 0, rifat);          // corrected
-  setKoWinner(0, 0, rifat);          // clicking the winner again undoes it
+  renderAll();                                                    // unfinished final
+  setKoGoals(0, 0, { fwd: 6, def: 4 }, { fwd: 3, def: 2 });        // decided
+  setKoGoals(0, 0, { fwd: 6, def: 4 }, { fwd: 7, def: 4 });        // corrected
+  setKoGoals(0, 0, { fwd: 5, def: 5 }, { fwd: 5, def: 5 });        // a draw is no result
   return got;
 });
 assert.deepEqual(log, [
@@ -329,23 +364,62 @@ await page.waitForTimeout(150);
 assert.ok(!(await page.isVisible('#celebrate')), 'tapping the celebration did not dismiss it');
 
 // ---------- player leaderboard ----------
-// rollupPlayers: foosball is 2v2, so both partners share the team result;
-// group matches carry goals, KO matches add a play/win but no goals.
-const roll = await page.evaluate(() => {
-  const nur = { fwd: 'Nur', def: 'Rashed' }, rifat = { fwd: 'Rifat', def: 'Sifat' }, saj = { fwd: 'Sajeeb', def: 'Toufiq' };
+/* rollupPlayers: foosball is 2v2, so both partners share the team result — but
+   goals belong to whoever scored them, which is the whole point of `g` and the
+   only thing that can tell two teammates apart. Both stages carry scores now.
+   A forfeit has a result and no breakdown, so it adds a play and a win but no
+   goal to anybody's name. */
+const T = { nur: { fwd: 'Nur', def: 'Rashed' }, rifat: { fwd: 'Rifat', def: 'Sifat' },
+            saj: { fwd: 'Sajeeb', def: 'Toufiq' } };
+const goals = (fwd, def) => ({ fwd, def });
+const roll = await page.evaluate(({ nur, rifat, saj }) => {
   groups = [{ name: 'A', teams: [nur, rifat, saj], matches: [
-    { a: nur, b: rifat, sa: 10, sb: 7, winner: nur },
-    { a: rifat, b: saj, sa: 8, sb: 9, winner: saj },
-    { a: nur, b: saj, sa: null, sb: null, winner: null }, // unplayed — ignored
+    { a: nur, b: rifat, sa: 10, sb: 7, pa: { fwd: 7, def: 3 }, pb: { fwd: 5, def: 2 }, winner: nur },
+    { a: rifat, b: saj, sa: 8, sb: 9, pa: { fwd: 6, def: 2 }, pb: { fwd: 4, def: 5 }, winner: saj },
+    { a: nur, b: saj, sa: null, sb: null, pa: null, pb: null, winner: null }, // unplayed — ignored
   ] }];
-  koRounds = [[{ a: nur, b: saj, winner: nur }]];         // final, no scores
+  // the final: nur turned up, saj didn't — a result nobody scored in
+  koRounds = [[{ a: nur, b: saj, sa: 1, sb: 0, pa: null, pb: null, winner: nur }]];
   koStarted = true;
   return rollupPlayers();
-});
-assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 10, ga: 7 }, 'winner not credited group goals + KO win');
-assert.deepEqual(roll['Rashed'], roll['Nur'], 'both partners must share the team result');
-assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 8 }, 'KO loss should add a play, no goals');
-assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19 }, 'loser goals wrong');
+}, T);
+assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 11, ga: 7, g: 7 }, 'winner not credited group goals + the KO forfeit');
+assert.deepEqual(roll['Rashed'], { p: 2, w: 2, gf: 11, ga: 7, g: 3 },
+  'partners share the team result but never each other’s goals');
+assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 9, g: 4 }, 'KO loss should add a play, no goals');
+assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19, g: 11 }, 'loser goals wrong');
+
+/* Golden Boot and Golden Ball, worked out from that rollup. Boot is raw
+   individual goals; Ball is furthest round -> win % -> GD -> goals, and that
+   last step is the only one that can separate two players on the same team. */
+const aw = await page.evaluate(() => cupAwards(rollupPlayers(), koRounds[0][0].winner));
+assert.deepEqual(aw.boot, ['Rifat'], 'Golden Boot is not the top individual scorer: ' + aw.boot);
+assert.equal(aw.bootGoals, 11, 'Golden Boot goal count wrong');
+// Nur and Rashed both won the cup on identical team numbers — only their own
+// goals are left to tell them apart, and Nur scored more
+assert.deepEqual(aw.ball, ['Nur'],
+  'Golden Ball did not fall to the champion who outscored his own partner: ' + aw.ball);
+
+// a dead-level pair shares both awards rather than being split arbitrarily
+const tied = await page.evaluate(({ nur, rifat }) => {
+  groups = [{ name: 'A', teams: [nur, rifat], matches: [
+    { a: nur, b: rifat, sa: 10, sb: 6, pa: { fwd: 5, def: 5 }, pb: { fwd: 3, def: 3 }, winner: nur },
+  ] }];
+  koRounds = []; koStarted = false;
+  return cupAwards(rollupPlayers(), nur);
+}, T);
+assert.deepEqual(tied.boot, ['Nur', 'Rashed'], 'a tie on goals must be a shared Golden Boot: ' + tied.boot);
+assert.deepEqual(tied.ball, ['Nur', 'Rashed'], 'a tie the formula cannot break must be shared: ' + tied.ball);
+
+// a cup with nothing but forfeits has no scorer at all, so no Boot to award
+const dry = await page.evaluate(({ nur, rifat }) => {
+  groups = [{ name: 'A', teams: [nur, rifat], matches: [
+    { a: nur, b: rifat, sa: 1, sb: 0, pa: null, pb: null, winner: nur },
+  ] }];
+  return cupAwards(rollupPlayers(), nur);
+}, T);
+assert.deepEqual(dry.boot, [], 'a cup nobody scored in still handed out a Golden Boot');
+assert.deepEqual(dry.ball, ['Nur', 'Rashed'], 'the Golden Ball should still resolve without goals');
 
 // renderPlayers: aggregate across cups; titles count retroactively for cups
 // archived before per-player stats existed (champion string only).
@@ -380,7 +454,27 @@ assert.deepEqual(
   'best round should follow how deep the player went, not their win rate');
 // the columns only scan if every row emits the same cells — the whole point of the grid
 const widths = await page.$$eval('.pl-row', rs => rs.map(r => r.children.length));
-assert.ok(widths.every(n => n === 7), 'every row (header included) must emit all 7 cells');
+assert.ok(widths.every(n => n === 9), 'every row (header included) must emit all 9 cells');
+
+/* Golden Boots and Golden Balls are counted across cups exactly the way Cups
+   is. Cups archived before the awards existed carry none, and must simply not
+   contribute — the same graceful degradation the play counts already get. */
+await page.evaluate(() => window.renderHall([
+  { champion: 'Nur + Rashed', date: 1, players: { Nur: { p: 2, w: 2, gf: 9, ga: 4, g: 6 }, Rashed: { p: 2, w: 2, gf: 9, ga: 4, g: 3 } },
+    awards: { boot: ['Nur'], bootGoals: 6, ball: ['Nur'] } },
+  { champion: 'Rifat + Sifat', date: 2, players: { Rifat: { p: 2, w: 2, gf: 8, ga: 3, g: 4 }, Sifat: { p: 2, w: 2, gf: 8, ga: 3, g: 4 } },
+    awards: { boot: ['Nur', 'Rifat'], bootGoals: 4, ball: ['Rifat', 'Sifat'] } },
+  { champion: 'Ofi + Shewa', date: 3 }, // archived before any of this existed
+]));
+const awardCells = Object.fromEntries(await page.$$eval('.pl-row:not(.pl-head)', rs =>
+  rs.map(r => [r.querySelector('.pl-name').textContent,
+               [...r.querySelectorAll('.pl-award')].map(c => c.textContent)])));
+assert.deepEqual(awardCells.Nur, ['2', '1'], 'a Boot shared with another cup’s winner did not count twice');
+assert.deepEqual(awardCells.Rifat, ['1', '1'], 'a shared Boot and a shared Ball must each count for everyone tied');
+assert.deepEqual(awardCells.Sifat, ['—', '1'], 'a Ball won without the Boot is not being counted on its own');
+assert.deepEqual(awardCells.Ofi, ['—', '—'], 'an old cup with no awards is inventing them');
+const heads = await page.$$eval('.pl-head .pl-award', cs => cs.map(c => c.textContent));
+assert.deepEqual(heads, ['Boot', 'Ball'], 'the two award columns are not labelled');
 
 await page.click('.hall-tab[data-tab="cups"]');
 assert.ok(await page.isVisible('#hallList') && !(await page.isVisible('#hallPlayers')), 'cups tab did not restore');
@@ -420,22 +514,27 @@ const cup = await page.evaluate(() => {
 assert.ok((await page.textContent('#tourneySub')).toLowerCase().includes('suggest'),
   'a signed-in suggester is not told they can suggest scores');
 
-// only the unrecorded matches open up — 2 of the 10 already have scores
+// only the unrecorded matches open up — 2 of the 10 already have scores, and
+// each match is four boxes now
 const sugDisabled = await Promise.all((await page.$$('#groups .score')).map(s => s.isDisabled()));
-assert.equal(sugDisabled.filter(Boolean).length, 4, 'a suggester should only reach matches with no score yet');
+assert.equal(sugDisabled.filter(Boolean).length, 8, 'a suggester should only reach matches with no score yet');
 assert.ok(await page.evaluate(() => document.body.classList.contains('view')), 'a suggester is not an admin');
+// a forfeit is the admin ruling on a deadline, not a score anyone watched
+assert.equal((await page.$$('#groups .ff')).length, 0, 'a suggester can forfeit a match');
 
+// a suggestion carries the whole breakdown, so accepting it needs no second guess
 const openInput = (await page.$$('#groups .score'))[0];
 await openInput.fill('7');
 await openInput.dispatchEvent('change');
 await page.waitForTimeout(150);
 assert.deepEqual(await page.evaluate(() => window.sugLog), [
-  ['set', cup, '0_0', 7, null, 'Nur', 'nur@example.com'],
-], 'the suggestion did not land in the suggestions node with its author');
+  ['set', cup, '0_0', null, null, { fwd: 7, def: null }, null, 'Nur', 'nur@example.com'],
+], 'the suggestion did not land in the suggestions node with its author and breakdown');
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
 
 // the suggester (still signed in) must see their score was sent, not just guess
-await page.evaluate(c => window.renderSuggestions({ [c]: { '0_0': { sa: 7, sb: 3, by: 'Nur', email: 'nur@example.com' } } }), cup);
+await page.evaluate(c => window.renderSuggestions({ [c]: { '0_0':
+  { sa: 7, sb: 3, pa: { fwd: 4, def: 3 }, pb: { fwd: 2, def: 1 }, by: 'Nur', email: 'nur@example.com' } } }), cup);
 await page.waitForTimeout(150);
 const mineText = (await page.textContent('.sug-bar.mine')).toLowerCase();
 assert.ok(mineText.includes('sent') && mineText.includes('approv'), 'the suggester gets no confirmation their score was sent');
@@ -444,7 +543,8 @@ assert.equal((await page.$$('.sug-bar.mine .sug-btn')).length, 1, 'the suggester
 // everyone else reads it off the bar; a viewer gets no controls
 await page.evaluate(c => {
   window.setSignedIn(null);
-  window.renderSuggestions({ [c]: { '0_0': { sa: 10, sb: 6, by: 'Nur', email: 'nur@example.com' } } });
+  window.renderSuggestions({ [c]: { '0_0':
+    { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nur@example.com' } } });
 }, cup);
 await page.waitForTimeout(150);
 assert.equal((await page.$$('.sug-bar')).length, 1, 'the pending suggestion is not shown');
@@ -460,7 +560,8 @@ await page.evaluate(() => { window.writes = []; window.sugLog = []; });
 await page.click('.sug-ok');
 await page.waitForTimeout(150);
 const accepted = JSON.parse((await page.evaluate(() => window.writes)).pop());
-assert.deepEqual(accepted.groupScores[0][0], [10, 6], 'accepting did not write the suggested score to the cup');
+assert.deepEqual(accepted.groupScores[0][0], [10, 6, { fwd: 6, def: 4 }, { fwd: 4, def: 2 }],
+  'accepting wrote a team total without the breakdown behind it');
 assert.deepEqual(await page.evaluate(() => window.sugLog), [['clear', cup, '0_0']], 'the accepted suggestion was not cleared');
 
 // a suggestion from an earlier cup must never surface in this one
@@ -523,6 +624,151 @@ assert.deepEqual(big.titles, ['Quarterfinals', 'Semifinals', 'Grand Final'], 'br
 await page.evaluate(h => { window.applyState(window.decodeState(h)); window.setAdmin(true); }, HASH);
 await page.waitForTimeout(200);
 console.log('10-team single group + quarterfinals OK');
+
+// ---------- the knockout is scored, not tapped ----------
+/* The bracket used to be decided by clicking a team. It is scored exactly like
+   a group match now, which means the same four boxes, the same derived winner
+   and the same no-draws rule — and a correction upstream has to take the
+   matchups it fed with it, scores included. */
+const koScore = await page.evaluate(() => {
+  window.setAdmin(true); window.markRemote();
+  const T = ['A', 'B', 'C', 'D', 'E'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  const matches = [];
+  for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++)
+    matches.push({ a: T[i], b: T[j], sa: 2, sb: 1, pa: { fwd: 1, def: 1 }, pb: { fwd: 1, def: 0 }, winner: T[i] });
+  groups = [{ name: 'Group', teams: T.slice(), matches }];
+  koRounds = []; koStarted = false; cupId = 'ko-cup'; lastChamp = null;
+  startKnockout();                                       // semis A v D, B v C
+  const out = { boxes: document.querySelectorAll('#bracket .score').length,
+                clickable: !!document.querySelector('#bracket .m-side').onclick };
+  setKoGoals(0, 0, { fwd: 6, def: null }, { fwd: 3, def: 2 });
+  out.half = koRounds[0][0].winner;                      // three boxes is not a result
+  setKoGoals(0, 0, { fwd: 5, def: 5 }, { fwd: 4, def: 6 });
+  out.draw = koRounds[0][0].winner;                      // 10-10 is not a result either
+  out.drawNote = $('koNote').textContent;
+  out.flagged = document.querySelectorAll('#bracket .score.bad').length;
+  setKoGoals(0, 0, { fwd: 6, def: 4 }, { fwd: 3, def: 2 });   // A 10, D 5
+  setKoGoals(0, 1, { fwd: 4, def: 3 }, { fwd: 5, def: 5 });   // B 7, C 10
+  out.finalists = koRounds[1][0].a.fwd + koRounds[1][0].b.fwd;
+  out.semiScore = [koRounds[0][0].sa, koRounds[0][0].sb];
+  // a correction that leaves the same team through must not wipe the final
+  setKoGoals(1, 0, { fwd: 6, def: 5 }, { fwd: 4, def: 4 });   // A win the cup
+  setKoGoals(0, 0, { fwd: 7, def: 4 }, { fwd: 3, def: 2 });   // A still through
+  out.keptFinal = koRounds[1][0].winner && koRounds[1][0].winner.fwd;
+  // one that flips it has to take the final's teams AND its score with it
+  setKoGoals(0, 0, { fwd: 1, def: 1 }, { fwd: 6, def: 4 });   // D through instead
+  out.flipped = [koRounds[1][0].a.fwd, koRounds[1][0].sa, koRounds[1][0].pa, koRounds[1][0].winner];
+  return out;
+});
+assert.equal(koScore.boxes, 8, 'the two semis should show four goal boxes each; the empty final none');
+assert.ok(!koScore.clickable, 'the bracket still decides matches by clicking a team');
+assert.equal(koScore.half, null, 'a half-entered knockout team counted as a result');
+assert.equal(koScore.draw, null, 'equal totals decided a knockout tie — there are no draws');
+assert.match(koScore.drawNote, /no draws/, 'a drawn knockout tie says nothing about why it was rejected');
+assert.equal(koScore.flagged, 4, 'a drawn knockout tie does not flag its boxes');
+assert.equal(koScore.finalists, 'AC', 'the higher totals did not reach the final: ' + koScore.finalists);
+assert.deepEqual(koScore.semiScore, [10, 5], 'the knockout team score is not its two players added up');
+assert.equal(koScore.keptFinal, 'A', 'correcting a semi wiped a final it still feeds the same team into');
+assert.deepEqual(koScore.flipped, ['D', null, null, null],
+  'flipping a semi left the final holding the old team’s score: ' + JSON.stringify(koScore.flipped));
+
+// ---------- forfeits: a result with no goalscorer ----------
+/* Forfeits are the one way to a result without attributing a goal to a real
+   player, which is also why they are the one thing left out of the awards. The
+   group can void a match nobody turned up for; the knockout cannot, because
+   somebody has to go through. */
+const ff = await page.evaluate(h => {
+  const opts = sel => [...sel.options].map(o => o.value);
+  // settled matches sink, so a forfeited row moves — find the picker by what it
+  // is set to rather than by where it sits
+  const picked = box => [...document.querySelectorAll(box + ' .ff')].map(s => s.value).filter(Boolean);
+  const out = { ko: opts(document.querySelector('#bracket .ff')) };
+  setKoScore(0, 0, 0, 1);                          // A no-show, D advance 1-0
+  const m = koRounds[0][0];
+  out.koForfeit = [m.sa, m.sb, m.pa, m.pb, m.winner.fwd, forfeitOf(m)];
+  out.koPicked = picked('#bracket');
+
+  window.applyState(window.decodeState(h));
+  window.setAdmin(true);
+  out.group = opts(document.querySelector('#groups .ff'));
+  setGroupScore(0, 0, 1, 0);                       // b didn't turn up
+  const g = groups[0].matches[0];
+  out.groupForfeit = [g.sa, g.sb, g.pa, g.pb, g.winner === g.a, forfeitOf(g)];
+  setGroupScore(0, 2, 0, 0);                       // nobody turned up
+  out.void = [groups[0].matches[2].winner, settled(groups[0].matches[2]), picked('#groups').sort()];
+  // a forfeit has no breakdown, so nobody's Golden Boot moves
+  out.goals = Object.values(rollupPlayers()).reduce((n, s) => n + s.g, 0);
+  // and typing real goals over one takes the match straight back to Played
+  setGroupGoals(0, 0, { fwd: 5, def: 5 }, { fwd: 3, def: 4 });
+  out.retyped = [groups[0].matches[0].sa, forfeitOf(groups[0].matches[0]), picked('#groups')];
+  return out;
+}, HASH);
+assert.deepEqual(ff.ko, ['', 'a', 'b'], 'the knockout forfeit picker offers a void — somebody has to go through');
+assert.deepEqual(ff.group, ['', 'a', 'b', 'void'], 'the group forfeit picker lost its double no-show option');
+assert.deepEqual(ff.koForfeit, [0, 1, null, null, 'D', 'a'],
+  'a knockout forfeit should be a bare 1-0 with nobody credited: ' + JSON.stringify(ff.koForfeit));
+assert.deepEqual(ff.koPicked, ['a'], 'the knockout picker does not show the forfeit it recorded');
+assert.deepEqual(ff.groupForfeit, [1, 0, null, null, true, 'b'],
+  'a group forfeit should be a bare 1-0 with nobody credited: ' + JSON.stringify(ff.groupForfeit));
+assert.deepEqual(ff.void, [null, true, ['b', 'void']], 'a group void is not settled, or the picker forgot it');
+assert.equal(ff.goals, 0, 'a forfeited match handed somebody a goal they never scored');
+assert.deepEqual(ff.retyped, [10, '', ['void']], 'entering real goals did not clear the forfeit');
+
+// ---------- the Golden Boot race runs live ----------
+// the group table is live for everyone, so the scoring race is too
+const race = await page.evaluate(h => {
+  window.applyState(window.decodeState(h));
+  window.setAdmin(true);
+  const hidden = $('golden').style.display;             // nothing scored yet
+  setGroupGoals(0, 0, { fwd: 9, def: 1 }, { fwd: 2, def: 3 });
+  setGroupGoals(0, 2, { fwd: 4, def: 6 }, { fwd: 1, def: 1 });
+  const names = [...document.querySelectorAll('.gb-name')].map(e => e.textContent);
+  return { hidden, names, top: document.querySelector('.gb-row').textContent,
+           lead: [...document.querySelectorAll('.gb-row.lead')].length,
+           visible: $('golden').style.display !== 'none' };
+}, HASH);
+assert.equal(race.hidden, 'none', 'the Golden Boot board shows before anybody has scored');
+assert.ok(race.visible, 'the Golden Boot board never appeared once goals went in');
+assert.ok(race.top.includes('9'), 'the leading scorer is not on top of the board: ' + race.top);
+assert.equal(race.lead, 1, 'exactly one player leads this race');
+assert.ok(race.names.length <= 5, 'the live board should stay to the top few, got ' + race.names.length);
+
+// ---------- awards on the celebration and the share card ----------
+// the canvas is drawn by hand, so the overlay and the PNG have to be moved
+// together — this is the check that they were
+const AW = { boot: ['Nur', 'Rashed'], bootGoals: 9, ball: ['Sifat'] };
+await page.evaluate(a => celebrate('Rifat + Sifat', { date: Date.UTC(2026, 6, 26), awards: a }), AW);
+const shown = await page.textContent('#awards');
+assert.ok(shown.includes('Golden Boot') && shown.includes('Nur & Rashed') && shown.includes('9 goals'),
+  'the celebration does not name the shared Golden Boot: ' + shown);
+assert.ok(shown.includes('Golden Ball') && shown.includes('Sifat'),
+  'the celebration does not name the Golden Ball: ' + shown);
+const cardInk = await page.evaluate(async a => {
+  // the confetti is random, so pin it before comparing two cards' pixels
+  const real = Math.random;
+  Math.random = () => 0;
+  const band = c => {
+    const d = c.getContext('2d').getImageData(0, 930, 1200, 200).data;
+    let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i];
+    return s;
+  };
+  const out = { with: band(await drawCard('Rifat + Sifat', 0, a)), without: band(await drawCard('Rifat + Sifat', 0, null)) };
+  Math.random = real;
+  return out;
+}, AW);
+assert.ok(cardInk.with > cardInk.without * 1.2,
+  `the share card did not draw the awards (${cardInk.with} vs ${cardInk.without} ink in the awards band)`);
+await page.evaluate(() => closeCelebration());
+
+// a replayed cup that never had awards must not borrow the live cup's
+await page.evaluate(() => celebrate('Nur + Rashed', { date: 1, awards: null }));
+assert.equal(await page.textContent('#awards'), '', 'an old cup with no awards showed some anyway');
+await page.evaluate(() => closeCelebration());
+
+await page.evaluate(h => { window.applyState(window.decodeState(h)); window.setAdmin(true); }, HASH);
+await page.waitForTimeout(200);
+console.log('knockout scoring + forfeits + awards OK');
 
 // ---------- mobile layout ----------
 // the fixed buttons move to the bottom under @media (max-width: 640px). A media
@@ -817,7 +1063,7 @@ const voided = await page.evaluate(h => {
   return {
     blocked, koBtn: $('koBtn').style.display, outstanding: unplayedCount(),
     before, after: [stat(m.a), stat(m.b)],
-    tieNote: document.querySelector('.tie-note')?.textContent ?? null,
+    tieNote: document.querySelector('#groups .tie-note')?.textContent ?? null,
   };
 }, HASH);
 assert.equal(voided.blocked, 'none', 'the knockout opened with a match still outstanding');
@@ -841,8 +1087,8 @@ const sunk = await page.evaluate(h => {
     todo: groups[0].matches.filter(m => !settled(m)).map(key),
     done: groups[0].matches.filter(settled).map(key),
     divs: document.querySelectorAll('.played-div').length,
-    // the void has no winner, so both names must be greyed by hand
-    greyed: rows.filter(d => d.querySelectorAll('.m-team.loser').length === 2).length,
+    // the void has no winner, so both sides must be greyed by hand
+    greyed: rows.filter(d => d.querySelectorAll('.m-side.loser').length === 2).length,
   };
 }, HASH);
 assert.equal(sunk.todo.length, 7, 'wrong fixture seeded — this checks the mixed case');
@@ -854,7 +1100,7 @@ assert.equal(sunk.greyed, 1, 'the 0-0 void reads as unplayed while sitting in th
 
 // a genuine equal score is still an error, not a void
 await page.evaluate(() => setGroupScore(0, 3, 5, 5));
-assert.match(await page.textContent('.tie-note'), /no draws/,
+assert.match(await page.textContent('#groups .tie-note'), /no draws/,
   'an equal score other than 0-0 is no longer flagged');
 assert.equal(await page.evaluate(() => $('koBtn').style.display), 'none',
   '5-5 was treated as a settled match');

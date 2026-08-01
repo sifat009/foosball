@@ -217,14 +217,20 @@
   tr.qualified td { background: #fdf6e0; }
   tr.qualified td:first-child { border-radius: 10px 0 0 10px; }
   tr.qualified td:last-child { border-radius: 0 10px 10px 0; }
+  /* a row per team, not two teams on one line: four goal boxes never fit a phone
+     row, and a player's box only reads as his once it sits beside his team */
   .match {
-    display: flex; align-items: center; background: #f7f9fc; border: 1px solid #eaeff6;
-    border-radius: 14px; margin-bottom: 10px; overflow: hidden; padding: 6px 10px; gap: 6px;
+    background: #f7f9fc; border: 1px solid #eaeff6;
+    border-radius: 14px; margin-bottom: 10px; overflow: hidden; padding: 6px 10px;
   }
-  .m-team { flex: 1; padding: 8px 6px; font-weight: 600; font-size: 0.95rem; border-radius: 10px; }
-  .m-team:last-child { text-align: right; }
-  .m-team.winner { color: #15803d; font-weight: 800; }
-  .m-team.loser { opacity: 0.45; }
+  .m-side { display: flex; align-items: center; gap: 6px; padding: 2px 0; border-radius: 10px; }
+  .m-team { flex: 1; min-width: 0; padding: 6px 4px; font-weight: 600; font-size: 0.95rem; overflow-wrap: break-word; }
+  /* the team score, which is only ever the two boxes added up — shown because a
+     forfeit has a result and no boxes behind it */
+  .m-tot { width: 26px; text-align: right; font-weight: 900; font-size: 0.95rem; color: #16233a; }
+  .m-side.winner .m-team, .m-side.winner .m-tot { color: #15803d; font-weight: 800; }
+  .m-side.loser { opacity: 0.45; }
+  .m-side.empty .m-team { color: #b3bdca; font-style: italic; }
   .played-div {
     display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
     color: #a4aebc; text-transform: uppercase; font-size: 0.68rem;
@@ -240,7 +246,20 @@
   .score:focus { outline: none; border-color: #ecc45c; }
   .score:disabled { background: #f1f4f9; color: #8a96a8; }
   .score.bad { border-color: #e05252; background: #fdeeee; }
-  .dash { color: #c9a227; font-weight: 900; font-size: 0.8rem; }
+  /* same two colours the draft panels give the roles, so a box is placeable to a
+     player without a label on every row */
+  .score.fwd { color: #2563eb; }
+  .score.def { color: #dc5a1e; }
+  .score.fwd:disabled, .score.def:disabled { color: #8a96a8; }
+  /* forfeits are deliberately not a score box — nobody scored, so there is no
+     player to attribute a goal to */
+  .ff {
+    width: 100%; margin: 4px 0 2px; font-family: inherit; font-size: 0.76rem; font-weight: 700;
+    color: #5b6a7d; background: #fff; border: 1.5px dashed #dfe6ef; border-radius: 10px;
+    padding: 7px 10px; cursor: pointer;
+  }
+  .ff:disabled { opacity: 0.5; cursor: default; }
+  .ff.on { border-style: solid; border-color: #f0d79a; background: #fdf6e3; color: #8a6414; }
   /* a pending suggestion — deliberately unlike a real score, because it isn't one */
   .score.suggesting { border-color: #e6c65c; background: #fff8e6; }
   .sug-bar {
@@ -263,21 +282,37 @@
   .sug-withdraw { background: transparent; color: #1c6b39; border: 1px solid #86c99b; }
   .sug-withdraw:hover { background: #dcefe1; }
   .tie-note { color: #b45309; font-size: 0.8rem; font-weight: 700; margin: -8px 0 12px; min-height: 1em; }
+  #koNote { text-align: center; margin: 10px auto 0; max-width: 620px; }
+  /* the scoring race, live for everyone — same reason the group table is live */
+  #golden { max-width: 540px; margin: 26px auto 0; padding: 22px 26px 14px; }
+  #golden h4 {
+    display: inline-block; font-size: 0.85rem; font-weight: 900; text-transform: uppercase;
+    letter-spacing: 0.18em; color: #96660a; background: #fdf4dc;
+    padding: 7px 18px; border-radius: 999px; margin-bottom: 14px;
+  }
+  .gb-row {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 8px 2px; border-bottom: 1px solid #f1f4f9; font-size: 0.92rem;
+  }
+  .gb-row:last-child { border-bottom: 0; }
+  .gb-n { color: #c3ccda; font-weight: 800; font-size: 0.78rem; min-width: 20px; }
+  .gb-name { flex: 1; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
+  .gb-g { font-weight: 900; color: #5b6a7d; }
+  .gb-row.lead .gb-name, .gb-row.lead .gb-g { color: #96660a; }
   /* knockout bracket */
   #bracket { display: flex; gap: 48px; overflow-x: auto; padding: 10px 0; justify-content: center; }
-  .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 250px; }
+  .round { display: flex; flex-direction: column; justify-content: space-around; min-width: 290px; }
   .round-title {
     text-align: center; font-weight: 800; margin-bottom: 14px; color: #a4aebc;
     text-transform: uppercase; letter-spacing: 0.16em; font-size: 0.75rem;
   }
-  .bmatch { margin: 10px 0; overflow: hidden; }
-  .slot { display: flex; align-items: center; gap: 10px; padding: 12px 16px; font-weight: 600; cursor: pointer; }
-  .slot.empty { cursor: default; }
-  .slot .nm { flex: 1; }
-  .slot + .slot { border-top: 1px solid #eef2f8; }
-  .slot.empty { color: #b3bdca; font-style: italic; }
-  .slot.winner { background: #e1f5e8; color: #15803d; font-weight: 800; }
-  .slot.loser { opacity: 0.45; }
+  /* the bracket reuses the group match row wholesale — a knockout tie is scored
+     exactly like a group one now, so it must not grow a second implementation */
+  .bmatch { margin: 10px 0; overflow: hidden; padding: 0 0 2px; }
+  .bmatch .m-side { padding: 10px 12px; border-radius: 0; }
+  .bmatch .m-side + .m-side { border-top: 1px solid #eef2f8; }
+  .bmatch .m-side.winner { background: #e1f5e8; }
+  .bmatch .ff { width: auto; margin: 6px 12px 8px; }
   #champion { display: flex; justify-content: center; margin: 36px 0 4px; min-height: 1em; }
   /* a button, not a div — tapping the champion replays their celebration */
   #champion .crown {
@@ -340,6 +375,19 @@
     -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: rise-in 0.7s 0.5s ease backwards;
   }
+  /* the two individual awards, under the champions — drawCard() repeats these
+     lines on the PNG, so the two have to be changed together */
+  #awards {
+    position: relative; margin-top: 26px; display: flex; flex-direction: column; gap: 10px;
+    animation: rise-in 0.7s 0.7s ease backwards;
+  }
+  #awards:empty { display: none; }
+  .award { color: #f3f6fb; font-size: 1rem; font-weight: 700; }
+  .award b { color: #f7d878; font-weight: 900; }
+  .award i {
+    display: block; font-style: normal; color: #8fa0b8; font-size: 0.64rem;
+    font-weight: 800; letter-spacing: 0.24em; text-transform: uppercase; margin-bottom: 3px;
+  }
   #shareBtn {
     position: relative; margin-top: 30px; cursor: pointer;
     display: inline-flex; align-items: center; gap: 9px;
@@ -365,7 +413,7 @@
   #hall.open, #rules.open, #toss.open { display: flex; }
   .hall-card {
     background: #fff; border-radius: 18px; padding: 28px 26px 22px;
-    width: min(440px, 100%); max-height: 80vh; overflow-y: auto;
+    width: min(520px, 100%); max-height: 80vh; overflow-y: auto;
     box-shadow: 0 24px 60px rgba(10,16,28,0.4);
   }
   .hall-title {
@@ -401,11 +449,11 @@
     padding: 7px 18px; border-radius: 999px; transition: background 0.15s, color 0.15s;
   }
   .hall-tab.active { background: #fff; color: #172b4d; box-shadow: 0 1px 4px rgba(10,16,28,0.12); }
-  /* a fixed grid, not flex — every row emits all seven cells (a dash where
+  /* a fixed grid, not flex — every row emits all nine cells (a dash where
      there's nothing) so the numbers line up in scannable columns */
   .pl-row {
-    display: grid; grid-template-columns: 24px minmax(0, 1fr) 44px 32px 40px 36px 38px;
-    align-items: baseline; gap: 8px;
+    display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px 30px 28px 28px 40px 36px 38px;
+    align-items: baseline; gap: 8px 7px;
     padding: 11px 4px; border-bottom: 1px solid #eef1f6;
   }
   .pl-row > :nth-child(n+3) { text-align: right; }
@@ -421,6 +469,9 @@
   .pl-stat { color: #5b6a7d; font-size: 0.78rem; font-weight: 600; white-space: nowrap; }
   .pl-stat b { color: #172b4d; font-weight: 800; }
   .pl-titles { color: #b8860b; font-weight: 800; font-size: 0.8rem; white-space: nowrap; }
+  /* per-cup individual awards, counted like Cups is */
+  .pl-award { font-weight: 800; font-size: 0.8rem; white-space: nowrap; color: #c3ccda; }
+  .pl-award.has { color: #96660a; }
   /* furthest round reached, shaded so the deep runs stand out from the crowd */
   .pl-best { font-size: 0.7rem; font-weight: 800; white-space: nowrap; color: #b3bdca; }
   .pl-best.b4 { color: #b8860b; }
@@ -428,16 +479,19 @@
   .pl-best.b2 { color: #5b6a7d; }
   .pl-best.b1 { color: #8895a5; }
   @media (max-width: 430px) {
-    /* seven columns can't fit a phone, so the name takes the first line on its
-       own and the stats line up underneath it. GD goes — it's the least read. */
-    .pl-row { grid-template-columns: 22px 46px 34px 44px 1fr; gap: 6px 8px; }
+    /* nine columns can't fit a phone, so the name takes the first line on its
+       own, the honours line up under it and the record under those. GD goes —
+       it's the least read. */
+    .pl-row { grid-template-columns: 22px 46px 32px 30px 1fr; gap: 5px 8px; }
     .pl-gd { display: none; }
     .pl-n { grid-area: 1 / 1; }
     .pl-name { grid-area: 1 / 2 / auto / -1; }
     .pl-best { grid-area: 2 / 2; text-align: left; }
     .pl-titles { grid-area: 2 / 3; }
     .pl-row > :nth-child(5) { grid-area: 2 / 4; }
-    .pl-row > :nth-child(6) { grid-area: 2 / 5; }
+    .pl-row > :nth-child(6) { grid-area: 2 / 5; text-align: left; }
+    .pl-row > :nth-child(7) { grid-area: 3 / 2; text-align: left; }
+    .pl-row > :nth-child(8) { grid-area: 3 / 3 / auto / -1; text-align: left; }
   }
   #hallClose, #rulesClose, #tossClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
@@ -631,7 +685,10 @@
     .m-team { min-width: 0; overflow-wrap: break-word; }
     th, td { padding-left: 6px; padding-right: 6px; }
     #bracket { justify-content: flex-start; } /* centered flex + overflow clips the first round */
-    .round { min-width: 210px; }
+    .round { min-width: 250px; }
+    /* four boxes on a row instead of one, so they give back what they can */
+    .score { width: 44px; padding: 8px 2px; }
+    #golden { padding: 18px 14px 10px; }
     /* one row along the bottom instead of three floating pills */
     #btnBar {
       display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 5;
@@ -656,7 +713,6 @@
   body.view #spinBtn, body.view #tourneyBtn, body.view #koBtn,
   body.view #startBtn, body.view #resetBtn, body.view #schedRow { display: none !important; }
   body.view textarea { pointer-events: none; opacity: 0.65; }
-  body.view .slot { cursor: default; }
   #viewBadge {
     display: none; justify-content: center; gap: 8px; align-items: center;
     margin: -6px auto 26px; width: fit-content; text-align: center;
@@ -734,6 +790,7 @@
     <div class="champs-label">Champions</div>
     <div class="trophy"><svg class="cup-art" viewBox="0 0 100 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Champion cup"><defs><linearGradient id="cgv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e0"/><stop offset=".45" stop-color="#e8b74a"/><stop offset="1" stop-color="#a86f14"/></linearGradient><linearGradient id="cgh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5e3908"/><stop offset=".14" stop-color="#c8901f"/><stop offset=".36" stop-color="#ffe9a8"/><stop offset=".5" stop-color="#fff8e0"/><stop offset=".62" stop-color="#f0c25a"/><stop offset=".84" stop-color="#a86f14"/><stop offset="1" stop-color="#4e2f06"/></linearGradient><linearGradient id="cstreak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset=".7" stop-color="#fff" stop-opacity=".18"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient><filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="1.2"/></filter></defs><!-- handles --><path d="M22 40 C2 38 2 70 24 70 L24 63 C12 63 12 47 24 47 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><path d="M78 40 C98 38 98 70 76 70 L76 63 C88 63 88 47 76 47 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><!-- bowl --><path d="M20 34 C21 60 34 84 50 84 C66 84 79 60 80 34 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><!-- glossy streak on bowl --><path d="M34 36 C35 58 42 78 46 82 C46 74 38 56 42 36 Z" fill="url(#cstreak)" filter="url(#soft)"/><!-- rim --><ellipse cx="50" cy="34" rx="30" ry="7" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/><ellipse cx="50" cy="34" rx="25" ry="5" fill="#5e3908" opacity=".35"/><ellipse cx="50" cy="33" rx="24" ry="4" fill="url(#cgh)"/><!-- neck --><path d="M45 84 C45 90 44 92 43 95 L57 95 C56 92 55 90 55 84 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><ellipse cx="50" cy="96" rx="8" ry="3.6" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/><!-- pedestal --><path d="M43 98 L57 98 L63 112 L37 112 Z" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><path d="M39 100 C41 105 40 108 39 111" fill="none" stroke="#fff8e0" stroke-width="1" opacity=".4" filter="url(#soft)"/><ellipse cx="50" cy="112" rx="26" ry="5" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/><rect x="27" y="112" width="46" height="9" rx="2" fill="url(#cgh)" stroke="#4e2f06" stroke-width="1"/><ellipse cx="50" cy="121" rx="23" ry="4" fill="url(#cgv)" stroke="#4e2f06" stroke-width="1"/></svg></div>
     <div class="champs-name" id="champsName"></div>
+    <div id="awards"></div>
     <button id="shareBtn"><svg class="ico"><use href="#i-share"/></svg> <span>Share</span></button>
   </div>
 </div>
@@ -810,7 +867,7 @@ Rashed</textarea>
 <!-- Screen 3: tournament -->
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Battle Of Titans</span></h1>
-  <div class="subtitle" id="tourneySub">Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.</div>
+  <div class="subtitle" id="tourneySub">Enter each player’s goals — the team score is the two added up, and the higher total wins. Group and knockout alike.</div>
   <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
@@ -819,9 +876,11 @@ Rashed</textarea>
     <div id="groups" class="groups"></div>
     <div class="center"><button id="koBtn" class="btn btn-gold" style="display:none">Start Knockout Stage <svg class="ico"><use href="#i-arrow"/></svg></button></div>
   </div>
+  <div id="golden" class="card" style="display:none"></div>
   <div id="koSection" style="display:none">
     <div class="section-title">Knockout Stage</div>
     <div id="bracket"></div>
+    <div id="koNote" class="tie-note"></div>
   </div>
 </div>
 
@@ -856,11 +915,17 @@ Rashed</textarea>
       pairs one from each wheel, and that pairing is your team for the whole cup.
       The wheel order is random, and nobody is drafted twice.</p>
 
-      <div class="rules-h">Group matches</div>
+      <div class="rules-h">Scoring a match</div>
       <ul>
-        <li>Both scores are entered, and the <b>higher score wins</b>.</li>
-        <li>There are <b>no draws</b> — equal scores are rejected, not recorded.</li>
-        <li>A match counts for nothing until both scores are in.</li>
+        <li><b>Every goal is entered against the player who scored it</b> — two boxes
+        per team, forward then defender, in the same order the team name reads.</li>
+        <li>A team's score is simply <b>its two players added up</b>, and the
+        <b>higher total wins</b>. There is no team-score box.</li>
+        <li>There are <b>no draws</b> — equal totals are rejected, not recorded.</li>
+        <li>A match counts for nothing until <b>all four boxes</b> are in. Someone who
+        didn't score gets a <b>0</b>, not an empty box.</li>
+        <li>The <b>knockout is scored exactly the same way</b>. Nothing is decided by
+        tapping a team.</li>
       </ul>
 
       <div class="rules-h">Deadlines</div>
@@ -870,6 +935,9 @@ Rashed</textarea>
       top counts down to it.</p>
       <ul>
         <li>Play whenever both teams are in the office — there are no fixed slots.</li>
+        <li>A no-show is set with the <b>forfeit picker</b> under the match, not with the
+        goal boxes — nobody scored, so there is no player to hang a goal on. A
+        forfeited match counts towards nobody's <b>Golden Boot</b>.</li>
         <li>A team that doesn't turn up by the deadline <b>forfeits 1-0</b>. It's recorded
         as 1-0 rather than 10-0 so an unplayed match can never outrank a real
         result on goal difference.</li>
@@ -878,7 +946,9 @@ Rashed</textarea>
         having played it. A real match can't finish 0-0 — someone gets to 10 — so
         that score means "nobody came", not "a draw".</li>
         <li>In the <b>knockout</b> a 0-0 isn't possible, because somebody has to go
-        through. If neither team turns up, the <b>Match Toss</b> decides it.</li>
+        through — so there the picker only offers the two one-sided no-shows. If
+        neither team turns up, the <b>Match Toss decides it</b> and the loser is
+        forfeited through.</li>
         <li><b>No substitutes.</b> Your drafted pair is your team for the whole cup.</li>
       </ul>
 
@@ -909,7 +979,8 @@ Rashed</textarea>
 
       <div class="rules-h">Suggesting a score</div>
       <p>Played a group match while the admin wasn't around? <a class="hint-signin" onclick="startSignIn()">Sign in</a> with any
-      Google account and type the score straight into that match — it's sent as a
+      Google account and type each player's goals straight into that match — the
+      whole breakdown is sent as a
       <i>suggestion</i>, shown to everyone with your name on it. It doesn't change
       the standings; the admin accepts it (or corrects it) when they're back. Only
       matches with no score yet can be suggested.</p>
@@ -923,13 +994,25 @@ Rashed</textarea>
 
       <div class="rules-h">Deciding a knockout match</div>
       <ul>
-        <li>Knockout games are <b>not scored</b> — the admin taps the winning team.</li>
-        <li>Tapping the same team again undoes the pick.</li>
-        <li>Changing an earlier round clears everything after it, since those
-        matchups no longer exist.</li>
+        <li>Knockout ties are <b>scored like every other match</b> — four goal boxes,
+        higher total goes through. Nobody is tapped through.</li>
+        <li>Changing an earlier round clears everything after it, scores included,
+        since those matchups no longer exist.</li>
       </ul>
       <p>Winning the Grand Final takes the cup, and that team is added to the
       <b>Hall of Fame</b> the moment the final is decided.</p>
+
+      <div class="rules-h">Golden Boot &amp; Golden Ball</div>
+      <ul>
+        <li><b>Golden Boot</b> — the most <b>individual goals</b> in the cup, group and
+        knockout together. The race is live under the group table all cup long.</li>
+        <li><b>Golden Ball</b> — the cup's best player, worked out rather than voted
+        for: <b>how far their team went</b>, then <b>win %</b>, then <b>goal
+        difference</b>, then <b>goals scored</b>. The first three are the same for
+        both halves of a team, so it's the goals that separate partners.</li>
+        <li>Both are <b>shared</b> when players are level — no arbitrary tie-break.</li>
+        <li>Forfeited matches count for neither: no goalscorer, so no goals.</li>
+      </ul>
     </div>
     <button id="rulesClose">Close</button>
   </div>
@@ -961,7 +1044,7 @@ const show = id => {
 const ADMIN_EMAIL = 'bhacker150@gmail.com'; // must match the .write rule in database.rules.json
 var isAdmin = false, gotRemote = false;
 
-const SUB_ADMIN = 'Group stage: enter match scores (ranked by wins, then goal difference). Knockout: click the winner.';
+const SUB_ADMIN = 'Enter each player’s goals — the team score is the two added up, and the higher total wins. Group and knockout alike.';
 const SUB_SUGGEST = 'You can suggest scores — type into any match still showing empty boxes, and the admin confirms them.';
 
 // the subtitle is the one place a signed-out visitor learns suggesting exists.
@@ -1036,12 +1119,16 @@ window.renderSuggestions = all => {
   if (curScreen === 'tourney') renderGroups(); // renderGroups, not renderAll — a viewer must not save()
 };
 
-function submitSug(gi, mi, sa, sb) {
+/* A suggestion carries the same per-player breakdown a real score does, so
+   accepting one writes the whole thing rather than a team total the admin would
+   then have to split by hand. sa/sb ride along derived, for the bar text. */
+function submitSug(gi, mi, pa, pb) {
   const key = gi + '_' + mi;
   if (restoring || !canSuggest() || !gotRemote || !cupId || !window.suggestScore) return;
-  // clearing both boxes retracts it, rather than storing an entry with no score
-  if (sa == null && sb == null) return window.clearSuggestion(cupId, key);
-  window.suggestScore(cupId, key, sa, sb, signedIn.name, signedIn.email);
+  pa = clean(pa); pb = clean(pb);
+  // clearing every box retracts it, rather than storing an entry with no score
+  if (!pa && !pb) return window.clearSuggestion(cupId, key);
+  window.suggestScore(cupId, key, teamGoals(pa), teamGoals(pb), pa, pb, signedIn.name, signedIn.email);
 }
 
 // mine === the signed-in suggester looking at their own pending score. Without
@@ -1063,7 +1150,7 @@ function sugBar(gi, mi, s, mine) {
       const ok = document.createElement('button');
       ok.className = 'sug-btn sug-ok';
       ok.innerHTML = svg('check') + ' Accept';
-      ok.onclick = () => setGroupScore(gi, mi, s.sa, s.sb);
+      ok.onclick = () => setGroupScore(gi, mi, s.sa, s.sb, s.pa, s.pb);
       bar.appendChild(ok);
     }
     const no = document.createElement('button');
@@ -1131,11 +1218,16 @@ function bestRounds(e) {
 function renderPlayers(entries) {
   const box = $('hallPlayers');
   const P = {};
-  const get = n => P[n] || (P[n] = { titles: 0, p: 0, w: 0, gf: 0, ga: 0, best: 0 });
+  const get = n => P[n] || (P[n] = { titles: 0, boot: 0, ball: 0, p: 0, w: 0, gf: 0, ga: 0, best: 0 });
   entries.forEach(e => {
     // the champion string is the one signal every archived cup carries
     (e.champion || '').split(' + ').forEach(n => { if (n) { const x = get(n); x.titles++; x.best = 4; } });
     const br = bestRounds(e);
+    // cups archived before per-player goals existed carry no awards, so they
+    // simply contribute nothing to these two columns
+    const aw = e.awards || {};
+    (aw.boot || []).forEach(n => get(n).boot++);
+    (aw.ball || []).forEach(n => get(n).ball++);
     if (e.players) Object.entries(e.players).forEach(([n, s]) => {
       const x = get(n);
       x.p += s.p || 0; x.w += s.w || 0; x.gf += s.gf || 0; x.ga += s.ga || 0;
@@ -1151,12 +1243,14 @@ function renderPlayers(entries) {
   const cell = (cls, html) => { const s = document.createElement('div'); s.className = cls; s.innerHTML = html; return s; };
   const note = document.createElement('div');
   note.className = 'hall-note';
-  note.textContent = 'Ranked by cups won, then win rate. W–L counts group and knockout matches together.';
+  note.textContent = 'Ranked by cups won, then win rate. W–L counts group and knockout matches together. '
+    + 'Boot and Ball are Golden Boots (top scorer) and Golden Balls (cup MVP).';
   // the header carries the same cell classes as a data row, so one set of grid
   // rules places both — including the two-line phone layout
   const head = document.createElement('div');
   head.className = 'pl-row pl-head';
   [['pl-n', ''], ['pl-name', 'Player'], ['pl-best', 'Best'], ['pl-titles', 'Cups'],
+   ['pl-award', 'Boot'], ['pl-award', 'Ball'],
    ['pl-stat', 'W–L'], ['pl-stat', 'Win'], ['pl-stat pl-gd', 'GD']]
     .forEach(([c, t]) => head.appendChild(cell(c, t)));
   box.append(note, head);
@@ -1171,6 +1265,8 @@ function renderPlayers(entries) {
       name,
       cell('pl-best b' + r.best, BEST[r.best]),
       cell('pl-titles', r.titles ? '🏆 ' + r.titles : '<span class="pl-stat">—</span>'),
+      cell('pl-award' + (r.boot ? ' has' : ''), r.boot || '—'),
+      cell('pl-award' + (r.ball ? ' has' : ''), r.ball || '—'),
       cell('pl-stat', r.p ? `<b>${r.w}</b>–${r.p - r.w}` : '—'),
       cell('pl-stat', r.p ? `<b>${r.pct}%</b>` : '—'),
       cell('pl-stat pl-gd', r.p ? (r.gd >= 0 ? '+' : '') + r.gd : '—'),
@@ -1495,7 +1591,10 @@ function teamName(t) { return `${t.fwd} + ${t.def}`; }
    5-9:     top 4 -> semis (1v4, 2v3) -> final
    3-4:     top 2 -> final
    2:       straight final */
-var groups = [];    // [{ name, teams, matches: [{a, b, sa, sb, winner}] }]
+// [{ name, teams, matches: [{a, b, sa, sb, pa, pb, winner}] }] — pa/pb are the
+// per-player goals behind each team's score, {fwd, def}, null for a forfeit.
+// koRounds carries exactly the same match shape.
+var groups = [];
 var koRounds = [], koStarted = false;
 /* Identifies this cup in the history node. The champion is stored at
    history/<cupId>, so deciding the final, changing your mind, and undoing it
@@ -1509,7 +1608,7 @@ function roundRobin(ts) {
   for (let r = 0; r < n - 1; r++) {
     for (let i = 0; i < n / 2; i++) {
       const a = arr[i], b = arr[n - 1 - i];
-      if (a && b) matches.push({ a, b, sa: null, sb: null, winner: null });
+      if (a && b) matches.push({ a, b, sa: null, sb: null, pa: null, pb: null, winner: null });
     }
     arr.splice(1, 0, arr.pop());
   }
@@ -1526,7 +1625,7 @@ function startCup() {
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
-    koRounds = [[{ a: teams[0], b: teams[1], winner: null }]];
+    koRounds = [[{ a: teams[0], b: teams[1], sa: null, sb: null, pa: null, pb: null, winner: null }]];
     $('groupSection').style.display = 'none';
   } else {
     groups = [{ name: 'Group', teams: teams.slice(), matches: roundRobin(teams) }];
@@ -1607,7 +1706,7 @@ function renderDeadline() {
        <div class="dl-note">${n
          ? `${n} unplayed match${s} — each forfeits <b>1-0</b> to the team that turned up.<br>`
            + (koStarted
-             ? 'Nobody turned up? Settle it on the Match Toss and click the winner through.'
+             ? 'Nobody turned up? Settle it on the Match Toss and forfeit the loser out.'
              : 'Nobody turned up at all? That one goes in as <b>0-0</b>. The admin enters these to move the cup on.')
          : 'Every match was played in time — no forfeits.'}</div>`;
 }
@@ -1616,6 +1715,25 @@ function renderDeadline() {
 setInterval(renderDeadline, 1000);
 
 const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
+
+/* ================= PER-PLAYER GOALS =================
+   A team's score is nothing but its two players' goals added up, so there is no
+   team-score box to type any more: four numbers per match, and the match counts
+   for nothing until all four are in (a player who scored nothing gets an
+   explicit 0, which is why a half-filled row is not a result).
+   Forfeits are the one carve-out — nobody scored, so there is no player to hang
+   a goal on: they set the team score directly and carry no breakdown at all,
+   which is also what makes them skippable when the awards are tallied. */
+const clean = p => p && (p.fwd != null || p.def != null) ? { fwd: p.fwd ?? null, def: p.def ?? null } : null;
+const teamGoals = p => p && p.fwd != null && p.def != null ? p.fwd + p.def : null;
+// a result with nothing behind it is a forfeit; the 1-0/0-0 shapes keep cups
+// scored before this existed (a real 10-8, no breakdown) from reading as one
+const forfeitOf = m => m.pa || m.pb || m.sa == null ? ''
+  : isVoid(m) ? 'void' : m.sa + m.sb === 1 ? (m.sa ? 'b' : 'a') : '';
+const FORFEIT = { a: [0, 1], b: [1, 0], void: [0, 0] };
+// 0-0 is the group's void marker, but the knockout has no such thing — somebody
+// has to go through — so there a 0-0 is just another rejected draw
+const badScore = (m, ko) => m.sa != null && m.sa === m.sb && (ko || !isVoid(m));
 
 /* A double no-show: neither team turned up, so nobody wins and nobody is
    punished. Recorded as 0-0, which a played match can never be — it ends the
@@ -1631,9 +1749,9 @@ const settled = m => !!m.winner || isVoid(m);
    while sitting in the played block. */
 const teamMark = (m, t) => m.winner ? (m.winner === t ? ' winner' : ' loser') : isVoid(m) ? ' loser' : '';
 
-function setGroupScore(gi, mi, sa, sb) {
+function setGroupScore(gi, mi, sa, sb, pa, pb) {
   const m = groups[gi].matches[mi];
-  m.sa = sa; m.sb = sb;
+  m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);
   m.winner = scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null;
   // a real score settles the match, so any suggestion for it is spent — whether
   // the admin accepted it or just typed straight over it
@@ -1642,6 +1760,7 @@ function setGroupScore(gi, mi, sa, sb) {
   }
   renderAll();
 }
+const setGroupGoals = (gi, mi, pa, pb) => setGroupScore(gi, mi, teamGoals(pa), teamGoals(pb), pa, pb);
 
 function rank(group) {
   const s = new Map(group.teams.map(t => [t, { p: 0, w: 0, gd: 0, gf: 0 }]));
@@ -1673,6 +1792,7 @@ function rank(group) {
 function renderAll() {
   renderGroups();
   if (koStarted) renderBracket();
+  renderGolden();
   renderDeadline();
   save();
 }
@@ -1702,8 +1822,11 @@ function save() {
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
     fwds, defs, teams, koStarted, cupId, draftStartAt, deadlineAt, deadlineFrom, spin,
-    groupScores: groups.map(g => g.matches.map(m => [m.sa, m.sb])),
-    koPicks: koRounds.map(r => r.map(m => m.winner === m.a ? 'a' : m.winner === m.b ? 'b' : null)),
+    // [sa, sb, pa, pb] — the team totals stay stored rather than recomputed, so a
+    // forfeit (a result with no breakdown) survives the round trip too. Nulls are
+    // safe here only because the whole thing travels as one JSON string.
+    groupScores: groups.map(g => g.matches.map(m => [m.sa ?? null, m.sb ?? null, m.pa || null, m.pb || null])),
+    koScores: koRounds.map(r => r.map(m => [m.sa ?? null, m.sb ?? null, m.pa || null, m.pb || null])),
   }));
 }
 
@@ -1753,14 +1876,21 @@ function applyState(s) {
       // client's lookup. The roster is identical across clients, so hash it into
       // an id they all agree on.
       cupId = s.cupId || cupKeyFrom(s.teams);
-      (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb], mi) => {
-        if (sa != null || sb != null) setGroupScore(gi, mi, sa, sb);
+      (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb, pa, pb], mi) => {
+        if (sa != null || sb != null) setGroupScore(gi, mi, sa, sb, pa, pb);
       }));
       if (s.koStarted && !koStarted) startKnockout();
-      // apply picks round by round — winners propagate forward as they're set
-      if (koStarted) (s.koPicks || []).forEach((ms, r) => ms.forEach((side, i) => {
-        if (side && koRounds[r][i][side]) setKoWinner(r, i, koRounds[r][i][side]);
-      }));
+      // apply round by round — winners propagate forward as they're set. koPicks
+      // is the pre-scoring shape: a cup mid-bracket when this shipped keeps its
+      // results rather than losing them to a field that isn't there any more.
+      if (koStarted) {
+        if (s.koScores) s.koScores.forEach((ms, r) => ms.forEach(([sa, sb, pa, pb], i) => {
+          if (sa != null || sb != null) setKoScore(r, i, sa, sb, pa, pb);
+        }));
+        else (s.koPicks || []).forEach((ms, r) => ms.forEach((side, i) => {
+          if (side && koRounds[r][i][side]) setKoWinner(r, i, koRounds[r][i][side]);
+        }));
+      }
     }
   } else if (!isAdmin) {
     // draft not opened yet: a scheduled viewer waits on the countdown, otherwise setup
@@ -1784,6 +1914,67 @@ function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
     onchange(v);
   };
   return inp;
+}
+
+/* One match box, group or knockout — a knockout tie is scored exactly like a
+   group one now, so both stages build from here rather than growing two
+   implementations that drift. A row per team: the name, the team total, then
+   that team's two goal boxes in the same order the name reads (forward, then
+   defender). The forfeit picker sits underneath, and offers a void only in the
+   group — in the knockout somebody has to go through.
+   o: { ko, edit, pa, pb, onGoals, onForfeit } — pa/pb are what to show, which
+   is not always the match's own (a pending suggestion overlays them). */
+function matchBox(m, o) {
+  const box = document.createElement('div');
+  const bad = badScore(m, o.ko);
+  [['a', 'pa', 'sa'], ['b', 'pb', 'sb']].forEach(([side, pk, sk]) => {
+    const t = m[side], p = o[pk] || {};
+    const row = document.createElement('div');
+    row.className = 'm-side' + (t ? teamMark(m, t) : ' empty');
+    const nm = document.createElement('div');
+    nm.className = 'm-team';
+    nm.textContent = t ? teamName(t) : '—'; // textContent: names are user input
+    row.appendChild(nm);
+    if (!t) { box.appendChild(row); return; }
+    const tot = document.createElement('div');
+    tot.className = 'm-tot';
+    tot.textContent = m[sk] ?? '·';
+    row.appendChild(tot);
+    ['fwd', 'def'].forEach(role => {
+      const inp = scoreInput(p[role], !o.edit, v => {
+        const next = { ...p, [role]: v };
+        o.onGoals(side === 'a' ? next : o.pa, side === 'a' ? o.pb : next);
+      }, o.edit);
+      inp.classList.add(role);
+      if (bad) inp.classList.add('bad');
+      if (o.suggesting) inp.classList.add('suggesting');
+      // the box order matches the team name, but a screen reader gets it said
+      inp.title = t[role] + ' — goals';
+      inp.setAttribute('aria-label', inp.title);
+      row.appendChild(inp);
+    });
+    box.appendChild(row);
+  });
+  if (o.onForfeit && m.a && m.b) {
+    const sel = document.createElement('select');
+    const cur = forfeitOf(m);
+    sel.className = 'ff' + (cur ? ' on' : '');
+    sel.disabled = !o.edit;
+    sel.setAttribute('aria-label', 'Played, or who forfeited');
+    [['', 'Played — enter the goals above'],
+     ['a', teamName(m.a) + ' didn’t turn up — 1-0'],
+     ['b', teamName(m.b) + ' didn’t turn up — 1-0'],
+     ...(o.ko ? [] : [['void', 'Nobody turned up — 0-0, counts for neither']])]
+      .forEach(([v, label]) => {
+        const op = document.createElement('option');
+        op.value = v; op.textContent = label; // textContent: names are user input
+        sel.appendChild(op);
+      });
+    sel.value = cur;
+    sel.onchange = () => o.onForfeit(sel.value);
+    box.appendChild(sel);
+  }
+  return box;
 }
 
 function renderGroups() {
@@ -1820,34 +2011,21 @@ function renderGroups() {
         hr.textContent = 'Played';
         box.appendChild(hr);
       }
-      const div = document.createElement('div');
-      div.className = 'match';
-      // 0-0 is the no-show marker, not an impossible score — the tie-note already
-      // makes that distinction, and a settled row must not sit down there in red
-      const bad = m.sa != null && m.sa === m.sb && !isVoid(m);
-      const nameA = document.createElement('div');
-      nameA.className = 'm-team' + teamMark(m, m.a);
-      nameA.textContent = teamName(m.a);
       // only an unrecorded match is open to suggestions, so a pending score can
       // never contradict something already standing in the table
       const open = m.sa == null && m.sb == null;
       const sug = open ? curSug()[gi + '_' + mi] : null;
       const suggesting = open && canSuggest();
-      const sa = suggesting && sug ? sug.sa ?? null : m.sa;
-      const sb = suggesting && sug ? sug.sb ?? null : m.sb;
-      const inA = scoreInput(sa, koStarted,
-        v => suggesting ? submitSug(gi, mi, v, sb) : setGroupScore(gi, mi, v, m.sb),
-        isAdmin || suggesting);
-      const dash = document.createElement('span'); dash.className = 'dash'; dash.textContent = '–';
-      const inB = scoreInput(sb, koStarted,
-        v => suggesting ? submitSug(gi, mi, sa, v) : setGroupScore(gi, mi, m.sa, v),
-        isAdmin || suggesting);
-      const nameB = document.createElement('div');
-      nameB.className = 'm-team' + teamMark(m, m.b);
-      nameB.textContent = teamName(m.b);
-      if (bad) { inA.classList.add('bad'); inB.classList.add('bad'); }
-      if (suggesting) { inA.classList.add('suggesting'); inB.classList.add('suggesting'); }
-      div.append(nameA, inA, dash, inB, nameB);
+      const div = matchBox(m, {
+        edit: (isAdmin || suggesting) && !koStarted, suggesting,
+        pa: suggesting && sug ? sug.pa : m.pa,
+        pb: suggesting && sug ? sug.pb : m.pb,
+        onGoals: (pa, pb) => suggesting ? submitSug(gi, mi, pa, pb) : setGroupGoals(gi, mi, pa, pb),
+        // a forfeit is a ruling on a deadline, not a score anyone watched — the
+        // admin alone makes it, so it is never open to suggestion
+        onForfeit: isAdmin ? v => setGroupScore(gi, mi, ...(FORFEIT[v] || [null, null])) : null,
+      });
+      div.className = 'match';
       box.appendChild(div);
       // the suggester edits numbers in the boxes AND gets a "sent, pending" bar
       // as confirmation; everyone else reads the score off the bar, where the
@@ -1855,7 +2033,7 @@ function renderGroups() {
       if (sug) box.appendChild(sugBar(gi, mi, sug, suggesting));
     });
     // 0-0 is the void marker, not a draw, so it must not trip the no-draws warning
-    if (g.matches.some(m => m.sa != null && m.sa === m.sb && !isVoid(m))) {
+    if (g.matches.some(m => badScore(m, false))) {
       const note = document.createElement('div');
       note.className = 'tie-note';
       note.textContent = 'Foosball has no draws — scores can’t be equal. '
@@ -1876,7 +2054,7 @@ function startKnockout() {
   // the knockout gets its own clock
   if (!restoring) { deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS); }
   const r = rank(groups[0]).order;
-  const m = (a, b) => ({ a, b, winner: null });
+  const m = (a, b) => ({ a, b, sa: null, sb: null, pa: null, pb: null, winner: null });
   const blanks = n => Array.from({ length: n }, () => m(null, null));
   if (r.length >= 10) {
     // top eight into quarterfinals, paired so the seeds meet as late as possible:
@@ -1899,23 +2077,36 @@ function startKnockout() {
   if (!restoring) $('koSection').scrollIntoView({ behavior: 'smooth' });
 }
 
+/* The knockout is scored, not tapped: the winner is whoever's goals add up
+   higher, exactly as in the group, and equal totals are rejected the same way.
+   Nothing downstream is touched unless the winner actually changed — an admin
+   correcting one goal in a quarterfinal must not wipe the semi it fed. */
+function setKoScore(r, i, sa, sb, pa, pb) {
+  const m = koRounds[r][i];
+  m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);
+  setKoWinner(r, i, scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null);
+}
+const setKoGoals = (r, i, pa, pb) => setKoScore(r, i, teamGoals(pa), teamGoals(pb), pa, pb);
+
 function setKoWinner(r, i, team) {
   const m = koRounds[r][i];
-  const w = m.winner === team ? null : team; // click the winner again to undo
-  const old = m.winner;
-  m.winner = w;
-  if (r + 1 < koRounds.length) {
-    const ni = i >> 1, next = koRounds[r + 1][ni], slot = i % 2 ? 'b' : 'a';
-    resetChain(r + 1, ni); // the matchup changed — anything recorded after is void
-    next[slot] = w;
+  if (m.winner !== team) {
+    m.winner = team;
+    if (r + 1 < koRounds.length) {
+      const ni = i >> 1, next = koRounds[r + 1][ni], slot = i % 2 ? 'b' : 'a';
+      resetChain(r + 1, ni); // the matchup changed — anything recorded after is void
+      next[slot] = team;
+    }
   }
   renderAll();
 }
 
+// a match whose teams changed keeps no trace of the one it used to be — the
+// score has to go with the winner, or the new pairing inherits old goals
 function resetChain(r, i) {
   const m = koRounds[r][i];
   const old = m.winner;
-  m.winner = null;
+  m.winner = null; m.sa = null; m.sb = null; m.pa = null; m.pb = null;
   if (old && r + 1 < koRounds.length) {
     const next = koRounds[r + 1][i >> 1], slot = i % 2 ? 'b' : 'a';
     if (next[slot] === old) { next[slot] = null; resetChain(r + 1, i >> 1); }
@@ -1931,23 +2122,23 @@ function renderBracket() {
     col.className = 'round';
     col.innerHTML = `<div class="round-title">${titles[koRounds.length - r] || 'Round ' + (r + 1)}</div>`;
     matches.forEach((m, i) => {
-      const box = document.createElement('div');
-      box.className = 'bmatch card';
-      [m.a, m.b].forEach(t => {
-        const d = document.createElement('div');
-        d.className = 'slot' + (t === null ? ' empty' : '');
-        if (m.winner) d.classList.add(t === m.winner ? 'winner' : 'loser');
-        const nm = document.createElement('span');
-        nm.className = 'nm';
-        nm.textContent = t ? teamName(t) : '—';
-        d.appendChild(nm);
-        if (t && m.a && m.b && isAdmin) d.onclick = () => setKoWinner(r, i, t);
-        box.appendChild(d);
+      const box = matchBox(m, {
+        ko: true, edit: isAdmin && !!(m.a && m.b), pa: m.pa, pb: m.pb,
+        onGoals: (pa, pb) => setKoGoals(r, i, pa, pb),
+        // no void here: a knockout tie nobody turned up for still has to produce
+        // someone to advance, which is what the Match Toss is for
+        onForfeit: isAdmin ? v => setKoScore(r, i, ...(FORFEIT[v] || [null, null])) : null,
       });
+      box.className = 'bmatch card';
       col.appendChild(box);
     });
     el.appendChild(col);
   });
+  // 0-0 has no second meaning here, so every equal total is simply an error
+  $('koNote').textContent = koRounds.flat().some(m => badScore(m, true))
+    ? 'Foosball has no draws, and in the knockout somebody has to go through — equal totals can’t be '
+      + 'recorded. If nobody turned up, forfeit it to whoever the Match Toss sends through.'
+    : '';
   const final = koRounds[koRounds.length - 1][0];
   $('champion').innerHTML = '';
   if (final.winner) {
@@ -1972,31 +2163,85 @@ function renderBracket() {
    Guarded like save(): viewers replaying a snapshot must not write. */
 /* Per-player rollup archived alongside the champion. Foosball is 2v2, so both
    members of a team share that team's result — the board tracks people across
-   the partners they're re-drafted with each cup. Group matches carry scores;
-   KO matches are winner-only, so they add plays/wins but no goals. */
+   the partners they're re-drafted with each cup. `g` is the exception and the
+   whole point of the per-player boxes: goals belong to the player who scored
+   them, not to the pair. Both stages carry scores now, so both feed this.
+   A forfeit has a team score and no breakdown, so it adds a play and a win but
+   never a goal to anybody's name. */
 function rollupPlayers() {
   const P = {};
-  const add = (name, w, gf, ga) => {
-    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0 });
-    x.p++; x.w += w; x.gf += gf; x.ga += ga;
+  const add = (name, w, gf, ga, g) => {
+    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0, g: 0 });
+    x.p++; x.w += w; x.gf += gf; x.ga += ga; x.g += g;
   };
-  const credit = (team, won, gf, ga) => { if (team) { add(team.fwd, won, gf, ga); add(team.def, won, gf, ga); } };
-  groups.forEach(g => g.matches.forEach(m => {
-    if (!m.winner) return;
-    credit(m.a, m.winner === m.a ? 1 : 0, m.sa, m.sb);
-    credit(m.b, m.winner === m.b ? 1 : 0, m.sb, m.sa);
-  }));
-  koRounds.forEach(round => round.forEach(m => {
-    if (!m.winner || !m.a || !m.b) return; // KO has no scores — plays and wins only
-    credit(m.a, m.winner === m.a ? 1 : 0, 0, 0);
-    credit(m.b, m.winner === m.b ? 1 : 0, 0, 0);
-  }));
+  const credit = (team, won, gf, ga, p) => {
+    if (!team) return;
+    add(team.fwd, won, gf, ga, (p && p.fwd) || 0);
+    add(team.def, won, gf, ga, (p && p.def) || 0);
+  };
+  const play = m => {
+    if (!m.winner || !m.a || !m.b) return;
+    credit(m.a, m.winner === m.a ? 1 : 0, m.sa || 0, m.sb || 0, m.pa);
+    credit(m.b, m.winner === m.b ? 1 : 0, m.sb || 0, m.sa || 0, m.pb);
+  };
+  groups.forEach(g => g.matches.forEach(play));
+  koRounds.forEach(round => round.forEach(play));
   return P;
+}
+
+/* ================= GOLDEN BOOT / GOLDEN BALL =================
+   Boot: most individual goals in the cup. Ball: furthest round reached, then
+   win %, then goal difference, then individual goals. The first three are all
+   team-level and therefore identical for two teammates, so without the goals
+   the formula could only ever separate teams, never a pair. Anything still
+   level after all four is shared — no arbitrary tie-break. */
+function cupAwards(P, champion) {
+  const ns = Object.keys(P);
+  if (!ns.length) return null;
+  const best = bestRounds({ players: P });
+  if (champion) [champion.fwd, champion.def].forEach(n => { if (P[n]) best[n] = 4; });
+  const cmp = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i] - a[i]; return 0; };
+  const lead = key => {
+    const top = ns.map(key).sort(cmp)[0];
+    return ns.filter(n => cmp(key(n), top) === 0).sort();
+  };
+  const boot = ns.some(n => P[n].g > 0) ? lead(n => [P[n].g]) : [];
+  return {
+    boot, bootGoals: boot.length ? P[boot[0]].g : 0,
+    ball: lead(n => [best[n] || 0, P[n].p ? P[n].w / P[n].p : 0, P[n].gf - P[n].ga, P[n].g]),
+  };
+}
+
+// the team that has actually won the cup, or null while the final is open
+const champTeam = () => (koStarted && koRounds.length && koRounds[koRounds.length - 1][0].winner) || null;
+
+/* The scoring race, live for everyone while the cup runs — same reason the
+   group table is live rather than a reveal at the end. */
+function renderGolden() {
+  const el = $('golden');
+  const rows = Object.entries(rollupPlayers())
+    .filter(([, s]) => s.g > 0).sort((a, b) => b[1].g - a[1].g || a[0].localeCompare(b[0]));
+  if (!rows.length || curScreen !== 'tourney') { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = '<h4>Golden Boot race</h4>';
+  const lead = rows[0][1].g;
+  rows.slice(0, 5).forEach(([name, s], i) => {
+    const row = document.createElement('div');
+    row.className = 'gb-row' + (s.g === lead ? ' lead' : '');
+    const n = document.createElement('div');
+    n.className = 'gb-n'; n.textContent = '#' + (i + 1);
+    const nm = document.createElement('div');
+    nm.className = 'gb-name'; nm.textContent = name; // textContent: names are user input
+    const g = document.createElement('div');
+    g.className = 'gb-g'; g.textContent = s.g;
+    row.append(n, nm, g);
+    el.appendChild(row);
+  });
 }
 
 function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
-  if (w) window.recordChampion(cupId, teamName(w), rollupPlayers());
+  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, cupAwards(P, w)); }
   else window.clearChampion(cupId);
 }
 
@@ -2012,6 +2257,10 @@ function celebrate(name, entry) {
   // cup being won right now is today
   shareName = name;
   shareDate = (entry && entry.date) || Date.now();
+  // an archived cup carries the awards it was won with; the live one is worked
+  // out now, so a replayed old cup never borrows this cup's scorers
+  shareAwards = entry ? entry.awards : champTeam() ? cupAwards(rollupPlayers(), champTeam()) : null;
+  renderAwards(shareAwards);
   $('celebrate').style.display = 'flex';
   confettiRun = true;
   const c = $('confetti'), ctx = c.getContext('2d');
@@ -2088,6 +2337,30 @@ function celebrate(name, entry) {
   })();
 }
 
+/* The two individual awards under the champions. drawCard() paints the same
+   two lines onto the PNG, so a change here needs the same change there. */
+const awardLines = aw => aw ? [
+  aw.boot && aw.boot.length ? ['Golden Boot', aw.boot.join(' & '),
+    aw.bootGoals + (aw.bootGoals === 1 ? ' goal' : ' goals')] : null,
+  aw.ball && aw.ball.length ? ['Golden Ball', aw.ball.join(' & '), ''] : null,
+].filter(Boolean) : [];
+
+function renderAwards(aw) {
+  const box = $('awards');
+  box.innerHTML = '';
+  awardLines(aw).forEach(([label, who, tail]) => {
+    const d = document.createElement('div');
+    d.className = 'award';
+    const i = document.createElement('i');
+    i.textContent = label;
+    const b = document.createElement('b');
+    b.textContent = who; // textContent: names are user input
+    d.append(i, b);
+    if (tail) d.append(' · ' + tail);
+    box.appendChild(d);
+  });
+}
+
 function closeCelebration() {
   $('celebrate').style.display = 'none';
   confettiRun = false;
@@ -2102,7 +2375,7 @@ $('celebrate').onclick = closeCelebration;
    a data URL, so the card and the overlay can never drift apart.
    The image is built in the page and handed straight to the OS — nothing is
    uploaded, so there is no cup that a viewer is not allowed to share. */
-var shareName = '', shareDate = 0;
+var shareName = '', shareDate = 0, shareAwards = null;
 const CARD = 1200;
 const CARD_FONT = 'Inter, -apple-system, "Segoe UI", sans-serif';
 
@@ -2127,7 +2400,7 @@ function tracked(ctx, s, cx, y, space) {
   for (const c of chars) { ctx.fillText(c, x, y); x += ctx.measureText(c).width + space; }
 }
 
-async function drawCard(name, date) {
+async function drawCard(name, date, awards) {
   const c = document.createElement('canvas');
   c.width = c.height = CARD;
   const ctx = c.getContext('2d');
@@ -2186,6 +2459,20 @@ async function drawCard(name, date) {
   ctx.font = '600 32px ' + CARD_FONT; ctx.fillStyle = '#8fa0b8'; ctx.textAlign = 'left';
   const when = new Date(date).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
   tracked(ctx, when, 600, 859 + px, 4);
+
+  // the individual awards, same two lines the overlay shows — shrunk to fit,
+  // because a shared award can carry two or four names on one line
+  let y = 935 + px;
+  ctx.textAlign = 'center';
+  awardLines(awards).forEach(([label, who, tail]) => {
+    const line = label + ' · ' + who + (tail ? ' · ' + tail : '');
+    let fs = 34;
+    do { ctx.font = '700 ' + fs + 'px ' + CARD_FONT; fs -= 2; }
+    while (ctx.measureText(line).width > 1020 && fs > 16);
+    ctx.fillStyle = '#f7d878';
+    ctx.fillText(line, 600, y);
+    y += 52;
+  });
   return c;
 }
 
@@ -2198,7 +2485,7 @@ $('shareBtn').onclick = async e => {
   const label = $('shareBtn').querySelector('span');
   const say = t => { label.textContent = t; setTimeout(() => { label.textContent = 'Share'; }, 2000); };
   try {
-    const canvas = await drawCard(shareName, shareDate);
+    const canvas = await drawCard(shareName, shareDate, shareAwards);
     const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
     if (!blob) throw new Error('toBlob returned nothing');
     const file = new File([blob], cardFile(shareName, shareDate), { type: 'image/png' });
@@ -2561,7 +2848,8 @@ const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
 
-window.recordChampion = (id, champion, players) => set(ref(db, 'history/' + id), { champion, date: Date.now(), players: players || null })
+window.recordChampion = (id, champion, players, awards) => set(ref(db, 'history/' + id),
+  { champion, date: Date.now(), players: players || null, awards: awards || null })
   .catch(err => {
     console.error('[history] write rejected:', err);
     alert('Could not record the champion: ' + err.message);
@@ -2575,8 +2863,8 @@ onValue(historyRef, snap => {
   window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
 
-window.suggestScore = (cup, key, sa, sb, by, email) =>
-  set(ref(db, `suggestions/${cup}/${key}`), { sa, sb, by, email, at: Date.now() })
+window.suggestScore = (cup, key, sa, sb, pa, pb, by, email) =>
+  set(ref(db, `suggestions/${cup}/${key}`), { sa, sb, pa: pa || null, pb: pb || null, by, email, at: Date.now() })
     .catch(err => {
       console.error('[suggest] write rejected:', err);
       alert('Could not send the suggestion: ' + err.message);

@@ -9,6 +9,18 @@ update live. One admin account can edit; everyone else is read-only. Any other
 signed-in Google account can *suggest* a score for an unrecorded group match —
 captured for the admin to accept, never applied on its own.
 
+Every match — group *and* knockout — is scored per player: two boxes per team,
+forward then defender, and the team score is only ever those two added up. That
+is what feeds the **Golden Boot** (most individual goals) and the **Golden Ball**
+(cup MVP: furthest round, then win %, then GD, then goals — the last step being
+the only one that can separate two players on the same team). Both are shared on
+a tie. A no-show has no goalscorer, so it is set with the **forfeit picker**
+under the match instead, and counts towards neither award; the group can void a
+match nobody turned up for, the knockout cannot, because somebody has to go
+through. Awards are archived at `history/<cupId>` next to `champion`/`players`,
+and the all-time Players board counts them the way it counts titles — cups
+archived before any of this simply contribute nothing to those two columns.
+
 The celebration overlay has a **Share** button that draws a 1200×1200 PNG of
 the moment and hands it to the OS share sheet (or downloads it, on desktops
 with no file sharing). It's drawn on a canvas rather than screenshotted, so
@@ -96,7 +108,12 @@ the first snapshot, sign-out re-locks, Past Champions lists cups newest-first,
 and the final drives the record — nothing written until it's decided,
 corrections overwrite one entry, undo removes it, viewers never write. The
 share card is checked for size, a rasterised trophy, a files-only payload with
-the right filename, and a cancelled sheet not reading as an error. Esc is
+the right filename, a cancelled sheet not reading as an error, and the award
+lines actually reaching the canvas. Per-player scoring is covered end to end:
+the team score as a sum, a half-filled team not counting, no draws in either
+stage, the forfeit picker in both its shapes, the Golden Boot and Golden Ball
+formulas including a shared tie and the teammate tie-break, the live scoring
+race, and the two new all-time columns. Esc is
 checked to dismiss only the top layer — a replayed celebration closes without
 taking the Hall of Fame behind it with it.
 
@@ -111,10 +128,11 @@ these by hand after deploying:
 - Killing the network shows the offline warning and edits stop saving.
 - Deciding the Grand Final adds the winner to Past Champions, and a viewer's
   open list picks it up without a reload.
-- Signing in with a non-admin Google account lets you type a score into an
-  unrecorded group match; it appears to everyone as a pending suggestion with
-  your name, the standings don't move, and the admin sees Accept / Dismiss.
-  Accepting writes the real score and clears the suggestion.
+- Signing in with a non-admin Google account lets you type each player's goals
+  into an unrecorded group match; it appears to everyone as a pending suggestion
+  with your name, the standings don't move, and the admin sees Accept / Dismiss.
+  Accepting writes the real score *with its per-player breakdown* and clears the
+  suggestion. Suggesters never get the forfeit picker.
 - On a phone, Share in the celebration opens the real OS share sheet with the
   PNG attached, and posting it to a chat shows the image rather than a link.
   The suite stubs `navigator.share`, so only the plumbing is covered offline.
@@ -123,7 +141,11 @@ these by hand after deploying:
 
 - State is stored as a single JSON string, not a nested object. RTDB deletes
   nulls, which would silently drop unplayed matches from `groupScores` and
-  turn the array into an object.
+  turn the array into an object. `groupScores` and `koScores` are both
+  `[sa, sb, pa, pb]` per match — the team totals are stored rather than
+  recomputed, so a forfeit (a result with no breakdown behind it) survives the
+  round trip too. A cup left mid-bracket by an older version carries `koPicks`
+  instead, and `applyState()` still reads it.
 - The Firebase config in `index.html` is public by design. It identifies the
   project; it does not grant access. The rules do that.
 - "Start Over" wipes the cup for everyone watching, not just the admin's tab.
