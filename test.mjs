@@ -8,7 +8,7 @@ import assert from 'assert';
    gate offline. Real Google sign-in and the live sync need the manual checks
    listed in the README. */
 
-const HASH = 'eyJzY3JlZW4iOiJ0b3VybmV5IiwiZndkVGV4dCI6IlJpZmF0XG5OdXJcblNhemVkdWwgSGFxdWVcblNhamVlYlxuU2lkZGlxIiwiZGVmVGV4dCI6Ik9maVxuU2hld2FcblRvdWZpcVxuUmFzaGVkXG5TaWZhdFxuIiwiZndkcyI6W3sibmFtZSI6IlJpZmF0IiwicGlja2VkIjp0cnVlfSx7Im5hbWUiOiJOdXIiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNhemVkdWwgSGFxdWUiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNhamVlYiIsInBpY2tlZCI6dHJ1ZX0seyJuYW1lIjoiU2lkZGlxIiwicGlja2VkIjp0cnVlfV0sImRlZnMiOlt7Im5hbWUiOiJPZmkiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNoZXdhIiwicGlja2VkIjp0cnVlfSx7Im5hbWUiOiJUb3VmaXEiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlJhc2hlZCIsInBpY2tlZCI6dHJ1ZX0seyJuYW1lIjoiU2lmYXQiLCJwaWNrZWQiOnRydWV9XSwidGVhbXMiOlt7ImZ3ZCI6Ik51ciIsImRlZiI6IlJhc2hlZCJ9LHsiZndkIjoiU2lkZGlxIiwiZGVmIjoiU2hld2EifSx7ImZ3ZCI6IlJpZmF0IiwiZGVmIjoiU2lmYXQifSx7ImZ3ZCI6IlNhamVlYiIsImRlZiI6IlRvdWZpcSJ9LHsiZndkIjoiU2F6ZWR1bCBIYXF1ZSIsImRlZiI6Ik9maSJ9XSwia29TdGFydGVkIjpmYWxzZSwiZ3JvdXBTY29yZXMiOltbW251bGwsbnVsbF0sWzEwLDhdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFsxMCw3XSxbbnVsbCxudWxsXSxbbnVsbCxudWxsXV1dLCJrb1BpY2tzIjpbXX0';
+const HASH = 'eyJzY3JlZW4iOiJ0b3VybmV5IiwiZndkVGV4dCI6IlJpZmF0XG5OdXJcblNhemVkdWwgSGFxdWVcblNhamVlYlxuU2lkZGlxIiwiZGVmVGV4dCI6Ik9maVxuU2hld2FcblRvdWZpcVxuUmFzaGVkXG5TaWZhdFxuIiwiZndkcyI6W3sibmFtZSI6IlJpZmF0IiwicGlja2VkIjp0cnVlfSx7Im5hbWUiOiJOdXIiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNhemVkdWwgSGFxdWUiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNhamVlYiIsInBpY2tlZCI6dHJ1ZX0seyJuYW1lIjoiU2lkZGlxIiwicGlja2VkIjp0cnVlfV0sImRlZnMiOlt7Im5hbWUiOiJPZmkiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlNoZXdhIiwicGlja2VkIjp0cnVlfSx7Im5hbWUiOiJUb3VmaXEiLCJwaWNrZWQiOnRydWV9LHsibmFtZSI6IlJhc2hlZCIsInBpY2tlZCI6dHJ1ZX0seyJuYW1lIjoiU2lmYXQiLCJwaWNrZWQiOnRydWV9XSwidGVhbXMiOlt7ImZ3ZCI6Ik51ciIsImRlZiI6IlJhc2hlZCJ9LHsiZndkIjoiU2lkZGlxIiwiZGVmIjoiU2hld2EifSx7ImZ3ZCI6IlJpZmF0IiwiZGVmIjoiU2lmYXQifSx7ImZ3ZCI6IlNhamVlYiIsImRlZiI6IlRvdWZpcSJ9LHsiZndkIjoiU2F6ZWR1bCBIYXF1ZSIsImRlZiI6Ik9maSJ9XSwia29TdGFydGVkIjpmYWxzZSwiZ3JvdXBTY29yZXMiOltbW251bGwsbnVsbF0sWzEwLDhdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFtudWxsLG51bGxdLFsxMCw3XSxbbnVsbCxudWxsXSxbbnVsbCxudWxsXV1dLCJrb1BpY2tzIjpbXSwiY3VwSWQiOiIxNzg1NzAwMDAwMDAwIn0=';
 
 const MIME = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json' };
 const server = createServer(async (req, res) => {
@@ -265,7 +265,7 @@ const log = await page.evaluate(() => {
   const nur = { fwd: 'Nur', def: 'Rashed' }, rifat = { fwd: 'Rifat', def: 'Sifat' };
   koStarted = true;
   koRounds = [[{ a: nur, b: rifat, sa: null, sb: null, pa: null, pb: null, winner: null }]];
-  cupId = 'cup-1';
+  cupId = '1785700000001';
   renderAll();                                                    // unfinished final
   setKoGoals(0, 0, { fwd: 6, def: 4 }, { fwd: 3, def: 2 });        // decided
   setKoGoals(0, 0, { fwd: 6, def: 4 }, { fwd: 7, def: 4 });        // corrected
@@ -273,9 +273,9 @@ const log = await page.evaluate(() => {
   return got;
 });
 assert.deepEqual(log, [
-  ['set', 'cup-1', 'Nur + Rashed'],
-  ['set', 'cup-1', 'Rifat + Sifat'],
-  ['clear', 'cup-1'],
+  ['set', '1785700000001', 'Nur + Rashed'],
+  ['set', '1785700000001', 'Rifat + Sifat'],
+  ['clear', '1785700000001'],
 ], 'the final should drive the record: no write until decided, corrections overwrite the same entry, undo removes it');
 
 // the crown is the shortcut for the cup in progress, and a viewer — who never
@@ -641,7 +641,7 @@ const koScore = await page.evaluate(() => {
   for (let i = 0; i < 5; i++) for (let j = i + 1; j < 5; j++)
     matches.push({ a: T[i], b: T[j], sa: 2, sb: 1, pa: { fwd: 1, def: 1 }, pb: { fwd: 1, def: 0 }, winner: T[i] });
   groups = [{ name: 'Group', teams: T.slice(), matches }];
-  koRounds = []; koStarted = false; cupId = 'ko-cup'; lastChamp = null;
+  koRounds = []; koStarted = false; cupId = '1785700000002'; lastChamp = null;
   startKnockout();                                       // semis A v D, B v C
   const out = { boxes: document.querySelectorAll('#bracket .score').length,
                 clickable: !!document.querySelector('#bracket .m-side').onclick };
@@ -1414,6 +1414,58 @@ assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true],
 assert.equal(drawer.viewerSees, 'none', 'a viewer was offered the admin-only suggestions switch');
 assert.notEqual(drawer.adminSees, 'none', 'the admin lost the suggestions switch');
 console.log('alerts drawer OK');
+
+// ---------- a cup from before individual goals ----------
+/* Everything above runs on a cup started after the cutoff, so it is scored per
+   player. A cup started before it is scored by team total instead: one box a
+   side, no Golden Boot and no Golden Ball. The two modes have to be able to run
+   off the same page — the running cup finishes on the old rules while the next
+   one starts on the new. */
+const teamMode = await page.evaluate(() => {
+  window.setAdmin(true);
+  window.markRemote();
+  const T = ['A', 'B'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  groups = [{ name: 'Group', teams: T.slice(), matches: [{ a: T[0], b: T[1], sa: null, sb: null, pa: null, pb: null, winner: null }] }];
+  koRounds = []; koStarted = false; lastChamp = null;
+  cupId = '1000000000000'; // long before the cutoff
+  renderAll();
+  const out = { boxes: document.querySelectorAll('#groups .score').length };
+  const box = i => document.querySelectorAll('#groups .score')[i];
+  const type = (i, v) => { box(i).value = v; box(i).onchange(); };
+  type(0, 10);
+  out.half = groups[0].matches[0].winner;              // one box in is not a result
+  type(1, 7);
+  const m = groups[0].matches[0];
+  out.settled = [m.sa, m.sb, m.pa, m.pb, m.winner === T[0]];
+  out.golden = getComputedStyle($('golden')).display;
+  out.sub = $('tourneySub').textContent;
+  // the rules have to describe the cup that's actually running
+  $('rulesBtn').click();
+  out.rules = { team: getComputedStyle(document.querySelector('#rules .team-only')).display,
+                indiv: getComputedStyle(document.querySelector('#rules .indiv-only')).display };
+  $('rulesClose').click();
+  out.recorded = [];
+  window.recordChampion = (id, c, P, aw) => out.recorded.push(aw);
+  syncChampion(T[0]);                                  // nothing is awarded
+  // and the next cup goes back to per-player boxes
+  setGroupScore(0, 0, null, null, null, null);         // an unplayed match on a new cup
+  cupId = String(Date.now());
+  renderAll();
+  out.nextCupBoxes = document.querySelectorAll('#groups .score').length;
+  return out;
+});
+assert.equal(teamMode.boxes, 2, 'a team-total cup did not get exactly one score box a side');
+assert.equal(teamMode.half, null, 'one team total settled the match on its own');
+assert.deepEqual(teamMode.settled, [10, 7, null, null, true],
+  'a team total was not recorded as the score, or invented a breakdown behind it');
+assert.equal(teamMode.golden, 'none', 'the Golden Boot/Ball races showed on a cup that counts no individual goals');
+assert.ok(!teamMode.sub.includes('player'), 'the admin is still told to enter each player’s goals: ' + teamMode.sub);
+assert.equal(teamMode.rules.indiv, 'none', 'the rules still describe per-player boxes and a Golden Boot');
+assert.notEqual(teamMode.rules.team, 'none', 'the rules never explain the team-total box that is actually on screen');
+assert.deepEqual(teamMode.recorded, [null], 'a cup that counts no individual goals still handed out awards');
+assert.equal(teamMode.nextCupBoxes, 4, 'the next cup did not get its per-player boxes back');
+console.log('team-total cup OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();

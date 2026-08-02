@@ -241,6 +241,11 @@
     background: #fff; border: 1.5px solid #dfe6ef; border-radius: 10px;
     transition: border-color 0.15s;
   }
+  /* the rules describe the cup that's actually running: one wording while goals
+     are counted per player, the other while only the team total is */
+  .team-only { display: none; }
+  .no-indiv .indiv-only { display: none; }
+  .no-indiv .team-only { display: revert; }
   .score:focus { outline: none; border-color: #ecc45c; }
   .score:disabled { background: #f1f4f9; color: #8a96a8; }
   .score.bad { border-color: #e05252; background: #fdeeee; }
@@ -1033,13 +1038,17 @@ Rashed</textarea>
 
       <div class="rules-h">Scoring a match</div>
       <ul>
-        <li><b>Every goal is entered against the player who scored it</b> — two boxes
+        <li class="indiv-only"><b>Every goal is entered against the player who scored it</b> — two boxes
         per team, forward then defender, in the same order the team name reads.</li>
-        <li>A team's score is simply <b>its two players added up</b>, and the
+        <li class="indiv-only">A team's score is simply <b>its two players added up</b>, and the
         <b>higher total wins</b>. There is no team-score box.</li>
+        <li class="team-only">One box per team — <b>the goals that team scored</b>, and the
+        <b>higher total wins</b>. Who scored them isn't recorded this cup;
+        individual goals start with the next one.</li>
         <li>There are <b>no draws</b> — equal totals are rejected, not recorded.</li>
-        <li>A match counts for nothing until <b>all four boxes</b> are in. Someone who
+        <li class="indiv-only">A match counts for nothing until <b>all four boxes</b> are in. Someone who
         didn't score gets a <b>0</b>, not an empty box.</li>
+        <li class="team-only">A match counts for nothing until <b>both boxes</b> are in.</li>
         <li>The <b>knockout is scored exactly the same way</b>. Nothing is decided by
         tapping a team.</li>
       </ul>
@@ -1052,8 +1061,8 @@ Rashed</textarea>
       <ul>
         <li>Play whenever both teams are in the office — there are no fixed slots.</li>
         <li>A no-show is set with the <b>forfeit picker</b> under the match, not with the
-        goal boxes — nobody scored, so there is no player to hang a goal on. A
-        forfeited match counts towards nobody's <b>Golden Boot</b>.</li>
+        goal boxes — nobody scored, so there is no player to hang a goal on.<span
+        class="indiv-only"> A forfeited match counts towards nobody's <b>Golden Boot</b>.</span></li>
         <li>A team that doesn't turn up by the deadline <b>forfeits 1-0</b>. It's recorded
         as 1-0 rather than 10-0 so an unplayed match can never outrank a real
         result on goal difference.</li>
@@ -1095,8 +1104,8 @@ Rashed</textarea>
 
       <div class="rules-h">Suggesting a score</div>
       <p>Played a group match while the admin wasn't around? <a class="hint-signin" onclick="startSignIn()">Sign in</a> with any
-      Google account and type each player's goals straight into that match — the
-      whole breakdown is sent as a
+      Google account and type <span class="indiv-only">each player's goals</span><span
+      class="team-only">the score</span> straight into that match — it is sent as a
       <i>suggestion</i>, shown to everyone with your name on it. It doesn't change
       the standings; the admin accepts it (or corrects it) when they're back. Only
       matches with no score yet can be suggested.</p>
@@ -1110,16 +1119,17 @@ Rashed</textarea>
 
       <div class="rules-h">Deciding a knockout match</div>
       <ul>
-        <li>Knockout ties are <b>scored like every other match</b> — four goal boxes,
-        higher total goes through. Nobody is tapped through.</li>
+        <li>Knockout ties are <b>scored like every other match</b> — <span
+        class="indiv-only">four goal boxes</span><span class="team-only">a score a
+        side</span>, higher total goes through. Nobody is tapped through.</li>
         <li>Changing an earlier round clears everything after it, scores included,
         since those matchups no longer exist.</li>
       </ul>
       <p>Winning the Grand Final takes the cup, and that team is added to the
       <b>Hall of Fame</b> the moment the final is decided.</p>
 
-      <div class="rules-h">Golden Boot &amp; Golden Ball</div>
-      <ul>
+      <div class="rules-h indiv-only">Golden Boot &amp; Golden Ball</div>
+      <ul class="indiv-only">
         <li><b>Golden Boot</b> — the most <b>individual goals</b> in the cup, group and
         knockout together. The race is live under the group table all cup long.</li>
         <li><b>Golden Ball</b> — the cup's best player, worked out rather than voted
@@ -1191,7 +1201,14 @@ const show = id => {
 const ADMIN_EMAIL = 'bhacker150@gmail.com'; // must match the .write rule in database.rules.json
 var isAdmin = false, gotRemote = false;
 
+/* Individual goals — and with them the Golden Boot and the Golden Ball — start
+   with the cup after this one; see PER-PLAYER GOALS. */
+const INDIV_FROM = 1785693234000; // 2026-08-02
+const indivGoals = () => !cupId || +cupId >= INDIV_FROM;
+
 const SUB_ADMIN = 'Enter each player’s goals — the team score is the two added up, and the higher total wins. Group and knockout alike.';
+// the cup running before individual goals started: one box a side, no scorers
+const SUB_ADMIN_TEAM = 'Enter each team’s goals — the higher total wins. Group and knockout alike.';
 const SUB_SUGGEST = 'You can suggest scores — type into any match still showing empty boxes, and the admin confirms them.';
 
 // the subtitle is the one place a signed-out visitor learns suggesting exists.
@@ -1200,7 +1217,8 @@ const SUB_SUGGEST = 'You can suggest scores — type into any match still showin
 // all, so the element hides itself when there's nothing to say.
 function updateSub() {
   const sub = $('tourneySub');
-  const main = isAdmin ? SUB_ADMIN : signedIn && !koStarted ? SUB_SUGGEST : '';
+  const main = isAdmin ? (indivGoals() ? SUB_ADMIN : SUB_ADMIN_TEAM)
+    : signedIn && !koStarted ? SUB_SUGGEST : '';
   sub.textContent = main;
   const invite = !isAdmin && !signedIn && !koStarted;
   if (invite) {
@@ -1310,16 +1328,21 @@ window.renderSuggestions = all => {
   if (curScreen === 'tourney') renderGroups(); // renderGroups, not renderAll — a viewer must not save()
 };
 
-/* A suggestion carries the same per-player breakdown a real score does, so
-   accepting one writes the whole thing rather than a team total the admin would
-   then have to split by hand. sa/sb ride along derived, for the bar text. */
-function submitSug(gi, mi, pa, pb) {
+/* A suggestion carries the same shape a real score does, so accepting one
+   writes the whole thing rather than something the admin has to finish by hand:
+   the per-player breakdown when the cup counts individual goals, the two team
+   totals when it doesn't. */
+function sendSug(gi, mi, sa, sb, pa, pb) {
   const key = gi + '_' + mi;
   if (restoring || !canSuggest() || !gotRemote || !cupId || !window.suggestScore) return;
-  pa = clean(pa); pb = clean(pb);
   // clearing every box retracts it, rather than storing an entry with no score
-  if (!pa && !pb) return window.clearSuggestion(cupId, key);
-  window.suggestScore(cupId, key, teamGoals(pa), teamGoals(pb), pa, pb, signedIn.name, signedIn.email);
+  if (sa == null && sb == null && !pa && !pb) return window.clearSuggestion(cupId, key);
+  window.suggestScore(cupId, key, sa ?? null, sb ?? null, pa || null, pb || null, signedIn.name, signedIn.email);
+}
+// sa/sb ride along derived, for the bar text
+function submitSug(gi, mi, pa, pb) {
+  pa = clean(pa); pb = clean(pb);
+  sendSug(gi, mi, teamGoals(pa), teamGoals(pb), pa, pb);
 }
 
 // mine === the signed-in suggester looking at their own pending score. Without
@@ -1499,6 +1522,8 @@ window.renderHall = renderHall;
   $(close).onclick = () => $(panel).classList.remove('open');
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
 });
+// read on open, not once at load: which cup is running changes under a viewer
+$('rulesBtn').addEventListener('click', () => $('rules').classList.toggle('no-indiv', !indivGoals()));
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   // the celebration covers every panel, so Esc has to dismiss the top layer
@@ -1928,7 +1953,16 @@ const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
    explicit 0, which is why a half-filled row is not a result).
    Forfeits are the one carve-out — nobody scored, so there is no player to hang
    a goal on: they set the team score directly and carry no breakdown at all,
-   which is also what makes them skippable when the awards are tallied. */
+   which is also what makes them skippable when the awards are tallied.
+
+   ...but only from the next cup on. The cup running when this shipped is scored
+   by team total alone — one box a side, nobody's name on the goals — so it hands
+   out no Golden Boot and no Golden Ball. cupId is the millisecond the cup was
+   started at, so the cutoff needs no new field and no migration: cups from
+   before it (including the hashed ids of cups that never stored one, which
+   aren't numbers at all) score by team, cups after it by player. No cup yet
+   means the next one, which is on. Declared up with the subtitle, which is the
+   first thing to ask. */
 const clean = p => p && (p.fwd != null || p.def != null) ? { fwd: p.fwd ?? null, def: p.def ?? null } : null;
 const teamGoals = p => p && p.fwd != null && p.def != null ? p.fwd + p.def : null;
 // a result with nothing behind it is a forfeit; the 1-0/0-0 shapes keep cups
@@ -2148,8 +2182,11 @@ function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
    that team's two goal boxes in the same order the name reads (forward, then
    defender). The forfeit picker sits underneath, and offers a void only in the
    group — in the knockout somebody has to go through.
-   o: { ko, edit, pa, pb, onGoals, onForfeit } — pa/pb are what to show, which
-   is not always the match's own (a pending suggestion overlays them). */
+   With individual goals off the two boxes collapse into one: the team total is
+   typed straight in, the way it was before anyone's name was on a goal.
+   o: { ko, edit, pa, pb, sa, sb, onGoals, onTotal, onForfeit } — the four are
+   what to show, which is not always the match's own (a pending suggestion
+   overlays them). */
 function matchBox(m, o) {
   const box = document.createElement('div');
   const bad = badScore(m, o.ko);
@@ -2162,6 +2199,16 @@ function matchBox(m, o) {
     nm.textContent = t ? teamName(t) : '—'; // textContent: names are user input
     row.appendChild(nm);
     if (!t) { box.appendChild(row); return; }
+    if (!indivGoals()) {
+      const inp = scoreInput(o[sk] ?? m[sk], !o.edit, v => o.onTotal(side, v), o.edit);
+      if (bad) inp.classList.add('bad');
+      if (o.suggesting) inp.classList.add('suggesting');
+      inp.title = teamName(t) + ' — goals';
+      inp.setAttribute('aria-label', inp.title);
+      row.appendChild(inp);
+      box.appendChild(row);
+      return;
+    }
     const tot = document.createElement('div');
     tot.className = 'm-tot';
     tot.textContent = m[sk] ?? '·';
@@ -2246,7 +2293,14 @@ function renderGroups() {
         edit: (isAdmin || suggesting) && !koStarted, suggesting,
         pa: suggesting && sug ? sug.pa : m.pa,
         pb: suggesting && sug ? sug.pb : m.pb,
+        sa: suggesting && sug ? sug.sa : m.sa,
+        sb: suggesting && sug ? sug.sb : m.sb,
         onGoals: (pa, pb) => suggesting ? submitSug(gi, mi, pa, pb) : setGroupGoals(gi, mi, pa, pb),
+        onTotal: (side, v) => {
+          const sa = side === 'a' ? v : (suggesting && sug ? sug.sa : m.sa);
+          const sb = side === 'a' ? (suggesting && sug ? sug.sb : m.sb) : v;
+          suggesting ? sendSug(gi, mi, sa, sb) : setGroupScore(gi, mi, sa, sb, null, null);
+        },
         // a forfeit is a ruling on a deadline, not a score anyone watched — the
         // admin alone makes it, so it is never open to suggestion
         onForfeit: isAdmin ? v => setGroupScore(gi, mi, ...(FORFEIT[v] || [null, null])) : null,
@@ -2365,6 +2419,7 @@ function renderBracket() {
       const box = matchBox(m, {
         ko: true, edit: isAdmin && !!(m.a && m.b), pa: m.pa, pb: m.pb,
         onGoals: (pa, pb) => setKoGoals(r, i, pa, pb),
+        onTotal: (side, v) => setKoScore(r, i, side === 'a' ? v : m.sa, side === 'a' ? m.sb : v, null, null),
         // no void here: a knockout tie nobody turned up for still has to produce
         // someone to advance, which is what the Match Toss is for
         onForfeit: isAdmin ? v => setKoScore(r, i, ...(FORFEIT[v] || [null, null])) : null,
@@ -2470,9 +2525,11 @@ const champTeam = () => (koStarted && koRounds.length && koRounds[koRounds.lengt
    difference: the round part only starts separating people in the knockouts. */
 function renderGolden() {
   const el = $('golden');
+  el.innerHTML = '';
+  // nobody's name is on a goal this cup, so there is nothing to race for
+  if (!indivGoals()) { el.style.display = 'none'; return; }
   const P = rollupPlayers();
   const ns = Object.keys(P);
-  el.innerHTML = '';
 
   const race = (title, note, names, key, val, sub) => {
     if (!names.length) return;
@@ -2524,7 +2581,7 @@ function renderGolden() {
 
 function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
-  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, cupAwards(P, w)); }
+  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, w) : null); }
   else window.clearChampion(cupId);
 }
 
@@ -2542,7 +2599,8 @@ function celebrate(name, entry) {
   shareDate = (entry && entry.date) || Date.now();
   // an archived cup carries the awards it was won with; the live one is worked
   // out now, so a replayed old cup never borrows this cup's scorers
-  shareAwards = entry ? entry.awards : champTeam() ? cupAwards(rollupPlayers(), champTeam()) : null;
+  shareAwards = entry ? entry.awards
+    : champTeam() && indivGoals() ? cupAwards(rollupPlayers(), champTeam()) : null;
   renderAwards(shareAwards);
   $('celebrate').style.display = 'flex';
   confettiRun = true;

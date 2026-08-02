@@ -21,6 +21,12 @@ through. Awards are archived at `history/<cupId>` next to `champion`/`players`,
 and the all-time Players board counts them the way it counts titles — cups
 archived before any of this simply contribute nothing to those two columns.
 
+Per-player scoring starts with the cup after the one running on 2 Aug 2026:
+older cups get one box a side — the team total, nobody's name on it — and hand
+out no Boot and no Ball. The switch is `INDIV_FROM`, a cutoff against `cupId`,
+which is the millisecond its cup was started at, so it needs no field in the
+data and no migration. The rules sheet describes whichever mode is running.
+
 The celebration overlay has a **Share** button that draws a 1200×1200 PNG of
 the moment and hands it to the OS share sheet (or downloads it, on desktops
 with no file sharing). It's drawn on a canvas rather than screenshotted, so
