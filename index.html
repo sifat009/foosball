@@ -472,7 +472,7 @@
   /* a fixed grid, not flex — every row emits all nine cells (a dash where
      there's nothing) so the numbers line up in scannable columns */
   .pl-row {
-    display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px 30px 28px 28px 40px 36px 38px;
+    display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px 32px 31px 31px 40px 36px 38px;
     align-items: baseline; gap: 8px 7px;
     padding: 11px 4px; border-bottom: 1px solid #eef1f6;
   }
@@ -498,22 +498,28 @@
   .pl-best.b3 { color: #172b4d; }
   .pl-best.b2 { color: #5b6a7d; }
   .pl-best.b1 { color: #8895a5; }
-  @media (max-width: 640px) {
-    /* Nine columns need ~530px of viewport before the name gets crushed, so a
-       phone drops the columns entirely: the name takes the first line and the
-       player's whole record reads as one sentence under it. A shared header
-       can't label a wrapped strip — the labels ride with the values instead. */
-    .pl-row.pl-head { display: none; }
-    .pl-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 9px; }
-    .pl-row > * { text-align: left; }
-    .pl-name { flex: 1 0 calc(100% - 31px); } /* pushes the record onto its own line */
-    .pl-award:not(.has) { display: none; }    /* a bare dash labels nothing */
-    .pl-boot.has::before { content: 'Boot\A0'; }
-    .pl-ball.has::before { content: 'Ball\A0'; }
-    .pl-boot.has::before, .pl-ball.has::before, .pl-gd::before {
-      color: #9aa7b8; font-weight: 700; font-size: 0.72rem;
-    }
-    .pl-gd::before { content: 'GD\A0'; }
+  /* Nine columns need ~530px before the name column starts getting crushed, so
+     below that the table scrolls sideways inside the card rather than reflowing.
+     The note stays outside the scroller so its prose still wraps to the card.
+     The two white covers scroll with the content (local) while the two shadows
+     stay pinned (scroll), so an edge shadow shows only while there's more table
+     that way — otherwise nothing says the row keeps going. */
+  .pl-table {
+    overflow-x: auto; overscroll-behavior-x: contain;
+    background:
+      linear-gradient(to right, #fff, rgba(255,255,255,0)) left / 22px 100% no-repeat,
+      linear-gradient(to left, #fff, rgba(255,255,255,0)) right / 22px 100% no-repeat,
+      radial-gradient(farthest-side at 0 50%, rgba(23,43,77,0.16), transparent) left / 9px 100% no-repeat,
+      radial-gradient(farthest-side at 100% 50%, rgba(23,43,77,0.16), transparent) right / 9px 100% no-repeat;
+    background-attachment: local, local, scroll, scroll;
+  }
+  @media (max-width: 560px) {
+    .pl-row { min-width: 440px; } /* 330px of fixed tracks + 110px of name */
+    /* scrolled away, a row of numbers belongs to nobody — the rank and name
+       stay pinned; z-index because the later cells would paint over them */
+    .pl-n, .pl-name { position: sticky; z-index: 1; background: #fff; }
+    .pl-n { left: 4px; box-shadow: 7px 0 0 #fff; } /* the shadow fills the column gap */
+    .pl-name { left: 33px; }
   }
   /* alerts drawer: the same overlay as the Hall, but on a phone the card
      becomes a sheet that comes up from the bottom, off the Alerts tab */
@@ -1465,14 +1471,18 @@ function renderPlayers(entries) {
   note.textContent = 'Ranked by cups won, then win rate. W–L counts group and knockout matches together. '
     + 'Boot and Ball are Golden Boots (top scorer) and Golden Balls (cup MVP).';
   // the header carries the same cell classes as a data row, so one set of grid
-  // rules places both — including the two-line phone layout
+  // rules places both. Its rank cell reads '#' rather than sitting empty: an
+  // empty cell has no height, and on a phone it's pinned over scrolling columns.
+  const tbl = document.createElement('div');
+  tbl.className = 'pl-table'; // scrolls sideways on a phone; the note stays put
   const head = document.createElement('div');
   head.className = 'pl-row pl-head';
-  [['pl-n', ''], ['pl-name', 'Player'], ['pl-best', 'Best'], ['pl-titles', 'Cups'],
-   ['pl-award pl-boot', 'Boot'], ['pl-award pl-ball', 'Ball'],
+  [['pl-n', '#'], ['pl-name', 'Player'], ['pl-best', 'Best'], ['pl-titles', 'Cups'],
+   ['pl-award', 'Boot'], ['pl-award', 'Ball'],
    ['pl-stat', 'W–L'], ['pl-stat', 'Win'], ['pl-stat pl-gd', 'GD']]
     .forEach(([c, t]) => head.appendChild(cell(c, t)));
-  box.append(note, head);
+  tbl.appendChild(head);
+  box.append(note, tbl);
 
   rows.forEach((r, i) => {
     const row = document.createElement('div');
@@ -1484,13 +1494,13 @@ function renderPlayers(entries) {
       name,
       cell('pl-best b' + r.best, BEST[r.best]),
       cell('pl-titles', r.titles ? '🏆 ' + r.titles : '<span class="pl-stat">—</span>'),
-      cell('pl-award pl-boot' + (r.boot ? ' has' : ''), r.boot || '—'),
-      cell('pl-award pl-ball' + (r.ball ? ' has' : ''), r.ball || '—'),
+      cell('pl-award' + (r.boot ? ' has' : ''), r.boot || '—'),
+      cell('pl-award' + (r.ball ? ' has' : ''), r.ball || '—'),
       cell('pl-stat', r.p ? `<b>${r.w}</b>–${r.p - r.w}` : '—'),
       cell('pl-stat', r.p ? `<b>${r.pct}%</b>` : '—'),
       cell('pl-stat pl-gd', r.p ? (r.gd >= 0 ? '+' : '') + r.gd : '—'),
     );
-    box.appendChild(row);
+    tbl.appendChild(row);
   });
 }
 
