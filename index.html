@@ -1303,8 +1303,10 @@ function setAdmin(v) {
   // auth can resolve after the pre-draft view is already painted: an admin must
   // land on setup (to run the draft), a viewer on the countdown if one's set.
   if (curScreen === 'setup' || curScreen === 'countdown') {
-    if (!isAdmin && draftStartAt) startCountdown(draftStartAt);
-    else { stopCountdown(); show('setup'); }
+    if (isAdmin || !draftStartAt) show('setup');
+    if (draftStartAt) startCountdown(draftStartAt);
+    else stopCountdown();
+    fillSched(); // auth resolving is what makes the picker visible — fill it now
   }
   paintAlerts(); // the suggestions row is the admin's alone
 }
@@ -1613,16 +1615,29 @@ const pad2 = n => String(n).padStart(2, '0');
 // ms instant -> the local wall-clock string a datetime-local input expects
 const msToInput = ms => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
+function cdText() {
+  const left = draftStartAt - Date.now();
+  if (left <= 0) return 'Starting soon…';
+  const s = Math.floor(left / 1000);
+  return `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s % 3600 / 60))}:${pad2(s % 60)}`;
+}
+/* The admin stays on setup — they still have to open the draft — so the same
+   ticking clock rides along in the schedule note instead of a second screen. */
+function paintSched() {
+  $('schedNote').textContent = draftStartAt
+    ? 'Viewers see a live countdown to ' + fmtWhen(draftStartAt, 'short') + ' — ' + cdText()
+    : '';
+}
 function tickCountdown() {
-  const clock = $('cdClock'), left = draftStartAt - Date.now();
-  if (left > 0) {
-    const s = Math.floor(left / 1000);
-    clock.textContent = `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s % 3600 / 60))}:${pad2(s % 60)}`;
-    clock.classList.remove('soon');
-  } else {
-    clock.textContent = 'Starting soon…';
-    clock.classList.add('soon');
-  }
+  const clock = $('cdClock');
+  clock.textContent = cdText();
+  clock.classList.toggle('soon', draftStartAt - Date.now() <= 0);
+  paintSched();
+}
+// auth can land after the snapshot, so the picker is filled on both paths
+function fillSched() {
+  $('schedInput').value = draftStartAt ? msToInput(draftStartAt) : '';
+  paintSched();
 }
 /* Rendered in each viewer's own timezone — draftStartAt is an absolute instant.
    hour12 is forced so a 24-hour browser locale can't turn 1:00 PM into 13:00. */
@@ -1632,7 +1647,7 @@ const fmtWhen = (ms, weekday) => new Date(ms).toLocaleString([],
 function startCountdown(at) {
   draftStartAt = at;
   $('cdWhen').textContent = 'Scheduled for ' + fmtWhen(at, 'long');
-  show('countdown');
+  if (!isAdmin) show('countdown');
   tickCountdown();
   if (!cdTimer) cdTimer = setInterval(tickCountdown, 1000);
 }
@@ -1641,9 +1656,8 @@ function stopCountdown() { clearInterval(cdTimer); cdTimer = null; }
 $('schedInput').onchange = () => {
   const v = $('schedInput').value;
   draftStartAt = v ? new Date(v).getTime() : null;
-  $('schedNote').textContent = draftStartAt
-    ? 'Viewers see a live countdown to ' + fmtWhen(draftStartAt, 'short')
-    : '';
+  paintSched();
+  if (draftStartAt) startCountdown(draftStartAt); else stopCountdown();
   /* Two notifications from the one control: the announcement now, and the
      reminder when the countdown runs out. Both sit at fixed keys so moving the
      draft replaces them instead of stacking a second reminder on the first,
@@ -2113,12 +2127,7 @@ function applyState(s) {
   draftStartAt = s.draftStartAt || null;
   deadlineAt = s.deadlineAt || null; // cups started before deadlines existed just have none
   deadlineFrom = s.deadlineFrom || null;
-  if (isAdmin) {
-    $('schedInput').value = draftStartAt ? msToInput(draftStartAt) : '';
-    $('schedNote').textContent = draftStartAt
-      ? 'Viewers see a live countdown to ' + fmtWhen(draftStartAt, 'short')
-      : '';
-  }
+  fillSched(); // the row is admin-only in CSS, so no need to gate on isAdmin here
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
     stopCountdown();
     fwds = s.fwds; defs = s.defs; teams = s.teams || [];
@@ -2167,10 +2176,12 @@ function applyState(s) {
         }));
       }
     }
-  } else if (!isAdmin) {
-    // draft not opened yet: a scheduled viewer waits on the countdown, otherwise setup
+  } else {
+    // draft not opened yet: a viewer waits on the countdown screen, the admin on
+    // setup — both tick, only the admin can still act
+    if (isAdmin || !draftStartAt) show('setup');
     if (draftStartAt) startCountdown(draftStartAt);
-    else { stopCountdown(); show('setup'); }
+    else stopCountdown();
   }
   restoring = false;
 }

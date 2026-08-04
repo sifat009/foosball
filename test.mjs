@@ -123,6 +123,14 @@ assert.ok(await page.isVisible('#setup') && !(await page.isVisible('#countdown')
 await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t }), future);
 await page.waitForTimeout(30);
 assert.equal((await page.evaluate(() => document.getElementById('schedInput').value)).length, 16, 'the schedule picker did not reflect the stored time');
+// the admin reads the same live clock off the schedule note, and keeps ticking
+assert.match(await page.textContent('#schedNote'), /— 0[0-3]:\d\d:\d\d$/, 'the admin has no live countdown');
+assert.ok(await page.evaluate(() => cdTimer), 'the countdown stopped ticking for the admin');
+// the picker fills even when auth resolves after the snapshot landed
+await page.evaluate(t => { window.setAdmin(false); document.getElementById('schedInput').value = '';
+  window.applyState({ screen: 'setup', draftStartAt: t }); window.setAdmin(true); }, future);
+await page.waitForTimeout(30);
+assert.equal((await page.evaluate(() => document.getElementById('schedInput').value)).length, 16, 'late auth left the schedule picker empty');
 await page.evaluate(() => { window.setAdmin(false); draftStartAt = null; stopCountdown(); show('setup'); });
 console.log('scheduled live draft OK');
 
