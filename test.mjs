@@ -1569,6 +1569,25 @@ await page.click('#kbDone');
 assert.equal(await page.evaluate(() => isScore(document.activeElement)), false, 'Done did not leave the boxes');
 assert.equal(await page.evaluate(() => $('kbBar').classList.contains('on')), false, 'the bar stayed up after Done');
 assert.equal(await page.evaluate(() => groups[0].matches[0].pa.def), 4, 'Done did not commit what was typed');
+/* Stepping nudges the page by exactly what the bar covers. Centring the box
+   instead lurched it hundreds of pixels a press — a fixed bar over a moving page
+   is what the flicker was. */
+await (await kbRow())[0].click();
+await page.evaluate(() => { // put the open box down where the bar stands
+  const r = document.activeElement.getBoundingClientRect();
+  scrollBy(0, r.top - innerHeight + 70);
+});
+const scrolled = await page.evaluate(() => scrollY);
+await page.click('#kbNext');
+await page.waitForTimeout(120);
+const step = await page.evaluate(() => {
+  const box = document.activeElement.getBoundingClientRect(), bar = $('kbBar').getBoundingClientRect();
+  return { moved: scrollY, gap: bar.top - box.bottom };
+});
+assert.ok(step.moved - scrolled < 120,
+  'stepping lurched the page ' + Math.round(step.moved - scrolled) + 'px — the nudge should only clear the bar');
+assert.ok(step.gap >= 0, 'the open box was left under the keypad bar');
+
 // the first and last box have nowhere further to go
 await (await kbRow())[0].click();
 assert.equal(await page.evaluate(() => $('kbPrev').disabled), true, 'Prev is live on the first box');

@@ -2302,6 +2302,9 @@ function showKbBar(inp) {
   $('kbWho').textContent = inp.title || '';
   kbBar.classList.add('on');
   placeKbBar();
+  // next frame: the browser does its own scrolling for a newly focused box, and
+  // there is no point measuring against a position it is about to change
+  requestAnimationFrame(() => clearKbBar(inp));
 }
 /* A fixed element pins itself to the bottom of the page, which on a phone is
    behind the keyboard — the visual viewport is the only thing that knows where
@@ -2310,13 +2313,23 @@ function placeKbBar() {
   const vv = window.visualViewport;
   if (!vv || !kbBar.classList.contains('on')) return;
   kbBar.style.bottom = Math.max(0, innerHeight - vv.height - vv.offsetTop) + 'px';
-  // the browser scrolls the open box clear of the keyboard, but knows nothing
-  // of the bar now standing on top of it
-  const el = document.activeElement;
-  if (isScore(el) && el.getBoundingClientRect().bottom > vv.offsetTop + vv.height - kbBar.offsetHeight)
-    el.scrollIntoView({ block: 'center' });
 }
-window.visualViewport?.addEventListener('resize', placeKbBar);
+/* The browser scrolls the open box clear of the keyboard, but knows nothing of
+   the bar now standing on top of it. Nudge by exactly what the bar covers and no
+   more: centring the box instead means a lurch on every step, since the scroll
+   an element asks for is measured against the page, which cannot see a keyboard.
+   Not wired to the viewport's own scroll event, or it would chase its own tail. */
+function clearKbBar(inp) {
+  const vv = window.visualViewport;
+  if (!vv || !kbBar.classList.contains('on')) return;
+  const over = inp.getBoundingClientRect().bottom - (vv.offsetTop + vv.height - kbBar.offsetHeight);
+  if (over > 0) scrollBy(0, over + 8);
+}
+window.visualViewport?.addEventListener('resize', () => {
+  placeKbBar();
+  // the keyboard just opened or closed, so where the box sits has changed
+  if (isScore(document.activeElement)) clearKbBar(document.activeElement);
+});
 window.visualViewport?.addEventListener('scroll', placeKbBar);
 // pointerdown, not click: the default would take focus off the box and shut the
 // keypad before the button it belongs to ever ran. mousedown too — Safari
