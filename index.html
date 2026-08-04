@@ -498,20 +498,22 @@
   .pl-best.b3 { color: #172b4d; }
   .pl-best.b2 { color: #5b6a7d; }
   .pl-best.b1 { color: #8895a5; }
-  @media (max-width: 430px) {
-    /* nine columns can't fit a phone, so the name takes the first line on its
-       own, the honours line up under it and the record under those. GD goes —
-       it's the least read. */
-    .pl-row { grid-template-columns: 22px 46px 32px 30px 1fr; gap: 5px 8px; }
-    .pl-gd { display: none; }
-    .pl-n { grid-area: 1 / 1; }
-    .pl-name { grid-area: 1 / 2 / auto / -1; }
-    .pl-best { grid-area: 2 / 2; text-align: left; }
-    .pl-titles { grid-area: 2 / 3; }
-    .pl-row > :nth-child(5) { grid-area: 2 / 4; }
-    .pl-row > :nth-child(6) { grid-area: 2 / 5; text-align: left; }
-    .pl-row > :nth-child(7) { grid-area: 3 / 2; text-align: left; }
-    .pl-row > :nth-child(8) { grid-area: 3 / 3 / auto / -1; text-align: left; }
+  @media (max-width: 640px) {
+    /* Nine columns need ~530px of viewport before the name gets crushed, so a
+       phone drops the columns entirely: the name takes the first line and the
+       player's whole record reads as one sentence under it. A shared header
+       can't label a wrapped strip — the labels ride with the values instead. */
+    .pl-row.pl-head { display: none; }
+    .pl-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 9px; }
+    .pl-row > * { text-align: left; }
+    .pl-name { flex: 1 0 calc(100% - 31px); } /* pushes the record onto its own line */
+    .pl-award:not(.has) { display: none; }    /* a bare dash labels nothing */
+    .pl-boot.has::before { content: 'Boot\A0'; }
+    .pl-ball.has::before { content: 'Ball\A0'; }
+    .pl-boot.has::before, .pl-ball.has::before, .pl-gd::before {
+      color: #9aa7b8; font-weight: 700; font-size: 0.72rem;
+    }
+    .pl-gd::before { content: 'GD\A0'; }
   }
   /* alerts drawer: the same overlay as the Hall, but on a phone the card
      becomes a sheet that comes up from the bottom, off the Alerts tab */
@@ -1256,8 +1258,10 @@ window.alertPrefs = () => {
 const writeAlertPrefs = p => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(p)); } catch {} };
 const kindBoxes = () => [...document.querySelectorAll('#alerts [data-kind]')];
 
-function paintAlerts() {
-  const on = !!window.pushOn;
+/* `on` is an override for the master switch: subscribing takes a permission
+   prompt and a token round-trip, and the rows must not sit dead until that
+   lands. The caller paints what it asked for, then repaints the truth. */
+function paintAlerts(on = !!window.pushOn) {
   const prefs = window.alertPrefs();
   $('alerts').classList.toggle('off', !on);
   $('alertsAll').checked = on;
@@ -1274,8 +1278,9 @@ function paintAlerts() {
 $('alertsAll').onchange = async e => {
   const want = e.target.checked;
   if (want) writeAlertPrefs(Object.fromEntries(ALERT_KINDS.map(k => [k, true])));
+  paintAlerts(want); // the rows follow the switch now, not the network
   if (window.setPushOn) await window.setPushOn(want);
-  paintAlerts();
+  paintAlerts();     // and settle back if the subscription didn't take
 };
 kindBoxes().forEach(box => box.onchange = () => {
   const prefs = window.alertPrefs();
@@ -1464,7 +1469,7 @@ function renderPlayers(entries) {
   const head = document.createElement('div');
   head.className = 'pl-row pl-head';
   [['pl-n', ''], ['pl-name', 'Player'], ['pl-best', 'Best'], ['pl-titles', 'Cups'],
-   ['pl-award', 'Boot'], ['pl-award', 'Ball'],
+   ['pl-award pl-boot', 'Boot'], ['pl-award pl-ball', 'Ball'],
    ['pl-stat', 'W–L'], ['pl-stat', 'Win'], ['pl-stat pl-gd', 'GD']]
     .forEach(([c, t]) => head.appendChild(cell(c, t)));
   box.append(note, head);
@@ -1479,8 +1484,8 @@ function renderPlayers(entries) {
       name,
       cell('pl-best b' + r.best, BEST[r.best]),
       cell('pl-titles', r.titles ? '🏆 ' + r.titles : '<span class="pl-stat">—</span>'),
-      cell('pl-award' + (r.boot ? ' has' : ''), r.boot || '—'),
-      cell('pl-award' + (r.ball ? ' has' : ''), r.ball || '—'),
+      cell('pl-award pl-boot' + (r.boot ? ' has' : ''), r.boot || '—'),
+      cell('pl-award pl-ball' + (r.ball ? ' has' : ''), r.ball || '—'),
       cell('pl-stat', r.p ? `<b>${r.w}</b>–${r.p - r.w}` : '—'),
       cell('pl-stat', r.p ? `<b>${r.pct}%</b>` : '—'),
       cell('pl-stat pl-gd', r.p ? (r.gd >= 0 ? '+' : '') + r.gd : '—'),

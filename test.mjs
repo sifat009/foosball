@@ -1392,12 +1392,24 @@ const drawer = await page.evaluate(async () => {
   await new Promise(r => setTimeout(r, 0)); // onchange awaits setPushOn
   const masterOn = { on: window.pushOn, kinds: window.alertPrefs() };
 
+  /* Subscribing is a permission prompt and a token round-trip: the kinds must
+     light up on the tap, not when the network gets back. Hold setPushOn open
+     and look at the rows while it is still in flight. */
+  alertsAll.click(); // off
+  let release;
+  window.setPushOn = want => new Promise(r => { release = () => { window.pushOn = want; r(); }; });
+  alertsAll.click(); // on, and stuck mid-subscribe
+  const midSubscribe = { on: boxes().filter(b => b.checked).length,
+                         live: boxes().filter(b => !b.disabled).length };
+  release();
+  await new Promise(r => setTimeout(r, 0));
+
   // the suggestions row is the admin's
   window.setAdmin(false);
   const viewerSees = getComputedStyle(document.querySelector('.al-admin')).display;
   window.setAdmin(true);
   const adminSees = getComputedStyle(document.querySelector('.al-admin')).display;
-  return { off, on, afterOff, afterOn, masterOff, masterOn, viewerSees, adminSees };
+  return { off, on, afterOff, afterOn, masterOff, masterOn, midSubscribe, viewerSees, adminSees };
 });
 assert.deepEqual(drawer.off, { all: false, on: 0, live: 0 },
   'with notifications off the drawer still showed kinds switched on, or let them be tapped');
@@ -1408,6 +1420,8 @@ assert.equal(drawer.afterOff.saved, 1, 'the relay was never told the kind was sw
 assert.equal(drawer.afterOn, true, 'switching a kind back on did not stick');
 assert.deepEqual(drawer.masterOff, { on: false, pref: false },
   'the master switch did not drop the subscription');
+assert.deepEqual(drawer.midSubscribe, { on: 4, live: 4 },
+  'the kinds stayed dark while the subscription was still in flight');
 assert.equal(drawer.masterOn.on, true, 'the master switch did not resubscribe');
 assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true],
   'turning notifications back on left a kind silently switched off');
