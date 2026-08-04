@@ -263,6 +263,33 @@
   }
   .ff:disabled { opacity: 0.5; cursor: default; }
   .ff.on { border-style: solid; border-color: #f0d79a; background: #fdf6e3; color: #8a6414; }
+  /* The bar over the keypad. Only ever on screen while a goal box has focus, so
+     it can sit above everything — the tab bar included. `bottom` is set from the
+     visual viewport, because a fixed element on iOS otherwise pins itself to the
+     bottom of the page, which is behind the keyboard. */
+  #kbBar {
+    display: none; position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+    align-items: center; gap: 6px; padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
+    background: #fff; border-top: 1px solid #e7ecf4;
+    box-shadow: 0 -6px 18px rgba(23, 43, 77, 0.10);
+  }
+  #kbBar.on { display: flex; }
+  /* which box you are in — the boxes are too small to label on the row itself */
+  #kbWho {
+    flex: 1; min-width: 0; text-align: right; padding-right: 4px;
+    font-size: 0.82rem; font-weight: 700; color: #5b6a7d;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #kbBar button {
+    font-family: inherit; font-weight: 800; cursor: pointer;
+    border: 1.5px solid #dfe6ef; border-radius: 10px; background: #fff; color: #16233a;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .kb-step { display: flex; padding: 8px 14px; }
+  .kb-step .ico { width: 20px; height: 20px; vertical-align: 0; }
+  #kbPrev .ico { transform: rotate(180deg); }
+  #kbBar button:disabled { opacity: 0.35; }
+  .kb-done { padding: 8px 16px; font-size: 0.86rem; border-color: #ecc45c; background: #fdf6e3; color: #8a6414; }
   /* a pending suggestion — deliberately unlike a real score, because it isn't one */
   .score.suggesting { border-color: #e6c65c; background: #fff8e6; }
   .sug-bar {
@@ -888,6 +915,16 @@
   <button id="notifyBtn" data-lbl="Alerts" style="display:none"><svg class="ico"><use href="#i-bell"/></svg><span class="lbl"> Notify me</span></button>
 </div>
 
+<!-- Sits on top of the phone keypad while a goal box is open. The numeric keypad
+     has no next key of its own on iOS, so without this the only way out of a box
+     is to aim at the next one. -->
+<div id="kbBar">
+  <button id="kbPrev" class="kb-step" aria-label="Previous goal box"><svg class="ico"><use href="#i-arrow"/></svg></button>
+  <button id="kbNext" class="kb-step" aria-label="Next goal box"><svg class="ico"><use href="#i-arrow"/></svg></button>
+  <span id="kbWho"></span>
+  <button id="kbDone" class="kb-done">Done</button>
+</div>
+
 <div id="installTip"><div id="installSteps"></div><button id="installTipClose">Got it</button></div>
 
 <div id="hall">
@@ -1298,6 +1335,8 @@ kindBoxes().forEach(box => box.onchange = () => {
 function setAdmin(v) {
   isAdmin = v;
   document.body.classList.toggle('view', !v);
+  // who may edit is not a change that waits for a finger to leave a score box
+  if (isScore(document.activeElement)) document.activeElement.blur();
   updateSub();
   if (curScreen === 'tourney') renderAll();
   // auth can resolve after the pre-draft view is already painted: an admin must
@@ -2079,6 +2118,14 @@ function rank(group) {
 }
 
 function renderAll() {
+  /* Crowning the champion — the celebration, the notification, the history
+     entry — happens in renderBracket, and the cup being won is not something to
+     sit on until a finger leaves a box. Everything else can wait. */
+  const crowning = koStarted && koRounds[koRounds.length - 1][0].winner !== lastChamp;
+  if (!crowning && holdRender()) { save(); return; } // flushed on focusout
+  // a rebuild takes the boxes with it, and a removed box fires no focusout to
+  // put the keypad bar away. $ rather than the const, which is declared below.
+  $('kbBar').classList.remove('on');
   renderGroups();
   if (koStarted) renderBracket();
   renderGolden();
@@ -2195,12 +2242,100 @@ function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
   inp.className = 'score';
   inp.value = value ?? '';
   inp.disabled = disabled || !canEdit;
+  inp.enterKeyHint = 'next';
+  // typing replaces the number instead of landing next to it — on a phone there
+  // is no easy way to select the digit already sitting there
+  inp.onfocus = () => inp.select();
   inp.onchange = () => {
     const v = inp.value === '' ? null : Math.max(0, Math.floor(Number(inp.value)) || 0);
-    onchange(v);
+    /* The commit re-renders the board, which would tear this box (and the one
+       being tapped next) out from under the finger. Hold the render until the
+       boxes are done with. */
+    typingScore = true;
+    try { onchange(v); } finally { typingScore = false; }
+  };
+  // a keyboard with a next/enter key gets to walk the boxes without aiming
+  inp.onkeydown = e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    stepScore(inp, 1);
   };
   return inp;
 }
+
+/* Walking the boxes in the order they read, which is the order they are typed.
+   Stepping past the last one is the same as being done with it. */
+const scoreBoxes = () => [...document.querySelectorAll('.score:not(:disabled)')];
+function stepScore(from, dir) {
+  const all = scoreBoxes(), next = all[all.indexOf(from) + dir];
+  next ? next.focus() : from.blur();
+}
+
+/* A score is typed into a live DOM node, so the re-render it triggers has to
+   wait for the finger to leave the boxes — otherwise moving from one box to the
+   next means tapping away, waiting for the rebuild, then tapping in. Nothing is
+   lost by waiting: the state is already updated and saved, only the totals and
+   table on screen lag until the last box is done.
+   The hold covers the commit itself and everything that lands while a box is
+   focused — including the suggester's own score echoing back from the database
+   a moment later. */
+var typingScore = false, renderHeld = false;
+// function declarations, not consts: setAdmin and renderAll both run before
+// this line does on first load
+function isScore(el) { return !!el?.classList?.contains('score'); }
+function holdRender() {
+  return (typingScore || isScore(document.activeElement)) && (renderHeld = true);
+}
+
+/* The bar over the keypad. A phone's numeric keypad carries no next key of its
+   own — iOS gives it nothing at all — so without this the only way out of a box
+   is to aim at the next one through a keyboard covering half the screen.
+   It shows only where there is a keypad to sit on: a real keyboard has Tab. */
+const kbBar = $('kbBar');
+const needsKbBar = () => matchMedia('(pointer: coarse), (max-width: 640px)').matches;
+function showKbBar(inp) {
+  if (!needsKbBar()) return;
+  const all = scoreBoxes(), i = all.indexOf(inp);
+  $('kbPrev').disabled = i <= 0;
+  $('kbNext').disabled = i === all.length - 1;
+  // the boxes are too small to label on the row, so the bar says which one is open
+  $('kbWho').textContent = inp.title || '';
+  kbBar.classList.add('on');
+  placeKbBar();
+}
+/* A fixed element pins itself to the bottom of the page, which on a phone is
+   behind the keyboard — the visual viewport is the only thing that knows where
+   the keyboard actually starts. */
+function placeKbBar() {
+  const vv = window.visualViewport;
+  if (!vv || !kbBar.classList.contains('on')) return;
+  kbBar.style.bottom = Math.max(0, innerHeight - vv.height - vv.offsetTop) + 'px';
+  // the browser scrolls the open box clear of the keyboard, but knows nothing
+  // of the bar now standing on top of it
+  const el = document.activeElement;
+  if (isScore(el) && el.getBoundingClientRect().bottom > vv.offsetTop + vv.height - kbBar.offsetHeight)
+    el.scrollIntoView({ block: 'center' });
+}
+window.visualViewport?.addEventListener('resize', placeKbBar);
+window.visualViewport?.addEventListener('scroll', placeKbBar);
+// pointerdown, not click: the default would take focus off the box and shut the
+// keypad before the button it belongs to ever ran. mousedown too — Safari
+// synthesises its own, and that one moves focus as well.
+kbBar.addEventListener('pointerdown', e => e.preventDefault());
+kbBar.addEventListener('mousedown', e => e.preventDefault());
+$('kbPrev').onclick = () => isScore(document.activeElement) && stepScore(document.activeElement, -1);
+$('kbNext').onclick = () => isScore(document.activeElement) && stepScore(document.activeElement, 1);
+$('kbDone').onclick = () => document.activeElement.blur();
+
+document.addEventListener('focusin', e => { if (isScore(e.target)) showKbBar(e.target); });
+document.addEventListener('focusout', e => {
+  // hopping straight to another box: still typing, keep the bar and the hold
+  if (isScore(e.relatedTarget)) return;
+  kbBar.classList.remove('on');
+  if (!renderHeld) return;
+  renderHeld = false;
+  renderAll();
+});
 
 /* One match box, group or knockout — a knockout tie is scored exactly like a
    group one now, so both stages build from here rather than growing two
@@ -2216,6 +2351,11 @@ function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
 function matchBox(m, o) {
   const box = document.createElement('div');
   const bad = badScore(m, o.ko);
+  /* What the boxes hold right now. Each box commits all of them, not just its
+     own, so a box never has to read a sibling through a stale render-time
+     snapshot — the four are typed one after another with nothing rebuilt in
+     between. */
+  const cur = { pa: { ...(o.pa || {}) }, pb: { ...(o.pb || {}) }, sa: o.sa ?? m.sa, sb: o.sb ?? m.sb };
   [['a', 'pa', 'sa'], ['b', 'pb', 'sb']].forEach(([side, pk, sk]) => {
     const t = m[side], p = o[pk] || {};
     const row = document.createElement('div');
@@ -2226,7 +2366,10 @@ function matchBox(m, o) {
     row.appendChild(nm);
     if (!t) { box.appendChild(row); return; }
     if (!indivGoals()) {
-      const inp = scoreInput(o[sk] ?? m[sk], !o.edit, v => o.onTotal(side, v), o.edit);
+      const inp = scoreInput(cur[sk], !o.edit, v => {
+        cur[sk] = v;
+        o.onTotal(cur.sa, cur.sb);
+      }, o.edit);
       if (bad) inp.classList.add('bad');
       if (o.suggesting) inp.classList.add('suggesting');
       inp.title = teamName(t) + ' — goals';
@@ -2241,8 +2384,8 @@ function matchBox(m, o) {
     row.appendChild(tot);
     if (!noBreakdown(m)) ['fwd', 'def'].forEach(role => {
       const inp = scoreInput(p[role], !o.edit, v => {
-        const next = { ...p, [role]: v };
-        o.onGoals(side === 'a' ? next : o.pa, side === 'a' ? o.pb : next);
+        cur[pk][role] = v;
+        o.onGoals(cur.pa, cur.pb);
       }, o.edit);
       inp.classList.add(role);
       if (bad) inp.classList.add('bad');
@@ -2277,6 +2420,7 @@ function matchBox(m, o) {
 }
 
 function renderGroups() {
+  if (holdRender()) return; // a score box is in use — flushed on focusout
   updateSub(); // koStarted may have just changed — keep the invite in step
   const el = $('groups');
   el.innerHTML = '';
@@ -2322,11 +2466,7 @@ function renderGroups() {
         sa: suggesting && sug ? sug.sa : m.sa,
         sb: suggesting && sug ? sug.sb : m.sb,
         onGoals: (pa, pb) => suggesting ? submitSug(gi, mi, pa, pb) : setGroupGoals(gi, mi, pa, pb),
-        onTotal: (side, v) => {
-          const sa = side === 'a' ? v : (suggesting && sug ? sug.sa : m.sa);
-          const sb = side === 'a' ? (suggesting && sug ? sug.sb : m.sb) : v;
-          suggesting ? sendSug(gi, mi, sa, sb) : setGroupScore(gi, mi, sa, sb, null, null);
-        },
+        onTotal: (sa, sb) => suggesting ? sendSug(gi, mi, sa, sb) : setGroupScore(gi, mi, sa, sb, null, null),
         // a forfeit is a ruling on a deadline, not a score anyone watched — the
         // admin alone makes it, so it is never open to suggestion
         onForfeit: isAdmin ? v => setGroupScore(gi, mi, ...(FORFEIT[v] || [null, null])) : null,
@@ -2445,7 +2585,7 @@ function renderBracket() {
       const box = matchBox(m, {
         ko: true, edit: isAdmin && !!(m.a && m.b), pa: m.pa, pb: m.pb,
         onGoals: (pa, pb) => setKoGoals(r, i, pa, pb),
-        onTotal: (side, v) => setKoScore(r, i, side === 'a' ? v : m.sa, side === 'a' ? m.sb : v, null, null),
+        onTotal: (sa, sb) => setKoScore(r, i, sa, sb, null, null),
         // no void here: a knockout tie nobody turned up for still has to produce
         // someone to advance, which is what the Match Toss is for
         onForfeit: isAdmin ? v => setKoScore(r, i, ...(FORFEIT[v] || [null, null])) : null,

@@ -166,10 +166,12 @@ assert.ok(!adminDisabled.some(Boolean), 'admin cannot edit scores');
    half-filled team is not a result yet — the partner who scored nothing has to
    say so with a 0 rather than an empty box. */
 const goalBoxes = () => page.$$('#groups .score');
+// blur is the commit, the way a real entry ends — the board holds its repaint
+// while a box has focus, so that a phone can hop from one box to the next
 const type = async (i, v) => {
   const inp = (await goalBoxes())[i];
   await inp.fill(String(v));
-  await inp.dispatchEvent('change');
+  await inp.evaluate(e => e.blur());
   await page.waitForTimeout(60);
 };
 const firstMatch = () => page.evaluate(() => {
@@ -536,7 +538,9 @@ assert.equal((await page.$$('#groups .ff')).length, 0, 'a suggester can forfeit 
 // a suggestion carries the whole breakdown, so accepting it needs no second guess
 const openInput = (await page.$$('#groups .score'))[0];
 await openInput.fill('7');
-await openInput.dispatchEvent('change');
+// blur, not a synthetic change: leaving the box is what commits it, and the
+// board only repaints once the boxes are free
+await openInput.evaluate(i => i.blur());
 await page.waitForTimeout(150);
 assert.deepEqual(await page.evaluate(() => window.sugLog), [
   ['set', cup, '0_0', null, null, { fwd: 7, def: null }, null, 'Nur', 'nur@example.com'],
@@ -1488,6 +1492,93 @@ assert.notEqual(teamMode.rules.team, 'none', 'the rules never explain the team-t
 assert.deepEqual(teamMode.recorded, [null], 'a cup that counts no individual goals still handed out awards');
 assert.equal(teamMode.nextCupBoxes, 4, 'the next cup did not get its per-player boxes back');
 console.log('team-total cup OK');
+
+// ---------- typing a score box to box on a phone ----------
+/* Entering a score used to mean tap a box, type, tap somewhere blank, tap the
+   next box: the commit re-rendered the board and destroyed the box the finger
+   was already landing on, so the tap never took and the keypad closed. The
+   board now holds its repaint until the boxes are free, and each box commits
+   all four numbers rather than the stale ones it was rendered with. */
+await page.evaluate(() => {
+  window.setAdmin(true);
+  window.markRemote();
+  const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T;
+  const blank = (a, b) => ({ a, b, sa: null, sb: null, pa: null, pb: null, winner: null });
+  groups = [{ name: 'Group', teams: T.slice(), matches: [blank(T[0], T[1]), blank(T[2], T[3])] }];
+  koRounds = []; koStarted = false; lastChamp = null;
+  cupId = String(Date.now()); // per-player boxes
+  renderAll();
+});
+// an earlier section left a celebration up, and its confetti eats every tap
+if (await page.isVisible('#celebrate')) await page.locator('#celebrate').dispatchEvent('click');
+const goalRow = () => page.$$('#groups .match:first-of-type .score');
+const first = (await goalRow())[0];
+await first.click();
+await first.type('5');
+await (await goalRow())[1].click(); // straight to the next box, no tap in between
+assert.equal(await page.evaluate(() => document.activeElement.className), 'score def',
+  'tapping the next box did not focus it — the re-render ate the tap');
+assert.equal(await (await goalRow())[0].inputValue(), '5', 'the first box lost what was typed into it');
+await page.keyboard.type('3');
+await page.keyboard.press('Enter'); // a keyboard with a next key walks the boxes
+assert.equal(await page.evaluate(() =>
+  document.querySelectorAll('#groups .match:first-of-type .score')[2] === document.activeElement),
+  true, 'Enter did not move to the next box');
+await page.keyboard.type('2');
+await page.keyboard.press('Enter');
+await page.keyboard.type('1');
+await page.evaluate(() => document.activeElement.blur());
+await page.waitForTimeout(60);
+assert.deepEqual(await page.evaluate(() => {
+  const m = groups[0].matches[0];
+  return [m.sa, m.sb, m.pa, m.pb];
+}), [8, 3, { fwd: 5, def: 3 }, { fwd: 2, def: 1 }],
+  'four boxes typed one after another did not all reach the match');
+assert.deepEqual(await page.$$eval('#groups .match:first-of-type .m-tot', e => e.map(x => x.textContent)),
+  ['8', '3'], 'the totals never caught up once the boxes were free');
+// coming back to a filled box replaces the number rather than appending to it
+const filled = (await goalRow())[0];
+await filled.click();
+await page.keyboard.type('9');
+assert.equal(await filled.inputValue(), '9', 'retyping a score appended to the old one');
+console.log('score entry, box to box OK');
+
+// ---------- the bar over the phone keypad ----------
+/* A phone's numeric keypad has no next key — iOS shows nothing at all — so the
+   boxes get their own prev/next/done above it. It must not exist on a desktop,
+   where Tab already does the job. */
+await page.evaluate(() => document.activeElement.blur());
+assert.equal(await page.evaluate(() => getComputedStyle($('kbBar')).display), 'none',
+  'the keypad bar is on screen with no box open');
+await page.setViewportSize({ width: 375, height: 667 });
+await page.evaluate(() => { show('tourney'); renderAll(); });
+const kbRow = () => page.$$('#groups .match:first-of-type .score');
+await (await kbRow())[1].click();
+assert.equal(await page.evaluate(() => $('kbBar').classList.contains('on')), true,
+  'no keypad bar on a phone-sized screen');
+assert.equal(await page.evaluate(() => [$('kbWho').textContent, $('kbPrev').disabled, $('kbNext').disabled]).then(x => x.join('|')),
+  'a — goals|false|false', 'the bar does not say which box is open, or misjudges the ends');
+// the buttons walk the boxes without the keypad ever closing
+await page.click('#kbNext');
+assert.equal(await page.evaluate(() => document.activeElement.title), 'B — goals', 'Next did not move a box on');
+await page.click('#kbPrev');
+assert.equal(await page.evaluate(() => document.activeElement.title), 'a — goals', 'Prev did not move a box back');
+await page.keyboard.type('4'); // focus selects the old number, so this replaces it
+await page.click('#kbDone');
+assert.equal(await page.evaluate(() => isScore(document.activeElement)), false, 'Done did not leave the boxes');
+assert.equal(await page.evaluate(() => $('kbBar').classList.contains('on')), false, 'the bar stayed up after Done');
+assert.equal(await page.evaluate(() => groups[0].matches[0].pa.def), 4, 'Done did not commit what was typed');
+// the first and last box have nowhere further to go
+await (await kbRow())[0].click();
+assert.equal(await page.evaluate(() => $('kbPrev').disabled), true, 'Prev is live on the first box');
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.evaluate(() => { document.activeElement.blur(); });
+await (await kbRow())[0].click();
+assert.equal(await page.evaluate(() => $('kbBar').classList.contains('on')), false,
+  'the keypad bar showed on a desktop, where Tab already walks the boxes');
+await page.evaluate(() => document.activeElement.blur());
+console.log('keypad bar OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
