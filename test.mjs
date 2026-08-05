@@ -913,19 +913,23 @@ assert.equal(await page.evaluate(() => document.documentElement.scrollWidth), vw
 console.log('mobile layout OK');
 
 // ---------- match toss ----------
-// anyone can open it, the two dropdowns come from the live roster and can't pick
-// the same team twice, and a flip always names a winner. It's ephemeral, so it
-// must not scroll the page or touch cup state.
+// anyone can open it, it tosses between the two sides of the table rather than any
+// named team, and a spin always names one. It's ephemeral, so it must not scroll the
+// page or touch cup state.
 await page.evaluate(() => { window.setAdmin(false); show('tourney'); });
 await page.click('#tossBtn');
 await page.waitForTimeout(150);
-const toss = await page.evaluate(() => ({
-  open: document.getElementById('toss').classList.contains('open'),
-  a: tossA.options.length, b: tossB.options.length, dup: tossA.value === tossB.value,
+assert.ok(await page.evaluate(() => document.getElementById('toss').classList.contains('open')),
+  'the match toss overlay did not open');
+/* The side labels flank the dial in one row, so on a phone they are the first thing
+   to run out of room — and a label clipped to "ORANG" is the failure that looks
+   like a rendering glitch rather than a layout bug. Each label must fit its track. */
+const labelFit = await page.evaluate(() => ['tossSideA', 'tossSideB'].map(id => {
+  const el = document.getElementById(id);
+  return { id, want: Math.ceil(el.scrollWidth), got: Math.floor(el.parentElement.clientWidth) };
 }));
-assert.ok(toss.open, 'the match toss overlay did not open');
-assert.ok(toss.a >= 2 && toss.b >= 1, 'the toss dropdowns were not filled from the roster');
-assert.ok(!toss.dup, 'the toss let a team play itself');
+for (const l of labelFit)
+  assert.ok(l.want <= l.got, `${l.id} is clipped: needs ${l.want}px, has ${l.got}px`);
 /* The hand lands somewhere random and the winner is read off where it stopped, so
    one spin proves nothing: it would pass just as happily against the old version
    that only ever stopped at 9 and 3. Spin it a dozen times and check the whole
@@ -943,14 +947,18 @@ for (let i = 0; i < 12; i++) {
   spins.push(await page.evaluate(() => ({
     angle: window.tossAngle,
     result: document.getElementById('tossResult').textContent,
-    a: tossA.value, b: tossB.value,
+    lit: ['tossSideA', 'tossSideB'].map(id => document.getElementById(id).className),
   })));
 }
 await page.evaluate(() => { SPIN_MS = 4000; });
 for (const s of spins) {
-  const inBlueHalf = Math.cos(s.angle) < 0;   // left half of the dial is the blue team
-  assert.ok(s.result.startsWith(inBlueHalf ? s.a : s.b),
-    `the hand stopped in the ${inBlueHalf ? 'blue' : 'orange'} half but the toss said "${s.result}"`);
+  const inBlueHalf = Math.cos(s.angle) < 0;   // left half of the dial is the blue side
+  assert.ok(s.result.startsWith(inBlueHalf ? 'Blue' : 'Red'),
+    `the hand stopped in the ${inBlueHalf ? 'blue' : 'red'} half but the toss said "${s.result}"`);
+  // the label beside the winning half lights up, the other one steps back
+  const [a, b] = s.lit, win = inBlueHalf ? a : b, lose = inBlueHalf ? b : a;
+  assert.ok(win.includes('won') && lose.includes('lost') && !win.includes('lost'),
+    `the hand stopped in the ${inBlueHalf ? 'blue' : 'red'} half but the labels read "${a}" / "${b}"`);
   assert.ok(Math.abs(Math.cos(s.angle)) >= Math.sin(Math.PI / 6) - 1e-9,
     `the hand rested less than a clock mark from the divider — which side is that?`);
 }

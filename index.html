@@ -632,29 +632,35 @@
   .deadline.over { background: #fdecec; border-color: #f3bcbc; color: #a33131; }
   .deadline.over .dl-clock { color: #a33131; font-size: clamp(1.5rem, 6vw, 2.1rem); }
   #toss .toss-sub { text-align: center; color: #8fa0b8; font-size: 0.8rem; margin: -14px 0 20px; }
-  #toss .pickers { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; }
-  #toss .picker { flex: 1; min-width: 0; }
-  #toss .picker label {
-    display: block; font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em;
-    text-transform: uppercase; margin-bottom: 6px;
+  #toss .stage {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    gap: 8px; padding: 8px 0 16px;
   }
-  #toss .picker.a label { color: #2563eb; }
-  #toss .picker.b label { color: #dc5a1e; }
-  #toss select {
-    width: 100%; font: inherit; font-size: 0.9rem; font-weight: 700; color: #172b4d;
-    background: #f4f6fa; border: 1.5px solid #e2e8f1; border-radius: 12px;
-    padding: 11px 34px 11px 12px; cursor: pointer; -webkit-appearance: none; appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, #5b6a7d 50%),
-                      linear-gradient(135deg, #5b6a7d 50%, transparent 50%);
-    background-position: calc(100% - 17px) 18px, calc(100% - 12px) 18px;
-    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  /* The dial is the only thing in the row that can give: it shrinks from 176px down
+     to whatever a narrow phone leaves once both labels have their width. Sizing it in
+     vw instead needs the label width guessed in advance, and the guess is wrong on
+     some phone. */
+  #toss .dialwrap { position: relative; flex: 0 1 176px; aspect-ratio: 1; }
+  /* the halves are named beside the dial, each on the side it belongs to. The div is
+     the flex track — equal on both sides so the dial stays centred, but never
+     narrower than its word, which is what stops "ORANGE" clipping. */
+  #toss .side { flex: 1 1 0; min-width: max-content; text-align: center; }
+  #toss .side span {
+    display: inline-block; white-space: nowrap;
+    /* "ORANGE" is the widest thing in the row — let it shrink with the screen so it
+       never has to clip, rather than holding a size the phone has no room for */
+    font-size: clamp(0.55rem, 2.6vw, 0.78rem);
+    font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase;
+    padding: 6px 9px; border-radius: 999px;
+    transition: opacity 0.25s, background 0.25s, color 0.25s;
   }
-  #toss .picker.a select:focus { border-color: #2563eb; outline: none; }
-  #toss .picker.b select:focus { border-color: #dc5a1e; outline: none; }
-  #toss .vs { color: #8fa0b8; font-weight: 800; font-size: 0.72rem; letter-spacing: 0.1em; margin-top: 20px; flex: none; }
-  #toss .stage { position: relative; display: grid; place-items: center; padding: 8px 0 16px; }
-  /* the dial carries the team names now, so it needs more room than the coin did */
-  #toss .dialwrap { position: relative; width: 176px; height: 176px; }
+  #toss .side .a { color: #2563eb; }
+  #toss .side .b { color: #d62828; }
+  /* after a spin the winning side fills in and the other steps back */
+  #toss .side .won { color: #fff; }
+  #toss .side .a.won { background: #2563eb; }
+  #toss .side .b.won { background: #d62828; }
+  #toss .side .lost { opacity: 0.35; }
   #tossCanvas { width: 100%; height: 100%; display: block; filter: drop-shadow(0 8px 18px rgba(10,16,28,0.16)); }
   #tossFlip {
     display: block; margin: 0 auto; border: none; border-radius: 999px;
@@ -668,11 +674,6 @@
   #toss .toss-result { text-align: center; min-height: 1.4em; margin-top: 14px; font-weight: 800; font-size: 0.95rem; color: #172b4d; }
   #toss .toss-result .who { padding: 3px 10px; border-radius: 7px; color: #fff; }
   #toss .toss-result .idle { color: #8fa0b8; font-weight: 600; font-size: 0.85rem; }
-  @media (max-width: 640px) {
-    #toss .pickers { flex-direction: column; align-items: stretch; gap: 12px; }
-    #toss .vs { margin: 0; align-self: center; }
-    #toss .dialwrap { width: 158px; height: 158px; }
-  }
   /* rules sheet */
   .rules-h {
     font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em;
@@ -1057,14 +1058,11 @@ Rashed</textarea>
 <div id="toss">
   <div class="hall-card">
     <div class="hall-title">🕓 Match Toss</div>
-    <div class="toss-sub">Spin the ticker — the winner kicks off first.</div>
-    <div class="pickers">
-      <div class="picker a"><label>Blue side</label><select id="tossA"></select></div>
-      <div class="vs">VS</div>
-      <div class="picker b"><label>Orange side</label><select id="tossB"></select></div>
-    </div>
+    <div class="toss-sub">Agree who's blue and who's red, then spin — the colour it lands on kicks off first.</div>
     <div class="stage">
+      <div class="side"><span class="a" id="tossSideA">Blue</span></div>
       <div class="dialwrap"><canvas id="tossCanvas"></canvas></div>
+      <div class="side"><span class="b" id="tossSideB">Red</span></div>
     </div>
     <button id="tossFlip">Spin the Ticker</button>
     <div class="toss-result" id="tossResult"><span class="idle">Ready when you are.</span></div>
@@ -3099,25 +3097,29 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 
 <script>
 /* ================= MATCH TOSS =================
-   A pre-match toss anyone can run: pick the two teams, spin the ticker, the
-   winner kicks off. Purely local and ephemeral — it writes nothing and touches
-   no cup state. The dial itself never moves: it is a fixed clock face split down
-   the middle, blue team on the left, orange on the right. Only the hand turns,
+   A pre-match toss anyone can run: spin the ticker, the colour it lands on kicks
+   off. It names sides rather than teams, so it works for any two people standing
+   at the table — nothing to pick, nothing to keep in sync with the roster. Purely
+   local and ephemeral — it writes nothing and touches no cup state. The dial itself
+   never moves: it is a circle in two solid colours, blue on the left, red on the
+   right, with each side named beside the half it belongs to. Only the hand turns,
    and it stops anywhere in the half it lands in — the winner is read off the
    resting angle rather than decided beforehand, so the dial can never disagree
-   with the text under it. Nothing rests within one clock mark of the divider
-   (between 11 and 1, or 5 and 7): at a 176px dial a hand a few degrees off the
+   with the text under it. Nothing rests within 30° of the seam (between 11 and 1,
+   or 5 and 7 on the old clock face): at a 176px dial a hand a few degrees off the
    middle is something two people squint at and argue over. The halves stay equal,
-   so it is still exactly 50/50. At rest before a spin the hand sits on the divider
-   at 12, pointing at neither team, so an untouched dial never reads as a result. */
+   so it is still exactly 50/50. At rest before a spin the hand sits on the seam
+   at 12, pointing at neither side, so an untouched dial never reads as a result. */
 (function () {
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const canvas = $('tossCanvas');
-  const selA = $('tossA'), selB = $('tossB');
-  const COL_A = '#2563eb', COL_B = '#dc5a1e';
+  /* Blue and red: the rod colours on the table, so "red serves" needs no translating.
+     Deliberately not the fwd/def blue+orange used elsewhere — that pair already means
+     the two halves of one team, and reusing it here would mean two things at once. */
+  const COL_A = '#2563eb', COL_B = '#d62828';
   const UP = -Math.PI / 2; // 12 o'clock, and the divider
-  const MARK = Math.PI / 6; // 12 clock marks — also the tick spacing
-  const LIVE = Math.PI - 2 * MARK; // landable arc per half, one mark clear of each divider
+  const MARK = Math.PI / 6; // 30°: the tick spacing, and the dead band either side of the seam
+  const LIVE = Math.PI - 2 * MARK; // landable arc per half, one mark clear of each seam
 
   function fit() {
     const dpr = Math.min(devicePixelRatio || 1, 2);
@@ -3129,64 +3131,20 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     return { ctx, w: r.width, h: r.height };
   }
 
-  /* A team name is "fwd + def" — "Sazedul Haque + Ofi" is far too wide to sit in
-     half a 170px dial on one line. Wrap it greedily onto as many lines as it needs
-     and only shrink when a single word still won't fit, so a long name loses height
-     rather than legibility. Shrinking alone would put it on screen at ~8px. */
-  function halfLabel(ctx, name, cx, bottom, avail, size, halo) {
-    let fs = size;
-    const wrap = () => {
-      ctx.font = '800 ' + fs + 'px Inter, sans-serif';
-      const out = [];
-      name.split(' ').forEach(word => {
-        const joined = out.length ? out[out.length - 1] + ' ' + word : word;
-        if (out.length && ctx.measureText(joined).width <= avail) out[out.length - 1] = joined;
-        else out.push(word);
-      });
-      return out;
-    };
-    let lines = wrap();
-    // one unbreakable word wider than the half — now scaling is the only option left
-    const widest = Math.max(...lines.map(l => ctx.measureText(l).width));
-    if (widest > avail) { fs *= avail / widest; lines = wrap(); }
-    /* Grow upwards from a fixed bottom edge, not outwards from a centre: the block
-       then clears the resting hand no matter how many lines the name wrapped onto. */
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const lh = fs * 1.2, top = bottom - (lines.length - 1) * lh;
-    /* Halo in the half's own tint, so the name stays readable with the hand lying
-       across it — the hand can now rest at any angle, including straight through here. */
-    ctx.lineJoin = 'round'; ctx.lineWidth = fs * 0.32; ctx.strokeStyle = halo;
-    lines.forEach((l, i) => ctx.strokeText(l, cx, top + i * lh));
-    lines.forEach((l, i) => ctx.fillText(l, cx, top + i * lh));
-  }
-
   function drawDial(angle) {
     const { ctx, w, h } = fit();
     const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 5;
     ctx.clearRect(0, 0, w, h);
 
-    // the two halves: blue owns the left semicircle, orange the right
+    // the two halves: blue owns the left semicircle, red the right
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, Math.PI / 2, -Math.PI / 2);
-    ctx.fillStyle = '#eef3fd'; ctx.fill();
+    ctx.fillStyle = COL_A; ctx.fill();
     ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, R, -Math.PI / 2, Math.PI / 2);
-    ctx.fillStyle = '#fdf0e8'; ctx.fill();
+    ctx.fillStyle = COL_B; ctx.fill();
 
-    // clock marks, longer on the quarters
-    ctx.lineCap = 'round';
-    for (let i = 0; i < 12; i++) {
-      const a = UP + i * MARK, quarter = i % 3 === 0;
-      ctx.beginPath();
-      ctx.moveTo(cx + Math.cos(a) * R * 0.93, cy + Math.sin(a) * R * 0.93);
-      ctx.lineTo(cx + Math.cos(a) * R * (quarter ? 0.8 : 0.86), cy + Math.sin(a) * R * (quarter ? 0.8 : 0.86));
-      ctx.lineWidth = quarter ? 2.4 : 1.4;
-      ctx.strokeStyle = quarter ? 'rgba(23,43,77,0.42)' : 'rgba(23,43,77,0.2)';
-      ctx.stroke();
-    }
-
-    // the divider, dashed so it reads as a boundary rather than a second hand
-    ctx.save(); ctx.setLineDash([4, 4]); ctx.lineWidth = 1.5;
-    ctx.strokeStyle = 'rgba(23,43,77,0.28)';
-    ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke(); ctx.restore();
+    // the seam, solid white: on full colour it reads as a boundary on its own
+    ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.beginPath(); ctx.moveTo(cx, cy - R); ctx.lineTo(cx, cy + R); ctx.stroke();
 
     // gold bezel
     ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7);
@@ -3205,8 +3163,11 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     ctx.closePath();
     const g = ctx.createLinearGradient(-tail, 0, len, 0);
     g.addColorStop(0, '#b8801a'); g.addColorStop(.45, '#f4cf63'); g.addColorStop(1, '#e0a52c');
+    /* Outlined in white rather than the old dark brown: gold on solid red is
+       barely a boundary, and the hand has to stay findable over both halves. */
+    ctx.lineJoin = 'round'; ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.stroke();
     ctx.fillStyle = g; ctx.fill();
-    ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(94,62,12,0.5)'; ctx.stroke();
     ctx.restore();
 
     // pivot hub, drawn last so the hand tucks under it
@@ -3215,39 +3176,25 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.stroke();
     ctx.beginPath(); ctx.arc(cx, cy, R * 0.03, 0, 7);
     ctx.fillStyle = 'rgba(94,62,12,0.55)'; ctx.fill();
-
-    /* Team names last, over the hand rather than dodging it: the hand rests at any
-       angle now, so there is no longer a strip of the half it is guaranteed to miss.
-       Still above the midline, where the fewest resting angles cross them. */
-    const labelBottom = cy - R * 0.22;
-    ctx.fillStyle = COL_A;
-    halfLabel(ctx, selA.value || 'Blue', cx - R * 0.47, labelBottom, R * 0.8, R * 0.16, '#eef3fd');
-    ctx.fillStyle = COL_B;
-    halfLabel(ctx, selB.value || 'Orange', cx + R * 0.47, labelBottom, R * 0.8, R * 0.16, '#fdf0e8');
   }
 
   let angle = UP; // where the hand is now; starts on the divider
   const drawIdle = () => drawDial(angle);
 
-  function fillSelects(keepA, keepB) {
-    const names = teams.map(teamName);
-    selA.innerHTML = names.map(n => `<option${n === keepA ? ' selected' : ''}>${n}</option>`).join('');
-    selB.innerHTML = names.filter(n => n !== selA.value).map(n => `<option${n === keepB ? ' selected' : ''}>${n}</option>`).join('');
-    if (selB.value === selA.value || !selB.value) selB.selectedIndex = 0;
+  // aWins true lights blue, false lights red, null puts both back to neutral
+  function markSides(aWins) {
+    [[$('tossSideA'), true], [$('tossSideB'), false]].forEach(([el, isA]) => {
+      el.classList.toggle('won', aWins === isA);
+      el.classList.toggle('lost', aWins !== null && aWins !== isA);
+    });
   }
-  function resetResult() {
-    angle = UP; // a changed team makes the old result meaningless — back to the divider
-    drawIdle();
-    $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
-  }
-  selA.onchange = () => { fillSelects(selA.value, selB.value); resetResult(); };
-  selB.onchange = resetResult;
 
   let busy = false;
   function spin() {
-    if (busy || teams.length < 2) return;
+    if (busy) return;
     busy = true;
     const btn = $('tossFlip'); btn.disabled = true;
+    markSides(null); // last result is void the moment the hand moves again
     $('tossResult').innerHTML = '<span class="idle">Spinning…</span>';
     /* Draw the resting place, then read the winner off it — the hand is not steered
        to a decision made before it moved. crypto, not Math.random: a real entropy
@@ -3257,7 +3204,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     const raw = crypto.getRandomValues(new Uint32Array(1))[0] / 2 ** 32 * 2 * LIVE;
     const target = UP + raw + (raw < LIVE ? MARK : 3 * MARK); // clockwise from 12
     const aWins = Math.cos(target) < 0; // left half is blue, and the dial says so
-    const winName = aWins ? selA.value : selB.value;
+    const winName = aWins ? 'Blue' : 'Red';
     const winColor = aWins ? COL_A : COL_B;
     /* Always travel clockwise: whole turns plus however far short of the target
        the hand currently sits. */
@@ -3268,6 +3215,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
       angle = window.tossAngle = target; // exported only so the test can see where it stopped
       drawDial(angle);
       ding();
+      markSides(aWins);
       $('tossResult').innerHTML =
         '<span class="who" style="background:' + winColor + '">' + winName + '</span> serves first';
     };
@@ -3279,8 +3227,8 @@ var bootTimer = setTimeout(window.bootDone, 3000);
       const t = Math.min(1, (now - t0) / SPIN_MS);
       const travelled = sweep * ease(t);
       angle = start + travelled;
-      /* One tick per clock mark passed, so the clicking slows with the hand — but
-         at full speed the marks pass every ~10ms against a 35ms tone, which buzzes
+      /* One tick per 30° passed, so the clicking slows with the hand — but
+         at full speed they pass every ~10ms against a 35ms tone, which buzzes
          instead of ticking. Drop the ones that would overlap; by the time the hand
          is slow enough to read, every mark gets its own click. */
       const mark = Math.floor(travelled / MARK);
@@ -3295,10 +3243,9 @@ var bootTimer = setTimeout(window.bootDone, 3000);
   $('tossFlip').onclick = spin;
 
   function openToss() {
-    if (teams.length < 2) return; // nothing to toss between yet
-    fillSelects(teams[0] && teamName(teams[0]), teams[1] && teamName(teams[1]));
     $('toss').classList.add('open');
     angle = UP;
+    markSides(null);
     $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
     requestAnimationFrame(drawIdle); // canvas has size only once the panel is visible
   }
