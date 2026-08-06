@@ -510,7 +510,7 @@
   /* a fixed grid, not flex — every row emits all nine cells (a dash where
      there's nothing) so the numbers line up in scannable columns */
   .pl-row {
-    display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px 32px 31px 31px 40px 36px 38px;
+    display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px 32px 31px 38px 40px 36px 38px;
     align-items: baseline; gap: 8px 7px;
     padding: 11px 4px; border-bottom: 1px solid #eef1f6;
   }
@@ -552,7 +552,7 @@
     background-attachment: local, local, scroll, scroll;
   }
   @media (max-width: 560px) {
-    .pl-row { min-width: 440px; } /* 330px of fixed tracks + 110px of name */
+    .pl-row { min-width: 447px; } /* 337px of fixed tracks + 110px of name */
     /* scrolled away, a row of numbers belongs to nobody — the rank and name
        stay pinned; z-index because the later cells would paint over them */
     .pl-n, .pl-name { position: sticky; z-index: 1; background: #fff; }
@@ -953,12 +953,12 @@
 </div>
 
 <!-- award artwork: cloned into the celebration panels and serialized straight
-     onto the share card, so both always show the identical boot and ball -->
+     onto the share card, so both always show the identical boot and glove -->
 <!-- not hidden with display:none: Chrome will not resolve url(#gradient) into a
      clone when the gradient's own subtree is unrendered -->
 <div id="awardArt" style="position:absolute;width:0;height:0;overflow:hidden">
   <svg class="award-art" data-a="boot" viewBox="0 0 120 92" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Golden boot"><defs><linearGradient id="abg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e0"/><stop offset=".34" stop-color="#f0c25a"/><stop offset=".72" stop-color="#c8901f"/><stop offset="1" stop-color="#8a5a0e"/></linearGradient><linearGradient id="abs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><g fill="url(#abg)" stroke="#4e2f06" stroke-width="1.6"><rect x="12" y="74" width="14" height="12" rx="4"/><rect x="38" y="74" width="14" height="12" rx="4"/><rect x="74" y="74" width="14" height="12" rx="4"/><rect x="96" y="74" width="14" height="12" rx="4"/></g><path d="M6 66 C6 54 14 46 30 43 C45 40 54 37 62 29 C69 22 75 16 85 16 C97 16 102 27 102 42 C102 55 106 62 113 66 L113 76 L6 76 Z" fill="url(#abg)" stroke="#4e2f06" stroke-width="2" stroke-linejoin="round"/><path d="M6 66 L113 66" fill="none" stroke="#4e2f06" stroke-width="1.8" opacity=".5"/><g stroke="#5e3908" stroke-width="2.4" stroke-linecap="round" opacity=".55" fill="none"><path d="M45 37 L51 48"/><path d="M53 32 L59 43"/><path d="M61 27 L67 38"/></g><path d="M84 18 C93 20 97 29 97 41" fill="none" stroke="#5e3908" stroke-width="2.2" opacity=".4"/><path d="M14 60 C16 51 24 46 34 44 C29 50 24 57 24 64 Z" fill="url(#abs)" opacity=".6"/></svg>
-  <svg class="award-art" data-a="ball" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Golden ball"><defs><radialGradient id="ablg" cx=".34" cy=".28" r=".9"><stop offset="0" stop-color="#fff8e0"/><stop offset=".45" stop-color="#f0c25a"/><stop offset="1" stop-color="#8a5a0e"/></radialGradient></defs><circle cx="12" cy="12" r="9.5" fill="url(#ablg)" stroke="#4e2f06" stroke-width=".9"/><path d="M12 7.2l3.8 2.8-1.45 4.5h-4.7L7.2 10z" fill="#5e3908" opacity=".6"/><g stroke="#5e3908" stroke-width="1" stroke-linecap="round" opacity=".6" fill="none"><path d="M12 2.5v4.7M21 9.2l-4.4 1.3M18.4 19l-3.6-3.4M5.6 19l3.6-3.4M3 9.2l4.4 1.3"/></g><ellipse cx="8.4" cy="7.2" rx="3" ry="1.9" fill="#fff" opacity=".35" transform="rotate(-35 8.4 7.2)"/></svg>
+  <svg class="award-art" data-a="glove" viewBox="0 0 96 108" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Golden glove"><defs><linearGradient id="agg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff8e0"/><stop offset=".34" stop-color="#f0c25a"/><stop offset=".72" stop-color="#c8901f"/><stop offset="1" stop-color="#8a5a0e"/></linearGradient><linearGradient id="ags" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs><g fill="url(#agg)" stroke="#4e2f06" stroke-width="2" stroke-linejoin="round"><rect x="28" y="20" width="13" height="42" rx="6.5"/><rect x="43" y="14" width="13" height="48" rx="6.5"/><rect x="58" y="18" width="13" height="44" rx="6.5"/><rect x="73" y="28" width="11" height="34" rx="5.5"/><rect x="2" y="46" width="32" height="16" rx="8" transform="rotate(-24 18 54)"/><rect x="26" y="44" width="58" height="44" rx="13"/><rect x="22" y="84" width="66" height="20" rx="8"/></g><g stroke="#5e3908" stroke-width="2" stroke-linecap="round" opacity=".4" fill="none"><path d="M38 89 L38 99"/><path d="M55 89 L55 99"/><path d="M72 89 L72 99"/></g><path d="M38 60 C48 67 62 67 72 60" fill="none" stroke="#5e3908" stroke-width="2" stroke-linecap="round" opacity=".3"/><path d="M34 52 C35 66 39 78 45 85 C38 80 30 68 30 54 Z" fill="url(#ags)" opacity=".7"/></svg>
 </div>
 
 <div id="celebrate">
@@ -1116,7 +1116,8 @@ Rashed</textarea>
         <li>Play whenever both teams are in the office — there are no fixed slots.</li>
         <li>A no-show is set with the <b>forfeit picker</b> under the match, not with the
         goal boxes — nobody scored, so there is no player to hang a goal on.<span
-        class="indiv-only"> A forfeited match counts towards nobody's <b>Golden Boot</b>.</span></li>
+        class="indiv-only"> A forfeited match counts towards nobody's <b>Golden Boot</b> —
+        though the 1-0 does count against the loser's <b>Golden Glove</b>.</span></li>
         <li>A team that doesn't turn up by the deadline <b>forfeits 1-0</b>. It's recorded
         as 1-0 rather than 10-0 so an unplayed match can never outrank a real
         result on goal difference.</li>
@@ -1182,16 +1183,20 @@ Rashed</textarea>
       <p>Winning the Grand Final takes the cup, and that team is added to the
       <b>Hall of Fame</b> the moment the final is decided.</p>
 
-      <div class="rules-h indiv-only">Golden Boot &amp; Golden Ball</div>
+      <div class="rules-h indiv-only">Golden Boot &amp; Golden Glove</div>
       <ul class="indiv-only">
         <li><b>Golden Boot</b> — the most <b>individual goals</b> in the cup, group and
         knockout together. The race is live under the group table all cup long.</li>
-        <li><b>Golden Ball</b> — the cup's best player, worked out rather than voted
-        for: <b>how far their team went</b>, then <b>win %</b>, then <b>goal
-        difference</b>, then <b>goals scored</b>. The first three are the same for
-        both halves of a team, so it's the goals that separate partners.</li>
-        <li>Both are <b>shared</b> when players are level — no arbitrary tie-break.</li>
-        <li>Forfeited matches count for neither: no goalscorer, so no goals.</li>
+        <li><b>Golden Glove</b> — the <b>fewest goals conceded per match</b>, and only
+        the <b>defence</b> is in the running. Goals against are a team total, shared by
+        both partners, so opening it up could only ever name a pair.</li>
+        <li>Per match, not in total: everyone plays the same group fixtures, but reaching
+        the final means two or three knockouts on top. On a raw total those extra matches
+        would just be extra goals against — <b>going deep would cost you the Glove</b>.</li>
+        <li>Level on the rate? It goes to whoever held it over <b>more matches</b>.</li>
+        <li>Both are <b>shared</b> when players are still level — no arbitrary tie-break.</li>
+        <li>A forfeit credits <b>no goalscorer</b> — there's no breakdown behind it — but
+        the <b>1-0 still concedes</b>. Not turning up costs your Glove.</li>
       </ul>
     </div>
     <button id="rulesClose">Close</button>
@@ -1255,7 +1260,7 @@ const show = id => {
 const ADMIN_EMAIL = 'bhacker150@gmail.com'; // must match the .write rule in database.rules.json
 var isAdmin = false, gotRemote = false;
 
-/* Individual goals — and with them the Golden Boot and the Golden Ball — start
+/* Individual goals — and with them the Golden Boot and the Golden Glove — start
    with the cup after this one; see PER-PLAYER GOALS. */
 const INDIV_FROM = 1785693234000; // 2026-08-02
 const indivGoals = () => !cupId || +cupId >= INDIV_FROM;
@@ -1493,16 +1498,18 @@ function bestRounds(e) {
 function renderPlayers(entries) {
   const box = $('hallPlayers');
   const P = {};
-  const get = n => P[n] || (P[n] = { titles: 0, boot: 0, ball: 0, p: 0, w: 0, gf: 0, ga: 0, best: 0 });
+  const get = n => P[n] || (P[n] = { titles: 0, boot: 0, glove: 0, p: 0, w: 0, gf: 0, ga: 0, best: 0 });
   entries.forEach(e => {
     // the champion string is the one signal every archived cup carries
     (e.champion || '').split(' + ').forEach(n => { if (n) { const x = get(n); x.titles++; x.best = 4; } });
     const br = bestRounds(e);
     // cups archived before per-player goals existed carry no awards, so they
-    // simply contribute nothing to these two columns
+    // simply contribute nothing to these two columns. Cups won before the
+    // Glove replaced the Golden Ball carry a ball key instead, which nothing
+    // reads any more — the award is retired, not renamed.
     const aw = e.awards || {};
     (aw.boot || []).forEach(n => get(n).boot++);
-    (aw.ball || []).forEach(n => get(n).ball++);
+    (aw.glove || []).forEach(n => get(n).glove++);
     if (e.players) Object.entries(e.players).forEach(([n, s]) => {
       const x = get(n);
       x.p += s.p || 0; x.w += s.w || 0; x.gf += s.gf || 0; x.ga += s.ga || 0;
@@ -1519,7 +1526,7 @@ function renderPlayers(entries) {
   const note = document.createElement('div');
   note.className = 'hall-note';
   note.textContent = 'Ranked by cups won, then win rate. W–L counts group and knockout matches together. '
-    + 'Boot and Ball are Golden Boots (top scorer) and Golden Balls (cup MVP).';
+    + 'Boot and Glove are Golden Boots (top scorer) and Golden Gloves (the defender who conceded fewest).';
   // the header carries the same cell classes as a data row, so one set of grid
   // rules places both. Its rank cell reads '#' rather than sitting empty: an
   // empty cell has no height, and on a phone it's pinned over scrolling columns.
@@ -1528,7 +1535,7 @@ function renderPlayers(entries) {
   const head = document.createElement('div');
   head.className = 'pl-row pl-head';
   [['pl-n', '#'], ['pl-name', 'Player'], ['pl-best', 'Best'], ['pl-titles', 'Cups'],
-   ['pl-award', 'Boot'], ['pl-award', 'Ball'],
+   ['pl-award', 'Boot'], ['pl-award', 'Glove'],
    ['pl-stat', 'W–L'], ['pl-stat', 'Win'], ['pl-stat pl-gd', 'GD']]
     .forEach(([c, t]) => head.appendChild(cell(c, t)));
   tbl.appendChild(head);
@@ -1545,7 +1552,7 @@ function renderPlayers(entries) {
       cell('pl-best b' + r.best, BEST[r.best]),
       cell('pl-titles', r.titles ? '🏆 ' + r.titles : '<span class="pl-stat">—</span>'),
       cell('pl-award' + (r.boot ? ' has' : ''), r.boot || '—'),
-      cell('pl-award' + (r.ball ? ' has' : ''), r.ball || '—'),
+      cell('pl-award' + (r.glove ? ' has' : ''), r.glove || '—'),
       cell('pl-stat', r.p ? `<b>${r.w}</b>–${r.p - r.w}` : '—'),
       cell('pl-stat', r.p ? `<b>${r.pct}%</b>` : '—'),
       cell('pl-stat pl-gd', r.p ? (r.gd >= 0 ? '+' : '') + r.gd : '—'),
@@ -2034,7 +2041,7 @@ const scoresValid = m => m.sa != null && m.sb != null && m.sa !== m.sb;
 
    ...but only from the next cup on. The cup running when this shipped is scored
    by team total alone — one box a side, nobody's name on the goals — so it hands
-   out no Golden Boot and no Golden Ball. cupId is the millisecond the cup was
+   out no Golden Boot and no Golden Glove. cupId is the millisecond the cup was
    started at, so the cutoff needs no new field and no migration: cups from
    before it (including the hashed ids of cups that never stored one, which
    aren't numbers at all) score by team, cups after it by player. No cup yet
@@ -2676,31 +2683,51 @@ function rollupPlayers() {
   return P;
 }
 
-/* ================= GOLDEN BOOT / GOLDEN BALL =================
-   Boot: most individual goals in the cup. Ball: furthest round reached, then
-   win %, then goal difference, then individual goals. The first three are all
-   team-level and therefore identical for two teammates, so without the goals
-   the formula could only ever separate teams, never a pair. Anything still
-   level after all four is shared — no arbitrary tie-break. */
+/* ================= GOLDEN BOOT / GOLDEN GLOVE =================
+   Boot: most individual goals in the cup. Glove: fewest goals conceded per
+   match, and only the defence is in the running — ga is a team total shared by
+   both partners, so opening it to forwards could only ever name a pair, never a
+   person. Roles are set on the setup screen before the wheels spin, so the
+   defence pool is known for the whole cup. A forfeit's 1-0 counts: it moves the
+   table and GD already, so it concedes here too.
+
+   Per match, not in total, because the two are not comparable: everyone plays
+   the same group fixtures but a finalist plays two or three knockouts on top,
+   and on a raw total those extra matches are pure cost. A defence conceding 5 a
+   match over 6 would lose to one conceding 7 a match that went out in the
+   group — the award would reward getting knocked out early. Ties go to whoever
+   held the rate over more matches; still level after that is shared. */
 const cmpKey = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return b[i] - a[i]; return 0; };
 // the two rankings, shared by the live race and the trophy handed out at the
 // end — so the board never disagrees with the award it is counting down to
 const bootKey = P => n => [P[n].g];
-const ballKey = (P, best) => n => [best[n] || 0, P[n].p ? P[n].w / P[n].p : 0, P[n].gf - P[n].ga, P[n].g];
+/* Rounded to a tenth deliberately: it is the very number the panel and the
+   board print, so two defences the reader sees as level are ranked level and
+   share the award, rather than being split on a digit nothing displays. */
+const concededRate = (P, n) => Math.round(P[n].ga / P[n].p * 10) / 10;
+const gloveKey = P => n => [-concededRate(P, n), P[n].p];
+// who is eligible for the Glove: drafted onto the defence and actually played.
+// A rollup only ever lists people who played, so the play count is a guard
+// rather than a filter — but fewest-conceded fails silently and in the winner's
+// favour if one ever slips through, since 0 played is 0 conceded and unbeatable.
+const keepers = (P, defNames) => Object.keys(P).filter(n => defNames.has(n) && P[n].p > 0);
+// the defence pool as typed on the setup screen — settled before the draw, and
+// saved with the rest of the cup, so it survives a reload the same way teams do
+const defNames = () => new Set(defs.map(d => d.name));
 
-function cupAwards(P, champion) {
+function cupAwards(P, defNames) {
   const ns = Object.keys(P);
   if (!ns.length) return null;
-  const best = bestRounds({ players: P });
-  if (champion) [champion.fwd, champion.def].forEach(n => { if (P[n]) best[n] = 4; });
-  const lead = key => {
-    const top = ns.map(key).sort(cmpKey)[0];
-    return ns.filter(n => cmpKey(key(n), top) === 0).sort();
+  const lead = (pool, key) => {
+    const top = pool.map(key).sort(cmpKey)[0];
+    return pool.filter(n => cmpKey(key(n), top) === 0).sort();
   };
-  const boot = ns.some(n => P[n].g > 0) ? lead(bootKey(P)) : [];
+  const boot = ns.some(n => P[n].g > 0) ? lead(ns, bootKey(P)) : [];
+  const keeps = keepers(P, defNames);
+  const glove = keeps.length ? lead(keeps, gloveKey(P)) : [];
   return {
     boot, bootGoals: boot.length ? P[boot[0]].g : 0,
-    ball: lead(ballKey(P, best)),
+    glove, gloveRate: glove.length ? concededRate(P, glove[0]) : 0,
   };
 }
 
@@ -2708,9 +2735,9 @@ function cupAwards(P, champion) {
 const champTeam = () => (koStarted && koRounds.length && koRounds[koRounds.length - 1][0].winner) || null;
 
 /* Both races, live for everyone while the cup runs — same reason the group
-   table is live rather than a reveal at the end. The Ball standing leans on
-   the same key as the award, so mid-cup it is really win % then goal
-   difference: the round part only starts separating people in the knockouts. */
+   table is live rather than a reveal at the end. Both boards sort on the very
+   key that decides the award, so a leader here is the leader full stop: what
+   changes between now and the final is the results, not the reckoning. */
 function renderGolden() {
   const el = $('golden');
   el.innerHTML = '';
@@ -2750,26 +2777,22 @@ function renderGolden() {
     el.appendChild(box);
   };
 
-  /* bestRounds reads rounds off play counts, which only means anything once
-     the groups are done — mid-group it would just rank whoever has played the
-     most, so until the knockouts the race is win % then GD then goals */
-  const bk = ballKey(P, koStarted ? bestRounds({ players: P }) : {}), gk = bootKey(P);
+  const vk = gloveKey(P), gk = bootKey(P);
   race('Golden Boot race', 'individual goals — a forfeit credits nobody',
     ns.filter(n => P[n].g > 0).sort((a, b) => cmpKey(gk(a), gk(b)) || a.localeCompare(b)),
     gk, n => P[n].g);
-  const gd = n => (P[n].gf - P[n].ga >= 0 ? '+' : '') + (P[n].gf - P[n].ga);
-  race('Golden Ball race',
-    (koStarted ? 'round reached, then ' : '') + 'win %, then GD, then goals',
-    ns.filter(n => P[n].p > 0).sort((a, b) => cmpKey(bk(a), bk(b)) || a.localeCompare(b)),
-    bk, n => Math.round(P[n].w / P[n].p * 100) + '%',
-    n => ' ' + gd(n) + ' GD · ' + P[n].g + 'g');
+  race('Golden Glove race', 'conceded per match — the defence only',
+    keepers(P, defNames()).sort((a, b) => cmpKey(vk(a), vk(b)) || a.localeCompare(b)),
+    vk, n => concededRate(P, n).toFixed(1),
+    // the raw total behind the rate, and the match count that breaks its ties
+    n => ' ' + P[n].ga + ' in ' + P[n].p + (P[n].p === 1 ? ' match' : ' matches'));
 
   el.style.display = el.firstChild && curScreen === 'tourney' ? '' : 'none';
 }
 
 function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
-  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, w) : null); }
+  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null); }
   else window.clearChampion(cupId);
 }
 
@@ -2788,7 +2811,7 @@ function celebrate(name, entry) {
   // an archived cup carries the awards it was won with; the live one is worked
   // out now, so a replayed old cup never borrows this cup's scorers
   shareAwards = entry ? entry.awards
-    : champTeam() && indivGoals() ? cupAwards(rollupPlayers(), champTeam()) : null;
+    : champTeam() && indivGoals() ? cupAwards(rollupPlayers(), defNames()) : null;
   renderAwards(shareAwards);
   $('celebrate').style.display = 'flex';
   confettiRun = true;
@@ -2871,7 +2894,9 @@ function celebrate(name, entry) {
 const awardLines = aw => aw ? [
   aw.boot && aw.boot.length ? ['boot', 'Golden Boot', aw.boot.join(' & '),
     aw.bootGoals + (aw.bootGoals === 1 ? ' goal' : ' goals')] : null,
-  aw.ball && aw.ball.length ? ['ball', 'Golden Ball', aw.ball.join(' & '), ''] : null,
+  aw.glove && aw.glove.length ? ['glove', 'Golden Glove', aw.glove.join(' & '),
+    // toFixed so a flat 5 still reads as a rate rather than a goal count
+    aw.gloveRate.toFixed(1) + ' per match'] : null,
 ].filter(Boolean) : [];
 
 const awardArt = key => document.querySelector('#awardArt [data-a="' + key + '"]');

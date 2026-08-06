@@ -401,37 +401,70 @@ assert.deepEqual(roll['Rashed'], { p: 2, w: 2, gf: 11, ga: 7, g: 3 },
 assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 9, g: 4 }, 'KO loss should add a play, no goals');
 assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19, g: 11 }, 'loser goals wrong');
 
-/* Golden Boot and Golden Ball, worked out from that rollup. Boot is raw
-   individual goals; Ball is furthest round -> win % -> GD -> goals, and that
-   last step is the only one that can separate two players on the same team. */
-const aw = await page.evaluate(() => cupAwards(rollupPlayers(), koRounds[0][0].winner));
+/* Golden Boot and Golden Glove, worked out from that rollup. Boot is raw
+   individual goals; Glove is fewest conceded per match among the defence only,
+   then more matches played. The defence pool is passed in, so these drive it
+   directly — and cupAwards stays pure enough to hand a rollup straight in. */
+const D = ['Rashed', 'Sifat', 'Toufiq'];  // the def half of each pair in T
+const TD = { ...T, d: D };                // evaluate() takes one argument, so ride along
+const aw = await page.evaluate(d => cupAwards(rollupPlayers(), new Set(d)), D);
 assert.deepEqual(aw.boot, ['Rifat'], 'Golden Boot is not the top individual scorer: ' + aw.boot);
 assert.equal(aw.bootGoals, 11, 'Golden Boot goal count wrong');
-// Nur and Rashed both won the cup on identical team numbers — only their own
-// goals are left to tell them apart, and Nur scored more
-assert.deepEqual(aw.ball, ['Nur'],
-  'Golden Ball did not fall to the champion who outscored his own partner: ' + aw.ball);
+// everyone played twice: Rashed conceded 7, Toufiq 9, Sifat 19 — and Nur is
+// level with Rashed but plays up front, so a Glove naming him means forwards leaked in
+assert.deepEqual(aw.glove, ['Rashed'],
+  'Golden Glove is not the defender who conceded fewest: ' + aw.glove);
+assert.equal(aw.gloveRate, 3.5, 'Golden Glove conceded rate wrong');
 
-// a dead-level pair shares both awards rather than being split arbitrarily
-const tied = await page.evaluate(({ nur, rifat }) => {
+// the Boot cannot separate two players on one team; the Glove is what does
+const tied = await page.evaluate(({ nur, rifat, d }) => {
   groups = [{ name: 'A', teams: [nur, rifat], matches: [
     { a: nur, b: rifat, sa: 10, sb: 6, pa: { fwd: 5, def: 5 }, pb: { fwd: 3, def: 3 }, winner: nur },
   ] }];
   koRounds = []; koStarted = false;
-  return cupAwards(rollupPlayers(), nur);
-}, T);
+  return cupAwards(rollupPlayers(), new Set(d));
+}, TD);
 assert.deepEqual(tied.boot, ['Nur', 'Rashed'], 'a tie on goals must be a shared Golden Boot: ' + tied.boot);
-assert.deepEqual(tied.ball, ['Nur', 'Rashed'], 'a tie the formula cannot break must be shared: ' + tied.ball);
+assert.deepEqual(tied.glove, ['Rashed'], 'the Glove should go to the defence that conceded 6, not 10: ' + tied.glove);
 
-// a cup with nothing but forfeits has no scorer at all, so no Boot to award
-const dry = await page.evaluate(({ nur, rifat }) => {
+// three defences dead level on rate and on matches — shared, not split
+const level = await page.evaluate(({ nur, rifat, saj, d }) => {
+  groups = [{ name: 'A', teams: [nur, rifat, saj], matches: [
+    { a: nur, b: rifat, sa: 10, sb: 8, pa: { fwd: 6, def: 4 }, pb: { fwd: 5, def: 3 }, winner: nur },
+    { a: rifat, b: saj, sa: 10, sb: 8, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 4 }, winner: rifat },
+    { a: nur, b: saj, sa: 8, sb: 10, pa: { fwd: 5, def: 3 }, pb: { fwd: 6, def: 4 }, winner: saj },
+  ] }];
+  return cupAwards(rollupPlayers(), new Set(d));
+}, TD);
+assert.deepEqual(level.glove, ['Rashed', 'Sifat', 'Toufiq'],
+  'defences level on both counts must share the Glove: ' + level.glove);
+
+/* The reason the Glove is a rate and not a total. Reaching the final means two
+   or three knockouts on top of the group everyone plays, so a raw total charges
+   the deepest run for the privilege: Toufiq's 28 would beat Rashed's 30 despite
+   conceding two more a match. Handed in as a rollup rather than built out of
+   fixtures, because a 6-match run needs a whole cup to reproduce. */
+const evens = await page.evaluate(d => cupAwards({
+  Rashed: { p: 6, w: 4, gf: 40, ga: 30, g: 0 },  // 5.0 a match, went to the final
+  Sifat:  { p: 4, w: 1, gf: 20, ga: 20, g: 0 },  // 5.0 a match, out in the group
+  Toufiq: { p: 4, w: 1, gf: 20, ga: 28, g: 0 },  // 7.0 a match, but the smallest total
+}, new Set(d)), D);
+assert.deepEqual(evens.glove, ['Rashed'],
+  'going deep is costing the Glove — the fewest conceded per match should win: ' + evens.glove);
+assert.equal(evens.gloveRate, 5, 'the archived rate is not the number the award was decided on');
+
+// a cup with nothing but forfeits has no scorer at all, so no Boot to award —
+// but the 1-0 is still a goal conceded, and it decides the Glove
+const dry = await page.evaluate(({ nur, rifat, d }) => {
   groups = [{ name: 'A', teams: [nur, rifat], matches: [
     { a: nur, b: rifat, sa: 1, sb: 0, pa: null, pb: null, winner: nur },
   ] }];
-  return cupAwards(rollupPlayers(), nur);
-}, T);
+  koRounds = []; koStarted = false;
+  return cupAwards(rollupPlayers(), new Set(d));
+}, TD);
 assert.deepEqual(dry.boot, [], 'a cup nobody scored in still handed out a Golden Boot');
-assert.deepEqual(dry.ball, ['Nur', 'Rashed'], 'the Golden Ball should still resolve without goals');
+assert.deepEqual(dry.glove, ['Rashed'], 'the forfeit’s 1-0 did not count against the no-show’s Glove: ' + dry.glove);
+assert.equal(dry.gloveRate, 0, 'the Glove winner kept a clean sheet, so the panel should read 0.0');
 
 // renderPlayers: aggregate across cups; titles count retroactively for cups
 // archived before per-player stats existed (champion string only).
@@ -468,25 +501,29 @@ assert.deepEqual(
 const widths = await page.$$eval('.pl-row', rs => rs.map(r => r.children.length));
 assert.ok(widths.every(n => n === 9), 'every row (header included) must emit all 9 cells');
 
-/* Golden Boots and Golden Balls are counted across cups exactly the way Cups
-   is. Cups archived before the awards existed carry none, and must simply not
-   contribute — the same graceful degradation the play counts already get. */
+/* Golden Boots and Golden Gloves are counted across cups exactly the way Cups
+   is. Cups archived before the awards existed carry none, and cups won before
+   the Glove replaced the Golden Ball carry a retired `ball` key — both must
+   simply not contribute, the same graceful degradation the play counts get. */
 await page.evaluate(() => window.renderHall([
   { champion: 'Nur + Rashed', date: 1, players: { Nur: { p: 2, w: 2, gf: 9, ga: 4, g: 6 }, Rashed: { p: 2, w: 2, gf: 9, ga: 4, g: 3 } },
-    awards: { boot: ['Nur'], bootGoals: 6, ball: ['Nur'] } },
+    awards: { boot: ['Nur'], bootGoals: 6, glove: ['Rashed'], gloveRate: 2 } },
   { champion: 'Rifat + Sifat', date: 2, players: { Rifat: { p: 2, w: 2, gf: 8, ga: 3, g: 4 }, Sifat: { p: 2, w: 2, gf: 8, ga: 3, g: 4 } },
-    awards: { boot: ['Nur', 'Rifat'], bootGoals: 4, ball: ['Rifat', 'Sifat'] } },
+    awards: { boot: ['Nur', 'Rifat'], bootGoals: 4, glove: ['Rashed', 'Sifat'], gloveRate: 1.5 } },
   { champion: 'Ofi + Shewa', date: 3 }, // archived before any of this existed
+  { champion: 'Siddiq + Shewa', date: 4, awards: { boot: [], bootGoals: 0, ball: ['Siddiq'] } }, // retired award
 ]));
 const awardCells = Object.fromEntries(await page.$$eval('.pl-row:not(.pl-head)', rs =>
   rs.map(r => [r.querySelector('.pl-name').textContent,
                [...r.querySelectorAll('.pl-award')].map(c => c.textContent)])));
-assert.deepEqual(awardCells.Nur, ['2', '1'], 'a Boot shared with another cup’s winner did not count twice');
-assert.deepEqual(awardCells.Rifat, ['1', '1'], 'a shared Boot and a shared Ball must each count for everyone tied');
-assert.deepEqual(awardCells.Sifat, ['—', '1'], 'a Ball won without the Boot is not being counted on its own');
+assert.deepEqual(awardCells.Nur, ['2', '—'], 'a Boot shared with another cup’s winner did not count twice');
+assert.deepEqual(awardCells.Rashed, ['—', '2'], 'a shared Glove must count for everyone tied');
+assert.deepEqual(awardCells.Rifat, ['1', '—'], 'a shared Boot must count for everyone tied');
+assert.deepEqual(awardCells.Sifat, ['—', '1'], 'a Glove won without the Boot is not being counted on its own');
 assert.deepEqual(awardCells.Ofi, ['—', '—'], 'an old cup with no awards is inventing them');
+assert.deepEqual(awardCells.Siddiq, ['—', '—'], 'a retired Golden Ball is being counted as something');
 const heads = await page.$$eval('.pl-head .pl-award', cs => cs.map(c => c.textContent));
-assert.deepEqual(heads, ['Boot', 'Ball'], 'the two award columns are not labelled');
+assert.deepEqual(heads, ['Boot', 'Glove'], 'the two award columns are not labelled');
 
 await page.click('.hall-tab[data-tab="cups"]');
 assert.ok(await page.isVisible('#hallList') && !(await page.isVisible('#hallPlayers')), 'cups tab did not restore');
@@ -730,13 +767,13 @@ assert.deepEqual(ff.void, [null, true, ['b', 'void']], 'a group void is not sett
 assert.equal(ff.goals, 0, 'a forfeited match handed somebody a goal they never scored');
 assert.deepEqual(ff.retyped, [10, '', ['void']], 'entering real goals did not clear the forfeit');
 
-// ---------- the Golden Boot and Golden Ball races run live ----------
+// ---------- the Golden Boot and Golden Glove races run live ----------
 // the group table is live for everyone, so both races are too
 const race = await page.evaluate(h => {
   window.applyState(window.decodeState(h));
   window.setAdmin(true);
-  // results are in but nobody is credited a goal yet: a Ball standing exists,
-  // a scoring race does not
+  // results are in but nobody is credited a goal yet: a Glove standing exists
+  // off the team scores alone, a scoring race does not
   const scoreless = [...document.querySelectorAll('.gb-race h4')].map(e => e.textContent);
   setGroupGoals(0, 0, { fwd: 9, def: 1 }, { fwd: 2, def: 3 });
   setGroupGoals(0, 2, { fwd: 4, def: 6 }, { fwd: 1, def: 1 });
@@ -748,40 +785,48 @@ const race = await page.evaluate(h => {
              top: b.querySelector('.gb-row').textContent,
              lead: b.querySelectorAll('.gb-row.lead').length };
   };
+  // what the board is supposed to be showing, worked out from the same rollup
+  const P = rollupPlayers(), dn = defNames();
+  const keeps = Object.keys(P).filter(n => dn.has(n) && P[n].p > 0);
   return { scoreless, boards: document.querySelectorAll('.gb-race').length,
-           boot: board(0), ball: board(1),
+           boot: board(0), glove: board(1), defence: [...dn],
+           fewest: Math.min(...keeps.map(n => concededRate(P, n))).toFixed(1),
            visible: $('golden').style.display !== 'none' };
 }, HASH);
-assert.deepEqual(race.scoreless, ['Golden Ball race'],
-  'a cup with results but no scorers should show the Ball race alone: ' + race.scoreless);
+assert.deepEqual(race.scoreless, ['Golden Glove race'],
+  'a cup with results but no scorers should show the Glove race alone: ' + race.scoreless);
 assert.ok(race.visible, 'the board never appeared once results went in');
 assert.equal(race.boards, 2, 'both races should be on the board, got ' + race.boards);
-assert.ok(race.boot.title.includes('Boot') && race.ball.title.includes('Ball'),
-  'the two races are mislabelled or out of order: ' + race.boot.title + ' / ' + race.ball.title);
+assert.ok(race.boot.title.includes('Boot') && race.glove.title.includes('Glove'),
+  'the two races are mislabelled or out of order: ' + race.boot.title + ' / ' + race.glove.title);
 assert.ok(race.boot.top.includes('9'), 'the leading scorer is not on top of the board: ' + race.boot.top);
 assert.equal(race.boot.lead, 1, 'exactly one player leads the scoring race');
-assert.ok(race.ball.top.includes('100%'), 'the Golden Ball race is not led by a winner: ' + race.ball.top);
-// the note has to describe the ranking actually in use, and the round part of
-// it is not in use until the knockouts
-assert.ok(!race.ball.note.includes('round') && race.ball.note.includes('GD'),
-  'the group-stage Ball note misdescribes the ranking: ' + race.ball.note);
+// the Glove is the defence's award — a forward on this board means the filter leaked
+assert.ok(race.glove.names.every(n => race.defence.includes(n)),
+  'a forward turned up on the Golden Glove board: ' + race.glove.names);
+assert.ok(race.glove.top.includes(race.fewest),
+  `the Glove board is not led by the fewest conceded per match (${race.fewest}): ` + race.glove.top);
 assert.ok(race.boot.note.includes('goals'), 'the Boot note says nothing about goals: ' + race.boot.note);
-// the tie-breaks the note promises have to be on the row, signed
-assert.ok(/\+\d+ GD/.test(race.ball.top) && /\dg/.test(race.ball.top),
-  'the Ball row hides the GD and goals it was ordered by: ' + race.ball.top);
-assert.ok(race.ball.names.length <= 5 && race.boot.names.length <= 5,
-  'the live boards should stay to the top few, got ' + race.boot.names.length + '/' + race.ball.names.length);
+assert.ok(race.glove.note.includes('per match'),
+  'the Glove note calls it a total rather than a rate: ' + race.glove.note);
+// the rate is a ratio, so the row has to show both numbers behind it — the raw
+// conceded and the matches played, which is also what breaks a tie on the rate
+assert.ok(/\d+ in \d+ match/.test(race.glove.top),
+  'the Glove row hides the conceded and matches its rate came from: ' + race.glove.top);
+assert.ok(race.glove.names.length <= 5 && race.boot.names.length <= 5,
+  'the live boards should stay to the top few, got ' + race.boot.names.length + '/' + race.glove.names.length);
 
 // ---------- awards on the celebration and the share card ----------
 // the canvas is drawn by hand, so the overlay and the PNG have to be moved
 // together — this is the check that they were
-const AW = { boot: ['Nur', 'Rashed'], bootGoals: 9, ball: ['Sifat'] };
+const AW = { boot: ['Nur', 'Rashed'], bootGoals: 9, glove: ['Sifat'], gloveRate: 4 };
 await page.evaluate(a => celebrate('Rifat + Sifat', { date: Date.UTC(2026, 6, 26), awards: a }), AW);
 const shown = await page.textContent('#awards');
 assert.ok(shown.includes('Golden Boot') && shown.includes('Nur & Rashed') && shown.includes('9 goals'),
   'the celebration does not name the shared Golden Boot: ' + shown);
-assert.ok(shown.includes('Golden Ball') && shown.includes('Sifat'),
-  'the celebration does not name the Golden Ball: ' + shown);
+// a flat 4 has to print as 4.0, or the panel reads as a goal count not a rate
+assert.ok(shown.includes('Golden Glove') && shown.includes('Sifat') && shown.includes('4.0 per match'),
+  'the celebration does not name the Golden Glove: ' + shown);
 const cardInk = await page.evaluate(async a => {
   // the confetti is random, so pin it before comparing two cards' pixels
   const real = Math.random;

@@ -11,19 +11,31 @@ captured for the admin to accept, never applied on its own.
 
 Every match — group *and* knockout — is scored per player: two boxes per team,
 forward then defender, and the team score is only ever those two added up. That
-is what feeds the **Golden Boot** (most individual goals) and the **Golden Ball**
-(cup MVP: furthest round, then win %, then GD, then goals — the last step being
-the only one that can separate two players on the same team). Both are shared on
-a tie. A no-show has no goalscorer, so it is set with the **forfeit picker**
-under the match instead, and counts towards neither award; the group can void a
-match nobody turned up for, the knockout cannot, because somebody has to go
-through. Awards are archived at `history/<cupId>` next to `champion`/`players`,
-and the all-time Players board counts them the way it counts titles — cups
-archived before any of this simply contribute nothing to those two columns.
+is what feeds the **Golden Boot** (most individual goals) and the **Golden Glove**
+(fewest goals conceded **per match**, and only the players drafted onto the
+**defence** are eligible — goals against are a team total shared by both partners,
+so opening it to forwards could only ever name a pair, never a person). Per match
+rather than in total because the two aren't comparable: everyone plays the same
+group fixtures, but a finalist plays two or three knockouts on top, and on a raw
+total those extra matches are pure cost — a defence conceding 5 a match over 6
+would lose to one conceding 7 a match that went out in the group, so the award
+would reward getting knocked out early. The rate is rounded to a tenth, the same
+number the panel prints, so the board never splits two defences the reader sees
+as level. Ties on the rate go to whoever held it over more matches; both awards
+are shared when players are still level after that.
+A no-show is set with the **forfeit picker** under the match: it has no
+goalscorer so it moves no Boot, but its 1-0 is a real goal conceded and does
+count against the Glove. The group can void a match nobody turned up for, the
+knockout cannot, because somebody has to go through. Awards are archived at
+`history/<cupId>` next to `champion`/`players`, and the all-time Players board
+counts them the way it counts titles — cups archived before any of this simply
+contribute nothing to those two columns. Cups won before the Glove replaced the
+old Golden Ball carry a `ball` key that nothing reads any more: the award is
+retired rather than renamed, since it measured something else entirely.
 
 Per-player scoring starts with the cup after the one running on 2 Aug 2026:
 older cups get one box a side — the team total, nobody's name on it — and hand
-out no Boot and no Ball. The switch is `INDIV_FROM`, a cutoff against `cupId`,
+out no Boot and no Glove. The switch is `INDIV_FROM`, a cutoff against `cupId`,
 which is the millisecond its cup was started at, so it needs no field in the
 data and no migration. The rules sheet describes whichever mode is running.
 
