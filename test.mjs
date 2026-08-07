@@ -56,6 +56,18 @@ assert.ok(await page.isVisible('#countdown'), 'a scheduled viewer never sees the
 assert.ok(!(await page.isVisible('#setup')), 'the setup screen is showing under the countdown');
 assert.match(await page.textContent('#cdClock'), /^0[0-3]:\d\d:\d\d$/, 'the countdown clock is not ticking HH:MM:SS');
 
+// waiting viewers read the squad, not just the clock — names as typed, duplicates
+// and all, so the count matches the wheel. Empty boxes leave no empty block behind.
+await page.evaluate(t => window.applyState({
+  screen: 'setup', draftStartAt: t, fwdText: 'Sifat\nSazedul\nSifat', defText: 'Ofi\nShewa\nOfi' }), future);
+await page.waitForTimeout(50);
+assert.equal(await page.textContent('.cd-col.fwd h4'), 'Forwards3', 'the forwards column lost its count');
+assert.deepEqual(await page.$$eval('.cd-col.def li', ns => ns.map(n => n.textContent)),
+  ['Ofi', 'Shewa', 'Ofi'], 'the defenders list should read as typed, duplicates kept');
+await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t, fwdText: '', defText: '' }), future);
+await page.waitForTimeout(50);
+assert.ok(!(await page.isVisible('#cdRoster')), 'an empty roster still left a block on the countdown');
+
 // past the scheduled instant but before the admin opens: hold on "Starting soon…"
 await page.evaluate(() => window.applyState({ screen: 'setup', draftStartAt: Date.now() - 60000 }));
 await page.waitForTimeout(50);

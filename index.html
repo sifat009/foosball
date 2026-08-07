@@ -138,6 +138,24 @@
   }
   #cdClock.soon { font-size: clamp(1.8rem, 8vw, 3.4rem); color: #17854a; }
   #cdWhen { color: #7d8a9c; font-weight: 700; font-size: 1rem; }
+  /* the squad that's about to be drafted, straight off the admin's two boxes.
+     Two columns at every width — the names are short, and stacking them under
+     a clock this tall would push the defenders off a phone screen. */
+  #cdRoster {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0 26px;
+    max-width: 420px; margin: 30px auto 0; text-align: left;
+  }
+  #cdRoster:empty { display: none; } /* no names on either side — no empty box */
+  .cd-col h4 {
+    display: flex; align-items: center; gap: 8px; margin: 0 0 10px;
+    font-weight: 800; text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem;
+  }
+  .cd-col h4::before { content: ''; width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
+  .cd-col.fwd h4 { color: #2563eb; }
+  .cd-col.def h4 { color: #dc5a1e; }
+  .cd-n { margin-left: auto; color: #7d8a9c; letter-spacing: 0; }
+  .cd-col ul { list-style: none; margin: 0; padding: 0; }
+  .cd-col li { font-weight: 700; color: #16233a; padding: 3px 0; }
   .cd-live, .live-badge {
     display: flex; align-items: center; justify-content: center; gap: 8px;
     color: #d43d3d; font-weight: 800; letter-spacing: 0.16em;
@@ -1024,6 +1042,7 @@ Nur</textarea>
   <div class="cd-live">● Live soon</div>
   <div id="cdClock">--:--:--</div>
   <div id="cdWhen"></div>
+  <div id="cdRoster"></div>
 </div>
 
 <!-- Screen 2: draft wheels -->
@@ -1656,8 +1675,12 @@ var fwdAngle = 0, defAngle = 0, spinning = false;
 var spin = null, lastSpinN = null;
 
 // --- setup ---
+/* One splitting rule for both the wheels and the viewers' countdown roster, so
+   the list they read is exactly the list that goes on the wheel. */
+const splitNames = t => t.split('\n').map(s => s.trim()).filter(Boolean);
+
 $('startBtn').onclick = () => {
-  const parse = t => t.value.split('\n').map(s => s.trim()).filter(Boolean).map(name => ({ name, picked: false }));
+  const parse = t => splitNames(t.value).map(name => ({ name, picked: false }));
   fwds = parse($('fwdInput'));
   defs = parse($('defInput'));
   if (fwds.length < 2 || fwds.length !== defs.length) {
@@ -1719,9 +1742,37 @@ function fillSched() {
 const fmtWhen = (ms, weekday) => new Date(ms).toLocaleString([],
   { weekday, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true });
 
+/* The squad as the admin has typed it so far — a countdown to a draw nobody can
+   see the players for is half a screen. Duplicates stay: two Sifats are two
+   people and two wheel slots, so deduping would leave viewers counting fewer
+   players than teams. Repainted from startCountdown, which every path that
+   raises this screen already goes through, and always after the textareas are
+   filled. Both boxes empty leaves the node empty and :empty hides it. */
+function paintRoster() {
+  const box = $('cdRoster');
+  box.innerHTML = '';
+  const lists = [['fwd', 'Forwards', splitNames($('fwdInput').value)],
+                 ['def', 'Defenders', splitNames($('defInput').value)]];
+  if (!lists[0][2].length && !lists[1][2].length) return;
+  for (const [cls, label, names] of lists) {
+    const col = document.createElement('div');
+    col.className = 'cd-col ' + cls;
+    col.innerHTML = `<h4>${label}<span class="cd-n">${names.length}</span></h4>`;
+    const ul = document.createElement('ul');
+    for (const n of names) {
+      const li = document.createElement('li');
+      li.textContent = n; // textContent: names are user input
+      ul.appendChild(li);
+    }
+    col.appendChild(ul);
+    box.appendChild(col);
+  }
+}
+
 function startCountdown(at) {
   draftStartAt = at;
   $('cdWhen').textContent = 'Scheduled for ' + fmtWhen(at, 'long');
+  paintRoster();
   if (!isAdmin) show('countdown');
   tickCountdown();
   if (!cdTimer) cdTimer = setInterval(tickCountdown, 1000);
