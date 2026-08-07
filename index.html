@@ -134,7 +134,7 @@
   #countdown { text-align: center; padding-top: 4vh; }
   #cdClock {
     font-variant-numeric: tabular-nums; font-weight: 900; letter-spacing: 0.02em;
-    font-size: clamp(2.8rem, 13vw, 6rem); color: #16233a; margin: 8px 0 6px;
+    font-size: clamp(1.7rem, 7.5vw, 3.6rem); color: #16233a; margin: 8px 0 6px;
   }
   #cdClock.soon { font-size: clamp(1.8rem, 8vw, 3.4rem); color: #17854a; }
   #cdWhen { color: #7d8a9c; font-weight: 700; font-size: 1rem; }
@@ -1038,7 +1038,7 @@ Nur</textarea>
   <h1>The <span class="accent">Ollyo Foosball Cup</span></h1>
   <div class="subtitle">The live team draft is about to begin.</div>
   <div class="cd-live">● Live soon</div>
-  <div id="cdClock">--:--:--</div>
+  <div id="cdClock">0m 0s</div>
   <div id="cdWhen"></div>
   <div id="cdRoster"></div>
 </div>
@@ -1707,15 +1707,14 @@ $('defInput').onchange = () => save();
    counts down in their own timezone. It only gates the pre-draft view: once the
    admin opens the draft (screen !== 'setup') the countdown is irrelevant. */
 var draftStartAt = null, cdTimer = null;
-const pad2 = n => String(n).padStart(2, '0');
 // ms instant -> the local wall-clock string a datetime-local input expects
 const msToInput = ms => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 
 function cdText() {
   const left = draftStartAt - Date.now();
   if (left <= 0) return 'Starting soon…';
-  const s = Math.floor(left / 1000);
-  return `${pad2(Math.floor(s / 3600))}:${pad2(Math.floor(s % 3600 / 60))}:${pad2(s % 60)}`;
+  // same labelled duration as the deadline bar — "2d 9h 51m 14s", not 57:51:14
+  return fmtLeft(left);
 }
 /* The admin stays on setup — they still have to open the draft — so the same
    ticking clock rides along in the schedule note instead of a second screen. */
