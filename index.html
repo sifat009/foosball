@@ -309,7 +309,10 @@
     background: #fff8e6; border: 1px dashed #e6c65c; border-radius: 12px;
     font-size: 0.82rem; font-weight: 700; color: #8a6d1f;
   }
-  .sug-bar .who { flex: 1; min-width: 0; overflow-wrap: break-word; }
+  /* the basis is the width the whole breakdown needs to read as a score rather
+     than a stack of two-word lines: below it the buttons wrap under instead of
+     squeezing the names into a column */
+  .sug-bar .who { flex: 1 1 18em; min-width: 0; overflow-wrap: break-word; }
   .sug-btn {
     display: inline-flex; align-items: center; gap: 5px;
     border: none; border-radius: 9px; padding: 6px 11px; cursor: pointer;
@@ -1409,12 +1412,23 @@ function sendSug(gi, mi, sa, sb, pa, pb) {
   if (restoring || !canSuggest() || !gotRemote || !cupId || !window.suggestScore) return;
   // clearing every box retracts it, rather than storing an entry with no score
   if (sa == null && sb == null && !pa && !pb) return window.clearSuggestion(cupId, key);
-  window.suggestScore(cupId, key, sa ?? null, sb ?? null, pa || null, pb || null, signedIn.name, signedIn.email);
+  // the two teams ride along: the relay announces this to the admin's phone and
+  // knows nothing about foosball, so the names have to travel with the score
+  const m = groups[gi].matches[mi];
+  window.suggestScore(cupId, key, sa ?? null, sb ?? null, pa || null, pb || null, signedIn.name, signedIn.email, m.a, m.b);
 }
 // sa/sb ride along derived, for the bar text
 function submitSug(gi, mi, pa, pb) {
   pa = clean(pa); pb = clean(pb);
   sendSug(gi, mi, teamGoals(pa), teamGoals(pb), pa, pb);
+}
+
+/* The whole suggestion in words: the admin accepts numbers they can see rather
+   than a total they have to take on trust — their own boxes stay empty until
+   they do. Two totals alone when the cup doesn't count individual goals. */
+function sugLine(m, s) {
+  const side = (t, p, v) => t && p ? `${t.fwd} ${p.fwd ?? 0} + ${t.def} ${p.def ?? 0} (${v ?? '?'})` : `${v ?? '?'}`;
+  return `${side(m.a, s.pa, s.sa)} – ${side(m.b, s.pb, s.sb)}`;
 }
 
 // mine === the signed-in suggester looking at their own pending score. Without
@@ -1426,7 +1440,7 @@ function sugBar(gi, mi, s, mine) {
   const who = document.createElement('div');
   who.className = 'who';
   who.innerHTML = svg(mine ? 'check' : 'bulb'); // icon is static markup...
-  const score = `${s.sa ?? '?'} – ${s.sb ?? '?'}`;
+  const score = sugLine(groups[gi].matches[mi], s);
   who.append(mine // ...name/score stay text nodes
     ? ' Sent — waiting for the admin’s approval.'
     : ` ${s.by} suggests ${score}`);
@@ -3403,8 +3417,9 @@ onValue(historyRef, snap => {
   window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
 
-window.suggestScore = (cup, key, sa, sb, pa, pb, by, email) =>
-  set(ref(db, `suggestions/${cup}/${key}`), { sa, sb, pa: pa || null, pb: pb || null, by, email, at: Date.now() })
+window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
+  set(ref(db, `suggestions/${cup}/${key}`),
+    { sa, sb, pa: pa || null, pb: pb || null, ta: ta || null, tb: tb || null, by, email, at: Date.now() })
     .catch(err => {
       console.error('[suggest] write rejected:', err);
       alert('Could not send the suggestion: ' + err.message);

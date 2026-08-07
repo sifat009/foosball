@@ -41,6 +41,25 @@ export const recipients = (tokens, adminOnly, adminEmail, kind, prefs) =>
     (!adminOnly || tokens[t] === adminEmail) &&
     !(kind && ((prefs || {})[t] || {})[kind] === false));
 
+/* The page saves a suggestion on every box the suggester leaves, so the first
+   version in the node is nearly always half a score — one team's goals and
+   nothing for the other. Announcing that one gives the admin "9–undefined",
+   and the pings never repeat, so the finished score is never announced at all.
+   Same rule the page uses for its Accept button: both totals in, and no draw,
+   since foosball has none and the admin couldn't accept it anyway. */
+export const sugReady = v => !!v && v.sa != null && v.sb != null && v.sa !== v.sb;
+
+/* The alert carries the whole suggested result, not just the two totals: the
+   admin decides on it from the lock screen, and "9–6" says nothing about who
+   scored them. The names travel on the suggestion — this end knows no teams.
+   A cup that doesn't count individual goals has no breakdown to print, so it
+   falls back to the team and its total. */
+export const sugText = v => {
+  const side = (t, p, s) => t && p ? `${t.fwd} ${p.fwd ?? 0} + ${t.def} ${p.def ?? 0} = ${s}`
+    : t ? `${t.fwd} + ${t.def} ${s}` : String(s);
+  return `${v.by} suggested ${side(v.ta, v.pa, v.sa)} vs ${side(v.tb, v.pb, v.sb)} — tap to accept or reject.`;
+};
+
 async function main() {
   const { initializeApp, applicationDefault } = await import('firebase-admin/app');
   const { getDatabase } = await import('firebase-admin/database');
@@ -128,10 +147,11 @@ async function main() {
     const now = new Set();
     Object.entries(s.val() || {}).forEach(([cup, matches]) =>
       Object.entries(matches || {}).forEach(([key, v]) => {
+        if (!sugReady(v)) return; // stays out of `seen` too, so the ping waits for the finished score
         const id = cup + '/' + key;
         now.add(id);
         if (seen && !seen.has(id))
-          send('Score suggested', `${v.by} suggested ${v.sa}–${v.sb} — tap to accept or reject.`, true, 'suggest')
+          send('Score suggested', sugText(v), true, 'suggest')
             .catch(e => console.error('[send] failed:', e));
       }));
     seen = now;

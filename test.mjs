@@ -579,9 +579,11 @@ await openInput.fill('7');
 // board only repaints once the boxes are free
 await openInput.evaluate(i => i.blur());
 await page.waitForTimeout(150);
+// the two teams ride along, so the relay can name them on the admin's phone
 assert.deepEqual(await page.evaluate(() => window.sugLog), [
-  ['set', cup, '0_0', null, null, { fwd: 7, def: null }, null, 'Nur', 'nur@example.com'],
-], 'the suggestion did not land in the suggestions node with its author and breakdown');
+  ['set', cup, '0_0', null, null, { fwd: 7, def: null }, null, 'Nur', 'nur@example.com',
+    { fwd: 'Siddiq', def: 'Shewa' }, { fwd: 'Sazedul Haque', def: 'Ofi' }],
+], 'the suggestion did not land in the suggestions node with its author, breakdown and teams');
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
 
 // the suggester (still signed in) must see their score was sent, not just guess
@@ -601,7 +603,10 @@ await page.evaluate(c => {
 await page.waitForTimeout(150);
 assert.equal((await page.$$('.sug-bar')).length, 1, 'the pending suggestion is not shown');
 const barText = await page.textContent('.sug-bar');
-assert.ok(barText.includes('Nur') && barText.includes('10') && barText.includes('6'), 'bar omits the author or the score');
+// the whole breakdown, not just the totals — the admin's own boxes stay empty
+// until they accept, so the bar is the only place the numbers are readable
+assert.ok(barText.includes('Nur suggests') && barText.includes('Siddiq 6 + Shewa 4 (10)') &&
+  barText.includes('Sazedul Haque 4 + Ofi 2 (6)'), 'the bar hides who scored what: ' + barText);
 assert.equal((await page.$$('.sug-btn')).length, 0, 'a viewer can act on a suggestion');
 
 // the admin accepts: it becomes a real score and the suggestion is spent
