@@ -145,6 +145,15 @@ await page.evaluate(t => { window.setAdmin(false); document.getElementById('sche
   window.applyState({ screen: 'setup', draftStartAt: t }); window.setAdmin(true); }, future);
 await page.waitForTimeout(30);
 assert.equal((await page.evaluate(() => document.getElementById('schedInput').value)).length, 16, 'late auth left the schedule picker empty');
+// "Now" is the shortcut for scheduling this minute — it must fill the picker
+// and take the same path a hand-picked date does, countdown and all
+const now = await page.evaluate(() => {
+  document.getElementById('schedInput').value = '';
+  document.getElementById('schedNow').click();
+  return { value: document.getElementById('schedInput').value, at: draftStartAt, ms: Date.now() };
+});
+assert.equal(now.value.length, 16, 'the Now button left the picker empty');
+assert.ok(Math.abs(now.at - now.ms) < 60000, 'the Now button did not schedule the current minute');
 await page.evaluate(() => { window.setAdmin(false); draftStartAt = null; stopCountdown(); show('setup'); });
 console.log('scheduled live draft OK');
 

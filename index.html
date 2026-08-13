@@ -129,6 +129,13 @@
     border: 2px solid #e7ecf3; color: #16233a; background: #fff;
   }
   #schedInput:focus { border-color: #17854a; outline: none; }
+  /* wraps on a narrow phone so the button drops under the picker instead of squeezing it */
+  .sched-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  #schedNow {
+    font-family: inherit; font-size: 0.9rem; font-weight: 800; padding: 10px 18px;
+    border-radius: 12px; border: 2px solid #e7ecf3; background: #fff; color: #17854a; cursor: pointer;
+  }
+  #schedNow:hover { border-color: #17854a; }
   #schedNote { margin-top: 10px; color: #17854a; font-weight: 700; font-size: 0.9rem; min-height: 1.2em; }
   /* viewer: live-draft countdown */
   #countdown { text-align: center; padding-top: 4vh; }
@@ -1114,7 +1121,10 @@ Nur</textarea>
   </div>
   <div id="schedRow">
     <label for="schedInput">Schedule the live draft (optional)</label>
-    <input type="datetime-local" id="schedInput">
+    <div class="sched-controls">
+      <input type="datetime-local" id="schedInput">
+      <button type="button" id="schedNow">Now</button>
+    </div>
     <div id="schedNote"></div>
   </div>
   <div class="center">
@@ -1885,6 +1895,12 @@ $('schedInput').onchange = () => {
     }
   }
   save();
+};
+
+// "Now" fills the picker with this minute and runs the same path a manual pick does
+$('schedNow').onclick = () => {
+  $('schedInput').value = msToInput(Date.now());
+  $('schedInput').onchange();
 };
 
 // --- wheels ---
