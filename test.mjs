@@ -845,20 +845,17 @@ assert.ok(shown.includes('Golden Boot') && shown.includes('Nur & Rashed') && sho
 assert.ok(shown.includes('Golden Glove') && shown.includes('Sifat') && shown.includes('4.0 per match'),
   'the celebration does not name the Golden Glove: ' + shown);
 const cardInk = await page.evaluate(async a => {
-  // the confetti is random, so pin it before comparing two cards' pixels
-  const real = Math.random;
-  Math.random = () => 0;
+  // the awards are the plaque column beside the card; without them the card is
+  // drawn narrower and that whole strip is never painted at all
   const band = c => {
-    const d = c.getContext('2d').getImageData(0, 930, 1200, 200).data;
-    let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i];
+    const d = c.getContext('2d').getImageData(851, 47, 377, 1150).data;
+    let s = 0; for (let i = 0; i < d.length; i += 4) s += d[i] * (d[i + 3] / 255);
     return s;
   };
-  const out = { with: band(await drawCard('Rifat + Sifat', 0, a)), without: band(await drawCard('Rifat + Sifat', 0, null)) };
-  Math.random = real;
-  return out;
+  return { with: band(await drawCard('Rifat + Sifat', 0, a)), without: band(await drawCard('Rifat + Sifat', 0, null)) };
 }, AW);
 assert.ok(cardInk.with > cardInk.without * 1.2,
-  `the share card did not draw the awards (${cardInk.with} vs ${cardInk.without} ink in the awards band)`);
+  `the share card did not draw the awards (${cardInk.with} vs ${cardInk.without} ink in the plaque column)`);
 await page.evaluate(() => closeCelebration());
 
 // a replayed cup that never had awards must not borrow the live cup's
@@ -1039,22 +1036,23 @@ console.log('match toss OK');
 
 // ---------- shareable champion card ----------
 // The card is drawn, not screenshotted, so the failures that matter are the
-// invisible ones: the trophy SVG not rasterising, toBlob handing back nothing,
+// invisible ones: the cup bitmap not decoding, toBlob handing back nothing,
 // a filename built from an undefined champion. Google Fonts is blocked above,
 // so this asserts the bytes and the plumbing — never the pixels.
 await page.evaluate(() => celebrate('Sifat + Ofi', { date: Date.UTC(2026, 6, 26) }));
 const card = await page.evaluate(async () => {
-  const img = await cupImage();
+  const img = await ready($('champEmblem'));
   const c = await drawCard('Sifat + Ofi', Date.UTC(2026, 6, 26));
   const ctx = c.getContext('2d');
-  // the bowl covers dead centre; unpainted background there is near-black
-  const [r, g] = ctx.getImageData(600, 400, 1, 1).data;
-  return { w: c.width, h: c.height, svg: img.naturalWidth, lit: r > 180 && g > 150 };
+  // the bowl covers the card's centre line; unpainted background is near-black
+  const [r, g] = ctx.getImageData(422, 300, 1, 1).data;
+  return { w: c.width, h: c.height, art: img.naturalWidth, lit: r > 180 && g > 150 };
 });
-assert.equal(card.w, 1200, 'share card is not 1200 wide');
-assert.equal(card.h, 1200, 'share card is not 1200 tall');
-assert.ok(card.svg > 0, 'the trophy SVG data URL did not rasterise');
-assert.ok(card.lit, 'no trophy on the share card — centre of the canvas is still background');
+// no awards on this cup, so there is no plaque column and the card is the frame
+assert.equal(card.w, 845, 'awardless share card is not 845 wide');
+assert.equal(card.h, 1254, 'share card is not 1254 tall');
+assert.ok(card.art > 0, 'the champion cup bitmap did not decode');
+assert.ok(card.lit, 'no trophy on the share card — centre of the card is still background');
 
 const shared = await page.evaluate(() => new Promise(res => {
   navigator.canShare = () => true;
