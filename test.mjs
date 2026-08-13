@@ -54,7 +54,9 @@ await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t })
 await page.waitForTimeout(50);
 assert.ok(await page.isVisible('#countdown'), 'a scheduled viewer never sees the countdown');
 assert.ok(!(await page.isVisible('#setup')), 'the setup screen is showing under the countdown');
-assert.match(await page.textContent('#cdClock'), /^0[0-3]:\d\d:\d\d$/, 'the countdown clock is not ticking HH:MM:SS');
+// a labelled duration, not a clock: fmtLeft drops the units that are still zero,
+// so three hours out reads "2h 59m 59s" and never "02:59:59"
+assert.match(await page.textContent('#cdClock'), /^2h \d{1,2}m \d{1,2}s$/, 'the countdown is not ticking down from the three hours it was set');
 
 // waiting viewers read the squad, not just the clock — names as typed, duplicates
 // and all, so the count matches the wheel. Empty boxes leave no empty block behind.
@@ -136,7 +138,7 @@ await page.evaluate(t => window.applyState({ screen: 'setup', draftStartAt: t })
 await page.waitForTimeout(30);
 assert.equal((await page.evaluate(() => document.getElementById('schedInput').value)).length, 16, 'the schedule picker did not reflect the stored time');
 // the admin reads the same live clock off the schedule note, and keeps ticking
-assert.match(await page.textContent('#schedNote'), /— 0[0-3]:\d\d:\d\d$/, 'the admin has no live countdown');
+assert.match(await page.textContent('#schedNote'), /— 2h \d{1,2}m \d{1,2}s$/, 'the admin has no live countdown');
 assert.ok(await page.evaluate(() => cdTimer), 'the countdown stopped ticking for the admin');
 // the picker fills even when auth resolves after the snapshot landed
 await page.evaluate(t => { window.setAdmin(false); document.getElementById('schedInput').value = '';
