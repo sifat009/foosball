@@ -3651,7 +3651,7 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, remove, push, connectDatabaseEmulator }
+import { getDatabase, ref, onValue, set, remove, push, connectDatabaseEmulator, goOffline, goOnline }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -3734,7 +3734,19 @@ onValue(cupRef, snap => {
   if (isUpdate) window.flashTitle();
 }, err => { console.error('[cup] read failed:', err); window.bootDone(); });
 
-onValue(ref(db, '.info/connected'), s => window.setConnected(s.val() === true));
+let connected = false;
+onValue(ref(db, '.info/connected'), s => window.setConnected(connected = s.val() === true));
+
+/* Phone screen off freezes the tab and the OS drops the idle socket. The SDK's
+   own retry timer froze with it, so waking the screen can sit on the offline
+   banner for a long time — a reload was the only quick way out. Bounce the
+   connection on wake instead, but only when it is actually down: goOffline on a
+   healthy socket would tear down a working connection for nothing. */
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || connected) return;
+  goOffline(db);
+  goOnline(db);
+});
 
 /* ================= PUSH =================
    The page never sends a notification: an FCM send needs a service-account key,
