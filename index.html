@@ -3400,7 +3400,8 @@ window.setConnected = ok => {
   // static strings, so innerHTML is safe here — needed to keep the sprite icon
   $('viewBadge').innerHTML = ok
     ? svg('eye') + ' Live standings — updating automatically'
-    : svg('alert') + ' Offline — showing the last standings received. Edits will not save.';
+    : svg('alert') + ' Offline — reconnecting. Standings are the last received; '
+      + 'any edit you make is kept and saves as soon as the connection is back.';
 };
 window.markRemote = () => { gotRemote = true; };
 
@@ -3718,11 +3719,34 @@ window.clearAllSuggestions = () => remove(ref(db, 'suggestions'))
 onValue(ref(db, 'suggestions'), snap => window.renderSuggestions(snap.val() || {}),
   err => console.error('[suggest] read failed:', err));
 
+/* A write that hasn't reached the server yet lives only in the SDK's memory: it
+   is queued and retried, but if the OS discards the sleeping tab first the edit
+   goes with it, and the admin has no way to know. So park it in localStorage
+   until the server acknowledges, and send it again once we are back. An hour
+   old is the cutoff — past that it is likelier to be stale than to be the
+   change nobody noticed missing. */
+const PENDING = 'foosball.pendingCup';
+const clearPending = () => { try { localStorage.removeItem(PENDING); } catch {} };
+
+function flushPending() {
+  if (!window.gotRemote) return; // never write before we know what is already live
+  if (auth.currentUser?.email !== window.ADMIN_EMAIL) return;
+  let p = null;
+  try { p = JSON.parse(localStorage.getItem(PENDING)); } catch {}
+  if (!p) return;
+  if (Date.now() - p.at > 3600e3) return clearPending();
+  console.warn('[cup] resending an edit that never reached the server');
+  window.saveToDb(p.json);
+}
+
 // writes rejected by the rules land here — surface them instead of failing silently
-window.saveToDb = json => set(cupRef, json).catch(err => {
-  console.error('[cup] write rejected:', err);
-  alert('Could not save: ' + err.message + '\nAre you signed in as the admin account?');
-});
+window.saveToDb = json => {
+  try { localStorage.setItem(PENDING, JSON.stringify({ at: Date.now(), json })); } catch {}
+  return set(cupRef, json).then(clearPending).catch(err => {
+    console.error('[cup] write rejected:', err);
+    alert('Could not save: ' + err.message + '\nAre you signed in as the admin account?');
+  });
+};
 
 onValue(cupRef, snap => {
   const isUpdate = window.gotRemote; // false only for the first snapshot on boot
@@ -3731,22 +3755,30 @@ onValue(cupRef, snap => {
   try { window.applyState(raw ? JSON.parse(raw) : null); }
   catch (e) { console.error('[cup] unreadable state in database:', e); }
   window.bootDone(); // same tick as applyState, so the right screen is the first one painted
+  if (!isUpdate) flushPending(); // now we know what is live, a parked edit can go on top
   if (isUpdate) window.flashTitle();
 }, err => { console.error('[cup] read failed:', err); window.bootDone(); });
 
-let connected = false;
-onValue(ref(db, '.info/connected'), s => window.setConnected(connected = s.val() === true));
-
 /* Phone screen off freezes the tab and the OS drops the idle socket. The SDK's
    own retry timer froze with it, so waking the screen can sit on the offline
-   banner for a long time — a reload was the only quick way out. Bounce the
-   connection on wake instead, but only when it is actually down: goOffline on a
-   healthy socket would tear down a working connection for nothing. */
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden || connected) return;
-  goOffline(db);
-  goOnline(db);
+   banner for a long time — a reload was the only quick way out. Bouncing once
+   on wake missed the usual case: .info/connected still reads true right after
+   the wake and only flips a few seconds later, by which point nothing was
+   watching. So watch instead — while the page is on screen and the connection
+   is down, bounce it every 5s until it comes back. goOffline drops us to false
+   again, which re-enters this handler; the `retry` check is what stops that
+   from becoming a loop. */
+let connected = false, retry = null;
+function watchConnection() {
+  if (connected || document.hidden) { clearInterval(retry); retry = null; return; }
+  if (!retry) retry = setInterval(() => { goOffline(db); goOnline(db); }, 5000);
+}
+onValue(ref(db, '.info/connected'), s => {
+  window.setConnected(connected = s.val() === true);
+  if (connected) flushPending(); // a write the last session never got to send
+  watchConnection();
 });
+document.addEventListener('visibilitychange', watchConnection);
 
 /* ================= PUSH =================
    The page never sends a notification: an FCM send needs a service-account key,
@@ -3902,6 +3934,7 @@ window.savePushPrefs = () => savePrefs()
 onAuthStateChanged(auth, user => {
   const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
   window.setAdmin(admin);
+  if (admin) flushPending(); // only the admin may write, so this is the earliest we can resend
   if (pushToken) saveToken(); // signing in re-labels this device, so admin pings land
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
