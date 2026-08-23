@@ -233,6 +233,18 @@
     background: linear-gradient(90deg, transparent, #d9a51433);
   }
   .section-title::after { background: linear-gradient(90deg, #d9a51433, transparent); }
+  /* the group stage folds away once the knockout is live — <details> does the
+     whole thing, so the arrow is the only styling it needs */
+  summary.section-title { cursor: pointer; list-style: none; }
+  summary.section-title::-webkit-details-marker { display: none; }
+  #groupSection:not([open]) summary.section-title { margin-bottom: 0; }
+  summary.section-title .fold::after { content: '\25be Show'; }
+  #groupSection[open] summary.section-title .fold::after { content: '\25b4 Hide'; }
+  summary.section-title .fold {
+    font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;
+    font-weight: 800; color: #96660a; background: #fdf4dd; border: 1px solid #f0dfae;
+    border-radius: 999px; padding: 4px 12px;
+  }
   .groups { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; align-items: flex-start; }
   .group { flex: 1; min-width: 340px; max-width: 540px; padding: 26px 26px 16px; }
   .group h4 {
@@ -1175,11 +1187,11 @@ Nur</textarea>
   <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
-  <div id="groupSection">
-    <div class="section-title">Group Stage</div>
+  <details id="groupSection" open>
+    <summary class="section-title">Group Stage <span class="fold"></span></summary>
     <div id="groups" class="groups"></div>
     <div class="center"><button id="koBtn" class="btn btn-gold" style="display:none">Start Knockout Stage <svg class="ico"><use href="#i-arrow"/></svg></button></div>
-  </div>
+  </details>
   <div id="golden" class="card" style="display:none"></div>
   <div id="koSection" style="display:none">
     <div class="section-title">Knockout Stage</div>
@@ -2119,7 +2131,7 @@ function startCup() {
     groups = [{ name: 'Group', teams: teams.slice(), matches: roundRobin(teams) }];
     $('groupSection').style.display = '';
   }
-  $('koSection').style.display = koStarted ? '' : 'none';
+  layoutStages();
   show('tourney');
   renderAll();
 }
@@ -2316,6 +2328,7 @@ function renderAll() {
   // a rebuild takes the boxes with it, and a removed box fires no focusout to
   // put the keypad bar away. $ rather than the const, which is declared below.
   $('kbBar').classList.remove('on');
+  layoutStages();
   renderGroups();
   if (koStarted) renderBracket();
   renderGolden();
@@ -2623,6 +2636,9 @@ function matchBox(m, o) {
 }
 
 function renderGroups() {
+  // a folded group stage must never hide live fixtures: only the finished one
+  // folds away, and only once the knockout is up
+  if (!koStarted) $('groupSection').open = true;
   if (holdRender()) return; // a score box is in use — flushed on focusout
   updateSub(); // koStarted may have just changed — keep the invite in step
   const el = $('groups');
@@ -2698,6 +2714,18 @@ function renderGroups() {
   $('koBtn').onclick = startKnockout;
 }
 
+/* Once the knockout is live it's the section everyone opens the page for, so it
+   moves above the group stage and the group stage folds shut — otherwise the
+   bracket sits under a full page of already-played fixtures. */
+function layoutStages() {
+  const t = $('tourney'), gs = $('groupSection'), gb = $('golden'), ko = $('koSection');
+  ko.style.display = koStarted ? '' : 'none';
+  const order = koStarted ? [ko, gb, gs] : [gs, gb, ko];
+  // only re-parent when the order is actually wrong — appendChild on a node
+  // that is already in place still detaches it, and that eats the open goal box
+  if (t.lastElementChild !== order[2]) order.forEach(el => t.appendChild(el));
+}
+
 function startKnockout() {
   koStarted = true;
   // the knockout gets its own clock
@@ -2720,8 +2748,8 @@ function startKnockout() {
   } else {
     koRounds = [[m(r[0], r[1])]];
   }
-  $('koSection').style.display = '';
   $('koBtn').style.display = 'none';
+  $('groupSection').open = false; // the transition folds it; reopening it is the viewer's call
   renderAll();
   if (!restoring) {
     if (isAdmin && window.notify)
