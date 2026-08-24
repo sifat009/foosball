@@ -282,6 +282,12 @@
   .m-side.winner .m-team, .m-side.winner .m-tot { color: #15803d; font-weight: 800; }
   .m-side.loser { opacity: 0.45; }
   .m-side.empty .m-team { color: #b3bdca; font-style: italic; }
+  .leg-badge {
+    display: inline-block; margin-bottom: 6px; padding: 3px 10px; border-radius: 999px;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  }
+  .leg-badge.home { background: #e8f0fe; color: #2563eb; }
+  .leg-badge.away { background: #fdece1; color: #dc5a1e; }
   .played-div {
     display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
     color: #a4aebc; text-transform: uppercase; font-size: 0.68rem;
@@ -2124,12 +2130,12 @@ function roundRobin(ts, double) {
   for (let r = 0; r < n - 1; r++) {
     for (let i = 0; i < n / 2; i++) {
       const a = arr[i], b = arr[n - 1 - i];
-      if (a && b) matches.push({ a, b, sa: null, sb: null, pa: null, pb: null, winner: null });
+      if (a && b) matches.push({ a, b, sa: null, sb: null, pa: null, pb: null, winner: null, leg: double ? 1 : null });
     }
     arr.splice(1, 0, arr.pop());
   }
   // leg two replays every pairing with a and b swapped — home & away
-  if (double) matches.push(...matches.map(m => ({ a: m.b, b: m.a, sa: null, sb: null, pa: null, pb: null, winner: null })));
+  if (double) matches.push(...matches.map(m => ({ a: m.b, b: m.a, sa: null, sb: null, pa: null, pb: null, winner: null, leg: 2 })));
   return matches;
 }
 
@@ -2589,6 +2595,12 @@ document.addEventListener('focusout', e => {
    overlays them). */
 function matchBox(m, o) {
   const box = document.createElement('div');
+  if (m.leg) {
+    const badge = document.createElement('span');
+    badge.className = 'leg-badge ' + (m.leg === 1 ? 'home' : 'away');
+    badge.textContent = m.leg === 1 ? 'Home' : 'Away';
+    box.appendChild(badge);
+  }
   const bad = badScore(m, o.ko);
   /* What the boxes hold right now. Each box commits all of them, not just its
      own, so a box never has to read a sibling through a stale render-time
