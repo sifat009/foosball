@@ -195,6 +195,11 @@
     box-shadow: 0 0 0 10px #fff, 0 0 0 11px #e2e8f1, 0 22px 44px rgba(23,43,77,0.16);
   }
   .actions { display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; margin-top: 44px; }
+  .double-round-toggle {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    margin: 16px 0 0; color: #7d8a9c; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+  }
+  .double-round-toggle input { cursor: pointer; }
   #status { text-align: center; margin-top: 20px; font-size: 1.08rem; color: #5b6a7d; min-height: 1.6em; font-weight: 600; }
   #status b { color: #96660a; }
   #status .last-pick { color: #17854a; font-weight: 800; }
@@ -1176,6 +1181,9 @@ Nur</textarea>
     <button id="spinBtn" class="btn btn-green">Spin the Wheels</button>
     <button id="tourneyBtn" class="btn btn-gold" style="display:none">Kick Off the Cup <svg class="ico"><use href="#i-trophy"/></svg></button>
   </div>
+  <label id="doubleRoundLabel" class="double-round-toggle" style="display:none">
+    <input type="checkbox" id="doubleRoundChk"> Double round-robin — every pairing home &amp; away
+  </label>
   <div id="status"></div>
   <div id="teamList" class="team-grid"></div>
 </div>
@@ -1282,8 +1290,8 @@ Nur</textarea>
       above. The <b>highlighted rows</b> are the ones who go through.</p>
 
       <div class="rules-h">Format</div>
-      <p>There is always <b>one group</b> — every team plays every other team once,
-      whatever the team count. How many go through depends on the size:</p>
+      <p>There is always <b>one group</b> — every team plays every other team
+      <span id="fmtTimes">once</span>, whatever the team count. How many go through depends on the size:</p>
       <ul>
         <li><b>2 teams</b> — no group stage at all, straight to the Grand Final.</li>
         <li><b>3 or 4 teams</b> — top two meet in the Grand Final.</li>
@@ -1744,7 +1752,10 @@ window.renderHall = renderHall;
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
 });
 // read on open, not once at load: which cup is running changes under a viewer
-$('rulesBtn').addEventListener('click', () => $('rules').classList.toggle('no-indiv', !indivGoals()));
+$('rulesBtn').addEventListener('click', () => {
+  $('rules').classList.toggle('no-indiv', !indivGoals());
+  $('fmtTimes').textContent = doubleRound ? 'twice — home and away' : 'once';
+});
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   // the celebration covers every panel, so Esc has to dismiss the top layer
@@ -1767,7 +1778,7 @@ $('resetBtn').onclick = () => {
   spinning = false;
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
-  teams = []; groups = []; koRounds = []; koStarted = false;
+  teams = []; groups = []; koRounds = []; koStarted = false; doubleRound = false;
   spin = null; lastSpinN = null; deadlineAt = null; deadlineFrom = null;
   if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
   if (window.clearAllSuggestions) window.clearAllSuggestions(); // old cups' suggestions would just accumulate
@@ -1798,7 +1809,7 @@ $('startBtn').onclick = () => {
     return;
   }
   session++;
-  teams = []; groups = []; koRounds = []; koStarted = false;
+  teams = []; groups = []; koRounds = []; koStarted = false; doubleRound = false;
   spin = null; lastSpinN = null; // a new draft restarts the spin count
   $('champion').innerHTML = '';
   $('teamList').innerHTML = '';
@@ -1806,6 +1817,8 @@ $('startBtn').onclick = () => {
   $('spinBtn').style.display = '';
   $('spinBtn').disabled = false;
   $('tourneyBtn').style.display = 'none';
+  $('doubleRoundChk').checked = false;
+  $('doubleRoundLabel').style.display = 'none';
   show('draw');
   drawWheel('fwdWheel', fwds, fwdAngle, -1);
   drawWheel('defWheel', defs, defAngle, -1);
@@ -2078,7 +2091,9 @@ function finishDraft() {
   spinning = false;
   $('spinBtn').style.display = 'none';
   $('tourneyBtn').style.display = '';
-  $('tourneyBtn').onclick = startCup;
+  $('tourneyBtn').onclick = () => { doubleRound = $('doubleRoundChk').checked; startCup(); };
+  // 2 teams skip the group stage entirely — nothing for the toggle to apply to
+  $('doubleRoundLabel').style.display = teams.length !== 2 ? '' : 'none';
 }
 
 function teamName(t) { return `${t.fwd} + ${t.def}`; }
@@ -2096,12 +2111,13 @@ function teamName(t) { return `${t.fwd} + ${t.def}`; }
 // koRounds carries exactly the same match shape.
 var groups = [];
 var koRounds = [], koStarted = false;
+var doubleRound = false; // this cup's group stage plays every pairing twice, home & away
 /* Identifies this cup in the history node. The champion is stored at
    history/<cupId>, so deciding the final, changing your mind, and undoing it
    all rewrite one entry instead of appending a new one each time. */
 var cupId = null;
 
-function roundRobin(ts) {
+function roundRobin(ts, double) {
   const arr = ts.slice();
   if (arr.length % 2) arr.push(null);
   const n = arr.length, matches = [];
@@ -2112,6 +2128,8 @@ function roundRobin(ts) {
     }
     arr.splice(1, 0, arr.pop());
   }
+  // leg two replays every pairing with a and b swapped — home & away
+  if (double) matches.push(...matches.map(m => ({ a: m.b, b: m.a, sa: null, sb: null, pa: null, pb: null, winner: null })));
   return matches;
 }
 
@@ -2128,7 +2146,7 @@ function startCup() {
     koRounds = [[{ a: teams[0], b: teams[1], sa: null, sb: null, pa: null, pb: null, winner: null }]];
     $('groupSection').style.display = 'none';
   } else {
-    groups = [{ name: 'Group', teams: teams.slice(), matches: roundRobin(teams) }];
+    groups = [{ name: 'Group', teams: teams.slice(), matches: roundRobin(teams, doubleRound) }];
     $('groupSection').style.display = '';
   }
   layoutStages();
@@ -2308,13 +2326,16 @@ function rank(group) {
     for (let i = 0; i < 3; i++) if (ka[i] !== kb[i]) return kb[i] - ka[i];
     return 0;
   });
-  // head-to-head tiebreak for a pair still tied after wins/GD/GF
+  // head-to-head tiebreak for a pair still tied after wins/GD/GF — aggregated
+  // across every leg between them, so a double round-robin split (1-1) leaves
+  // the pair exactly as tied as it started
   // ponytail: 3-way full ties fall back to draw order (near-impossible with scores)
   for (let i = 0; i < order.length - 1; i++) {
     const a = order[i], b = order[i + 1];
     if (String(key(a)) !== String(key(b))) continue;
-    const m = group.matches.find(m => (m.a === a && m.b === b) || (m.a === b && m.b === a));
-    if (m && m.winner === b) { order[i] = b; order[i + 1] = a; }
+    const h2h = group.matches.filter(m => (m.a === a && m.b === b) || (m.a === b && m.b === a));
+    const bWins = h2h.filter(m => m.winner === b).length, aWins = h2h.filter(m => m.winner === a).length;
+    if (bWins > aWins) { order[i] = b; order[i + 1] = a; }
   }
   return { order, stats: s };
 }
@@ -2360,7 +2381,7 @@ function save() {
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
-    fwds, defs, teams, koStarted, cupId, draftStartAt, deadlineAt, deadlineFrom, spin,
+    fwds, defs, teams, koStarted, cupId, draftStartAt, deadlineAt, deadlineFrom, spin, doubleRound,
     // [sa, sb, pa, pb] — the team totals stay stored rather than recomputed, so a
     // forfeit (a result with no breakdown) survives the round trip too. Nulls are
     // safe here only because the whole thing travels as one JSON string.
@@ -2381,6 +2402,8 @@ function applyState(s) {
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
     stopCountdown();
     fwds = s.fwds; defs = s.defs; teams = s.teams || [];
+    doubleRound = !!s.doubleRound; // old cups predate the field — default single round-robin
+    $('doubleRoundChk').checked = doubleRound;
     $('teamList').innerHTML = '';
     teams.forEach((t, i) => addTeamCard(t, i + 1));
     show('draw');
