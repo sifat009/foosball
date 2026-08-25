@@ -282,12 +282,23 @@
   .m-side.winner .m-team, .m-side.winner .m-tot { color: #15803d; font-weight: 800; }
   .m-side.loser { opacity: 0.45; }
   .m-side.empty .m-team { color: #b3bdca; font-style: italic; }
-  .leg-badge {
-    display: inline-block; margin-bottom: 6px; padding: 3px 10px; border-radius: 999px;
-    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
+  /* the two legs are the same fixture twice, so they share one card and one
+     pair of tabs rather than two boxes a screen apart */
+  /* one segmented control, not two buttons: the track is the pair, the white
+     pill is the leg you are looking at. The legs are named for the table:
+     first listed starts on blue, and in the return leg on red — so which side
+     you played last is on the card, not in anyone's memory. */
+  .leg-tabs { display: flex; padding: 3px; margin: 2px 0 10px; background: #eef2f8; border-radius: 999px; }
+  .leg-tab {
+    flex: 1; min-height: 34px; padding: 7px 10px; border: 0; border-radius: 999px;
+    background: none; cursor: pointer; opacity: 0.5; font-family: inherit;
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    transition: opacity .15s, background .15s;
   }
-  .leg-badge.home { background: #e8f0fe; color: #2563eb; }
-  .leg-badge.away { background: #fdece1; color: #dc5a1e; }
+  .leg-tab.blue { color: #2563eb; }
+  .leg-tab.red { color: #dc5a1e; }
+  .leg-tab.on { opacity: 1; background: #fff; box-shadow: 0 1px 3px rgba(22, 35, 58, 0.14); }
+  .leg-tab.done::after { content: ' \2713'; opacity: 0.75; }
   .played-div {
     display: flex; align-items: center; gap: 10px; margin: 18px 0 10px;
     color: #a4aebc; text-transform: uppercase; font-size: 0.68rem;
@@ -1188,7 +1199,7 @@ Nur</textarea>
     <button id="tourneyBtn" class="btn btn-gold" style="display:none">Kick Off the Cup <svg class="ico"><use href="#i-trophy"/></svg></button>
   </div>
   <label id="doubleRoundLabel" class="double-round-toggle" style="display:none">
-    <input type="checkbox" id="doubleRoundChk"> Double round-robin — every pairing home &amp; away
+    <input type="checkbox" id="doubleRoundChk"> Double round-robin — every pairing on both sides of the table
   </label>
   <div id="status"></div>
   <div id="teamList" class="team-grid"></div>
@@ -1760,7 +1771,7 @@ window.renderHall = renderHall;
 // read on open, not once at load: which cup is running changes under a viewer
 $('rulesBtn').addEventListener('click', () => {
   $('rules').classList.toggle('no-indiv', !indivGoals());
-  $('fmtTimes').textContent = doubleRound ? 'twice — home and away' : 'once';
+  $('fmtTimes').textContent = doubleRound ? 'twice — once from each side of the table' : 'once';
 });
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
@@ -2117,7 +2128,7 @@ function teamName(t) { return `${t.fwd} + ${t.def}`; }
 // koRounds carries exactly the same match shape.
 var groups = [];
 var koRounds = [], koStarted = false;
-var doubleRound = false; // this cup's group stage plays every pairing twice, home & away
+var doubleRound = false; // this cup's group stage plays every pairing twice, once from each side
 /* Identifies this cup in the history node. The champion is stored at
    history/<cupId>, so deciding the final, changing your mind, and undoing it
    all rewrite one entry instead of appending a new one each time. */
@@ -2134,7 +2145,7 @@ function roundRobin(ts, double) {
     }
     arr.splice(1, 0, arr.pop());
   }
-  // leg two replays every pairing with a and b swapped — home & away
+  // leg two replays every pairing with a and b swapped — the sides change ends
   if (double) matches.push(...matches.map(m => ({ a: m.b, b: m.a, sa: null, sb: null, pa: null, pb: null, winner: null, leg: 2 })));
   return matches;
 }
@@ -2294,6 +2305,9 @@ const teamMark = (m, t) => m.winner ? (m.winner === t ? ' winner' : ' loser') : 
    away the moment it takes, and a correction means hunting for the row again.
    One row at a time; it sinks on the next reload like everything else. */
 var heldRow = null; // 'gi_mi'
+// which leg of a home-and-away pair is showing, keyed by the pair's leg-one
+// 'gi_mi'; unset means whichever leg is still to play
+var legTab = {};
 
 function setGroupScore(gi, mi, sa, sb, pa, pb) {
   if (!restoring) heldRow = gi + '_' + mi;
@@ -2595,12 +2609,6 @@ document.addEventListener('focusout', e => {
    overlays them). */
 function matchBox(m, o) {
   const box = document.createElement('div');
-  if (m.leg) {
-    const badge = document.createElement('span');
-    badge.className = 'leg-badge ' + (m.leg === 1 ? 'home' : 'away');
-    badge.textContent = m.leg === 1 ? 'Home' : 'Away';
-    box.appendChild(badge);
-  }
   const bad = badScore(m, o.ko);
   /* What the boxes hold right now. Each box commits all of them, not just its
      own, so a box never has to read a sibling through a stale render-time
@@ -2698,16 +2706,29 @@ function renderGroups() {
     // settled matches sink to the bottom so what's still to play is the first
     // thing you see; the sort is stable, so fixture order survives inside each
     // block, and mi stays the real index the score handlers write through
-    const rows = g.matches.map((m, mi) => [m, mi, settled(m) && heldRow !== gi + '_' + mi ? 1 : 0]);
-    rows.sort((x, y) => x[2] - y[2]);
-    rows.forEach(([m, mi, sunk], pos) => {
+    // the two legs are one fixture played twice, so they ride in one card
+    // behind a pair of tabs — a double round-robin otherwise doubles the scroll
+    const half = g.matches.length / 2;
+    const cells = g.matches.some(m => m.leg === 2)
+      ? g.matches.slice(0, half).map((m, i) => [[m, i], [g.matches[i + half], i + half]])
+      : g.matches.map((m, i) => [[m, i]]);
+    const rows = cells.map(c => [c, c.every(([m, mi]) => settled(m) && heldRow !== gi + '_' + mi) ? 1 : 0]);
+    rows.sort((x, y) => x[1] - y[1]);
+    rows.forEach(([cell, sunk], pos) => {
       // only worth a divider when there's something above it
-      if (sunk && pos > 0 && !rows[pos - 1][2]) {
+      if (sunk && pos > 0 && !rows[pos - 1][1]) {
         const hr = document.createElement('div');
         hr.className = 'played-div';
         hr.textContent = 'Played';
         box.appendChild(hr);
       }
+      // a tab the user picked wins; failing that the leg just scored stays put
+      // rather than flipping out from under the boxes, then the leg still to
+      // play, and with both played the card opens on home
+      const pair = gi + '_' + cell[0][1];
+      const held = cell.findIndex(([, i]) => heldRow === gi + '_' + i);
+      const active = legTab[pair] ?? (held >= 0 ? held : Math.max(0, cell.findIndex(([m]) => !settled(m))));
+      const [m, mi] = cell[active];
       // only an unrecorded match is open to suggestions, so a pending score can
       // never contradict something already standing in the table
       const open = m.sa == null && m.sb == null;
@@ -2726,6 +2747,21 @@ function renderGroups() {
         onForfeit: isAdmin ? v => setGroupScore(gi, mi, ...(FORFEIT[v] || [null, null])) : null,
       });
       div.className = 'match';
+      if (cell.length > 1) {
+        const tabs = document.createElement('div');
+        tabs.className = 'leg-tabs';
+        cell.forEach(([lm], i) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'leg-tab ' + (i === 0 ? 'blue' : 'red')
+            + (i === active ? ' on' : '') + (settled(lm) ? ' done' : '');
+          b.textContent = i === 0 ? 'Blue' : 'Red';
+          b.setAttribute('aria-pressed', i === active);
+          b.onclick = () => { legTab[pair] = i; renderGroups(); };
+          tabs.appendChild(b);
+        });
+        div.prepend(tabs);
+      }
       box.appendChild(div);
       // the suggester edits numbers in the boxes AND gets a "sent, pending" bar
       // as confirmation; everyone else reads the score off the bar, where the

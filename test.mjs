@@ -1678,6 +1678,45 @@ assert.equal(await page.evaluate(() => $('kbBar').classList.contains('on')), fal
 await page.evaluate(() => document.activeElement.blur());
 console.log('keypad bar OK');
 
+// ---------- the two legs share one card ----------
+/* A double round-robin plays every pairing twice — once from each side of the
+   table — which used to mean twice the fixtures in the list. The pair now rides
+   in one card behind two tabs, named for the side the first team starts on. */
+const legs = await page.evaluate(() => {
+  window.setAdmin(true);
+  window.markRemote();
+  const T = ['A', 'B', 'C', 'D'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  teams = T; koRounds = []; koStarted = false; lastChamp = null; heldRow = null; legTab = {};
+  cupId = String(Date.now());
+  doubleRound = true;
+  groups = [{ name: 'Group', teams: T.slice(), matches: roundRobin(T, true) }];
+  renderAll();
+  const out = { fixtures: groups[0].matches.length, cards: document.querySelectorAll('#groups .match').length };
+  const card = () => document.querySelector('#groups .match');
+  const tabs = () => [...card().querySelectorAll('.leg-tab')].map(b => b.textContent);
+  out.tabs = tabs();
+  // the card opens on the blue leg, and the boxes on it write that leg
+  const teamsOn = () => [...card().querySelectorAll('.m-team')].map(t => t.textContent);
+  out.blueTeams = teamsOn();
+  card().querySelectorAll('.leg-tab')[1].click();      // red: same pair, ends changed
+  out.redTeams = teamsOn();
+  const box = i => card().querySelectorAll('.score')[i];
+  const type = (i, v) => { box(i).value = v; box(i).onchange(); };
+  [6, 4, 2, 1].forEach((v, i) => type(i, v));          // scores the leg on screen: 10-3
+  out.redScored = [groups[0].matches[6].sa, groups[0].matches[0].sa];
+  out.stillRed = card().querySelectorAll('.leg-tab')[1].classList.contains('on');
+  return out;
+});
+assert.equal(legs.fixtures, 12, 'a four-team double round-robin is 12 fixtures');
+assert.equal(legs.cards, 6, 'the two legs did not fold into one card each: ' + legs.cards + ' cards');
+assert.deepEqual(legs.tabs, ['Blue', 'Red'], 'the pair card is missing its Blue/Red tabs');
+assert.deepEqual(legs.redTeams, legs.blueTeams.slice().reverse(),
+  'the Red tab did not show the same fixture with the teams at the other end');
+assert.deepEqual(legs.redScored, [10, null],
+  'the boxes on the Red tab wrote the wrong leg');
+assert.ok(legs.stillRed, 'scoring the red leg flipped the card back to blue under the boxes');
+console.log('blue & red leg tabs OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
