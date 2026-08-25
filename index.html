@@ -2166,7 +2166,11 @@ function startCup() {
     groups = [{ name: 'Group', teams: teams.slice(), matches: roundRobin(teams, doubleRound) }];
     $('groupSection').style.display = '';
   }
-  layoutStages();
+  /* No layoutStages() here: every remote snapshot rebuilds the cup through this
+     function, and it passes through koStarted = false on the way. Moving the
+     sections then would hide the bracket and tear out the goal box being typed
+     into — and renderAll below, which lays them out properly, is held while a
+     box has focus, so the bracket never came back. */
   show('tourney');
   renderAll();
 }
@@ -2454,7 +2458,7 @@ function applyState(s) {
       // an id they all agree on.
       cupId = s.cupId || cupKeyFrom(s.teams);
       (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb, pa, pb], mi) => {
-        if (sa != null || sb != null) setGroupScore(gi, mi, sa, sb, pa, pb);
+        if (sa != null || sb != null || pa || pb) setGroupScore(gi, mi, sa, sb, pa, pb);
       }));
       if (s.koStarted && !koStarted) startKnockout();
       // apply round by round — winners propagate forward as they're set. koPicks
@@ -2462,7 +2466,9 @@ function applyState(s) {
       // results rather than losing them to a field that isn't there any more.
       if (koStarted) {
         if (s.koScores) s.koScores.forEach((ms, r) => ms.forEach(([sa, sb, pa, pb], i) => {
-          if (sa != null || sb != null) setKoScore(r, i, sa, sb, pa, pb);
+          // pa/pb count: one player's goals in and the partner's still to come is
+          // not a result yet, but it is something typed, and it has to survive
+          if (sa != null || sb != null || pa || pb) setKoScore(r, i, sa, sb, pa, pb);
         }));
         else (s.koPicks || []).forEach((ms, r) => ms.forEach((side, i) => {
           if (side && koRounds[r][i][side]) setKoWinner(r, i, koRounds[r][i][side]);
@@ -2727,7 +2733,10 @@ function renderGroups() {
       // play, and with both played the card opens on home
       const pair = gi + '_' + cell[0][1];
       const held = cell.findIndex(([, i]) => heldRow === gi + '_' + i);
-      const active = legTab[pair] ?? (held >= 0 ? held : Math.max(0, cell.findIndex(([m]) => !settled(m))));
+      // clamped: legTab outlives the cup it was picked in, and the next one may
+      // be a single round-robin with no leg two to show
+      const active = Math.min(cell.length - 1,
+        legTab[pair] ?? (held >= 0 ? held : Math.max(0, cell.findIndex(([m]) => !settled(m)))));
       const [m, mi] = cell[active];
       // only an unrecorded match is open to suggestions, so a pending score can
       // never contradict something already standing in the table

@@ -1623,6 +1623,7 @@ await page.keyboard.type('9');
 assert.equal(await filled.inputValue(), '9', 'retyping a score appended to the old one');
 console.log('score entry, box to box OK');
 
+
 // ---------- the bar over the phone keypad ----------
 /* A phone's numeric keypad has no next key — iOS shows nothing at all — so the
    boxes get their own prev/next/done above it. It must not exist on a desktop,
@@ -1716,6 +1717,46 @@ assert.deepEqual(legs.redScored, [10, null],
   'the boxes on the Red tab wrote the wrong leg');
 assert.ok(legs.stillRed, 'scoring the red leg flipped the card back to blue under the boxes');
 console.log('blue & red leg tabs OK');
+
+// ---------- the database echoing a score back mid-entry ----------
+/* Firebase hands a local write straight back to its own listener, in the same
+   tick as the commit, and applyState rebuilds the whole cup from it — passing
+   through koStarted = false on the way. Laying the sections out at that moment
+   hid the bracket and pulled the open goal box out of the page, and the repaint
+   that would have put it back is held while a box has focus: the knockout
+   vanished and stayed vanished. A half-typed breakdown has to survive the round
+   trip too — team totals are still null until the partner's box is in. */
+await page.evaluate(() => {
+  document.activeElement.blur(); // the section above left a box open
+  window.setAdmin(true);
+  window.markRemote();
+  const T = ['A', 'B', 'C', 'D', 'E'].map(x => ({ fwd: x, def: x.toLowerCase() }));
+  const played = [10, 3, { fwd: 6, def: 4 }, { fwd: 3, def: 0 }];
+  window.saveToDb = j => window.applyState(JSON.parse(j)); // the way the database answers
+  window.applyState({
+    screen: 'tourney', fwds: T.map(t => ({ name: t.fwd, picked: true })),
+    defs: T.map(t => ({ name: t.def, picked: true })), teams: T, koStarted: true,
+    cupId: String(Date.now()),
+    groupScores: [Array.from({ length: 10 }, () => played.slice())],
+    koScores: [[[null, null, null, null], [null, null, null, null]], [[null, null, null, null]]],
+  });
+});
+await page.waitForTimeout(60);
+const koBox = async i => (await page.$$('#bracket .score'))[i];
+await (await koBox(0)).click();
+await page.keyboard.type('8');
+await page.keyboard.press('Enter'); // still in the boxes: the repaint is held
+assert.ok(await page.isVisible('#bracket'), 'the bracket disappeared the moment a score was typed into it');
+assert.equal(await page.evaluate(() => koStarted), true, 'the knockout unstarted itself');
+assert.deepEqual(await page.evaluate(() => koRounds[0][0].pa), { fwd: 8, def: null },
+  'one player in and the goals were lost on the round trip through the database');
+await page.keyboard.type('2');
+await page.evaluate(() => document.activeElement.blur());
+await page.waitForTimeout(60);
+assert.equal(await page.evaluate(() => koRounds[0][0].sa), 10, 'the two boxes never added up to a team score');
+assert.ok(await page.isVisible('#bracket'), 'the bracket never came back');
+await page.evaluate(() => { window.saveToDb = j => window.writes.push(j); });
+console.log('database echo mid-entry OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
