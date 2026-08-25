@@ -1544,37 +1544,56 @@ const cupKeyFrom = teams => {
   let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
   return 'c' + (h >>> 0).toString(36);
 };
-const canSuggest = () => !!signedIn && !isAdmin && !koStarted;
+const canSuggest = () => !!signedIn && !isAdmin;
+/* A suggestion key names a match in whichever stage it belongs to: 'gi_mi' in
+   the group, 'kr_i' in the bracket — one namespace, since both are stored under
+   the same cup. Everything that reads a key comes through here, so the bar, the
+   send and the admin's accept can never disagree about which match it meant. */
+const sugTarget = key => {
+  const ko = key[0] === 'k';
+  const [a, b] = key.replace('k', '').split('_').map(Number);
+  return ko
+    ? { m: koRounds[a] && koRounds[a][b], apply: (sa, sb, pa, pb) => setKoScore(a, b, sa, sb, pa, pb) }
+    : { m: groups[a] && groups[a].matches[b], apply: (sa, sb, pa, pb) => setGroupScore(a, b, sa, sb, pa, pb) };
+};
+/* The bracket is redrawn from the group table every time, so a slot can change
+   hands under a suggestion that is already in flight — the teams it was sent
+   for travel with it, and a suggestion for a pairing that no longer exists is
+   nobody's score. */
+const sugFits = (s, m) => !s.ta || !m.a || (teamName(s.ta) === teamName(m.a) && teamName(s.tb) === teamName(m.b));
 const sugOk = s => s && s.sa != null && s.sb != null && s.sa !== s.sb;
 
 window.setSignedIn = u => {
   signedIn = u;
   updateSub();
-  if (curScreen === 'tourney') renderGroups();
+  if (curScreen !== 'tourney') return;
+  renderGroups(); // signing in unlocks the boxes in both stages
+  if (koStarted && !holdRender()) renderBracket();
 };
 window.renderSuggestions = all => {
   allSug = all || {};
-  if (curScreen === 'tourney') renderGroups(); // renderGroups, not renderAll — a viewer must not save()
+  if (curScreen !== 'tourney') return; // renderGroups/renderBracket, not renderAll — a viewer must not save()
+  renderGroups(); // holds itself while a box is open
+  if (koStarted && !holdRender()) renderBracket();
 };
 
 /* A suggestion carries the same shape a real score does, so accepting one
    writes the whole thing rather than something the admin has to finish by hand:
    the per-player breakdown when the cup counts individual goals, the two team
    totals when it doesn't. */
-function sendSug(gi, mi, sa, sb, pa, pb) {
-  const key = gi + '_' + mi;
+function sendSug(key, sa, sb, pa, pb) {
   if (restoring || !canSuggest() || !gotRemote || !cupId || !window.suggestScore) return;
   // clearing every box retracts it, rather than storing an entry with no score
   if (sa == null && sb == null && !pa && !pb) return window.clearSuggestion(cupId, key);
   // the two teams ride along: the relay announces this to the admin's phone and
   // knows nothing about foosball, so the names have to travel with the score
-  const m = groups[gi].matches[mi];
+  const m = sugTarget(key).m;
   window.suggestScore(cupId, key, sa ?? null, sb ?? null, pa || null, pb || null, signedIn.name, signedIn.email, m.a, m.b);
 }
 // sa/sb ride along derived, for the bar text
-function submitSug(gi, mi, pa, pb) {
+function submitSug(key, pa, pb) {
   pa = clean(pa); pb = clean(pb);
-  sendSug(gi, mi, teamGoals(pa), teamGoals(pb), pa, pb);
+  sendSug(key, teamGoals(pa), teamGoals(pb), pa, pb);
 }
 
 /* The whole suggestion in words: the admin accepts numbers they can see rather
@@ -1588,13 +1607,14 @@ function sugLine(m, s) {
 // mine === the signed-in suggester looking at their own pending score. Without
 // this the suggester got no words at all — just numbers in a box — and couldn't
 // tell the score had actually been sent to the admin.
-function sugBar(gi, mi, s, mine) {
+function sugBar(key, s, mine) {
+  const { m, apply } = sugTarget(key);
   const bar = document.createElement('div');
   bar.className = 'sug-bar' + (mine ? ' mine' : '');
   const who = document.createElement('div');
   who.className = 'who';
   who.innerHTML = svg(mine ? 'check' : 'bulb'); // icon is static markup...
-  const score = sugLine(groups[gi].matches[mi], s);
+  const score = sugLine(m, s);
   who.append(mine // ...name/score stay text nodes
     ? ' Sent — waiting for the admin’s approval.'
     : ` ${s.by} suggests ${score}`);
@@ -1604,19 +1624,19 @@ function sugBar(gi, mi, s, mine) {
       const ok = document.createElement('button');
       ok.className = 'sug-btn sug-ok';
       ok.innerHTML = svg('check') + ' Accept';
-      ok.onclick = () => setGroupScore(gi, mi, s.sa, s.sb, s.pa, s.pb);
+      ok.onclick = () => apply(s.sa, s.sb, s.pa, s.pb);
       bar.appendChild(ok);
     }
     const no = document.createElement('button');
     no.className = 'sug-btn sug-no';
     no.innerHTML = svg('x') + ' Dismiss';
-    no.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
+    no.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, key);
     bar.appendChild(no);
   } else if (mine) { // the suggester can take back a score they sent by mistake
     const w = document.createElement('button');
     w.className = 'sug-btn sug-withdraw';
     w.innerHTML = svg('x') + ' Withdraw';
-    w.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, gi + '_' + mi);
+    w.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, key);
     bar.appendChild(w);
   }
   return bar;
@@ -2741,7 +2761,8 @@ function renderGroups() {
       // only an unrecorded match is open to suggestions, so a pending score can
       // never contradict something already standing in the table
       const open = m.sa == null && m.sb == null;
-      const sug = open ? curSug()[gi + '_' + mi] : null;
+      const key = gi + '_' + mi;
+      const sug = open ? curSug()[key] : null;
       const suggesting = open && canSuggest();
       const div = matchBox(m, {
         edit: (isAdmin || suggesting) && !koStarted, suggesting,
@@ -2749,8 +2770,8 @@ function renderGroups() {
         pb: suggesting && sug ? sug.pb : m.pb,
         sa: suggesting && sug ? sug.sa : m.sa,
         sb: suggesting && sug ? sug.sb : m.sb,
-        onGoals: (pa, pb) => suggesting ? submitSug(gi, mi, pa, pb) : setGroupGoals(gi, mi, pa, pb),
-        onTotal: (sa, sb) => suggesting ? sendSug(gi, mi, sa, sb) : setGroupScore(gi, mi, sa, sb, null, null),
+        onGoals: (pa, pb) => suggesting ? submitSug(key, pa, pb) : setGroupGoals(gi, mi, pa, pb),
+        onTotal: (sa, sb) => suggesting ? sendSug(key, sa, sb) : setGroupScore(gi, mi, sa, sb, null, null),
         // a forfeit is a ruling on a deadline, not a score anyone watched — the
         // admin alone makes it, so it is never open to suggestion
         onForfeit: isAdmin ? v => setGroupScore(gi, mi, ...(FORFEIT[v] || [null, null])) : null,
@@ -2775,7 +2796,7 @@ function renderGroups() {
       // the suggester edits numbers in the boxes AND gets a "sent, pending" bar
       // as confirmation; everyone else reads the score off the bar, where the
       // admin also gets accept/dismiss
-      if (sug) box.appendChild(sugBar(gi, mi, sug, suggesting));
+      if (sug) box.appendChild(sugBar(key, sug, suggesting));
     });
     // 0-0 is the void marker, not a draw, so it must not trip the no-draws warning
     if (g.matches.some(m => badScore(m, false))) {
@@ -2845,6 +2866,11 @@ function startKnockout() {
 function setKoScore(r, i, sa, sb, pa, pb) {
   const m = koRounds[r][i];
   m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);
+  // a real score settles the tie, so any suggestion for it is spent — accepted
+  // or typed straight over
+  if (isAdmin && !restoring && sa != null && cupId && window.clearSuggestion) {
+    window.clearSuggestion(cupId, 'k' + r + '_' + i);
+  }
   setKoWinner(r, i, scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null);
 }
 const setKoGoals = (r, i, pa, pb) => setKoScore(r, i, teamGoals(pa), teamGoals(pb), pa, pb);
@@ -2893,15 +2919,30 @@ function renderBracket() {
     col.className = 'round';
     col.innerHTML = `<div class="round-title">${koRoundName(r)}</div>`;
     matches.forEach((m, i) => {
+      // the same offer the group stage makes: whoever played it can put the
+      // score up, and the admin accepts it. A tie is filtered by sugOk, so a
+      // suggestion can never send two teams through
+      const key = 'k' + r + '_' + i;
+      const both = !!(m.a && m.b);
+      const open = both && m.sa == null && m.sb == null;
+      const held = open ? curSug()[key] : null;
+      const sug = held && sugFits(held, m) ? held : null;
+      const suggesting = open && canSuggest();
       const box = matchBox(m, {
-        ko: true, edit: isAdmin && !!(m.a && m.b), pa: m.pa, pb: m.pb,
-        onGoals: (pa, pb) => setKoGoals(r, i, pa, pb),
-        onTotal: (sa, sb) => setKoScore(r, i, sa, sb, null, null),
+        ko: true, edit: (isAdmin || suggesting) && both, suggesting,
+        pa: suggesting && sug ? sug.pa : m.pa,
+        pb: suggesting && sug ? sug.pb : m.pb,
+        sa: suggesting && sug ? sug.sa : m.sa,
+        sb: suggesting && sug ? sug.sb : m.sb,
+        onGoals: (pa, pb) => suggesting ? submitSug(key, pa, pb) : setKoGoals(r, i, pa, pb),
+        onTotal: (sa, sb) => suggesting ? sendSug(key, sa, sb) : setKoScore(r, i, sa, sb, null, null),
         // no void here: a knockout tie nobody turned up for still has to produce
-        // someone to advance, which is what the Match Toss is for
+        // someone to advance, which is what the Match Toss is for. A forfeit is
+        // the admin's ruling either way, never a suggestion
         onForfeit: isAdmin ? v => setKoScore(r, i, ...(FORFEIT[v] || [null, null])) : null,
       });
       box.className = 'bmatch card';
+      if (sug) box.appendChild(sugBar(key, sug, suggesting));
       col.appendChild(box);
     });
     el.appendChild(col);

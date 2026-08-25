@@ -1758,6 +1758,66 @@ assert.ok(await page.isVisible('#bracket'), 'the bracket never came back');
 await page.evaluate(() => { window.saveToDb = j => window.writes.push(j); });
 console.log('database echo mid-entry OK');
 
+// ---------- suggesting a knockout score ----------
+/* The bracket makes the same offer the group stage does: whoever played the tie
+   puts the score up and the admin accepts it. Keys carry the stage ('k0_1' is
+   round 0, match 1) so a knockout tie and a group fixture can't land on each
+   other, and a suggestion sent for a pairing the bracket has since changed is
+   nobody's score. The cup from the section above is mid-knockout: the first
+   semi is part-scored, the second is untouched. */
+const koCup = await page.evaluate(() => {
+  window.writes = []; window.sugLog = [];
+  window.suggestScore = (...a) => window.sugLog.push(['set', ...a]);
+  window.clearSuggestion = (...a) => window.sugLog.push(['clear', ...a]);
+  window.setAdmin(false);
+  window.setSignedIn({ name: 'Nur', email: 'nur@example.com' }); // signed in, not the admin
+  return cupId;
+});
+await page.waitForTimeout(80);
+const sugBoxes = () => page.$$('#bracket .score');
+const liveBoxes = async () => (await Promise.all((await sugBoxes()).map(s => s.isDisabled()))).filter(d => !d).length;
+assert.equal(await liveBoxes(), 4, 'a suggester should reach the four boxes of the tie with no score yet, and no others');
+assert.equal((await page.$$('#bracket .ff')).length, 0, 'a suggester can forfeit a knockout tie');
+
+const semiTwo = async () => (await sugBoxes())[4]; // first box of the untouched semi
+await (await semiTwo()).fill('9');
+await (await semiTwo()).evaluate(i => i.blur());
+await page.waitForTimeout(120);
+assert.deepEqual((await page.evaluate(() => window.sugLog)).map(x => x.slice(0, 3)), [['set', koCup, 'k0_1']],
+  'the knockout suggestion did not land under its own key');
+assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
+
+const sugK = { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nur@example.com' };
+const teamsOf = await page.evaluate(() => [koRounds[0][1].a, koRounds[0][1].b]);
+await page.evaluate(([c, s]) => window.renderSuggestions({ [c]: { k0_1: s } }), [koCup, sugK]);
+await page.waitForTimeout(120);
+assert.equal((await page.$$('#bracket .sug-bar')).length, 1, 'the pending knockout suggestion is not on the bracket');
+
+// the admin accepts: it becomes the real result and sends a team through
+await page.evaluate(() => { window.setAdmin(true); window.sugLog = []; window.writes = []; });
+await page.waitForTimeout(120);
+await page.click('#bracket .sug-ok');
+await page.waitForTimeout(120);
+assert.deepEqual(await page.evaluate(() => {
+  const m = koRounds[0][1];
+  return [m.sa, m.sb, m.pa, m.pb, m.winner === m.a, koRounds[1][0].b === m.a];
+}), [10, 6, { fwd: 6, def: 4 }, { fwd: 4, def: 2 }, true, true],
+  'accepting a knockout suggestion did not record the tie and carry the winner into the final');
+assert.deepEqual(await page.evaluate(() => window.sugLog), [['clear', koCup, 'k0_1']],
+  'the accepted knockout suggestion was not cleared');
+
+// the bracket is redrawn from the group table, so a slot can change hands under
+// a suggestion already in flight — that one is not a score for the new pairing
+await page.evaluate(([c, s, t]) => {
+  window.setAdmin(false);
+  koRounds[0][1].sa = null; koRounds[0][1].sb = null; koRounds[0][1].pa = null; koRounds[0][1].pb = null;
+  window.renderSuggestions({ [c]: { k0_1: { ...s, ta: t[1], tb: t[0] } } }); // the pairing it was sent for, swapped
+}, [koCup, sugK, teamsOf]);
+await page.waitForTimeout(120);
+assert.equal((await page.$$('#bracket .sug-bar')).length, 0,
+  'a suggestion for a pairing that is no longer in that slot was still offered');
+console.log('knockout suggestions OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
