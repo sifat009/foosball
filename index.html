@@ -865,6 +865,19 @@
   .sw:disabled { opacity: 0.45; cursor: default; }
   .sw:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
   #alerts.off .al-row:not(.al-all) { opacity: 0.5; cursor: default; }
+  /* the dismiss in the card's own corner. The card is the scroller, so it is
+     sticky rather than absolute — half way down a long profile the X is still
+     there, and floated so the centred title doesn't shift to make room. */
+  .card-x {
+    position: sticky; top: -8px; float: right; z-index: 2;
+    display: flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; padding: 0; margin: -10px -8px 0 8px;
+    border: 0; border-radius: 999px; background: #f4f6fa; color: #5b6a7d;
+    font-size: 1rem; cursor: pointer;
+    box-shadow: 0 0 0 6px #fff; /* text scrolling past it goes behind, not under */
+  }
+  .card-x:active { background: #e7ebf2; }
+  .card-x:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
   #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
@@ -2251,6 +2264,17 @@ window.renderHall = renderHall;
 // the profile has no toolbar button of its own — a row of the board opens it
 $('profileClose').onclick = () => $('profile').classList.remove('open');
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
+/* Every overlay card carries the same X in its corner — built here rather than
+   in five copies of the markup, and it dismisses whichever card it sits in. */
+document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile').forEach(p => {
+  const x = document.createElement('button');
+  x.className = 'card-x';
+  x.type = 'button';
+  x.setAttribute('aria-label', 'Close');
+  x.innerHTML = svg('x');
+  x.onclick = () => p.classList.remove('open');
+  p.querySelector('.hall-card').prepend(x);
+});
 // read on open, not once at load: which cup is running changes under a viewer
 $('rulesBtn').addEventListener('click', () => {
   $('rules').classList.toggle('no-indiv', !indivGoals());

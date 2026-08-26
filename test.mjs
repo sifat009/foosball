@@ -2002,6 +2002,25 @@ await page.evaluate(([c, s, t]) => {
 await page.waitForTimeout(120);
 assert.equal((await page.$$('#bracket .sug-bar')).length, 0,
   'a suggestion for a pairing that is no longer in that slot was still offered');
+// the Grand Final is a knockout tie like any other: once both semis are settled
+// its boxes open to a suggester, under its own key
+await page.evaluate(() => {
+  window.setAdmin(true);
+  setKoScore(0, 0, 10, 5); setKoScore(0, 1, 10, 4); // both semis decided — the final has two teams
+  window.setAdmin(false); window.sugLog = []; window.writes = [];
+});
+await page.waitForTimeout(120);
+const finalBox = async () => (await page.$$('#bracket .round'))[1].$$('.score');
+assert.equal((await Promise.all((await finalBox()).map(i => i.isDisabled()))).filter(d => !d).length, 4,
+  'the Grand Final did not open its boxes to a suggester the way the semis do');
+const fb = (await finalBox())[0];
+await fb.fill('9');
+await fb.evaluate(i => i.blur());
+await page.waitForTimeout(120);
+assert.deepEqual((await page.evaluate(() => window.sugLog)).map(x => x.slice(0, 3)), [['set', koCup, 'k1_0']],
+  'a suggestion for the Grand Final did not land under its own key');
+assert.deepEqual(await page.evaluate(() => window.writes), [], 'a Grand Final suggestion wrote to the live cup');
+
 console.log('knockout suggestions OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
