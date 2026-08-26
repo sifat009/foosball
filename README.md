@@ -47,7 +47,50 @@ looking at the page can share any cup: the image is built locally and never
 uploaded, so there is nothing to authorise.
 
 Finished cups are archived: "Past Champions" opens a list of every previous
-winner, readable by anyone, at any point in a tournament. "How it works" in the
+winner, readable by anyone, at any point in a tournament.
+
+Tapping a row on the **Players** board opens that player's profile — their
+badges, their career totals, and a cup-by-cup record. Every badge is on the
+card, split into what they have won and what is **Still to win**, with a count
+beside the heading — a flat grid mixes the two and reads as a list of failures,
+where the second heading turns the same tiles into the things to go after.
+The won half is a grid of tiles and the chase half is rows that spell their
+descriptions out, which is where that text is most wanted. Neither hides
+anything behind a hover, since a phone has none and cannot see a `title`: the
+tiles put the tapped one's description in a fixed line under the grid. It has
+to be a fixed line — growing a tile in place to hold the text repacks the grid
+and every tile after it jumps. **Badges** is the third tab of the Hall and
+describes every badge in one readable list.
+
+Nothing but an archived cup ever moves a badge, so a cup being decided is the
+only moment anything can change — which makes it the only moment worth
+announcing, and the celebration overlay already fires in *every* viewer's
+browser rather than only the admin's. It lists what the cup handed out, worked
+out by running `career()` with and without that last entry: no seen-flag, no
+stored field, and it clears itself when the next cup lands. Winning something
+again is not news, so only a first time or a climb to a new tier is listed. The
+same difference marks the tiles **NEW** on a profile, for whoever missed the
+moment. The entry reaches `history` *after* the crowning starts, so
+`renderNewBadges()` runs again from the history subscription — rendering it
+once inside `celebrate()` would show an empty list to the admin who decided it.
+`drawCard()` is untouched: the share PNG is about the champions. All of it
+is worked out from `history` at render time, the way `bestRounds()` already
+derives how far someone got — no stored field, no migration, and cups archived
+years ago still count. That also fixes what a badge may ask: the archive holds
+per-cup totals, so *won every match in a cup* is answerable for an entry saved
+before badges existed and *scored three in one match* never will be, because no
+entry carries the matches. **Nil** is the one exception and shows what it
+costs: a match that finished 0 vanishes the moment the cup is added up, so
+`rollupPlayers()` counts it while the matches are still there and archives it
+as `nil` beside the totals. It therefore starts from the cup after it was
+added, exactly like `g` did, and reads none for everything older. Forfeits are
+excluded — the no-show ends on zero too, but nobody kept them out. It is also
+the one badge flagged `bad`: it stays out of *Still to win* and out of the
+count, because a list of things to go after must not invite anyone to lose
+10-0. The **Win streak** counts cups won in a row in
+calendar order, so a cup a player sat out is a cup they didn't win and it ends
+the run. The tier thresholds in `TIERS` are guesses until somebody measures a
+real season — retune that one table and nothing else moves. "How it works" in the
 footer explains the format, the table, and the knockout — keep it in step with
 `rank()` and `startKnockout()` if you change either.
 

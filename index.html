@@ -574,6 +574,26 @@
   .award-laurel { position: absolute; bottom: 5.5%; width: 17.5%; height: auto; mix-blend-mode: screen; }
   .award-laurel.l { left: 11%; }
   .award-laurel.r { right: 11%; transform: scaleX(-1); }
+  /* what the cup handed out, under the champions — it is about everyone who
+     played, not only the two who won. The overlay already scrolls. */
+  #newBadges {
+    width: min(520px, 100%); margin-top: 22px; padding-top: 16px;
+    border-top: 1px solid rgba(240, 212, 154, 0.26);
+  }
+  #newBadges:empty { display: none; }
+  .nb-h {
+    font-size: 0.62rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #c8a95e; text-align: center; margin-bottom: 11px;
+  }
+  .nb-row {
+    display: flex; align-items: baseline; gap: 11px;
+    padding: 7px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .nb-row:last-child { border-bottom: 0; }
+  .nb-i { flex: none; width: 22px; text-align: center; font-size: 1.05rem; line-height: 1; }
+  .nb-n { flex: 1; min-width: 0; font-weight: 700; font-size: 0.86rem; color: #fff; overflow-wrap: anywhere; }
+  .nb-b { font-weight: 800; font-size: 0.8rem; color: #f0d79a; white-space: nowrap; }
+  .nb-row.bad .nb-b { color: #d9a3a3; }
   #shareBtn {
     position: relative; margin-top: 26px; cursor: pointer;
     display: inline-flex; align-items: center; gap: 9px;
@@ -608,13 +628,15 @@
   }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss, #alerts {
+  #hall, #rules, #toss, #alerts, #profile {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
-  #hall.open, #rules.open, #toss.open, #alerts.open { display: flex; }
+  #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open { display: flex; }
+  /* it opens off a row of the Hall, so it has to sit over the Hall */
+  #profile { z-index: 45; }
   .hall-card {
     background: #fff; border-radius: 18px; padding: 28px 26px 22px;
     width: min(520px, 100%); max-height: 80vh; overflow-y: auto;
@@ -650,16 +672,24 @@
   .hall-tab {
     border: 0; background: transparent; color: #5b6a7d; cursor: pointer;
     font-family: inherit; font-size: 0.8rem; font-weight: 700;
-    padding: 7px 18px; border-radius: 999px; transition: background 0.15s, color 0.15s;
+    padding: 7px 15px; border-radius: 999px; transition: background 0.15s, color 0.15s;
   }
   .hall-tab.active { background: #fff; color: #172b4d; box-shadow: 0 1px 4px rgba(10,16,28,0.12); }
   /* a fixed grid, not flex — every row emits all nine cells (a dash where
      there's nothing) so the numbers line up in scannable columns */
   .pl-row {
     display: grid; grid-template-columns: 22px minmax(0, 1fr) 44px 32px 31px 38px 40px 36px 38px;
-    align-items: baseline; gap: 8px 7px;
-    padding: 11px 4px; border-bottom: 1px solid #eef1f6;
+    align-items: baseline; gap: 8px 7px; width: 100%;
+    padding: 11px 4px; border: 0; border-bottom: 1px solid #eef1f6;
+    background: transparent; font: inherit; color: inherit; text-align: left;
   }
+  /* the header keeps the same classes and stays a div, so the button paint is
+     scoped by element rather than by yet another class */
+  button.pl-row { cursor: pointer; }
+  button.pl-row:active { background: #f7f9fc; }
+  button.pl-row:hover .pl-name,
+  button.pl-row:focus-visible .pl-name { color: #96660a; }
+  button.pl-row:focus-visible { outline: 2px solid #f0b429; outline-offset: -2px; }
   .pl-row > :nth-child(n+3) { text-align: right; }
   .pl-row:last-child { border-bottom: 0; }
   .pl-head { border-bottom-color: #dfe5ee; padding-bottom: 7px; }
@@ -705,6 +735,103 @@
     .pl-n { left: 4px; box-shadow: 7px 0 0 #fff; } /* the shadow fills the column gap */
     .pl-name { left: 33px; }
   }
+  /* the badge guide: a plain list, because on a phone it is read once and it is
+     the descriptions that matter, not the artwork */
+  .bd-row {
+    display: flex; align-items: flex-start; gap: 13px;
+    padding: 12px 4px; border-bottom: 1px solid #eef1f6;
+  }
+  .bd-row:last-child { border-bottom: 0; }
+  .bd-i { flex: none; width: 30px; text-align: center; font-size: 1.5rem; line-height: 1.1; }
+  .bd-t { flex: 1; min-width: 0; }
+  .bd-t b { display: block; font-size: 0.88rem; font-weight: 800; color: #172b4d; }
+  .bd-t i {
+    display: block; font-style: normal; font-size: 0.78rem;
+    color: #5b6a7d; margin-top: 2px; line-height: 1.45;
+  }
+  .bd-tiers { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .bd-tier {
+    font-size: 0.66rem; font-weight: 800; color: #96660a; white-space: nowrap;
+    background: #fffdf6; border: 1px solid #f0d79a; border-radius: 999px; padding: 3px 9px;
+  }
+  .bd-tier.bad { color: #a35b5b; background: #fdf7f7; border-color: #e8cfcf; }
+  /* not won yet, and the icon should say so — the guide's own rows stay lit */
+  #prLocked .bd-i { filter: grayscale(1); opacity: 0.5; }
+  /* the progress a chase row is at — the guide's rows carry no value */
+  .bd-v {
+    flex: none; align-self: center; font-size: 0.74rem; font-weight: 800;
+    color: #b3bdca; white-space: nowrap;
+  }
+
+  /* ---- player profile ----
+     Everything on it is derived from the archive at render time, the same way
+     bestRounds() is, so it needs no stored field and every cup already saved
+     counts towards it. */
+  .pr-head { text-align: center; margin-bottom: 16px; }
+  .pr-name {
+    font-size: 1.3rem; font-weight: 900; color: #172b4d;
+    letter-spacing: -0.01em; overflow-wrap: anywhere;
+  }
+  .pr-sub { color: #8fa0b8; font-size: 0.78rem; font-weight: 600; margin-top: 3px; }
+  .pr-stats {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
+    gap: 8px; margin-bottom: 22px;
+  }
+  .pr-stat { background: #f7f9fc; border-radius: 12px; padding: 10px 6px; text-align: center; }
+  .pr-stat b { display: block; font-size: 1.05rem; font-weight: 900; color: #172b4d; }
+  .pr-stat i, .pr-h {
+    font-style: normal; font-size: 0.62rem; font-weight: 800;
+    letter-spacing: 0.08em; text-transform: uppercase; color: #9aa7b8;
+  }
+  .pr-stat i { display: block; margin-top: 2px; }
+  .pr-h { display: flex; justify-content: space-between; margin: 0 4px 10px; }
+  .pr-h span { color: #96660a; }
+  .pr-todo { margin-bottom: 22px; }
+  .pr-badges {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr));
+    gap: 8px; margin-bottom: 11px;
+  }
+  /* two lines held open, so the commonest swap does not nudge what is below */
+  .pr-cap {
+    margin: 0 4px 22px; color: #5b6a7d; font-size: 0.74rem;
+    font-weight: 600; line-height: 1.45; min-height: 2.2em;
+  }
+  /* locked badges are rendered too, greyed: the ones you haven't earned are the
+     only reason to open this a second time */
+  .pr-badge {
+    position: relative; /* for the NEW flag */
+    border: 1px solid #eef1f6; border-radius: 12px; background: #fff;
+    padding: 10px 4px 8px; text-align: center;
+    width: 100%; font: inherit; color: inherit; cursor: pointer;
+  }
+  .pb-new {
+    position: absolute; top: -7px; right: -5px;
+    background: #e5b93f; color: #40300a; border-radius: 999px; padding: 2px 6px;
+    font-size: 0.52rem; font-weight: 900; letter-spacing: 0.07em;
+  }
+  .pr-badge.sel { border-color: #e5b93f; box-shadow: 0 0 0 2px rgba(229,185,63,0.32); }
+  .pr-badge:focus-visible { outline: 2px solid #f0b429; outline-offset: -2px; }
+  .pr-badges:empty { display: none; }
+  .pb-i { font-size: 1.5rem; line-height: 1.15; filter: grayscale(1); opacity: 0.3; }
+  .pb-l { font-size: 0.66rem; font-weight: 800; color: #b3bdca; margin-top: 3px; }
+  .pb-n { font-size: 0.62rem; font-weight: 700; color: #c3ccda; margin-top: 1px; }
+  .pr-badge.has { border-color: #f0d79a; background: #fffdf6; }
+  /* earned, but not a trophy — it must not sit in the cabinet wearing gold */
+  .pr-badge.bad.has { border-color: #e8cfcf; background: #fdf7f7; }
+  .pr-badge.bad.has .pb-l { color: #7a4a4a; }
+  .pr-badge.bad.has .pb-n { color: #a35b5b; }
+  .pr-badge.has .pb-i { filter: none; opacity: 1; }
+  .pr-badge.has .pb-l { color: #172b4d; }
+  .pr-badge.has .pb-n { color: #96660a; }
+  .pr-run {
+    display: flex; align-items: baseline; gap: 10px;
+    padding: 9px 4px; border-bottom: 1px solid #eef1f6;
+  }
+  .pr-run:last-child { border-bottom: 0; }
+  .pr-when { color: #8fa0b8; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+  .pr-run .pl-best { flex: 1; } /* the finish reuses the board's round colours */
+  .pr-line { color: #5b6a7d; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+
   /* alerts drawer: the same overlay as the Hall, but on a phone the card
      becomes a sheet that comes up from the bottom, off the Alerts tab */
   .al-sheet { padding-top: 14px; }
@@ -738,7 +865,7 @@
   .sw:disabled { opacity: 0.45; cursor: default; }
   .sw:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
   #alerts.off .al-row:not(.al-all) { opacity: 0.5; cursor: default; }
-  #hallClose, #rulesClose, #tossClose, #alertsClose {
+  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1084,10 +1211,30 @@
     <div class="hall-tabs">
       <button class="hall-tab active" data-tab="cups">Cups</button>
       <button class="hall-tab" data-tab="players">Players</button>
+      <button class="hall-tab" data-tab="badges">Badges</button>
     </div>
     <div id="hallList"><div class="hall-empty">No cups completed yet.</div></div>
     <div id="hallPlayers" style="display:none"><div class="hall-empty">No player records yet.</div></div>
+    <div id="hallBadges" style="display:none"></div>
     <button id="hallClose">Close</button>
+  </div>
+</div>
+
+<div id="profile">
+  <div class="hall-card">
+    <div class="pr-head">
+      <div class="pr-name" id="prName"></div>
+      <div class="pr-sub" id="prSub"></div>
+    </div>
+    <div class="pr-stats" id="prStats"></div>
+    <div class="pr-h">Badges <span id="prCount"></span></div>
+    <div class="pr-badges" id="prBadges"></div>
+    <div class="pr-cap" id="prCap"></div>
+    <div class="pr-h" id="prTodoH">Still to win</div>
+    <div class="pr-todo" id="prLocked"></div>
+    <div class="pr-h">Cup by cup</div>
+    <div id="prRuns"></div>
+    <button id="profileClose">Close</button>
   </div>
 </div>
 
@@ -1127,6 +1274,7 @@
       </div>
       <div id="awards"></div>
     </div>
+    <div id="newBadges"></div>
     <button id="shareBtn"><svg class="ico"><use href="#i-share"/></svg> <span>Share</span></button>
   </div>
 </div>
@@ -1719,7 +1867,8 @@ function renderPlayers(entries) {
   const cell = (cls, html) => { const s = document.createElement('div'); s.className = cls; s.innerHTML = html; return s; };
   const note = document.createElement('div');
   note.className = 'hall-note';
-  note.textContent = 'Ranked by cups won, then win rate. W–L counts group and knockout matches together. '
+  note.textContent = 'Tap a player for their profile. Ranked by cups won, then win rate. '
+    + 'W–L counts group and knockout matches together. '
     + 'Boot and Glove are Golden Boots (top scorer) and Golden Gloves (the defender who conceded fewest).';
   // the header carries the same cell classes as a data row, so one set of grid
   // rules places both. Its rank cell reads '#' rather than sitting empty: an
@@ -1736,8 +1885,10 @@ function renderPlayers(entries) {
   box.append(note, tbl);
 
   rows.forEach((r, i) => {
-    const row = document.createElement('div');
+    const row = document.createElement('button');
+    row.type = 'button';
     row.className = 'pl-row';
+    row.onclick = () => openProfile(r.name);
     const name = cell('pl-name', '');
     name.textContent = r.name; // textContent: names are user input
     row.append(
@@ -1755,7 +1906,312 @@ function renderPlayers(entries) {
   });
 }
 
+/* ================= BADGES =================
+   Derived at render time from the archive the same way bestRounds() is: no
+   stored field, no migration, and every cup already saved counts towards them.
+   That also fixes what a badge is allowed to ask. The archive keeps per-cup
+   totals, so "won every match in a cup" is answerable for cups saved years ago,
+   while "scored three in one match" never will be — no entry carries the
+   matches. Per-match badges would mean archiving matches; there are none. */
+/* ponytail: thresholds are set off one real profile (13 cups, 65 matches, 157
+   goals for a strong player), not a measured distribution. Retune this table
+   against the real history and nothing else moves. */
+const TIERS = {
+  veteran: [3, 8, 15, 30], ironman: [10, 30, 75, 150], marksman: [25, 100, 250, 600],
+  streak: [2, 3, 5, 8], haul: [15, 22, 30, 45], partners: [2, 3, 5],
+};
+const TIER_NAME = ['', 'Bronze', 'Silver', 'Gold', 'Platinum'];
+/* A badge may name its own tiers, and then the name replaces the label instead
+   of prefixing it — a run of three reads "Three in a Row", not "Silver Win
+   streak". Plain words on purpose: the office reads these, not a sports desk. */
+const tierWord = (b, t) => (b.names || TIER_NAME)[t];
+const tierLabel = (b, t) => b.names ? b.names[t] : TIER_NAME[t] + ' ' + b.label;
+
+/* One walk of the archive for one player: the counts every badge reads, plus
+   the cup-by-cup run the profile lists under them. A cup archived before the
+   per-player rollup existed carries a champion string and nothing else, so it
+   counts a cup and a title and contributes no matches — the same graceful
+   degradation the all-time board gives it. */
+function career(name, entries) {
+  const c = { cups: 0, titles: 0, finals: 0, perfect: 0, boot: 0, glove: 0, double: 0,
+              streak: 0, sweep: 0, haul: 0, machine: 0, wall: 0, partners: 0, nil: 0,
+              p: 0, w: 0, gf: 0, ga: 0, g: 0, best: 0, runs: [] };
+  let run = 0;
+  const mates = new Set(); // who they have actually won one with
+  entries.forEach(e => {
+    const s = (e.players || {})[name];
+    const won = (e.champion || '').split(' + ').includes(name);
+    /* The streak runs over cups in calendar order — entries arrive sorted by
+       date — so it is counted before the cups this player sat out are skipped:
+       a cup you were not in is a cup you did not win, and it ends the run. */
+    run = won ? run + 1 : 0;
+    c.streak = Math.max(c.streak, run);
+    if (!s && !won) return; // not in this cup at all
+    const aw = e.awards || {};
+    const boot = (aw.boot || []).includes(name);
+    const glove = (aw.glove || []).includes(name);
+    // the champion string is the one signal every entry carries, so it outranks
+    // the play-count guess here exactly as it does on the board
+    const best = won ? 4 : (bestRounds(e)[name] || 0);
+    c.cups++; c.best = Math.max(c.best, best);
+    if (won) {
+      c.titles++;
+      // the champion string is "A + B", so the other half of it is the partner
+      (e.champion || '').split(' + ').forEach(n => { if (n && n !== name) mates.add(n); });
+    } else if (best === 3) c.finals++; // played the final and lost it
+    if (boot) c.boot++;
+    if (glove) c.glove++;
+    if (won && (boot || glove)) c.double++;
+    if (boot && glove) c.sweep++; // both awards, one cup
+    if (s) {
+      c.p += s.p || 0; c.w += s.w || 0; c.gf += s.gf || 0; c.ga += s.ga || 0; c.g += s.g || 0;
+      c.nil += s.nil || 0; // absent on every cup archived before it was counted
+      if (s.p && s.w === s.p) c.perfect++; // unbeaten across group and knockout
+      /* Rates per cup rather than per career: a cup is the unit the archive
+         keeps, and a great run in one shouldn't be averaged away by the rest.
+         Cups from before per-player scoring carry no goals, so they can reach
+         the two that read ga but never the two that read g. */
+      if (s.p) {
+        c.haul = Math.max(c.haul, s.g || 0);
+        if ((s.g || 0) / s.p >= 4) c.machine++;
+        if ((s.ga || 0) / s.p < 2) c.wall++;
+      }
+    }
+    c.partners = mates.size;
+    c.runs.push({ date: e.date, best, boot, glove,
+                  p: (s && s.p) || 0, w: (s && s.w) || 0, g: (s && s.g) || 0 });
+  });
+  return c;
+}
+
+/* Two kinds, one shape: `n` counts a badge that can be won again, `v`/`tiers`
+   is a milestone that climbs. Goals only exist on cups played after per-player
+   scoring came in, so the Boot, Glove, Double, Goal Scorer, Big Haul and Goal
+   Machine stay empty for
+   everyone until those cups accumulate — which is why they sit last. */
+const badgesFor = c => [
+  { icon: '🏆', label: 'Champion', n: c.titles, note: 'Won the cup.' },
+  { icon: '🔥', label: 'Win streak', v: c.streak, tiers: TIERS.streak,
+    names: ['', 'Two in a Row', 'Three in a Row', 'Five in a Row', 'Eight in a Row'],
+    note: 'Cups won one after another. Cups are counted in order, so a cup you did not play in ends the run.' },
+  { icon: '🥈', label: 'Runner-up', n: c.finals, note: 'Played in a final and lost.' },
+  { icon: '💥', label: 'Perfect Cup', n: c.perfect, note: 'Won every single match in a cup.' },
+  { icon: '🤝', label: 'Partners', v: c.partners, tiers: TIERS.partners,
+    note: 'The number of different partners you have won a cup with.' },
+  { icon: '🎖️', label: 'Veteran', v: c.cups, tiers: TIERS.veteran, note: 'Number of cups played in.' },
+  { icon: '⚔️', label: 'Ironman', v: c.p, tiers: TIERS.ironman, note: 'Number of matches played.' },
+  { icon: '🥇', label: 'Golden Boot', n: c.boot, note: 'Scored the most goals in a cup.' },
+  { icon: '🧤', label: 'Golden Glove', n: c.glove,
+    note: 'The defender who let in the fewest goals per match in a cup.' },
+  { icon: '🐐', label: 'Double', n: c.double,
+    note: 'Won the cup and an individual award in the same cup.' },
+  { icon: '🌟', label: 'Clean Sweep', n: c.sweep,
+    note: 'Won the Golden Boot and the Golden Glove in the same cup.' },
+  { icon: '⚽', label: 'Goal Scorer', v: c.g, tiers: TIERS.marksman,
+    note: 'Total goals scored across every cup. Cups played before per-player scoring started do not count.' },
+  { icon: '🎯', label: 'Big Haul', v: c.haul, tiers: TIERS.haul,
+    note: 'The most goals you have scored in one cup.' },
+  { icon: '🚀', label: 'Goal Machine', n: c.machine,
+    note: 'A cup where you scored 4 goals a match or more.' },
+  { icon: '🧱', label: 'Brick Wall', n: c.wall,
+    note: 'A cup where your team let in fewer than 2 goals a match.' },
+  /* The one badge nobody wants. bad keeps it out of Still to win and out of
+     the count — a list of things to go after must not invite anyone to get
+     beaten 10-0. It only appears once it has already happened. */
+  { icon: '0️⃣', label: 'Nil', n: c.nil, bad: true,
+    note: 'A match your team finished without scoring at all. Counted from cups played after this was added, so older cups show none.' },
+];
+
+/* Which of a player's badges the last of these cups handed them. Nothing but
+   an archived cup ever moves a badge, so "new" needs no stored field and no
+   seen-flag: work the career out with and without that final entry and the
+   difference is exactly what it gave. It clears itself when the next cup lands.
+   First time only — a fifth Champion is not news, but climbing a milestone to
+   a tier that renames it is. */
+function gained(name, entries) {
+  const now = badgesFor(career(name, entries));
+  const was = badgesFor(career(name, entries.slice(0, -1)));
+  const out = new Set();
+  now.forEach((b, i) => {
+    if (b.tiers ? badgeTier(b) > badgeTier(was[i]) : (b.n > 0 && was[i].n === 0)) out.add(i);
+  });
+  return out;
+}
+
+/* Everyone who played the last of these cups, and what it gave them. Only the
+   people in that cup: a badge is earned by playing, so nobody who sat it out
+   can have gained one. */
+function newBadges(entries) {
+  const last = entries[entries.length - 1];
+  if (!last) return [];
+  const names = new Set((last.champion || '').split(' + ').filter(Boolean));
+  Object.keys(last.players || {}).forEach(n => names.add(n));
+  const out = [];
+  [...names].sort().forEach(name => {
+    const list = badgesFor(career(name, entries));
+    gained(name, entries).forEach(i => {
+      const b = list[i], t = badgeTier(b);
+      out.push({ name, icon: b.icon, bad: !!b.bad, label: t ? tierLabel(b, t) : b.label });
+    });
+  });
+  return out;
+}
+
+/* A locked milestone prints its progress to the next tier, which is the only
+   number on the card that says come back. A locked count prints a dash. */
+const badgeTier = b => b.tiers ? b.tiers.filter(t => b.v >= t).length : 0;
+const badgeHas = b => b.tiers ? badgeTier(b) > 0 : b.n > 0;
+/* The one number a badge shows: how far up the milestone, or how many times
+   over. Shared by the tile and the row so they can never disagree. */
+const badgeValue = b => {
+  const next = b.tiers && b.tiers[badgeTier(b)];
+  return b.tiers ? (next ? b.v + ' / ' + next : String(b.v))
+                 : (b.n > 0 ? '×' + b.n : '—');
+};
+const part = (cls, txt, tag) => {
+  const d = document.createElement(tag || 'div');
+  d.className = cls || ''; d.textContent = txt; return d;
+};
+
+// won: a tile, because a cabinet is the point of having won it
+function badgeNode(b) {
+  const tier = badgeTier(b);
+  const name = tier ? tierLabel(b, tier) : b.label;
+  const el = document.createElement('button');
+  el.type = 'button';
+  el.className = 'pr-badge' + (badgeHas(b) ? ' has' : '') + (b.bad ? ' bad' : '');
+  el.title = b.note; // a mouse still gets it on hover, without the tap
+  el.append(part('pb-i', b.icon), part('pb-l', name), part('pb-n', badgeValue(b)));
+  if (b.fresh) el.appendChild(part('pb-new', 'NEW'));
+  /* A phone has no hover, and a title attribute is invisible to it. The note
+     goes to a fixed line under the grid rather than into the tile: swapping
+     text there cannot move a tile, which is what expanding one in place did. */
+  el.onclick = () => {
+    $('prBadges').querySelectorAll('.sel').forEach(x => x.classList.remove('sel'));
+    el.classList.add('sel');
+    $('prCap').textContent = name + ' — ' + b.note;
+  };
+  return el;
+}
+
+/* Still to win: a row, with what it takes written out. This is the half where
+   the description actually matters, and a phone has no hover to reveal one —
+   so it is on the page rather than behind a tap. Same shape as the guide. */
+function badgeRow(b) {
+  const row = document.createElement('div');
+  row.className = 'bd-row';
+  const t = part('bd-t');
+  t.append(part(null, b.label, 'b'), part(null, b.note, 'i'));
+  row.append(part('bd-i', b.icon), t, part('bd-v', badgeValue(b)));
+  return row;
+}
+
+/* Opened off a row of the all-time board. Public and read-only like the Hall
+   itself — there is no account behind a player, only the name typed onto the
+   wheel, so there is nothing here to sign in to. */
+function openProfile(name) {
+  const c = career(name, hallEntries);
+  $('prName').textContent = name; // textContent: player names are user input
+  $('prSub').textContent = BEST[c.best] + ' at best · '
+    + c.cups + (c.cups === 1 ? ' cup' : ' cups');
+  const stat = (v, l) => `<div class="pr-stat"><b>${v}</b><i>${l}</i></div>`;
+  // numbers only, so innerHTML carries nothing a player typed
+  $('prStats').innerHTML = stat(c.titles, 'Cups won') + stat(c.p || '—', 'Played')
+    + stat(c.p ? Math.round(c.w / c.p * 100) + '%' : '—', 'Win rate')
+    + stat(c.g || '—', 'Goals');
+
+  /* Every badge, in two groups: what they have, then what is left. A flat grid
+     of ten would put a new player's four grey tiles among their one gold one
+     and read as a list of failures; under a heading that says Still to win,
+     the same tiles read as the things to go after — spelled out as rows, since
+     that is the half where what it takes matters. A milestone that has not
+     reached its first tier belongs in the second group and carries its
+     progress, which is the number that says how close. */
+  // what the newest cup gave them, marked until the one after it lands
+  const fresh = gained(name, hallEntries);
+  const all = badgesFor(c).map((b, i) => fresh.has(i) ? { ...b, fresh: true } : b);
+  const won = all.filter(badgeHas);
+  const todo = all.filter(b => !badgeHas(b) && !b.bad);
+  const chased = all.filter(b => !b.bad);
+  $('prCount').textContent = won.filter(b => !b.bad).length + ' of ' + chased.length;
+  const fill = (box, list, make) => {
+    box.innerHTML = '';
+    list.forEach(b => box.appendChild(make(b)));
+  };
+  fill($('prBadges'), won, badgeNode);
+  fill($('prLocked'), todo, badgeRow);
+  // reset per player: the caption is about whoever is on screen
+  $('prCap').textContent = 'Tap a badge to see what it means.';
+  $('prCap').style.display = won.length ? '' : 'none';
+  $('prTodoH').style.display = todo.length ? '' : 'none';
+
+  const runs = $('prRuns');
+  runs.innerHTML = '';
+  c.runs.slice().reverse().forEach(r => { // newest first, like the cup list
+    const row = document.createElement('div');
+    row.className = 'pr-run';
+    const when = document.createElement('div');
+    when.className = 'pr-when';
+    when.textContent = new Date(r.date).toLocaleDateString(undefined, { month: 'short', year: 'numeric' });
+    const fin = document.createElement('div');
+    fin.className = 'pl-best b' + r.best;
+    fin.textContent = BEST[r.best] + (r.boot ? ' 🥇' : '') + (r.glove ? ' 🧤' : '');
+    const line = document.createElement('div');
+    line.className = 'pr-line';
+    line.textContent = r.p
+      ? (r.w + 'W–' + (r.p - r.w) + 'L' + (r.g ? ' · ' + r.g + ' goals' : ''))
+      : '—';
+    row.append(when, fin, line);
+    runs.appendChild(row);
+  });
+  $('profile').classList.add('open');
+}
+window.openProfile = openProfile;
+
+/* The full list, third tab of the Hall. Built off a blank career so the guide
+   can never drift from the table the badges are actually awarded from — the
+   only thing it drops is a player. Static, so it renders once at load. */
+function renderBadgeGuide() {
+  const box = $('hallBadges');
+  box.innerHTML = '';
+  const note = document.createElement('div');
+  note.className = 'hall-note';
+  note.textContent = 'Badges are worked out from every cup already saved, so there is nothing to '
+    + 'sign up for and old cups still count. Tap a name on the Players board to see which badges '
+    + 'someone has.';
+  box.appendChild(note);
+  badgesFor(career('', [])).forEach(b => {
+    const row = document.createElement('div');
+    row.className = 'bd-row';
+    const t = part('bd-t');
+    t.append(part(null, b.label, 'b'), part(null, b.note, 'i'));
+    if (b.tiers) { // a milestone: say what each rung is worth
+      const ts = document.createElement('div');
+      ts.className = 'bd-tiers';
+      b.tiers.forEach((v, n) => {
+        const chip = document.createElement('span');
+        chip.className = 'bd-tier';
+        chip.textContent = tierWord(b, n + 1) + ' · ' + v;
+        ts.appendChild(chip);
+      });
+      t.appendChild(ts);
+    }
+    if (b.bad) { // among fourteen things to win, say which one isn't
+      const ts = document.createElement('div');
+      ts.className = 'bd-tiers';
+      ts.appendChild(part('bd-tier bad', 'Not one to chase', 'span'));
+      t.appendChild(ts);
+    }
+    row.append(part('bd-i', b.icon), t);
+    box.appendChild(row);
+  });
+}
+
+// the archive, kept so a profile can re-derive without another read
+var hallEntries = [];
+
 function renderHall(entries) {
+  hallEntries = entries;
   renderPlayers(entries);
   const list = $('hallList');
   if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
@@ -1778,6 +2234,10 @@ function renderHall(entries) {
     row.append(n, name, d);
     list.appendChild(row);
   });
+  // a profile left open while the final is decided should move with the cup
+  if ($('profile').classList.contains('open')) openProfile($('prName').textContent);
+  // the crowning starts before this entry arrives, so the list fills in here
+  if ($('celebrate').style.display === 'flex') renderNewBadges();
 }
 window.renderHall = renderHall;
 
@@ -1788,6 +2248,9 @@ window.renderHall = renderHall;
   $(close).onclick = () => $(panel).classList.remove('open');
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
 });
+// the profile has no toolbar button of its own — a row of the board opens it
+$('profileClose').onclick = () => $('profile').classList.remove('open');
+$('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 // read on open, not once at load: which cup is running changes under a viewer
 $('rulesBtn').addEventListener('click', () => {
   $('rules').classList.toggle('no-indiv', !indivGoals());
@@ -1799,14 +2262,17 @@ document.addEventListener('keydown', e => {
   // only — otherwise it shuts the Hall of Fame the replay was opened from
   if ($('installTip').classList.contains('open')) { $('installTip').classList.remove('open'); return; }
   if ($('celebrate').style.display === 'flex') { closeCelebration(); return; }
+  // the profile sits on the Hall it was opened from, so it closes on its own
+  if ($('profile').classList.contains('open')) { $('profile').classList.remove('open'); return; }
   ['hall', 'rules', 'toss', 'alerts'].forEach(p => $(p).classList.remove('open'));
 });
+const HALL_PANES = { cups: 'hallList', players: 'hallPlayers', badges: 'hallBadges' };
 document.querySelectorAll('.hall-tab').forEach(tab => tab.onclick = () => {
   document.querySelectorAll('.hall-tab').forEach(t => t.classList.toggle('active', t === tab));
-  const players = tab.dataset.tab === 'players';
-  $('hallList').style.display = players ? 'none' : '';
-  $('hallPlayers').style.display = players ? '' : 'none';
+  Object.entries(HALL_PANES).forEach(([k, id]) =>
+    $(id).style.display = k === tab.dataset.tab ? '' : 'none');
 });
+renderBadgeGuide(); // static: the guide describes the table, not a cup
 
 var session = 0; // bumped on start/reset so a mid-flight spin can't leak into a new session
 $('resetBtn').onclick = () => {
@@ -2987,14 +3453,23 @@ function renderBracket() {
    never a goal to anybody's name. */
 function rollupPlayers() {
   const P = {};
-  const add = (name, w, gf, ga, g) => {
-    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0, g: 0 });
-    x.p++; x.w += w; x.gf += gf; x.ga += ga; x.g += g;
+  const add = (name, w, gf, ga, g, nil) => {
+    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0, g: 0, nil: 0 });
+    x.p++; x.w += w; x.gf += gf; x.ga += ga; x.g += g; x.nil += nil;
   };
+  /* `nil` is the one thing a per-cup total can never give back: goals for are
+     summed across the cup, so a match that finished 0 is invisible the moment
+     it is added up. It has to be counted here, while the matches are still in
+     front of us, and archived alongside the totals.
+     Only where there is a breakdown, which means a match somebody actually
+     played: a forfeit's 1-0 leaves the no-show on zero, but they were kept out
+     by nobody. Cups scored a team at a time have no breakdown either, and they
+     predate this. */
   const credit = (team, won, gf, ga, p) => {
     if (!team) return;
-    add(team.fwd, won, gf, ga, (p && p.fwd) || 0);
-    add(team.def, won, gf, ga, (p && p.def) || 0);
+    const nil = p && gf === 0 ? 1 : 0;
+    add(team.fwd, won, gf, ga, (p && p.fwd) || 0, nil);
+    add(team.def, won, gf, ga, (p && p.def) || 0, nil);
   };
   const play = m => {
     if (!m.winner || !m.a || !m.b) return;
@@ -3121,11 +3596,35 @@ function syncChampion(w) {
 
 // --- champion celebration ---
 var lastChamp = null, confettiRun = false, celebrateRun = 0;
+// the archived cup being shown, or null while the live one is being crowned
+var celebrateEntry = null;
+
+/* Written by the admin, read by everyone: the entry lands in history after the
+   crowning starts, so this is rendered again from the history subscription
+   rather than only once here. Replaying an old cup shows what that cup gave,
+   not what the newest one did — hence the slice. */
+function renderNewBadges() {
+  const box = $('newBadges');
+  box.innerHTML = '';
+  const i = celebrateEntry ? hallEntries.indexOf(celebrateEntry) : hallEntries.length - 1;
+  if (i < 0) return;
+  const list = newBadges(hallEntries.slice(0, i + 1));
+  if (!list.length) return;
+  box.appendChild(part('nb-h', 'New badges'));
+  list.forEach(n => {
+    const row = document.createElement('div');
+    row.className = 'nb-row' + (n.bad ? ' bad' : '');
+    row.append(part('nb-i', n.icon), part('nb-n', n.name), part('nb-b', n.label));
+    box.appendChild(row);
+  });
+}
 
 function celebrate(name, entry) {
   // replay is a button now, so this can be re-entered while confetti is still
   // falling — the token retires the old loop instead of racing it
   const me = ++celebrateRun;
+  celebrateEntry = entry || null;
+  renderNewBadges();
   $('champsName').textContent = name;
   // what the share card will draw: an archived cup carries its own date, a
   // cup being won right now is today

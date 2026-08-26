@@ -418,11 +418,12 @@ const roll = await page.evaluate(({ nur, rifat, saj }) => {
   koStarted = true;
   return rollupPlayers();
 }, T);
-assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 11, ga: 7, g: 7 }, 'winner not credited group goals + the KO forfeit');
-assert.deepEqual(roll['Rashed'], { p: 2, w: 2, gf: 11, ga: 7, g: 3 },
+assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 11, ga: 7, g: 7, nil: 0 }, 'winner not credited group goals + the KO forfeit');
+assert.deepEqual(roll['Rashed'], { p: 2, w: 2, gf: 11, ga: 7, g: 3, nil: 0 },
   'partners share the team result but never each other’s goals');
-assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 9, g: 4 }, 'KO loss should add a play, no goals');
-assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19, g: 11 }, 'loser goals wrong');
+assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 9, g: 4, nil: 0 },
+  'a forfeit adds a play and no goals — and it is not a nil, nobody kept them out');
+assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19, g: 11, nil: 0 }, 'loser goals wrong');
 
 /* Golden Boot and Golden Glove, worked out from that rollup. Boot is raw
    individual goals; Glove is fewest conceded per match among the defence only,
@@ -489,6 +490,22 @@ assert.deepEqual(dry.boot, [], 'a cup nobody scored in still handed out a Golden
 assert.deepEqual(dry.glove, ['Rashed'], 'the forfeit’s 1-0 did not count against the no-show’s Glove: ' + dry.glove);
 assert.equal(dry.gloveRate, 0, 'the Glove winner kept a clean sheet, so the panel should read 0.0');
 
+/* A match that finished 0 is invisible once the cup is added up, so the rollup
+   has to count it while the matches are still there. A forfeit leaves the
+   no-show on zero too, and that is not the same thing — nobody kept them out. */
+const nils = await page.evaluate(() => {
+  const a = { fwd: 'Nur', def: 'Rashed' }, b = { fwd: 'Sifat', def: 'Ofi' };
+  groups = [{ name: 'A', teams: [a, b], matches: [
+    { a, b, sa: 10, sb: 0, pa: { fwd: 6, def: 4 }, pb: { fwd: 0, def: 0 }, winner: a },
+    { a: b, b: a, sa: 1, sb: 0, pa: null, pb: null, winner: b }, // forfeit: a no-show
+  ] }];
+  koRounds = []; koStarted = false;
+  const P = rollupPlayers();
+  return { sifat: P.Sifat.nil, ofi: P.Ofi.nil, nur: P.Nur.nil, rashed: P.Rashed.nil, gf: P.Sifat.gf };
+});
+assert.deepEqual(nils, { sifat: 1, ofi: 1, nur: 0, rashed: 0, gf: 1 },
+  'a 10-0 is a nil for both losers and a forfeit is not: ' + JSON.stringify(nils));
+
 // renderPlayers: aggregate across cups; titles count retroactively for cups
 // archived before per-player stats existed (champion string only).
 await page.evaluate(() => window.renderHall([
@@ -548,8 +565,177 @@ assert.deepEqual(awardCells.Siddiq, ['—', '—'], 'a retired Golden Ball is be
 const heads = await page.$$eval('.pl-head .pl-award', cs => cs.map(c => c.textContent));
 assert.deepEqual(heads, ['Boot', 'Glove'], 'the two award columns are not labelled');
 
+/* Player profile: opened off a board row, every number on it derived from the
+   same archive the board reads. Four cups, so the win streak has something to
+   break on: Nur wins the 1st, misses the 2nd, then takes the 3rd and 4th. */
+await page.evaluate(() => window.renderHall([
+  { champion: 'Nur + Rashed', date: 1, players: {
+      Nur: { p: 6, w: 6, gf: 30, ga: 12, g: 14 }, Rashed: { p: 6, w: 6, gf: 30, ga: 12, g: 16 },
+      Sifat: { p: 6, w: 3, gf: 24, ga: 20, g: 11 }, Ofi: { p: 6, w: 3, gf: 24, ga: 20, g: 13 },
+      Rifat: { p: 4, w: 1, gf: 12, ga: 22, g: 5 }, Shewa: { p: 4, w: 1, gf: 12, ga: 22, g: 7 } },
+    awards: { boot: ['Rashed'], bootGoals: 16, glove: ['Nur'], gloveRate: 2 } },
+  { champion: 'Sifat + Ofi', date: 2 }, // archived before per-player stats existed
+  { champion: 'Nur + Rashed', date: 3, players: {
+      Nur: { p: 5, w: 5, gf: 26, ga: 9, g: 12 }, Rashed: { p: 5, w: 5, gf: 26, ga: 9, g: 14 },
+      Sifat: { p: 5, w: 2, gf: 18, ga: 21, g: 9 }, Ofi: { p: 5, w: 2, gf: 18, ga: 21, g: 8 } },
+    awards: { boot: ['Rashed'], bootGoals: 14, glove: ['Nur'], gloveRate: 1.8 } },
+  { champion: 'Nur + Rashed', date: 4, players: {
+      Nur: { p: 5, w: 4, gf: 22, ga: 14, g: 10, nil: 0 }, Rashed: { p: 5, w: 4, gf: 22, ga: 14, g: 11 },
+      Sifat: { p: 5, w: 2, gf: 16, ga: 19, g: 7, nil: 2 }, Ofi: { p: 5, w: 2, gf: 16, ga: 19, g: 6 } },
+    awards: { boot: ['Rashed'], bootGoals: 11, glove: ['Nur'], gloveRate: 2.8 } },
+]));
+// the row is the way in: clicking one is what a player actually does
+await page.click('button.pl-row:has-text("Sifat")');
+assert.ok(await page.isVisible('#profile'), 'tapping a board row did not open the profile');
+assert.equal(await page.textContent('#prName'), 'Sifat', 'the profile opened on the wrong player');
+/* Every badge is on the card; what differs is the half it lands in. Won ones
+   are tiles keyed by the label as displayed, which is the tier's name once one
+   is reached; the rest are rows that spell out what they take, because a phone
+   has no hover to reveal a description with. */
+const badges = () => page.$$eval('#prBadges .pr-badge', bs => Object.fromEntries(bs.map(b =>
+  [b.querySelector('.pb-l').textContent, b.querySelector('.pb-n').textContent])));
+const chase = () => page.$$eval('#prLocked .bd-row', rs => Object.fromEntries(rs.map(r =>
+  [r.querySelector('b').textContent,
+   [r.querySelector('.bd-v').textContent, r.querySelector('i').textContent]])));
+let bg = await badges();
+// one title from a cup carrying nothing but a champion string, three lost finals
+// inferred from play counts — both have to survive the thin old entry
+let ch = await chase();
+assert.equal(Object.keys(bg).length + Object.keys(ch).length, 16,
+  'every badge belongs on the card — the unearned ones are the chase list');
+/* Two nils in one cup, and cups saved before it was counted contribute none.
+   It sits in the cabinet because it happened, but it is not one of the fifteen
+   the count is out of — a target nobody has is still a target, a nil is not. */
+assert.equal(bg['Nil'], '×2', 'a nil from an archived cup is not reaching the badge: ' + JSON.stringify(bg));
+assert.equal(await page.textContent('#prCount'), '5 of 15', 'an anti-badge must not count towards the total');
+assert.equal(bg.Champion, '×1', 'a title from a champion-string-only cup did not earn the badge');
+assert.equal(bg['Runner-up'], '×3', 'losing a final should earn Runner-up: ' + bg['Runner-up']);
+// a milestone prints the progress to its next rung — that number is the chase
+assert.equal(bg['Bronze Veteran'], '4 / 8', 'Veteran wrong: ' + JSON.stringify(bg));
+assert.equal(bg['Bronze Ironman'], '16 / 30', 'Ironman counts matches from the cups that carry them');
+assert.equal(bg['Bronze Goal Scorer'], '27 / 100', 'Goal Scorer counts career goals');
+/* The unearned half carries its description on the page rather than behind a
+   hover, which a phone does not have — that text is the whole point of it. */
+assert.deepEqual(ch['Golden Boot'], ['—', 'Scored the most goals in a cup.'],
+  'an unwon award must be listed with what it takes: ' + JSON.stringify(ch['Golden Boot']));
+assert.deepEqual(ch['Perfect Cup'], ['—', 'Won every single match in a cup.'], 'an unearned badge belongs in the chase list');
+assert.equal(ch.Double[0], '—', 'an unwon Double belongs in the chase list');
+// one title, never two running: not earned, so it is something to chase — and
+// it still carries how far along it is
+assert.equal(ch['Win streak'][0], '1 / 2', 'a streak of one is still to win: ' + JSON.stringify(ch['Win streak']));
+// one title, won alongside one person — the partner comes out of the champion string
+assert.equal(ch.Partners[0], '1 / 2', 'Partners counts who you won with: ' + JSON.stringify(ch.Partners));
+// 11 in a cup of six matches: under the first rung, and never 4 a match
+assert.equal(ch['Big Haul'][0], '11 / 15', 'Big Haul is the best single cup, not the career: ' + JSON.stringify(ch['Big Haul']));
+assert.equal(ch['Goal Machine'][0], '—', 'under 4 goals a match should not earn Goal Machine');
+assert.equal(ch['Brick Wall'][0], '—', 'a defence letting in over 3 a match is not a Brick Wall');
+assert.equal(ch['Clean Sweep'][0], '—', 'both awards in one cup is not being counted');
+assert.ok(!('Champion' in ch) && !('Win streak' in bg), 'a badge is being rendered in both halves');
+
+/* The won half is tiles, so its descriptions have nowhere to live but a line
+   under the grid — a phone has no hover and cannot see a title attribute. The
+   tiles must not move when it changes: that is what broke expanding in place. */
+const tileTops = () => page.$$eval('#prBadges .pr-badge', bs => bs.map(b => b.offsetTop));
+assert.equal(await page.textContent('#prCap'), 'Tap a badge to see what it means.',
+  'the caption should invite the tap before anything is picked');
+const before = await tileTops();
+await page.click('#prBadges .pr-badge:has-text("Runner-up")');
+assert.equal(await page.textContent('#prCap'), 'Runner-up — Played in a final and lost.',
+  'tapping a tile did not put its description in the caption');
+assert.deepEqual(await tileTops(), before, 'the tiles moved when the caption changed');
+// the tier's name is what the tile shows, so it is what the caption must name
+await page.click('#prBadges .pr-badge:has-text("Veteran")');
+assert.equal(await page.textContent('#prCap'), 'Bronze Veteran — Number of cups played in.',
+  'the caption is not following the tile that was tapped');
+assert.equal(await page.$$eval('#prBadges .sel', xs => xs.length), 1, 'exactly one tile is ever marked');
+// newest cup first, the same order the cup list uses
+const runs = await page.$$eval('.pr-run', rs => rs.map(r =>
+  [r.querySelector('.pl-best').textContent, r.querySelector('.pr-line').textContent]));
+assert.equal(runs.length, 4, 'expected one row per cup entered');
+assert.deepEqual(runs[3], ['Final', '3W–3L · 11 goals'], 'the oldest run is wrong: ' + JSON.stringify(runs[3]));
+assert.deepEqual(runs[2], ['Won', '—'], 'a champion-only entry has no W–L to print');
+
+await page.evaluate(() => window.openProfile('Nur'));
+bg = await badges();
+ch = await chase();
+assert.equal(bg['Perfect Cup'], '×2', 'winning every match in a cup did not earn Perfect Cup');
+assert.equal(bg['Golden Glove'], '×3', 'the Glove is not reaching the profile');
+assert.equal(bg.Double, '×3', 'a cup and an award in the same cup is a Double');
+assert.equal(ch['Golden Boot'][0], '—', 'the other winner’s Boot is being credited here');
+assert.equal(ch['Runner-up'][0], '—', 'a player who never lost a final is being called a Runner-up');
+/* One cup at 1.8 a match clears the wall; the other two, at 2.0 and 2.8, do
+   not — the bar is under two, and exactly two is not under it. */
+assert.equal(bg['Brick Wall'], '×1', 'Brick Wall is counting the wrong cups: ' + JSON.stringify(bg));
+assert.equal(bg['Bronze Veteran'], '3 / 8', 'the milestones must keep counting past their first rung');
+assert.equal(ch['Big Haul'][0], '14 / 15', 'Big Haul takes the best cup, not the total');
+assert.equal(ch.Partners[0], '1 / 2', 'three titles with the same partner is still one partner');
+assert.equal(await page.textContent('#prCount'), '9 of 15', 'the badge count is not following the player');
+// never nilled, so it appears nowhere — least of all as something to go after
+assert.ok(!('Nil' in bg), 'a player who was never nilled is wearing the badge');
+assert.ok(!('Nil' in ch), 'getting beaten 10-0 must never be listed as something to win');
+/* Three in a row on the calendar, but the cup he sat out is one he did not win,
+   so the run is 1 + 2 rather than 3 — and the tier renames the badge. */
+assert.equal(bg['Two in a Row'], '2 / 3', 'a skipped cup must break the streak: ' + JSON.stringify(bg));
+assert.ok(!('Three in a Row' in bg) && !('Win streak' in ch), 'the streak badge is being rendered twice');
+
+// Esc takes the top layer only — the Hall underneath was the way in
+await page.keyboard.press('Escape');
+assert.ok(!(await page.isVisible('#profile')), 'Escape did not close the profile');
+assert.ok(await page.isVisible('#hall'), 'Escape closed the Hall out from under the profile');
+
+// the guide lists every badge, including the ones no profile is showing
+await page.click('.hall-tab[data-tab="badges"]');
+assert.ok(await page.isVisible('#hallBadges'), 'badges tab did not open its pane');
+assert.ok(!(await page.isVisible('#hallPlayers')) && !(await page.isVisible('#hallList')),
+  'the badges tab left another pane open');
+// scoped: the profile's chase list is built from the same row, and a closed
+// overlay is still in the DOM
+const guide = await page.$$eval('#hallBadges .bd-row', rs => rs.map(r =>
+  [r.querySelector('b').textContent, [...r.querySelectorAll('.bd-tier')].map(c => c.textContent)]));
+assert.equal(guide.length, 16, 'the guide must list every badge, earned or not');
+assert.deepEqual(guide.find(([n]) => n === 'Nil')[1], ['Not one to chase'],
+  'the guide must say which badge is not a target');
+assert.ok(guide.some(([n]) => n === 'Golden Boot'), 'a badge nobody on screen has earned is missing from the guide');
+assert.deepEqual(guide.find(([n]) => n === 'Win streak')[1],
+  ['Two in a Row · 2', 'Three in a Row · 3', 'Five in a Row · 5', 'Eight in a Row · 8'],
+  'the streak tiers are not spelled out');
+assert.deepEqual(guide.find(([n]) => n === 'Veteran')[1],
+  ['Bronze · 3', 'Silver · 8', 'Gold · 15', 'Platinum · 30'],
+  'a generic milestone should chip its tiers as Bronze/Silver/Gold/Platinum');
+assert.deepEqual(guide.find(([n]) => n === 'Champion')[1], [], 'a repeatable badge has no tiers to list');
+
 await page.click('.hall-tab[data-tab="cups"]');
 assert.ok(await page.isVisible('#hallList') && !(await page.isVisible('#hallPlayers')), 'cups tab did not restore');
+
+/* The one moment a badge can change is a cup being archived, so that is the
+   one moment worth announcing — and the celebration is already the thing every
+   watcher is looking at. The list is the career worked out with and without
+   the last entry, so it needs nothing stored. */
+await page.click('.hall-row'); // newest first: the cup dated 4
+const fresh = () => page.$$eval('#newBadges .nb-row', rs => rs.map(r =>
+  [r.querySelector('.nb-n').textContent, r.querySelector('.nb-b').textContent]));
+assert.deepEqual(await fresh(), [
+  ['Nur', 'Two in a Row'],        // a third title, but only now two running
+  ['Nur', 'Bronze Veteran'],      // his third cup — he sat the second one out
+  ['Ofi', 'Bronze Goal Scorer'],  // 21 goals became 27, over the first rung
+  ['Rashed', 'Two in a Row'],
+  ['Rashed', 'Bronze Veteran'],
+  ['Sifat', 'Bronze Goal Scorer'],
+  ['Sifat', 'Nil'],          // an anti-badge is still news
+], 'the cup is not reporting what it handed out');
+// a repeat is not news: all three of these were already held before this cup
+const labels = (await fresh()).map(r => r[1]);
+assert.ok(!labels.includes('Champion') && !labels.includes('Golden Glove') && !labels.includes('Runner-up'),
+  'winning something again is being announced as a new badge');
+await page.keyboard.press('Escape');
+assert.ok(await page.isVisible('#hall'), 'closing the celebration took the Hall with it');
+
+// and the tile carries a NEW flag afterwards, for whoever missed the moment
+await page.evaluate(() => window.openProfile('Nur'));
+assert.deepEqual(await page.$$eval('#prBadges .pr-badge:has(.pb-new) .pb-l', ls => ls.map(l => l.textContent)),
+  ['Two in a Row', 'Bronze Veteran'], 'the newest cup’s badges are not flagged on the profile');
+await page.keyboard.press('Escape');
+
 await page.click('#hallClose');
 // this block poked koRounds/groups directly — clear it so the next test starts fresh
 await page.evaluate(() => { groups = []; koRounds = []; koStarted = false; lastChamp = null; });
