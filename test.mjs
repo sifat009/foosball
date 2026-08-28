@@ -837,6 +837,27 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(150);
 assert.equal((await page.$$('.sug-bar')).length, 0, 'a previous cup\'s suggestion leaked into this one');
+
+/* Suggestions land before the cup does — the subscription is tiny and answers
+   first, so renderSuggestions runs on the setup screen and only stores them.
+   With no scores in the snapshot nothing repaints afterwards, so the single
+   render applyState does on its way through is the only one there is, and it
+   has to run under the cup's stored id rather than a fresh per-client one. */
+const early = await page.evaluate(h => {
+  const s = window.decodeState(h);
+  s.cupId = 'stored-cup-1';
+  s.groupScores = [s.groupScores[0].map(() => [null, null, null, null])];
+  window.setAdmin(false);
+  show('setup'); // suggestions answer while the cup is still loading
+  window.renderSuggestions({ 'stored-cup-1': { '0_0':
+    { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nur@example.com' } } });
+  window.applyState(s);
+  return cupId;
+}, HASH);
+await page.waitForTimeout(150);
+assert.equal(early, 'stored-cup-1', 'restoring a cup minted a new id instead of keeping the stored one');
+assert.equal((await page.$$('.sug-bar')).length, 1,
+  'a suggestion that arrived before the cup never painted on a scoreless cup');
 console.log('suggestions OK');
 
 // ---------- 5-team single group seeds top-4 crossed semis ----------

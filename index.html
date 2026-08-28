@@ -2662,11 +2662,15 @@ function roundRobin(ts, double) {
 
 function startCup() {
   groups = []; koRounds = []; koStarted = false; lastChamp = null;
-  cupId = String(Date.now()); // applyState overwrites this when restoring an existing cup
   // restoring means applyState is rebuilding an existing cup, not opening a new
-  // one — keep the stored wall, or every remote snapshot would push it two days
-  // further out and the deadline would never arrive
-  if (!restoring) { deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS); }
+  // one — keep the stored wall and the stored id (applyState sets it before
+  // calling us), or every remote snapshot would push the deadline two days
+  // further out, and the renders below would key suggestions to an id no other
+  // client has ever seen
+  if (!restoring) {
+    cupId = String(Date.now());
+    deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS);
+  }
   $('champion').innerHTML = '';
   if (teams.length === 2) {
     koStarted = true;
@@ -2960,13 +2964,14 @@ function applyState(s) {
       finishDraft();
     }
     if (s.screen === 'tourney') {
-      startCup();
-      // keep the stored id; for a cup that predates this field, DON'T fall back
-      // to the per-client Date.now() from startCup — every browser would mint a
-      // different one and suggestions written under one would never match another
-      // client's lookup. The roster is identical across clients, so hash it into
-      // an id they all agree on.
+      // before startCup, not after: it renders the groups on the way through, and
+      // a render under the wrong id looks up no suggestions and paints no bars.
+      // For a cup that predates this field, DON'T fall back to the per-client
+      // Date.now() — every browser would mint a different one and suggestions
+      // written under one would never match another client's lookup. The roster
+      // is identical across clients, so hash it into an id they all agree on.
       cupId = s.cupId || cupKeyFrom(s.teams);
+      startCup();
       (s.groupScores || []).forEach((ms, gi) => ms.forEach(([sa, sb, pa, pb], mi) => {
         if (sa != null || sb != null || pa || pb) setGroupScore(gi, mi, sa, sb, pa, pb);
       }));
