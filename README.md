@@ -153,6 +153,12 @@ where there isn't one, and that link opens the board with the lobby outlined.
 It waits for the boot gate like everything else — opening it earlier would show
 an empty board and fill it in a second later.
 
+Nobody holds two seats in one lobby: one person can't play both ends of a
+table, and the ladder would count them twice in the same game. That one rule is
+the page's rather than the database's — it guards against a mis-tap, not
+against anybody malicious, since the seat being taken is empty and the write is
+honestly the tapper's own.
+
 Leaving is allowed until a score is filed and reopens the seat; the creator can
 cancel at any point. A filed score can be corrected by the four or by the
 admin, because mistyping 5-3 as 53 must not need a database console. A lobby

@@ -2483,10 +2483,15 @@ function seatBtn(c, seat, team, role) {
   const held = c.slots && c.slots[seat];
   const name = myName();
   const mine = !!held && !!acctEmail && held.email === acctEmail;
-  // a seat is only ever a button for whoever can act on it: take an empty one,
-  // or vacate your own — and neither once a score has been filed
+  /* A seat is only ever a button for whoever can act on it: take an empty one,
+     or vacate your own — and neither once a score has been filed. Nobody holds
+     two seats in one lobby: one person can't play both ends of a table, and
+     the ladder would count them twice in the same game. That one is the page's
+     rule rather than the database's, because it guards against a mis-tap, not
+     against anybody malicious — the seat you'd be taking is empty, and the
+     write is honestly yours. */
   const live = !!name && !chalDone(c);
-  const tag = live && (!held || mine) ? 'button' : 'div';
+  const tag = live && (held ? mine : !chalSat(c)) ? 'button' : 'div';
   const el = document.createElement(tag);
   el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '') + (mine ? ' mine' : '');
   const who = part('', held ? held.name : tag === 'button' ? 'Join' : '\u2014', 'b'); // textContent: names are user input

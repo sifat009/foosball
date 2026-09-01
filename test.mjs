@@ -2121,17 +2121,20 @@ assert.deepEqual(seen.open, ['ch-open1', 'ch-open2'],
   'the open list drew a stale or a finished lobby: ' + seen.open.join(','));
 assert.equal(seen.badge, '2', 'the toolbar count does not match what is open');
 assert.match(seen.who, /Playing as Sifat/, 'a mapped account was not recognised as its player');
-// my seat leaves, an empty seat joins, another player's seat is not a button
-assert.deepEqual(seen.seats[0], ['button:Sifatyou', 'div:Nur', 'button:Join', 'button:Join'],
-  'the seats did not read mine / theirs / empty for a player in the lobby');
+/* My own seat is the way out of it, another player's seat is not a button, and
+   the two empty ones are not offered either — one person cannot play both ends
+   of a table, and the ladder would count them twice in the same game. */
+assert.deepEqual(seen.seats[0], ['button:Sifatyou', 'div:Nur', 'div:\u2014', 'div:\u2014'],
+  'a seated player was offered a second seat, or lost the way out of their own');
 // the second lobby is full, but of four other people — not Sifat's to score
 assert.equal(seen.boxes, 0, 'the score boxes were offered to somebody outside the lobby');
 
 // ---- the same board, seen by somebody not in that game ----
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
 seen = await board();
+// somebody not in this lobby yet: the two empty seats are the ones on offer
 assert.deepEqual(seen.seats[0], ['div:Sifat', 'div:Nur', 'button:Join', 'button:Join'],
-  'a bystander was offered somebody else’s seat');
+  'a bystander was offered somebody else’s seat, or refused an empty one');
 // Toufiq is one of the four in that lobby, so the score is his to file
 assert.equal(seen.boxes, 1, 'a player in the full lobby was not offered its score boxes');
 
