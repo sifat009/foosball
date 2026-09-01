@@ -148,10 +148,20 @@ Taking a seat is a **transaction**, not a `set`: two people tapping the last
 one at the same moment would otherwise both be told they had it, and the second
 write would quietly overwrite the first.
 
-**Share** on a lobby hands `#c/<id>` to the OS share sheet, or the clipboard
-where there isn't one, and that link opens the board with the lobby outlined.
-It waits for the boot gate like everything else — opening it earlier would show
-an empty board and fill it in a second later.
+The board is three panes behind the same tab strip the Hall uses — **Open**,
+**Ladder**, **Recent** — because stacked, the ladder sat below the fold behind
+however many lobbies were open. Both cards scope their tab wiring to their own
+id, or one strip drives the other.
+
+**Share** on a lobby hands over an invitation, not a bare address: the link
+`#c/<id>`, and a line saying how many seats are left and when it kicks off (or
+naming the four, once it's full). To the OS share sheet where there is one, the
+clipboard where there isn't. Text and url both travel, unlike the champions
+card, which sends files alone — a link loses nothing to a target that posts only
+one of the two, where the image share would have lost the image. Opening that
+link lands on the Open pane with the lobby outlined, and waits for the boot gate
+like everything else: sooner, it would show an empty board and fill it in a
+second later.
 
 Nobody holds two seats in one lobby: one person can't play both ends of a
 table, and the ladder would count them twice in the same game. That one rule is

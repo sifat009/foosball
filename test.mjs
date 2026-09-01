@@ -2188,9 +2188,40 @@ await page.evaluate(f => {
 assert.deepEqual(await page.evaluate(() => window.chalLog), [],
   'a viewer tried to delete somebody else’s lobby');
 
+// ---- the three panes ----
+assert.deepEqual(await page.evaluate(() => Object.values(CHAL_PANES)
+  .map(id => $(id).style.display)), ['', 'none', 'none'],
+  'the board did not open on the Open pane with the other two put away');
+await page.click('#chalTabs [data-tab="ladder"]');
+assert.deepEqual(await page.evaluate(() => Object.values(CHAL_PANES)
+  .map(id => $(id).style.display)), ['none', '', 'none'], 'the Ladder tab did not swap the pane');
+// the Hall has its own strip: neither card may steal the other's tabs
+assert.deepEqual(await page.$$eval('#hall .hall-tab',
+  n => n.map(t => t.classList.contains('active'))), [true, false, false],
+  'switching a Challenges tab moved the Hall of Fame’s');
+await page.click('#chalTabs [data-tab="recent"]');
+
 // ---- recent results ----
 assert.deepEqual(await page.$$eval('#chalRecent .ch-rs', n => n.map(x => x.textContent)),
   ['4–4', '5–0', '5–3'], 'Recent is not the finished games, newest first');
+
+// ---- Share hands over an invitation, not a bare address ----
+await page.evaluate(f => {
+  showChalTab('open'); // Recent is up from the pane check above
+  window.setAccount('sifat@x.com'); window.renderChallenges(f);
+  window.shared = [];
+  navigator.share = payload => { window.shared.push(payload); return Promise.resolve(); };
+}, CH.fixture);
+await page.click('#ch-open1 .ch-mini');
+const invite = (await page.evaluate(() => window.shared))[0];
+assert.ok(invite.url.endsWith('#c/open1'),
+  'Share did not hand over the link that joins this lobby: ' + invite.url);
+assert.ok(!invite.url.includes('#c/open1#'), 'the share link stacked a second hash on the first');
+assert.match(invite.text, /2 seats left/, 'the invitation does not say what is left to take');
+// the same button on a full lobby names the four rather than offering a seat
+await page.click('#ch-open2 .ch-mini');
+assert.match((await page.evaluate(() => window.shared))[1].text,
+  /Nur & Ofi vs Rashed & Toufiq/, 'a full lobby was shared as though it had seats going');
 
 // ---- a shared link ----
 await page.evaluate(f => {
@@ -2205,26 +2236,42 @@ await page.evaluate(() => { location.hash = ''; $('chal').classList.remove('open
 
 // ---- on a phone ----
 await page.setViewportSize({ width: 360, height: 720 });
-await page.evaluate(f => { window.setAccount('sifat@x.com'); window.renderChallenges(f); $('chal').classList.add('open'); }, CH.fixture);
-const phone = await page.evaluate(() => {
+await page.evaluate(f => {
+  window.setAccount('sifat@x.com'); window.renderChallenges(f); $('chal').classList.add('open');
+}, CH.fixture);
+const phoneCard = await page.evaluate(() => {
+  showChalTab('open');
   const card = document.querySelector('#chalOpen .ch-card');
   const seats = [...card.querySelectorAll('.ch-seat')].map(s => s.getBoundingClientRect());
-  const scroll = document.querySelector('#chalLadder .ch-scroll');
   return {
     page: document.documentElement.scrollWidth,
     cols: new Set(seats.map(r => Math.round(r.left))).size,
     overflow: card.scrollWidth > card.clientWidth,
-    ladderFits: scroll.clientWidth <= document.querySelector('#chal .hall-card').clientWidth,
     tabs: [...document.querySelectorAll('#btnBar button')].filter(b => b.offsetParent).length,
     barRow: new Set([...document.querySelectorAll('#btnBar button')]
       .filter(b => b.offsetParent).map(b => Math.round(b.getBoundingClientRect().top))).size,
   };
 });
-assert.equal(phone.page, 360, 'the challenge board pushes the page sideways on a phone');
-assert.equal(phone.cols, 2, 'the seat grid is not two columns on a phone');
-assert.equal(phone.overflow, false, 'a lobby card scrolls sideways inside itself');
-assert.equal(phone.ladderFits, true, 'the ladder burst its card instead of scrolling inside it');
-assert.equal(phone.barRow, 1, `the bottom tab bar wrapped to ${phone.barRow} rows with ${phone.tabs} tabs`);
+assert.equal(phoneCard.page, 360, 'the challenge board pushes the page sideways on a phone');
+assert.equal(phoneCard.cols, 2, 'the seat grid is not two columns on a phone');
+assert.equal(phoneCard.overflow, false, 'a lobby card scrolls sideways inside itself');
+assert.equal(phoneCard.barRow, 1,
+  `the bottom tab bar wrapped to ${phoneCard.barRow} rows with ${phoneCard.tabs} tabs`);
+
+// ten columns will not fit 360px, so the ladder has to scroll inside its own box
+const phoneLadder = await page.evaluate(() => {
+  showChalTab('ladder');
+  const scroll = document.querySelector('#chalLadder .ch-scroll');
+  return {
+    page: document.documentElement.scrollWidth,
+    fits: scroll.clientWidth <= document.querySelector('#chal .hall-card').clientWidth,
+    scrolls: scroll.scrollWidth > scroll.clientWidth,
+  };
+});
+assert.equal(phoneLadder.fits, true, 'the ladder burst its card instead of scrolling inside it');
+assert.equal(phoneLadder.scrolls, true, 'the ladder did not actually scroll — the columns were squeezed');
+assert.equal(phoneLadder.page, 360, 'the ladder pushed the page sideways instead of scrolling itself');
+
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccount(null); });
 

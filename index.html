@@ -993,7 +993,7 @@
   }
   #rulesBtn:hover { color: #17854a; }
   #hallBtn {
-    position: fixed; top: 18px; right: 148px; z-index: 5;
+    position: fixed; top: 18px; right: 18px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
     border-radius: 999px; padding: 9px 18px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1001,7 +1001,7 @@
   }
   #hallBtn:hover { color: #b8860b; border-color: #f0d79a; }
   #resetBtn {
-    position: fixed; top: 18px; right: 18px; z-index: 5;
+    position: fixed; top: 110px; right: 18px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
     border-radius: 999px; padding: 9px 18px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1033,6 +1033,11 @@
   }
   #notifyBtn:hover { color: #b8860b; border-color: #f0d79a; }
   #notifyBtn.on { color: #17854a; border-color: #b6e3c9; }
+  /* Two fixed columns on desktop, 18px from each edge and 46px apart: account,
+     install and alerts down the left; the trophy cabinet, the challenge board
+     and — furthest from the corner, because it is the destructive one — Start
+     Over down the right. Stacked at a shared edge they line up whatever their
+     labels say, which right-insetting one to clear another never does. */
   /* shown on browsers with no install event (iOS Safari, Firefox) — the only
      way in there is the browser's own menu, so spell the steps out */
   #installTip {
@@ -1065,10 +1070,7 @@
     border-radius: 999px; background: #2563eb; color: #fff;
     font-size: 0.64rem; font-weight: 800; vertical-align: 0.05em;
   }
-  .ch-h {
-    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
-    color: #96660a; margin: 22px 0 8px;
-  }
+  #chalTabs { margin: 16px auto 16px; }
   #chalWho {
     font-size: 0.8rem; font-weight: 600; color: #7d8a9c; text-align: center; margin: -10px 0 14px;
   }
@@ -1122,6 +1124,20 @@
   button.ch-seat.mine:hover { border-color: #e8b3b3; background: #fdf5f5; }
   button.ch-seat.on { border-color: #17854a; background: #eef7f2; border-style: solid; }
   .ch-seat b .ch-you { color: #17854a; font-size: 0.66rem; font-weight: 800; margin-left: 5px; }
+  /* the create form's position picker — one line each, not the four-seat card:
+     there is nobody else in the lobby yet to draw */
+  .ch-pos {
+    display: flex; align-items: center; gap: 7px;
+    border: 1.5px solid #e2e8f1; border-radius: 12px; padding: 11px 12px;
+    background: #fbfcfe; font-family: inherit; text-align: left; width: 100%;
+    cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .ch-pos b { font-size: 0.84rem; font-weight: 800; }
+  .ch-pos.blue b { color: #2563eb; }
+  .ch-pos.red b { color: #dc5a1e; }
+  .ch-pos:hover { border-color: #b9c6d8; background: #fff; }
+  .ch-pos.on { border-color: #17854a; background: #f1faf5; box-shadow: inset 0 0 0 1px #17854a; }
+  .ch-pos.on .ico { color: #17854a; }
   .ch-act { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
   .ch-act .ch-link { margin-left: auto; }
   .ch-mini {
@@ -1155,10 +1171,10 @@
     color: #8fa0b8;
   }
   .ch-lrow .ch-ln { color: #c3ccda; font-weight: 800; font-size: 0.78rem; }
-  .ch-lrow .ch-lname { font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
+  .ch-lrow .ch-lname { font-weight: 700; color: #172b4d; overflow-wrap: anywhere; text-align: left; }
+  .ch-lrow .ch-ln { text-align: left; }
   .ch-lrow span { font-size: 0.8rem; font-weight: 700; color: #5b6a7d; text-align: right; }
   .ch-lrow .ch-lpc { font-weight: 800; color: #172b4d; }
-  .ch-lrow.hd .ch-lname, .ch-lrow.hd .ch-ln { text-align: left; }
   .ch-rrow { display: flex; align-items: baseline; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #eef1f6; }
   .ch-rrow:last-child { border-bottom: 0; }
   .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
@@ -1366,7 +1382,7 @@
     <div id="chalWho"></div>
     <button id="chalNew" class="btn btn-green ch-new">Open a challenge</button>
     <div id="chalForm" hidden>
-      <div class="ch-flbl">Your seat</div>
+      <div class="ch-flbl">Choose your position</div>
       <div class="ch-grid" id="chalNewSeats"></div>
       <div class="ch-flbl">Kick-off</div>
       <div class="sched-controls">
@@ -1379,12 +1395,14 @@
       </div>
       <div id="chalErr"></div>
     </div>
-    <div class="ch-h">Open now</div>
+    <div class="hall-tabs" id="chalTabs">
+      <button class="hall-tab active" data-tab="open">Open</button>
+      <button class="hall-tab" data-tab="ladder">Ladder</button>
+      <button class="hall-tab" data-tab="recent">Recent</button>
+    </div>
     <div id="chalOpen"></div>
-    <div class="ch-h">Ladder</div>
-    <div id="chalLadder"></div>
-    <div class="ch-h">Recent</div>
-    <div id="chalRecent"></div>
+    <div id="chalLadder" style="display:none"></div>
+    <div id="chalRecent" style="display:none"></div>
     <button id="chalClose">Close</button>
   </div>
 </div>
@@ -2477,6 +2495,7 @@ window.chalLadder = chalLadder;
 
 const chalPct = e => Math.round((e.w + e.d / 2) / e.p * 100);
 const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
+const chalTeamLine = c => pairName(c, 'bf', 'bd') + ' vs ' + pairName(c, 'rf', 'rd');
 
 /* ---- painting ---- */
 function seatBtn(c, seat, team, role) {
@@ -2548,7 +2567,7 @@ function chalCard(c) {
   share.type = 'button';
   share.className = 'ch-mini';
   share.innerHTML = svg('share') + ' Share';
-  share.onclick = () => shareChal(c.id, share);
+  share.onclick = () => shareChal(c, share);
   act.append(share);
   // the creator closes their own lobby; the admin can close anybody's
   if ((acctEmail && acctEmail === c.by) || isAdmin) {
@@ -2563,13 +2582,22 @@ function chalCard(c) {
   return el;
 }
 
-// the OS sheet where there is one, the clipboard where there isn't — the same
-// two-step the champions card already falls back through
-async function shareChal(id, btn) {
-  const url = location.href.split('#')[0] + '#c/' + id;
+/* The link is the invitation: it names the lobby, and opening it drops the
+   reader straight onto that card with a seat to take. The OS sheet where there
+   is one, the clipboard where there isn't — the same two-step the champions
+   card already falls back through. Text and url both travel here, unlike the
+   share card: a link has nothing to lose to a target that posts only one of
+   them, where an image would have lost the image. */
+async function shareChal(c, btn) {
+  const url = new URL('#c/' + c.id, location.href).href;
+  const left = 4 - SEATS.filter(([seat]) => c.slots && c.slots[seat]).length;
+  const when = fmtWhen(c.playAt || c.at, 'short');
+  const text = left
+    ? `Foosball at ${when} — ${left} ${left === 1 ? 'seat' : 'seats'} left. Take one.`
+    : `Foosball at ${when} — ${chalTeamLine(c)}.`;
   const say = t => { const was = btn.innerHTML; btn.textContent = t; setTimeout(() => { btn.innerHTML = was; }, 1600); };
   try {
-    if (navigator.share) { await navigator.share({ title: 'Foosball challenge', url }); return; }
+    if (navigator.share) { await navigator.share({ title: 'Foosball challenge', text, url }); return; }
     await navigator.clipboard.writeText(url);
     say('Link copied');
   } catch (err) {
@@ -2677,8 +2705,11 @@ function paintNewSeats() {
   SEATS.forEach(([seat, team, role]) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (newSeat === seat ? ' on' : '');
-    b.append(part('', team + ' ' + role, 'u'), part('', newSeat === seat ? 'Yours' : 'Sit here', 'b'));
+    // one line, one position: an empty lobby has nothing to report about the
+    // other three seats, so a second line could only ever repeat the first
+    b.className = 'ch-pos ' + (team === 'Blue' ? 'blue' : 'red') + (newSeat === seat ? ' on' : '');
+    b.innerHTML = newSeat === seat ? svg('check') : '';
+    b.append(part('', team + ' ' + role.toLowerCase(), 'b'));
     b.onclick = () => { newSeat = seat; paintNewSeats(); };
     box.append(b);
   });
@@ -2709,6 +2740,18 @@ $('chalPost').onclick = () => {
    the table. */
 window.setAccount = email => { acctEmail = email || null; renderChal(); };
 
+/* Three panes rather than three stacked sections: on a laptop the card is 80vh
+   and the ladder sat below the fold behind however many lobbies were open. Same
+   strip the Hall uses, scoped to this card so neither steals the other's tabs. */
+const CHAL_PANES = { open: 'chalOpen', ladder: 'chalLadder', recent: 'chalRecent' };
+function showChalTab(name) {
+  document.querySelectorAll('#chalTabs .hall-tab')
+    .forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+  Object.entries(CHAL_PANES).forEach(([k, id]) => { $(id).style.display = k === name ? '' : 'none'; });
+}
+document.querySelectorAll('#chalTabs .hall-tab').forEach(tab =>
+  tab.onclick = () => showChalTab(tab.dataset.tab));
+
 /* A shared link names one lobby. The board opens on it straight away, but the
    card itself can't exist until the first snapshot lands — so the scroll is
    left to whichever render first draws it, once. */
@@ -2719,6 +2762,7 @@ function openChalFromHash() {
   chalLit = m[1];
   chalFound = false;
   $('chal').classList.add('open');
+  showChalTab('open'); // the link is an invitation to a lobby, not to the ladder
   renderChal();
 }
 addEventListener('hashchange', openChalFromHash);
@@ -2761,8 +2805,8 @@ document.addEventListener('keydown', e => {
   ['hall', 'rules', 'toss', 'alerts', 'chal'].forEach(p => $(p).classList.remove('open'));
 });
 const HALL_PANES = { cups: 'hallList', players: 'hallPlayers', badges: 'hallBadges' };
-document.querySelectorAll('.hall-tab').forEach(tab => tab.onclick = () => {
-  document.querySelectorAll('.hall-tab').forEach(t => t.classList.toggle('active', t === tab));
+document.querySelectorAll('#hall .hall-tab').forEach(tab => tab.onclick = () => {
+  document.querySelectorAll('#hall .hall-tab').forEach(t => t.classList.toggle('active', t === tab));
   Object.entries(HALL_PANES).forEach(([k, id]) =>
     $(id).style.display = k === tab.dataset.tab ? '' : 'none');
 });
