@@ -94,6 +94,71 @@ real season — retune that one table and nothing else moves. "How it works" in 
 footer explains the format, the table, and the knockout — keep it in step with
 `rank()` and `startKnockout()` if you change either.
 
+## Challenges
+
+Between cups there is the **Challenges** board: casual 2v2 pickup games that
+count for nothing a cup counts. One player opens a lobby — their seat and a
+kick-off time — and the other three seats fill from whoever sees it. Any of the
+four then files the score. Cup titles, badges, the Golden Boot and the Players
+board are untouched by all of it: nothing here ever writes to `history`.
+
+It lives at `challenges/<id>`, where the id is `Date.now()`, the same
+convention `cupId` uses:
+
+```
+by      the creator's email        playAt  kick-off, set by the creator
+at      opened                     slots   bf / bd / rf / rd -> { name, email }
+score   { b, r }, absent until played
+```
+
+There is no status field. An absent seat is an empty seat, an absent `score`
+means the game hasn't been played, and the winner is `b > r`. Team score only —
+one box a side, not the cup's forward/defender pair — which still gives the
+winner, goal difference and the nils, with two numbers to agree on rather than
+four. Draws are storable and get their own column; foosball to a target score
+has none, but a timed lunch game does.
+
+The ladder is **derived at render** from the finished lobbies, the way
+`career()` derives everything from `history`. No rollup node, no stored totals,
+no migration: correcting a mistyped score fixes the board immediately. `Nil`
+counts the games a side was held to nothing — the same thing the cup's Nil
+badge counts — and `Win %` scores a draw as half a win, so one 4-4 doesn't read
+like one 0-5. Level players sort alphabetically, so the board never reorders
+itself between two readers.
+
+**Who you are is `EMAIL_NAMES` in `index.html`**, next to `ADMIN_EMAIL`. The
+rules can only see an email address; the page is what turns one into a player.
+An account that isn't in the map reads the board but can't sit down, and is
+told to ask the admin — adding somebody is an edit to that map and a deploy,
+the same cost as adding them to a cup. The admin plays like everybody else:
+who may edit the cup and who is sitting at the table are different questions,
+which is why the page tracks `acctEmail` alongside `isAdmin`.
+
+The `challenges` rules are the one place a non-admin write is really enforced
+rather than trusted. Anyone verified may create a lobby; only its creator or
+the admin may delete one; a seat is writable only when it's empty or already
+yours, and the row you write must carry your own `auth.token.email`. So nobody
+sits down as somebody else and nobody is turfed out of their own seat. Filing
+the score stays open to any verified account, because the rules can't tell who
+the four players are — the UI shows the boxes to the lobby's four and the same
+honour system the suggestion flow runs on covers the rest. Four people were
+standing at the table.
+
+Taking a seat is a **transaction**, not a `set`: two people tapping the last
+one at the same moment would otherwise both be told they had it, and the second
+write would quietly overwrite the first.
+
+**Share** on a lobby hands `#c/<id>` to the OS share sheet, or the clipboard
+where there isn't one, and that link opens the board with the lobby outlined.
+It waits for the boot gate like everything else — opening it earlier would show
+an empty board and fill it in a second later.
+
+Leaving is allowed until a score is filed and reopens the seat; the creator can
+cancel at any point. A filed score can be corrected by the four or by the
+admin, because mistyping 5-3 as 53 must not need a database console. A lobby
+still unfilled six hours past its kick-off drops off the board, and the admin's
+page is what actually deletes those rows — it holds the only account allowed to.
+
 ## Before it works
 
 **Authorized domains.** Firebase Console → Authentication → Settings →
@@ -119,11 +184,16 @@ rule. The one in `index.html` only decides whether the UI shows the editing
 controls; the one in the rules is the actual boundary, enforced by Firebase
 rather than by the page. Changing admin means editing both.
 
-The `suggestions` node is writable by **any verified Google account**, not just
-the admin — that's what lets players suggest scores. It's a separate node;
-`cup` and `history` still take writes from the admin alone. If you want to
-narrow suggestions to your own organisation, add an email-domain check to that
-rule (e.g. `&& auth.token.email.endsWith('@yourdomain.com')`).
+The `suggestions` and `challenges` nodes are writable by **any verified Google
+account**, not just the admin — that's what lets players suggest scores and run
+their own pickup games. They're separate nodes; `cup` and `history` still take
+writes from the admin alone. If you want to narrow either to your own
+organisation, add an email-domain check to that rule (e.g. `&&
+auth.token.email.endsWith('@yourdomain.com')`).
+
+`EMAIL_NAMES` in `index.html` is the third thing to keep in step: it maps an
+address to the player it belongs to, and an account missing from it can read the
+challenge board but not play. See [Challenges](#challenges).
 
 ## Running it locally
 
@@ -160,9 +230,10 @@ happen against the live project with the relay running.
 
 ## Push notifications
 
-Six things reach a phone: a group match recorded, a knockout match decided, the
-knockout opening, a champion crowned, a draft being scheduled, and the draft
-falling due. Suggestions ping the admin alone.
+Ten things reach a phone: a group match recorded, a knockout match decided, the
+knockout opening, a champion crowned, a draft being scheduled, the draft falling
+due, and a challenge opening, filling, being scored or kicking off. Suggestions
+ping the admin alone.
 
 Sending needs a service-account key, which can never live in a page — so the
 page only *says what happened*. It writes a row to `/notify`, and a small
@@ -172,9 +243,17 @@ score reaches a phone in about a second, and it knows nothing about foosball:
 all six messages are composed in `index.html`, next to the code that already
 knew the match was over.
 
-`/notify` is admin-writable only. That is why suggestions are the one thing the
-relay watches directly — opening the node to every signed-in account would let
-any Google user push to every phone in the office.
+`/notify` is admin-writable only. That is why suggestions and challenges are
+the two things the relay watches directly — opening the node to every signed-in
+account would let any Google user push to every phone in the office.
+
+A challenge announces itself three times — opened, all four seats gone, score
+filed — and one `value` listener tells them apart by diffing against the last
+snapshot. A full lobby also arms a kick-off reminder on the relay's own timer.
+Whoever caused an announcement is left out of it: `recipients` takes an
+`except` address, so nobody is pinged about their own tap. Kick-off times are
+formatted in the relay host's timezone, so set `TZ` in the unit file if the box
+isn't on office time.
 
 **Until it's configured nothing changes.** `VAPID_KEY` in `index.html` is empty
 by default and the Notify button stays hidden, so the app is exactly what it
@@ -264,6 +343,7 @@ Environment=GOOGLE_APPLICATION_CREDENTIALS=/opt/foosball-relay/sa.json
 Environment=DB_URL=https://ollyo-foosball-default-rtdb.asia-southeast1.firebasedatabase.app
 Environment=ADMIN_EMAIL=bhacker150@gmail.com
 Environment=SITE_URL=https://sifat009.github.io/foosball/
+Environment=TZ=Asia/Dhaka
 User=foosrelay
 Restart=always
 RestartSec=10
@@ -329,8 +409,8 @@ own address, so nobody can pose as the admin to receive the suggestion pings.
 Dead tokens (uninstalled apps) are pruned by the relay when a send rejects
 them.
 
-Under it are the kinds — draw times, match results, cup milestones, and score
-suggestions for the admin. Each `/notify` row carries its `kind`, each device
+Under it are the kinds — draw times, match results, cup milestones, challenges,
+and score suggestions for the admin. Each `/notify` row carries its `kind`, each device
 mirrors its switches to `/pushPrefs/<token>`, and the **relay** is what drops a
 device that said no: the page can't filter what it doesn't send. Silence means
 yes, so a phone that subscribed before the drawer existed still gets
@@ -345,11 +425,22 @@ node test.mjs
 node relay/test-relay.mjs   # no database, no key, nothing installed
 ```
 
-The relay check covers the two decisions worth getting wrong: when a queued row
+The relay check covers the decisions worth getting wrong: when a queued row
 fires (an unscheduled row goes at once, a past time isn't a negative timeout, a
 draft months out is clamped rather than fired immediately by `setTimeout`'s
-overflow) and who receives it (an admin-only ping reaching the admin's devices
-and nothing else).
+overflow), who receives it (an admin-only ping reaching the admin's devices and
+nothing else, and nobody hearing about their own tap), and which of a
+challenge's three announcements a given snapshot diff is — including the ones
+that must stay silent, since a lobby this process is meeting for the first time
+already full is a restart, not news.
+
+The challenge board is driven from a fixture with the writes stubbed, which is
+what deriving the ladder at render time buys: the maths (draws, nils, and the
+win%-then-games sort), the seats read as mine / theirs / empty from three
+viewpoints, the score boxes reaching the lobby's four and nobody else, an
+account off `EMAIL_NAMES` offered nothing, a stale lobby swept by the admin
+alone, a shared `#c/<id>` link marking the right card, and the whole thing at
+360px without pushing the page sideways.
 
 Firebase is blocked during the run, so the suite covers the app logic and the
 admin gate offline: read-only by default, standings render from a pushed

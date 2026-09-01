@@ -1,6 +1,6 @@
 /* node relay/test-relay.mjs — no database, no key, no network. */
 import assert from 'node:assert';
-import { delayFor, recipients, sugReady, sugText } from './relay.mjs';
+import { delayFor, recipients, sugReady, sugText, chalNews, chalSeats, chalScored } from './relay.mjs';
 
 const NOW = 1_700_000_000_000;
 
@@ -31,6 +31,66 @@ assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, prefs), ['anon', 
 assert.deepEqual(recipients(tokens, true, 'boss@x.com', 'result', prefs), ['boss']);
 assert.deepEqual(recipients(tokens, true, 'boss@x.com', 'suggest',
   { boss: { suggest: false } }), []);
+
+// nobody is pinged about their own tap, and the exclusion stacks with the rest
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, 'mate@x.com'), ['anon', 'boss']);
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'result', prefs, 'mate@x.com'), ['boss']);
+// an anonymous device carries a timestamp, not an address — it is never excluded
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, 1700000000000), ['anon', 'boss', 'mate']);
+
+// ---- challenges ----
+const at = { hour: 'numeric', minute: '2-digit' };
+const fmt = () => '3:00 PM'; // the clock is the host's; the branches are what matter
+const seat = (n, e) => ({ name: n, email: e || n.toLowerCase() + '@x.com' });
+const lobby = (slots, score) => ({ by: 'sifat@x.com', at: NOW, playAt: NOW + 3_600_000, slots, score });
+
+const one = lobby({ bf: seat('Sifat') });
+assert.deepEqual(chalSeats(one), ['bf']);
+assert.equal(chalScored(one), false);
+
+// opened: three seats to fill, and the person who opened it is not told
+const opened = chalNews(null, one, fmt);
+assert.equal(opened.title, 'Challenge open');
+assert.equal(opened.body, 'Sifat wants a game at 3:00 PM — 3 seats left.');
+assert.equal(opened.except, 'sifat@x.com');
+// one seat left reads as a seat, not as 1 seats
+assert.match(chalNews(null, lobby({ bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur') }), fmt).body,
+  /1 seat left\.$/);
+
+const full = lobby({ bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') });
+// full: the announcement names both pairs, and skips whoever just sat down
+const on = chalNews({ seats: ['bf', 'bd', 'rf'], scored: false }, full, fmt);
+assert.equal(on.title, 'Challenge on');
+assert.equal(on.body, 'Sifat & Ofi vs Nur & Rashed at 3:00 PM.');
+assert.equal(on.except, 'rashed@x.com');
+
+// scored: a result has no author, so it goes to everybody
+const won = chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
+  { ...full, score: { b: 5, r: 3 } }, fmt);
+assert.equal(won.title, 'Blue 5–3 Red');
+assert.equal(won.body, 'Sifat & Ofi win the challenge.');
+assert.equal(won.except, null);
+assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
+  { ...full, score: { b: 3, r: 5 } }, fmt).body, 'Nur & Rashed win the challenge.');
+assert.match(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
+  { ...full, score: { b: 4, r: 4 } }, fmt).body, /drawn\.$/);
+// 0 is a score: a nil still announces the winner rather than reading as unplayed
+assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
+  { ...full, score: { b: 5, r: 0 } }, fmt).title, 'Blue 5–0 Red');
+
+// nothing happened: the same snapshot twice says nothing
+assert.equal(chalNews({ seats: ['bf'], scored: false }, one, fmt), null);
+assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: true },
+  { ...full, score: { b: 5, r: 3 } }, fmt), null);
+// a seat filled short of the fourth is nobody's business but the board's
+assert.equal(chalNews({ seats: ['bf'], scored: false },
+  lobby({ bf: seat('Sifat'), bd: seat('Ofi') }), fmt), null);
+// a lobby this process first meets already full or already played just is —
+// announcing it would fire the whole node at everybody on a restart
+assert.equal(chalNews(null, full, fmt), null);
+assert.equal(chalNews(null, { ...full, score: { b: 5, r: 3 } }, fmt), null);
+assert.equal(chalNews(null, null, fmt), null);
+assert.equal(chalNews(null, { slots: {} }, fmt), null); // a row with no `at` is not a challenge
 
 // a suggestion saved box by box: nothing is announced until both teams are in,
 // or the admin's phone gets "9–undefined" and no second ping ever corrects it

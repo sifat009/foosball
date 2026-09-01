@@ -12,6 +12,31 @@
       ".read": true,
       ".write": "auth != null && auth.token.email_verified === true"
     },
+    "challenges": {
+      ".read": true,
+      "$id": {
+        ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (data.child('by').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')))",
+        ".validate": "newData.hasChildren(['by', 'at', 'playAt'])",
+        "by": { ".validate": "newData.val() === auth.token.email || data.val() === newData.val()" },
+        "at": { ".validate": "newData.isNumber()" },
+        "playAt": { ".validate": "newData.isNumber()" },
+        "slots": {
+          "$seat": {
+            ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || data.child('email').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')",
+            ".validate": "!newData.exists() || (newData.hasChildren(['name', 'email']) && newData.child('email').val() === auth.token.email)",
+            "name": { ".validate": "newData.isString() && newData.val().length > 0" },
+            "email": { ".validate": "newData.isString()" },
+            "$other": { ".validate": false }
+          }
+        },
+        "score": {
+          ".write": "auth != null && auth.token.email_verified === true",
+          ".validate": "!newData.exists() || (newData.hasChildren(['b', 'r']) && newData.child('b').isNumber() && newData.child('r').isNumber())",
+          "$side": { ".validate": "newData.isNumber() && newData.val() >= 0" }
+        },
+        "$other": { ".validate": false }
+      }
+    },
     "notify": {
       ".read": false,
       ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'"

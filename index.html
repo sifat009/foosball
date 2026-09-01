@@ -124,18 +124,18 @@
     display: block; font-weight: 800; margin-bottom: 10px;
     text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem; color: #7d8a9c;
   }
-  #schedInput {
+  #schedInput, #chalWhen {
     font-family: inherit; font-size: 1rem; padding: 10px 14px; border-radius: 12px;
     border: 2px solid #e7ecf3; color: #16233a; background: #fff;
   }
-  #schedInput:focus { border-color: #17854a; outline: none; }
+  #schedInput:focus, #chalWhen:focus { border-color: #17854a; outline: none; }
   /* wraps on a narrow phone so the button drops under the picker instead of squeezing it */
   .sched-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  #schedNow {
+  #schedNow, #chalNow {
     font-family: inherit; font-size: 0.9rem; font-weight: 800; padding: 10px 18px;
     border-radius: 12px; border: 2px solid #e7ecf3; background: #fff; color: #17854a; cursor: pointer;
   }
-  #schedNow:hover { border-color: #17854a; }
+  #schedNow:hover, #chalNow:hover { border-color: #17854a; }
   #schedNote { margin-top: 10px; color: #17854a; font-weight: 700; font-size: 0.9rem; min-height: 1.2em; }
   /* viewer: live-draft countdown */
   #countdown { text-align: center; padding-top: 4vh; }
@@ -628,13 +628,13 @@
   }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss, #alerts, #profile {
+  #hall, #rules, #toss, #alerts, #profile, #chal {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
-  #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open { display: flex; }
+  #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open, #chal.open { display: flex; }
   /* it opens off a row of the Hall, so it has to sit over the Hall */
   #profile { z-index: 45; }
   .hall-card {
@@ -878,7 +878,7 @@
   }
   .card-x:active { background: #e7ebf2; }
   .card-x:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose {
+  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose, #chalClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1049,6 +1049,122 @@
     border-radius: 999px; padding: 9px 0; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
   }
+  /* ---- challenges ---- */
+  #chalBtn {
+    position: fixed; top: 64px; right: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #chalBtn:hover { color: #2563eb; border-color: #bcd3f7; }
+  /* a standing count of what is open, so the board is worth opening */
+  #chalBtn[data-n]::before {
+    content: attr(data-n); display: inline-flex; align-items: center; justify-content: center;
+    min-width: 17px; height: 17px; margin-right: 7px; padding: 0 4px;
+    border-radius: 999px; background: #2563eb; color: #fff;
+    font-size: 0.64rem; font-weight: 800; vertical-align: 0.05em;
+  }
+  .ch-h {
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.13em; text-transform: uppercase;
+    color: #96660a; margin: 22px 0 8px;
+  }
+  #chalWho {
+    font-size: 0.8rem; font-weight: 600; color: #7d8a9c; text-align: center; margin: -10px 0 14px;
+  }
+  #chalWho b { color: #172b4d; }
+  .ch-new { width: 100%; padding: 12px 0; font-size: 0.92rem; }
+  #chalForm { border: 1px solid #e7ecf3; border-radius: 14px; padding: 14px; margin-top: 12px; }
+  .ch-flbl {
+    font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #8b97a8; margin-bottom: 8px;
+  }
+  .ch-flbl ~ .ch-flbl, #chalForm .sched-controls + .ch-flbl { margin-top: 14px; }
+  .ch-fact { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
+  .ch-fact .btn { flex: 1; padding: 11px 0; font-size: 0.88rem; }
+  .ch-link {
+    background: none; border: 0; padding: 0; font-family: inherit; font-size: 0.82rem;
+    font-weight: 700; color: #8b97a8; cursor: pointer; text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .ch-link:hover { color: #d43d3d; }
+  #chalErr { color: #d43d3d; font-size: 0.8rem; font-weight: 700; margin-top: 10px; }
+  #chalErr:empty { display: none; }
+  .ch-card {
+    border: 1px solid #e7ecf3; border-radius: 16px; padding: 14px; margin-bottom: 12px;
+    background: #fff;
+  }
+  /* the lobby a shared link points at, so a arriving reader lands on the right one */
+  .ch-card.lit { border-color: #f0b429; box-shadow: 0 0 0 3px rgba(240,180,41,0.18); }
+  .ch-when { display: flex; align-items: baseline; gap: 8px; margin-bottom: 11px; }
+  .ch-when b { font-size: 0.88rem; font-weight: 800; color: #172b4d; }
+  .ch-when i { font-style: normal; font-size: 0.74rem; font-weight: 700; color: #8fa0b8; margin-left: auto; }
+  /* two columns, two rows: the phone layout is the desktop one */
+  .ch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ch-seat {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+    border: 1.5px dashed #dbe3ee; border-radius: 12px; padding: 9px 11px;
+    background: #fbfcfe; font-family: inherit; text-align: left; width: 100%;
+    min-height: 52px; justify-content: center;
+  }
+  .ch-seat u {
+    text-decoration: none; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #8fa0b8;
+  }
+  .ch-seat b { font-size: 0.86rem; font-weight: 800; color: #172b4d; overflow-wrap: anywhere; }
+  .ch-seat.taken { border-style: solid; background: #fff; }
+  .ch-seat.blue { border-color: #cfdefb; } .ch-seat.blue u { color: #2563eb; }
+  .ch-seat.red { border-color: #f7d6c4; } .ch-seat.red u { color: #dc5a1e; }
+  button.ch-seat { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  button.ch-seat:hover { border-color: #17854a; background: #f4fbf7; }
+  button.ch-seat:active { background: #eef7f2; }
+  button.ch-seat.mine { border-color: #b6e3c9; background: #f4fbf7; }
+  button.ch-seat.mine:hover { border-color: #e8b3b3; background: #fdf5f5; }
+  button.ch-seat.on { border-color: #17854a; background: #eef7f2; border-style: solid; }
+  .ch-seat b .ch-you { color: #17854a; font-size: 0.66rem; font-weight: 800; margin-left: 5px; }
+  .ch-act { display: flex; align-items: center; gap: 10px; margin-top: 11px; }
+  .ch-act .ch-link { margin-left: auto; }
+  .ch-mini {
+    border: 1.5px solid #e2e8f1; background: #fff; border-radius: 999px;
+    padding: 7px 14px; font-family: inherit; font-size: 0.78rem; font-weight: 700;
+    color: #5b6a7d; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .ch-mini:hover { color: #2563eb; border-color: #bcd3f7; }
+  /* the two boxes a finished game needs — same shape as a group-stage score */
+  .ch-score { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 12px; }
+  .ch-score input {
+    width: 52px; padding: 9px 2px; text-align: center; font-family: inherit;
+    font-size: 1rem; font-weight: 800; color: #172b4d;
+    border: 1.5px solid #dbe3ee; border-radius: 10px; background: #fbfcfe;
+  }
+  .ch-score input:focus { border-color: #17854a; outline: none; background: #fff; }
+  .ch-score span { font-size: 0.72rem; font-weight: 800; color: #8fa0b8; letter-spacing: 0.08em; }
+  .ch-note { font-size: 0.76rem; font-weight: 600; color: #8fa0b8; text-align: center; padding: 4px 0 2px; }
+  /* the ladder: a fixed grid so the columns line up, and it scrolls inside its
+     own box rather than crushing eight numbers into a 360px screen */
+  .ch-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ch-lrow {
+    display: grid; grid-template-columns: 20px minmax(92px, 1fr) repeat(7, 28px) 46px;
+    align-items: baseline; gap: 8px 6px; min-width: 372px;
+    padding: 10px 4px; border-bottom: 1px solid #eef1f6;
+  }
+  .ch-lrow:last-child { border-bottom: 0; }
+  .ch-lrow.hd { border-bottom: 1.5px solid #e7ecf3; }
+  .ch-lrow.hd span {
+    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #8fa0b8;
+  }
+  .ch-lrow .ch-ln { color: #c3ccda; font-weight: 800; font-size: 0.78rem; }
+  .ch-lrow .ch-lname { font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
+  .ch-lrow span { font-size: 0.8rem; font-weight: 700; color: #5b6a7d; text-align: right; }
+  .ch-lrow .ch-lpc { font-weight: 800; color: #172b4d; }
+  .ch-lrow.hd .ch-lname, .ch-lrow.hd .ch-ln { text-align: left; }
+  .ch-rrow { display: flex; align-items: baseline; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #eef1f6; }
+  .ch-rrow:last-child { border-bottom: 0; }
+  .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
+  .ch-rt b { color: #172b4d; }
+  .ch-rs { font-size: 0.86rem; font-weight: 900; color: #172b4d; white-space: nowrap; }
+  .ch-rd { font-size: 0.72rem; font-weight: 600; color: #8fa0b8; white-space: nowrap; }
   #btnBar { display: contents; } /* desktop: the wrapper isn't a box at all */
   /* Every fixed button must be declared above this block. A media query adds
      no specificity, so a later #id rule beats the override inside it. */
@@ -1105,7 +1221,7 @@
       bottom: calc(-10px - env(safe-area-inset-bottom));
       background: linear-gradient(to top, #e4eaf3 55%, rgba(228,234,243,0));
     }
-    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn {
+    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn, #chalBtn {
       position: static; top: auto; right: auto; bottom: auto; left: auto;
       flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 4px;
@@ -1131,7 +1247,13 @@
     #alerts .al-grip { display: block; }
     /* pressed state only — these are actions, not a "you are here" nav */
     #hallBtn:active, #resetBtn:active, #authBtn:active,
-    #installBtn:active, #notifyBtn:active { background: #eef2f8; }
+    #installBtn:active, #notifyBtn:active, #chalBtn:active { background: #eef2f8; }
+    #chalBtn:active { color: #2563eb; }
+    /* the count rides above the icon on a tab, not inline beside a label */
+    #btnBar #chalBtn[data-n]::before {
+      position: absolute; top: 2px; left: 50%; margin-left: 3px; margin-right: 0;
+    }
+    #btnBar #chalBtn { position: relative; }
     #hallBtn:active { color: #b8860b; }
     #resetBtn:active { color: #d43d3d; }
     #authBtn:active { color: #2563eb; }
@@ -1165,7 +1287,7 @@
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
   body.booting #resetBtn, body.booting #hallBtn, body.booting #installBtn,
-  body.booting #notifyBtn, body.booting #btnBar { display: none !important; }
+  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar { display: none !important; }
 </style>
 </head>
 <body>
@@ -1181,6 +1303,7 @@
   <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5C17.7 10.2 18 9 18 8a6 6 0 0 0-12 0c0 1 .3 2.2 1.5 3.5.8.8 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
   <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-swords" viewBox="0 0 24 24"><path d="M4 3h3l10 12v3h-3L4 6z"/><path d="M20 3h-3L7 15v3h3L20 6z"/><path d="m5 17-2 2 3 3 2-2"/><path d="m19 17 2 2-3 3-2-2"/></symbol>
   <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
   <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10z"/><path d="M19 14l.6 1.6 1.6.6-1.6.6L19 18.4l-.6-1.6-1.6-.6 1.6-.6z"/></symbol>
   <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></symbol>
@@ -1200,6 +1323,7 @@
      changes) is hidden, so the tabs stay one word wide on a 320px phone. -->
 <div id="btnBar">
   <button id="hallBtn" data-lbl="Hall" aria-label="Hall of Fame"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Hall of Fame</span></button>
+  <button id="chalBtn" data-lbl="Games" aria-label="Challenges"><svg class="ico"><use href="#i-swords"/></svg><span class="lbl"> Challenges</span></button>
   <button id="authBtn" data-lbl="Account"><svg class="ico"><use href="#i-user"/></svg><span class="lbl"> Sign in</span></button>
   <button id="resetBtn" data-lbl="Reset" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg><span class="lbl"> Start Over</span></button>
   <button id="installBtn" data-lbl="Install" style="display:none"><svg class="ico"><use href="#i-download"/></svg><span class="lbl"> Install app</span></button>
@@ -1230,6 +1354,38 @@
     <div id="hallPlayers" style="display:none"><div class="hall-empty">No player records yet.</div></div>
     <div id="hallBadges" style="display:none"></div>
     <button id="hallClose">Close</button>
+  </div>
+</div>
+
+<!-- Challenges: casual 2v2 pickup games between cups. An overlay rather than a
+     .screen for the same reason the Hall is one — applyState() calls show() on
+     every remote snapshot and would close a screen out from under a reader. -->
+<div id="chal">
+  <div class="hall-card">
+    <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Challenges</div>
+    <div id="chalWho"></div>
+    <button id="chalNew" class="btn btn-green ch-new">Open a challenge</button>
+    <div id="chalForm" hidden>
+      <div class="ch-flbl">Your seat</div>
+      <div class="ch-grid" id="chalNewSeats"></div>
+      <div class="ch-flbl">Kick-off</div>
+      <div class="sched-controls">
+        <input type="datetime-local" id="chalWhen">
+        <button type="button" id="chalNow">Now</button>
+      </div>
+      <div class="ch-fact">
+        <button id="chalPost" class="btn btn-green">Post it</button>
+        <button id="chalDrop" class="ch-link" type="button">Cancel</button>
+      </div>
+      <div id="chalErr"></div>
+    </div>
+    <div class="ch-h">Open now</div>
+    <div id="chalOpen"></div>
+    <div class="ch-h">Ladder</div>
+    <div id="chalLadder"></div>
+    <div class="ch-h">Recent</div>
+    <div id="chalRecent"></div>
+    <button id="chalClose">Close</button>
   </div>
 </div>
 
@@ -1550,6 +1706,10 @@ Nur</textarea>
       <div class="al-txt"><b>Cup milestones</b><i>Knockout is live, and the champions</i></div>
       <input type="checkbox" class="sw" data-kind="milestone">
     </label>
+    <label class="al-row">
+      <div class="al-txt"><b>Challenges</b><i>A pickup game is opening, filling or done</i></div>
+      <input type="checkbox" class="sw" data-kind="challenge">
+    </label>
     <label class="al-row al-admin" style="display:none">
       <div class="al-txt"><b>Score suggestions</b><i>Someone suggested a score to accept</i></div>
       <input type="checkbox" class="sw" data-kind="suggest">
@@ -1629,7 +1789,7 @@ window.startSignIn = () => {
    mirrored to /pushPrefs under this device's token and the relay is what drops
    the kinds nobody here asked for. Anything missing means yes: a device that
    subscribed before this existed keeps getting everything. */
-const ALERT_KINDS = ['draw', 'result', 'milestone', 'suggest'];
+const ALERT_KINDS = ['draw', 'result', 'milestone', 'challenge', 'suggest'];
 const PREFS_KEY = 'foosball-push-prefs';
 window.alertPrefs = () => {
   let saved = {};
@@ -2254,9 +2414,305 @@ function renderHall(entries) {
 }
 window.renderHall = renderHall;
 
+/* ================= CHALLENGES =================
+   Casual 2v2 pickup games between cups: one player opens a lobby with a
+   kick-off time, three others take the remaining seats, any of the four files
+   the score. Its own node and its own board — nothing here ever reaches
+   `history`, so no title, badge or Golden Boot moves because of a lunch-break
+   game.
+
+   Who you are is this map, not the database. The rules can only see an email
+   address; the page is what turns one into a player, which is why an account
+   that isn't here can read the board but not sit down. Adding somebody is an
+   edit here and a deploy — the same cost as adding them to a cup. */
+const EMAIL_NAMES = {
+  'bhacker150@gmail.com': 'Sifat',
+};
+
+/* Blue column then Red, forward row then defender: reading order is the grid,
+   so the same four entries lay out the card and the create form. */
+const SEATS = [['bf', 'Blue', 'Forward'], ['rf', 'Red', 'Forward'],
+               ['bd', 'Blue', 'Defender'], ['rd', 'Red', 'Defender']];
+const CH_STALE = 6 * 3600e3; // an unplayed lobby this long past kick-off is over
+
+var acctEmail = null, allChal = {}, chalLit = null, newSeat = null;
+const myName = () => EMAIL_NAMES[acctEmail] || null;
+const chalFull = c => SEATS.every(([id]) => c.slots && c.slots[id]);
+const chalDone = c => !!(c.score && c.score.b != null && c.score.r != null);
+// an unfinished lobby drops off the board once it is stale; a played one keeps
+const chalLive = c => chalDone(c) || (c.playAt || c.at || 0) + CH_STALE > Date.now();
+const chalSat = c => !!acctEmail && SEATS.some(([id]) => c.slots && c.slots[id] && c.slots[id].email === acctEmail);
+/* One row per player, worked out at render time from the finished lobbies —
+   the way career() derives everything from history. No rollup node and no
+   stored totals, so correcting a mistyped score fixes the board at once.
+   Nil counts the games a side was held to nothing, the same thing the cup's
+   Nil badge counts, which is why it sits in the same column of shame. */
+function chalLadder(rows) {
+  const t = {};
+  const row = n => t[n] || (t[n] = { name: n, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, nil: 0 });
+  (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
+    const bs = +c.score.b, rs = +c.score.r;
+    [[['bf', 'bd'], bs, rs], [['rf', 'rd'], rs, bs]].forEach(([side, gf, ga]) =>
+      side.forEach(seat => {
+        const e = row(c.slots[seat].name);
+        e.p++; e.gf += gf; e.ga += ga;
+        if (gf > ga) e.w++; else if (gf < ga) e.l++; else e.d++;
+        if (gf === 0) e.nil++;
+      }));
+  });
+  // a draw is half a win, so one 5-5 doesn't read the same as one 0-5
+  const pct = e => (e.w + e.d / 2) / e.p;
+  return Object.values(t).sort((a, b) => pct(b) - pct(a) || b.p - a.p || a.name.localeCompare(b.name));
+}
+window.chalLadder = chalLadder;
+
+const chalPct = e => Math.round((e.w + e.d / 2) / e.p * 100);
+const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
+
+/* ---- painting ---- */
+function seatBtn(c, seat, team, role) {
+  const held = c.slots && c.slots[seat];
+  const name = myName();
+  const mine = !!held && !!acctEmail && held.email === acctEmail;
+  // a seat is only ever a button for whoever can act on it: take an empty one,
+  // or vacate your own — and neither once a score has been filed
+  const live = !!name && !chalDone(c);
+  const tag = live && (!held || mine) ? 'button' : 'div';
+  const el = document.createElement(tag);
+  el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '') + (mine ? ' mine' : '');
+  const who = part('', held ? held.name : tag === 'button' ? 'Join' : '\u2014', 'b'); // textContent: names are user input
+  if (mine) who.append(part('ch-you', 'you', 'span'));
+  el.append(part('', team + ' ' + role, 'u'), who);
+  if (tag === 'button') {
+    el.type = 'button';
+    el.title = mine ? 'Leave this seat' : 'Take this seat';
+    el.onclick = () => window.chalSeat(c.id, seat, mine ? null : { name, email: acctEmail });
+  }
+  return el;
+}
+
+function scoreRow(c) {
+  const wrap = document.createElement('div');
+  wrap.className = 'ch-score';
+  const box = (key, val) => {
+    const i = document.createElement('input');
+    i.type = 'number'; i.min = '0'; i.inputMode = 'numeric';
+    i.value = val == null ? '' : val;
+    i.setAttribute('aria-label', key === 'b' ? 'Blue score' : 'Red score');
+    i.onchange = () => {
+      const b = +wrap.querySelector('[data-k="b"]').value, r = +wrap.querySelector('[data-k="r"]').value;
+      const raw = [...wrap.querySelectorAll('input')].map(x => x.value.trim());
+      if (raw.some(v => v === '') || !Number.isInteger(b) || !Number.isInteger(r) || b < 0 || r < 0) return;
+      window.chalScore(c.id, { b, r });
+    };
+    i.dataset.k = key;
+    return i;
+  };
+  const lbl = t => { const s = document.createElement('span'); s.textContent = t; return s; };
+  wrap.append(lbl('BLUE'), box('b', c.score && c.score.b), box('r', c.score && c.score.r), lbl('RED'));
+  return wrap;
+}
+
+function chalCard(c) {
+  const el = document.createElement('div');
+  el.className = 'ch-card' + (chalLit === c.id ? ' lit' : '');
+  el.id = 'ch-' + c.id;
+  const left = 4 - SEATS.filter(([seat]) => c.slots && c.slots[seat]).length;
+  const when = part('ch-when');
+  when.append(part('', fmtWhen(c.playAt || c.at, 'short'), 'b'),
+    part('', chalDone(c) ? 'Played' : left ? left + (left === 1 ? ' seat left' : ' seats left') : 'All four in', 'i'));
+  const grid = part('ch-grid');
+  SEATS.forEach(([seat, team, role]) => grid.append(seatBtn(c, seat, team, role)));
+  el.append(when, grid);
+
+  if (chalFull(c) && chalSat(c)) el.append(scoreRow(c));
+  else if (chalFull(c) && !chalDone(c))
+    el.append(part('ch-note', 'Waiting on one of the four to file the score.'));
+
+  const act = part('ch-act');
+  const share = document.createElement('button');
+  share.type = 'button';
+  share.className = 'ch-mini';
+  share.innerHTML = svg('share') + ' Share';
+  share.onclick = () => shareChal(c.id, share);
+  act.append(share);
+  // the creator closes their own lobby; the admin can close anybody's
+  if ((acctEmail && acctEmail === c.by) || isAdmin) {
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.className = 'ch-link';
+    x.textContent = 'Cancel this challenge';
+    x.onclick = () => window.chalRemove(c.id);
+    act.append(x);
+  }
+  el.append(act);
+  return el;
+}
+
+// the OS sheet where there is one, the clipboard where there isn't — the same
+// two-step the champions card already falls back through
+async function shareChal(id, btn) {
+  const url = location.href.split('#')[0] + '#c/' + id;
+  const say = t => { const was = btn.innerHTML; btn.textContent = t; setTimeout(() => { btn.innerHTML = was; }, 1600); };
+  try {
+    if (navigator.share) { await navigator.share({ title: 'Foosball challenge', url }); return; }
+    await navigator.clipboard.writeText(url);
+    say('Link copied');
+  } catch (err) {
+    if (err.name === 'AbortError') return; // backed out of the sheet — not a failure
+    say('Copy failed');
+  }
+}
+
+function ladderEl(rows) {
+  const board = chalLadder(rows);
+  if (!board.length) return part('hall-empty', 'No challenge has been played yet.');
+  const scroll = document.createElement('div');
+  scroll.className = 'ch-scroll';
+  const head = document.createElement('div');
+  head.className = 'ch-lrow hd';
+  ['', 'Player', 'P', 'W', 'D', 'L', 'GF', 'GA', 'Nil', 'Win %'].forEach((t, i) => {
+    const s = document.createElement('span');
+    s.className = i === 0 ? 'ch-ln' : i === 1 ? 'ch-lname' : '';
+    s.textContent = t;
+    head.append(s);
+  });
+  scroll.append(head);
+  board.forEach((e, i) => {
+    const r = document.createElement('div');
+    r.className = 'ch-lrow';
+    [[String(i + 1), 'ch-ln'], [e.name, 'ch-lname'], [e.p], [e.w], [e.d], [e.l], [e.gf], [e.ga], [e.nil],
+     [chalPct(e) + '%', 'ch-lpc']].forEach(([t, cls]) => {
+      const s = document.createElement('span');
+      if (cls) s.className = cls;
+      s.textContent = t;
+      r.append(s);
+    });
+    scroll.append(r);
+  });
+  return scroll;
+}
+
+function renderChal() {
+  const rows = Object.entries(allChal || {}).map(([id, c]) => Object.assign({ id }, c))
+    .filter(c => c && c.at);
+  const open = rows.filter(c => !chalDone(c) && chalLive(c)).sort((a, b) => (a.playAt || a.at) - (b.playAt || b.at));
+  const done = rows.filter(chalDone).sort((a, b) => (b.playAt || b.at) - (a.playAt || a.at));
+
+  const btn = $('chalBtn');
+  if (open.length) btn.setAttribute('data-n', open.length); else btn.removeAttribute('data-n');
+
+  const who = $('chalWho');
+  const name = myName();
+  who.textContent = '';
+  if (name) { who.append('Playing as ', part('', name, 'b')); } // textContent: names are user input
+  else who.textContent = acctEmail
+    ? 'Signed in, but not on the player list — ask the admin to add you.'
+    : 'Sign in to open or join a challenge.';
+  $('chalNew').style.display = name ? '' : 'none';
+  if (!name) closeChalForm();
+
+  const list = $('chalOpen');
+  list.innerHTML = '';
+  if (!open.length) list.append(part('hall-empty', 'Nothing open. Start one.'));
+  else open.forEach(c => list.append(chalCard(c)));
+
+  const lad = $('chalLadder');
+  lad.innerHTML = '';
+  lad.append(ladderEl(rows));
+
+  if (chalLit && !chalFound) {
+    const card = $('ch-' + chalLit);
+    if (card) { chalFound = true; card.scrollIntoView({ block: 'center' }); }
+  }
+
+  const rec = $('chalRecent');
+  rec.innerHTML = '';
+  if (!done.length) rec.append(part('hall-empty', 'No results yet.'));
+  done.slice(0, 10).forEach(c => {
+    const b = +c.score.b, r = +c.score.r;
+    const row = part('ch-rrow');
+    const teams = part('ch-rt');
+    // textContent: names are user input
+    teams.append(part('', pairName(c, 'bf', 'bd'), 'span'), part('', ' v ', 'b'),
+      part('', pairName(c, 'rf', 'rd'), 'span'));
+    row.append(teams, part('ch-rs', b + '\u2013' + r));
+    row.title = b === r ? 'Drawn' : (b > r ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won';
+    rec.append(row);
+  });
+}
+window.renderChallenges = all => {
+  allChal = all || {};
+  /* Nothing here writes on a read except this: the admin's page is the only
+     one allowed to delete anybody's row, so it is the one that sweeps the
+     lobbies nobody ever filled. Everyone else just stops drawing them. */
+  if (isAdmin && window.chalRemove)
+    Object.entries(allChal).forEach(([id, c]) => { if (c && c.at && !chalLive(c)) window.chalRemove(id); });
+  renderChal();
+};
+
+/* ---- opening one ---- */
+function closeChalForm() {
+  $('chalForm').hidden = true;
+  $('chalErr').textContent = '';
+  newSeat = null;
+}
+function paintNewSeats() {
+  const box = $('chalNewSeats');
+  box.innerHTML = '';
+  SEATS.forEach(([seat, team, role]) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (newSeat === seat ? ' on' : '');
+    b.append(part('', team + ' ' + role, 'u'), part('', newSeat === seat ? 'Yours' : 'Sit here', 'b'));
+    b.onclick = () => { newSeat = seat; paintNewSeats(); };
+    box.append(b);
+  });
+}
+$('chalNew').onclick = () => {
+  $('chalForm').hidden = false;
+  newSeat = newSeat || 'bf';
+  $('chalWhen').value = msToInput(Date.now() + 30 * 60000);
+  paintNewSeats();
+};
+$('chalDrop').onclick = closeChalForm;
+$('chalNow').onclick = () => { $('chalWhen').value = msToInput(Date.now()); };
+$('chalPost').onclick = () => {
+  const name = myName();
+  const when = $('chalWhen').value;
+  if (!name) return;
+  if (!when) { $('chalErr').textContent = 'Pick a kick-off time.'; return; }
+  const id = String(Date.now());
+  window.chalCreate(id, {
+    by: acctEmail, at: Date.now(), playAt: new Date(when).getTime(),
+    slots: { [newSeat]: { name, email: acctEmail } },
+  });
+  closeChalForm();
+};
+
+/* Auth lands after the first paint, and the admin plays too — isAdmin says
+   who may edit the cup, which is a different question from who is sitting at
+   the table. */
+window.setAccount = email => { acctEmail = email || null; renderChal(); };
+
+/* A shared link names one lobby. The board opens on it straight away, but the
+   card itself can't exist until the first snapshot lands — so the scroll is
+   left to whichever render first draws it, once. */
+var chalFound = false;
+function openChalFromHash() {
+  const m = /^#c\/(\w+)$/.exec(location.hash || '');
+  if (!m) return;
+  chalLit = m[1];
+  chalFound = false;
+  $('chal').classList.add('open');
+  renderChal();
+}
+addEventListener('hashchange', openChalFromHash);
+window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate lifts
+
 // overlays: tap the backdrop or Close to dismiss, Esc closes whichever is open
 [['hallBtn', 'hall', 'hallClose'], ['rulesBtn', 'rules', 'rulesClose'],
- ['notifyBtn', 'alerts', 'alertsClose']].forEach(([btn, panel, close]) => {
+ ['chalBtn', 'chal', 'chalClose'], ['notifyBtn', 'alerts', 'alertsClose']].forEach(([btn, panel, close]) => {
   $(btn).onclick = () => $(panel).classList.add('open');
   $(close).onclick = () => $(panel).classList.remove('open');
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
@@ -2266,7 +2722,7 @@ $('profileClose').onclick = () => $('profile').classList.remove('open');
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 /* Every overlay card carries the same X in its corner — built here rather than
    in five copies of the markup, and it dismisses whichever card it sits in. */
-document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile').forEach(p => {
+document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal').forEach(p => {
   const x = document.createElement('button');
   x.className = 'card-x';
   x.type = 'button';
@@ -2288,7 +2744,7 @@ document.addEventListener('keydown', e => {
   if ($('celebrate').style.display === 'flex') { closeCelebration(); return; }
   // the profile sits on the Hall it was opened from, so it closes on its own
   if ($('profile').classList.contains('open')) { $('profile').classList.remove('open'); return; }
-  ['hall', 'rules', 'toss', 'alerts'].forEach(p => $(p).classList.remove('open'));
+  ['hall', 'rules', 'toss', 'alerts', 'chal'].forEach(p => $(p).classList.remove('open'));
 });
 const HALL_PANES = { cups: 'hallList', players: 'hallPlayers', badges: 'hallBadges' };
 document.querySelectorAll('.hall-tab').forEach(tab => tab.onclick = () => {
@@ -4110,6 +4566,9 @@ window.bootDone = () => {
   clearTimeout(bootTimer);
   document.body.classList.remove('booting');
   redrawWheels(); // the wheels were drawn while the gate still hid them
+  // a shared challenge link waits for the gate too, or it opens the board on
+  // an empty node and the lobby it names appears a second later
+  if (window.openChalFromHash) window.openChalFromHash();
 };
 var bootTimer = setTimeout(window.bootDone, 3000);
 </script>
@@ -4329,7 +4788,7 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, remove, push, connectDatabaseEmulator, goOffline, goOnline }
+import { getDatabase, ref, onValue, set, remove, push, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -4376,6 +4835,46 @@ onValue(historyRef, snap => {
   const v = snap.val() || {};
   window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
+
+/* ================= CHALLENGES =================
+   Casual games live in their own node, writable by any verified account —
+   `cup` and `history` still take writes from the admin alone, so a pickup game
+   can never touch a title. Ownership is enforced by the rules on the email
+   each seat carries, not by this page: see database.rules.json. */
+window.chalCreate = (id, row) => set(ref(db, 'challenges/' + id), row)
+  .catch(err => {
+    console.error('[chal] create rejected:', err);
+    alert('Could not open the challenge: ' + err.message);
+  });
+
+/* Taking a seat is a transaction, not a set: two people tapping the last one
+   at the same moment would both be told they had it, and the second write
+   would quietly overwrite the first. The transaction aborts instead, and the
+   subscription repaints the seat under the loser's finger.
+   Vacating is a plain remove — there is nothing to race for. */
+window.chalSeat = (id, seat, row) => {
+  const at = ref(db, `challenges/${id}/slots/${seat}`);
+  const p = row
+    ? runTransaction(at, cur => cur === null ? row : undefined)
+        .then(res => { if (!res.committed) alert('That seat has just been taken.'); })
+    : remove(at);
+  return p.catch(err => {
+    console.error('[chal] seat write rejected:', err);
+    alert('Could not change that seat: ' + err.message);
+  });
+};
+
+window.chalScore = (id, score) => set(ref(db, `challenges/${id}/score`), score)
+  .catch(err => {
+    console.error('[chal] score rejected:', err);
+    alert('Could not record that score: ' + err.message);
+  });
+
+window.chalRemove = id => remove(ref(db, 'challenges/' + id))
+  .catch(err => console.error('[chal] remove failed:', err));
+
+onValue(ref(db, 'challenges'), snap => window.renderChallenges(snap.val() || {}),
+  err => console.error('[chal] read failed:', err));
 
 window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
   set(ref(db, `suggestions/${cup}/${key}`),
@@ -4615,6 +5114,9 @@ onAuthStateChanged(auth, user => {
   if (pushToken) saveToken(); // signing in re-labels this device, so admin pings land
   // a non-admin sign-in is no longer a dead end — it unlocks suggesting
   window.setSignedIn(user && !admin ? { name: user.displayName || user.email, email: user.email } : null);
+  // who may edit the cup and who is sitting at the table are different
+  // questions — the admin plays casual games like everybody else
+  window.setAccount(user && user.emailVerified ? user.email : null);
   // only the label moves — the icon and data-lbl are what the mobile tab bar shows
   $('authBtn').querySelector('use').setAttribute('href', admin ? '#i-check' : '#i-user');
   $('authBtn').querySelector('.lbl').textContent = user

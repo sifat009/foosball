@@ -1711,17 +1711,17 @@ const drawer = await page.evaluate(async () => {
 });
 assert.deepEqual(drawer.off, { all: false, on: 0, live: 0 },
   'with notifications off the drawer still showed kinds switched on, or let them be tapped');
-assert.deepEqual(drawer.on, { all: true, on: 4 }, 'a fresh device does not start with every kind on');
+assert.deepEqual(drawer.on, { all: true, on: 5 }, 'a fresh device does not start with every kind on');
 assert.equal(drawer.afterOff.pref, false, 'switching a kind off did not stick');
 assert.equal(drawer.afterOff.stored, false, 'the choice was not remembered on this device');
 assert.equal(drawer.afterOff.saved, 1, 'the relay was never told the kind was switched off');
 assert.equal(drawer.afterOn, true, 'switching a kind back on did not stick');
 assert.deepEqual(drawer.masterOff, { on: false, pref: false },
   'the master switch did not drop the subscription');
-assert.deepEqual(drawer.midSubscribe, { on: 4, live: 4 },
+assert.deepEqual(drawer.midSubscribe, { on: 5, live: 5 },
   'the kinds stayed dark while the subscription was still in flight');
 assert.equal(drawer.masterOn.on, true, 'the master switch did not resubscribe');
-assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true],
+assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true, true],
   'turning notifications back on left a kind silently switched off');
 assert.equal(drawer.viewerSees, 'none', 'a viewer was offered the admin-only suggestions switch');
 assert.notEqual(drawer.adminSees, 'none', 'the admin lost the suggestions switch');
@@ -2043,6 +2043,189 @@ assert.deepEqual((await page.evaluate(() => window.sugLog)).map(x => x.slice(0, 
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a Grand Final suggestion wrote to the live cup');
 
 console.log('knockout suggestions OK');
+
+// ---------- challenges ----------
+/* Casual 2v2 games between cups. Firebase is blocked here, so the writes are
+   stubbed and the board is driven from a fixture — which is the whole point of
+   deriving the ladder at render time rather than storing it. */
+const CH = await page.evaluate(() => {
+  Object.assign(EMAIL_NAMES, {
+    'sifat@x.com': 'Sifat', 'ofi@x.com': 'Ofi', 'nur@x.com': 'Nur',
+    'rashed@x.com': 'Rashed', 'toufiq@x.com': 'Toufiq',
+  });
+  window.chalLog = [];
+  ['chalCreate', 'chalSeat', 'chalScore', 'chalRemove'].forEach(fn => {
+    window[fn] = (...a) => window.chalLog.push([fn, ...a]);
+  });
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const HOUR = 3600e3;
+  return {
+    seat: seat('Sifat'),
+    fixture: {
+      open1: { by: 'sifat@x.com', at: Date.now(), playAt: Date.now() + HOUR,
+               slots: { bf: seat('Sifat'), rf: seat('Nur') } },
+      open2: { by: 'nur@x.com', at: Date.now(), playAt: Date.now() + 2 * HOUR,
+               slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rashed'), rd: seat('Toufiq') } },
+      stale: { by: 'ofi@x.com', at: Date.now() - 30 * HOUR, playAt: Date.now() - 24 * HOUR,
+               slots: { bf: seat('Ofi') } },
+      // three played games: Sifat 2 wins, Nur a win and a loss, a 4-4 draw, one nil
+      d1: { by: 'sifat@x.com', at: 1, playAt: 1,
+            slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') },
+            score: { b: 5, r: 3 } },
+      d2: { by: 'sifat@x.com', at: 2, playAt: 2,
+            slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') },
+            score: { b: 5, r: 0 } },
+      d3: { by: 'nur@x.com', at: 3, playAt: 3,
+            slots: { bf: seat('Nur'), bd: seat('Toufiq'), rf: seat('Sifat'), rd: seat('Ofi') },
+            score: { b: 4, r: 4 } },
+    },
+  };
+});
+
+// the ladder is derived, so it can be checked as a pure function first
+const ladder = await page.evaluate(f => window.chalLadder(
+  Object.entries(f).map(([id, c]) => Object.assign({ id }, c))), CH.fixture);
+const byName = Object.fromEntries(ladder.map(r => [r.name, r]));
+assert.deepEqual(byName.Sifat, { name: 'Sifat', p: 3, w: 2, d: 1, l: 0, gf: 14, ga: 7, nil: 0 },
+  'the ladder miscounted a player across three games');
+assert.deepEqual(byName.Nur, { name: 'Nur', p: 3, w: 0, d: 1, l: 2, gf: 7, ga: 14, nil: 1 },
+  'Nur: a draw is not a loss, and the 0 is a nil');
+/* A draw is half a win: Toufiq's single 4-4 is 50%, which sits below the two
+   on 83% and above Nur's one draw in three. Level players go alphabetical, so
+   the board never reorders itself between two readers. */
+assert.deepEqual(ladder.map(r => r.name), ['Ofi', 'Sifat', 'Toufiq', 'Nur', 'Rashed'],
+  'the ladder is not sorted by win% then games played: ' + ladder.map(r => r.name).join(','));
+// an unplayed lobby contributes nothing — the board is results only
+assert.equal(await page.evaluate(() => window.chalLadder([
+  { id: 'x', at: 1, slots: { bf: { name: 'Sifat' } } }]).length), 0,
+  'an open lobby reached the ladder');
+
+// ---- the board, seen by one of the four ----
+const board = async () => page.evaluate(() => ({
+  open: [...document.querySelectorAll('#chalOpen .ch-card')].map(c => c.id),
+  seats: [...document.querySelectorAll('#chalOpen .ch-card')].map(c =>
+    [...c.querySelectorAll('.ch-seat')].map(s =>
+      s.tagName.toLowerCase() + ':' + s.querySelector('b').textContent)),
+  boxes: [...document.querySelectorAll('#chalOpen .ch-score')].length,
+  badge: $('chalBtn').getAttribute('data-n'),
+  who: $('chalWho').textContent,
+}));
+
+await page.evaluate(f => {
+  window.setAccount('sifat@x.com'); window.renderChallenges(f); $('chal').classList.add('open');
+}, CH.fixture);
+let seen = await board();
+// a lobby nobody filled, a day past its kick-off, is over — it is not drawn,
+// and the played ones belong under Recent rather than here
+assert.deepEqual(seen.open, ['ch-open1', 'ch-open2'],
+  'the open list drew a stale or a finished lobby: ' + seen.open.join(','));
+assert.equal(seen.badge, '2', 'the toolbar count does not match what is open');
+assert.match(seen.who, /Playing as Sifat/, 'a mapped account was not recognised as its player');
+// my seat leaves, an empty seat joins, another player's seat is not a button
+assert.deepEqual(seen.seats[0], ['button:Sifatyou', 'div:Nur', 'button:Join', 'button:Join'],
+  'the seats did not read mine / theirs / empty for a player in the lobby');
+// the second lobby is full, but of four other people — not Sifat's to score
+assert.equal(seen.boxes, 0, 'the score boxes were offered to somebody outside the lobby');
+
+// ---- the same board, seen by somebody not in that game ----
+await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
+seen = await board();
+assert.deepEqual(seen.seats[0], ['div:Sifat', 'div:Nur', 'button:Join', 'button:Join'],
+  'a bystander was offered somebody else’s seat');
+// Toufiq is one of the four in that lobby, so the score is his to file
+assert.equal(seen.boxes, 1, 'a player in the full lobby was not offered its score boxes');
+
+// ---- and by an account nobody has added to the map ----
+await page.evaluate(f => { window.setAccount('stranger@x.com'); window.renderChallenges(f); }, CH.fixture);
+seen = await board();
+assert.equal(seen.seats.flat().filter(s => s.startsWith('button')).length, 0,
+  'an account off the player list was offered a seat');
+assert.equal(seen.boxes, 0, 'an account off the player list was offered the score boxes');
+assert.match(seen.who, /ask the admin/i, 'an unmapped account was not told why it cannot play');
+assert.equal(await page.evaluate(() => getComputedStyle($('chalNew')).display), 'none',
+  'an unmapped account was offered the New challenge button');
+
+// ---- taking and vacating a seat ----
+await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
+await page.click('#ch-open1 .ch-seat:nth-child(3)');   // blue defender, empty
+await page.evaluate(f => { window.setAccount('sifat@x.com'); window.renderChallenges(f); }, CH.fixture);
+await page.click('#ch-open1 .ch-seat:nth-child(1)');   // my own seat
+assert.deepEqual(await page.evaluate(() => window.chalLog), [
+  ['chalSeat', 'open1', 'bd', { name: 'Toufiq', email: 'toufiq@x.com' }],
+  ['chalSeat', 'open1', 'bf', null],
+], 'taking an empty seat and vacating your own did not write what they claim to');
+
+// ---- filing a score ----
+// any of the four, not just whoever opened it — Nur did, Toufiq files it
+await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
+const chBoxes = await page.$$('#ch-open2 .ch-score input');
+await chBoxes[0].fill('5');
+await chBoxes[0].evaluate(i => i.blur());
+assert.deepEqual(await page.evaluate(() => window.chalLog), [],
+  'half a score was written — the second box was still empty');
+await chBoxes[1].fill('3');
+await chBoxes[1].evaluate(i => i.blur());
+assert.deepEqual(await page.evaluate(() => window.chalLog), [['chalScore', 'open2', { b: 5, r: 3 }]],
+  'a completed score did not reach the database');
+
+// ---- cancelling ----
+await page.evaluate(f => { window.setAccount('sifat@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
+assert.equal(await page.$$eval('#ch-open1 .ch-link', n => n.length), 1, 'the creator lost the cancel');
+assert.equal(await page.$$eval('#ch-open2 .ch-link', n => n.length), 0,
+  'somebody who did not open a challenge was offered its cancel');
+// the admin's page is the one that sweeps what nobody ever filled
+await page.evaluate(f => {
+  window.setAdmin(true); window.chalLog = []; window.renderChallenges(f);
+}, CH.fixture);
+assert.deepEqual(await page.evaluate(() => window.chalLog.filter(r => r[0] === 'chalRemove')),
+  [['chalRemove', 'stale']], 'the admin did not sweep the lobby that timed out, or swept a live one');
+await page.evaluate(f => {
+  window.setAdmin(false); window.setAccount('nur@x.com'); window.chalLog = []; window.renderChallenges(f);
+}, CH.fixture);
+assert.deepEqual(await page.evaluate(() => window.chalLog), [],
+  'a viewer tried to delete somebody else’s lobby');
+
+// ---- recent results ----
+assert.deepEqual(await page.$$eval('#chalRecent .ch-rs', n => n.map(x => x.textContent)),
+  ['4–4', '5–0', '5–3'], 'Recent is not the finished games, newest first');
+
+// ---- a shared link ----
+await page.evaluate(f => {
+  location.hash = '#c/open2';
+  window.renderChallenges(f);
+}, CH.fixture);
+assert.equal(await page.evaluate(() => $('chal').classList.contains('open')),
+  true, 'a shared challenge link did not open the board');
+assert.deepEqual(await page.$$eval('#chalOpen .ch-card.lit', n => n.map(c => c.id)), ['ch-open2'],
+  'a shared link did not mark the lobby it names');
+await page.evaluate(() => { location.hash = ''; $('chal').classList.remove('open'); });
+
+// ---- on a phone ----
+await page.setViewportSize({ width: 360, height: 720 });
+await page.evaluate(f => { window.setAccount('sifat@x.com'); window.renderChallenges(f); $('chal').classList.add('open'); }, CH.fixture);
+const phone = await page.evaluate(() => {
+  const card = document.querySelector('#chalOpen .ch-card');
+  const seats = [...card.querySelectorAll('.ch-seat')].map(s => s.getBoundingClientRect());
+  const scroll = document.querySelector('#chalLadder .ch-scroll');
+  return {
+    page: document.documentElement.scrollWidth,
+    cols: new Set(seats.map(r => Math.round(r.left))).size,
+    overflow: card.scrollWidth > card.clientWidth,
+    ladderFits: scroll.clientWidth <= document.querySelector('#chal .hall-card').clientWidth,
+    tabs: [...document.querySelectorAll('#btnBar button')].filter(b => b.offsetParent).length,
+    barRow: new Set([...document.querySelectorAll('#btnBar button')]
+      .filter(b => b.offsetParent).map(b => Math.round(b.getBoundingClientRect().top))).size,
+  };
+});
+assert.equal(phone.page, 360, 'the challenge board pushes the page sideways on a phone');
+assert.equal(phone.cols, 2, 'the seat grid is not two columns on a phone');
+assert.equal(phone.overflow, false, 'a lobby card scrolls sideways inside itself');
+assert.equal(phone.ladderFits, true, 'the ladder burst its card instead of scrolling inside it');
+assert.equal(phone.barRow, 1, `the bottom tab bar wrapped to ${phone.barRow} rows with ${phone.tabs} tabs`);
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccount(null); });
+
+console.log('challenges OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
