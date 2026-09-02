@@ -2597,7 +2597,13 @@ async function shareChal(c, btn) {
     : `Foosball at ${when} — ${chalTeamLine(c)}.`;
   const say = t => { const was = btn.innerHTML; btn.textContent = t; setTimeout(() => { btn.innerHTML = was; }, 1600); };
   try {
-    if (navigator.share) { await navigator.share({ title: 'Foosball challenge', text, url }); return; }
+    // Phones get the OS sheet. Desktop does not: macOS Safari's share popover
+    // renders its own preview of the link and can spin on that forever, and a
+    // copied link beats a share sheet on a machine with a keyboard anyway.
+    if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ title: 'Foosball challenge', text, url });
+      return;
+    }
     await navigator.clipboard.writeText(url);
     say('Link copied');
   } catch (err) {
