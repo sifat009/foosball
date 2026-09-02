@@ -268,8 +268,9 @@ filed — and one `value` listener tells them apart by diffing against the last
 snapshot. A full lobby also arms a kick-off reminder on the relay's own timer.
 Whoever caused an announcement is left out of it: `recipients` takes an
 `except` address, so nobody is pinged about their own tap. Kick-off times are
-formatted in the relay host's timezone, so set `TZ` in the unit file if the box
-isn't on office time.
+formatted in `OFFICE_TZ` at the top of `relay.mjs` (`Asia/Dhaka`), not the
+host's clock — a VM that quietly sits on another timezone can't print the wrong
+kick-off. Change that constant if the office moves.
 
 **Until it's configured nothing changes.** `VAPID_KEY` in `index.html` is empty
 by default and the Notify button stays hidden, so the app is exactly what it

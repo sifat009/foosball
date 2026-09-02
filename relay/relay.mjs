@@ -79,8 +79,13 @@ export const sugText = v => {
 export const SEAT_IDS = ['bf', 'bd', 'rf', 'rd'];
 export const chalSeats = c => SEAT_IDS.filter(s => c && c.slots && c.slots[s]);
 export const chalScored = c => !!(c && c.score && c.score.b != null && c.score.r != null);
-// the host's timezone is the office's — systemd sets TZ, see the README
-export const chalTime = ms => new Date(ms).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+/* Pinned, not the host's clock: this text is written once on the VM and read
+   on every phone, so it has to be the office's time whatever the box thinks it
+   is. TZ in the unit file is a hint the host can lose (an unset TZ printed a
+   kick-off 1h45m out); the office moves timezone less often than the VM does. */
+export const OFFICE_TZ = 'Asia/Dhaka';
+export const chalTime = ms => new Date(ms).toLocaleTimeString('en-US',
+  { hour: 'numeric', minute: '2-digit', timeZone: OFFICE_TZ });
 export const chalPair = (c, a, b) => `${c.slots[a].name} & ${c.slots[b].name}`;
 export const chalTeams = c => `${chalPair(c, 'bf', 'bd')} vs ${chalPair(c, 'rf', 'rd')}`;
 
