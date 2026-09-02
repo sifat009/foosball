@@ -1,6 +1,7 @@
 /* node relay/test-relay.mjs — no database, no key, no network. */
 import assert from 'node:assert';
-import { delayFor, recipients, sugReady, sugText, chalNews, chalSeats, chalScored } from './relay.mjs';
+import { delayFor, recipients, sugReady, sugText, chalNews, chalSeats, chalScored,
+  chalClaim, chalClaimId, chalOthers } from './relay.mjs';
 
 const NOW = 1_700_000_000_000;
 
@@ -38,6 +39,19 @@ assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'result', prefs, 'mate@
 // an anonymous device carries a timestamp, not an address — it is never excluded
 assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, 1700000000000), ['anon', 'boss', 'mate']);
 
+// an announcement addressed to named people reaches them and nobody else —
+// not the rest of the office, and not the signed-out devices
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, null, ['mate@x.com']), ['mate']);
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, null,
+  ['mate@x.com', 'boss@x.com']), ['boss', 'mate']);
+// a device signed in as nobody on the list is not on it
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, null, ['ghost@x.com']), []);
+// the list stacks with the kind filter and with `except` rather than overriding
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', 'result', prefs, null,
+  ['mate@x.com', 'anon']), ['mate']);
+assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, 'mate@x.com',
+  ['mate@x.com', 'boss@x.com']), ['boss']);
+
 // ---- challenges ----
 const at = { hour: 'numeric', minute: '2-digit' };
 const fmt = () => '3:00 PM'; // the clock is the host's; the branches are what matter
@@ -64,7 +78,7 @@ assert.equal(on.title, 'Challenge on');
 assert.equal(on.body, 'Sifat & Ofi vs Nur & Rashed at 3:00 PM.');
 assert.equal(on.except, 'rashed@x.com');
 
-// scored: a result has no author, so it goes to everybody
+// scored: both sides have agreed by the time this fires, so it goes to everybody
 const won = chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
   { ...full, score: { b: 5, r: 3 } }, fmt);
 assert.equal(won.title, 'Blue 5–3 Red');
@@ -77,6 +91,53 @@ assert.match(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
 // 0 is a score: a nil still announces the winner rather than reading as unplayed
 assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
   { ...full, score: { b: 5, r: 0 } }, fmt).title, 'Blue 5–0 Red');
+
+// ---- claims ----
+// half a claim is not one: nothing is announced until both figures are in
+assert.equal(chalClaim({ ...full, pending: { b: 5, by: 'sifat@x.com', side: 'b' } }), null);
+assert.equal(chalClaim(full), null);
+assert.equal(chalClaim({ ...full, pending: { b: 5, r: 0, by: 'sifat@x.com', side: 'b' } }).r, 0);
+// the identity carries the figures, so a counter-offer is a new claim
+assert.equal(chalClaimId({ ...full, pending: { b: 5, r: 3, by: 'sifat@x.com', side: 'b' } }),
+  'sifat@x.com|5-3');
+assert.equal(chalClaimId(full), null);
+// the far side of the table, which is who has to answer for it
+assert.deepEqual(chalOthers(full, 'b'), ['nur@x.com', 'rashed@x.com']);
+assert.deepEqual(chalOthers(full, 'r'), ['sifat@x.com', 'ofi@x.com']);
+
+const claimed = { ...full, pending: { b: 5, r: 3, by: 'sifat@x.com', side: 'b' } };
+const prevFull = { seats: ['bf', 'bd', 'rf', 'rd'], scored: false, claim: null };
+const filed = chalNews(prevFull, claimed, fmt);
+assert.equal(filed.title, 'Score to confirm');
+assert.equal(filed.body, 'Sifat filed 5–3 in Sifat & Ofi vs Nur & Rashed — tap to confirm or reject.');
+// it goes to the two who can settle it, never to the person who filed it
+assert.deepEqual(filed.only, ['nur@x.com', 'rashed@x.com']);
+assert.equal(filed.except, 'sifat@x.com');
+// and under the alerts row for scores waiting on you, not the challenge row
+assert.equal(filed.kind, 'suggest');
+
+// the same claim twice is not news; a counter-offer from the other side is
+assert.equal(chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' }, claimed, fmt), null);
+const counter = chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' },
+  { ...full, pending: { b: 5, r: 4, by: 'nur@x.com', side: 'r' } }, fmt);
+assert.equal(counter.body, 'Nur filed 5–4 in Sifat & Ofi vs Nur & Rashed — tap to confirm or reject.');
+// it now waits on the side that filed the first one
+assert.deepEqual(counter.only, ['sifat@x.com', 'ofi@x.com']);
+// a filer who never took a seat still reads as somebody
+assert.match(chalNews(prevFull, { ...full, pending: { b: 5, r: 3, by: 'boss@x.com', side: 'b' } }, fmt).body,
+  /^boss@x\.com filed 5–3 /);
+
+// confirming clears the claim and writes the score in one update: that reads as
+// the result, going to everybody, not as a claim that quietly disappeared
+const agreed = chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' },
+  { ...full, score: { b: 5, r: 3 } }, fmt);
+assert.equal(agreed.title, 'Blue 5–3 Red');
+assert.equal(agreed.except, null);
+assert.equal(agreed.only, undefined);
+// a rejected claim just goes — there is nothing to announce about silence
+assert.equal(chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' }, full, fmt), null);
+// a lobby first met with a claim on it is a row this process hadn't seen, not news
+assert.equal(chalNews(null, claimed, fmt), null);
 
 // nothing happened: the same snapshot twice says nothing
 assert.equal(chalNews({ seats: ['bf'], scored: false }, one, fmt), null);

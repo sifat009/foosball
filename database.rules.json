@@ -16,22 +16,32 @@
       ".read": true,
       "$id": {
         ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (data.child('by').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')))",
-        ".validate": "newData.hasChildren(['by', 'at', 'playAt'])",
+        ".validate": "newData.hasChildren(['by', 'at', 'playAt']) && (data.exists() || (!newData.child('score').exists() && !newData.child('pending').exists()))",
         "by": { ".validate": "newData.val() === auth.token.email || data.val() === newData.val()" },
         "at": { ".validate": "newData.isNumber()" },
         "playAt": { ".validate": "newData.isNumber()" },
         "slots": {
           "$seat": {
-            ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || data.child('email').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')",
+            ".write": "auth != null && auth.token.email_verified === true && !root.child('challenges').child($id).child('score').exists() && !root.child('challenges').child($id).child('pending').exists() && (!data.exists() || data.child('email').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')",
             ".validate": "!newData.exists() || (newData.hasChildren(['name', 'email']) && newData.child('email').val() === auth.token.email)",
             "name": { ".validate": "newData.isString() && newData.val().length > 0" },
             "email": { ".validate": "newData.isString()" },
             "$other": { ".validate": false }
           }
         },
+        "pending": {
+          ".write": "auth != null && auth.token.email_verified === true && (auth.token.email === 'bhacker150@gmail.com' || data.parent().child('slots/bf/email').val() === auth.token.email || data.parent().child('slots/bd/email').val() === auth.token.email || data.parent().child('slots/rf/email').val() === auth.token.email || data.parent().child('slots/rd/email').val() === auth.token.email)",
+          ".validate": "newData.hasChildren(['b', 'r', 'by', 'side', 'at']) && newData.parent().child('slots').hasChildren(['bf', 'bd', 'rf', 'rd']) && newData.child('by').val() === auth.token.email && (newData.child('side').val() === 'b' ? (newData.parent().child('slots/bf/email').val() === auth.token.email || newData.parent().child('slots/bd/email').val() === auth.token.email) : (newData.parent().child('slots/rf/email').val() === auth.token.email || newData.parent().child('slots/rd/email').val() === auth.token.email))",
+          "b": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 === 0" },
+          "r": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 === 0" },
+          "by": { ".validate": "newData.isString()" },
+          "side": { ".validate": "newData.val() === 'b' || newData.val() === 'r'" },
+          "at": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        },
         "score": {
-          ".write": "auth != null && auth.token.email_verified === true",
-          ".validate": "!newData.exists() || (newData.hasChildren(['b', 'r']) && newData.child('b').isNumber() && newData.child('r').isNumber())",
+          ".write": "auth != null && auth.token.email_verified === true && data.parent().child('pending').exists() && data.parent().child('pending/by').val() !== auth.token.email && (auth.token.email === 'bhacker150@gmail.com' || (data.parent().child('pending/side').val() === 'b' ? (data.parent().child('slots/rf/email').val() === auth.token.email || data.parent().child('slots/rd/email').val() === auth.token.email) : (data.parent().child('slots/bf/email').val() === auth.token.email || data.parent().child('slots/bd/email').val() === auth.token.email)))",
+          ".validate": "newData.hasChildren(['b', 'r']) && newData.child('b').val() === data.parent().child('pending/b').val() && newData.child('r').val() === data.parent().child('pending/r').val()",
           "$side": { ".validate": "newData.isNumber() && newData.val() >= 0" }
         },
         "$other": { ".validate": false }

@@ -99,8 +99,9 @@ footer explains the format, the table, and the knockout — keep it in step with
 Between cups there is the **Challenges** board: casual 2v2 pickup games that
 count for nothing a cup counts. One player opens a lobby — their seat and a
 kick-off time — and the other three seats fill from whoever sees it. Any of the
-four then files the score. Cup titles, badges, the Golden Boot and the Players
-board are untouched by all of it: nothing here ever writes to `history`.
+four then files the score, and somebody from the other side of the table has to
+agree to it. Cup titles, badges, the Golden Boot and the Players board are
+untouched by all of it: nothing here ever writes to `history`.
 
 It lives at `challenges/<id>`, where the id is `Date.now()`, the same
 convention `cupId` uses:
@@ -108,19 +109,45 @@ convention `cupId` uses:
 ```
 by      the creator's email        playAt  kick-off, set by the creator
 at      opened                     slots   bf / bd / rf / rd -> { name, email }
-score   { b, r }, absent until played
+score   { b, r }, the agreed result, absent until both sides have agreed
+pending { b, r, by, side, at }, a claim in flight, absent the rest of the time
 ```
 
 There is no status field. An absent seat is an empty seat, an absent `score`
-means the game hasn't been played, and the winner is `b > r`. Team score only —
+means nobody has agreed a result yet, and the winner is `b > r`. Team score only —
 one box a side, not the cup's forward/defender pair — which still gives the
 winner, goal difference and the nils, with two numbers to agree on rather than
 four. Draws are storable and get their own column; foosball to a target score
 has none, but a timed lunch game does.
 
+### Two people, not one
+
+A score is two people agreeing, so it lands in two steps. One of the four files
+a claim into `pending`; somebody sitting on the **other** side turns it into
+`score`, in one update that writes the result and clears the claim together.
+Nothing ratifies a claim by silence — there is no timer that lets a wrong score
+through while nobody is looking — so a lobby with a claim on it stays on the
+board however stale it gets, and the two opponents (and the admin, as the
+fallback) get the ping.
+
+Rejecting and withdrawing are the same write: the claim goes and the boxes
+reopen. Typing a different score over a claim replaces it, so a counter-offer
+and a rejection-then-refile are one gesture. Correcting a settled score is the
+same path again — type over the result on the Recent pane, and the recorded
+figure stands until the other side confirms the new one.
+
+The rules are what enforce all of this, not the page: see
+`database.rules.json`, where a claim may only be filed by a seated player from
+the seat they actually hold, a `score` write must match a standing claim filed
+by somebody else on the other side, the admin can settle anybody's claim but
+their own, seats freeze while a claim stands, and a lobby can never be created
+with a result already on it. `test-rules.mjs` covers each of those against the
+emulator.
+
 The ladder is **derived at render** from the finished lobbies, the way
 `career()` derives everything from `history`. No rollup node, no stored totals,
-no migration: correcting a mistyped score fixes the board immediately. `Nil`
+no migration: correcting a mistyped score fixes the board immediately, and a
+claim nobody has confirmed never reaches it at all. `Nil`
 counts the games a side was held to nothing — the same thing the cup's Nil
 badge counts — and `Win %` scores a draw as half a win, so one 4-4 doesn't read
 like one 0-5. Level players sort alphabetically, so the board never reorders
@@ -440,6 +467,7 @@ Restart the relay after deploying this.
 npx playwright@1.61 install chromium
 node test.mjs
 node relay/test-relay.mjs   # no database, no key, nothing installed
+firebase emulators:exec --only database "node test-rules.mjs"
 ```
 
 The relay check covers the decisions worth getting wrong: when a queued row
@@ -457,7 +485,17 @@ win%-then-games sort), the seats read as mine / theirs / empty from three
 viewpoints, the score boxes reaching the lobby's four and nobody else, an
 account off `EMAIL_NAMES` offered nothing, a stale lobby swept by the admin
 alone, a shared `#c/<id>` link marking the right card, and the whole thing at
-360px without pushing the page sideways.
+360px without pushing the page sideways. Filing a score is covered as what it
+is — a claim, not a result — along with the bar each of the five viewpoints
+gets (filer, teammate, opponent, admin, bystander), the counter-offer, the
+correction, and a claim keeping a stale lobby on the board.
+
+`test-rules.mjs` is the only check that evaluates a rule: `test.mjs` stubs the
+database out, so nothing there ever reaches one, and the rules are what
+actually stop a challenge score being whatever the last person typed. It talks
+to the database emulator over REST with hand-made tokens — the emulator does
+not check a signature, so there is no key, no service account and nothing to
+install beyond `firebase-tools`.
 
 Firebase is blocked during the run, so the suite covers the app logic and the
 admin gate offline: read-only by default, standings render from a pushed

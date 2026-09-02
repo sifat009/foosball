@@ -40,10 +40,15 @@ export const delayFor = (n, now = Date.now()) =>
    `kind` is the alerts drawer: a device that switched this kind off wrote so
    under /pushPrefs. Only an explicit false drops a device — no prefs row, no
    entry for this kind, or a row for a kind the page never sends all mean yes,
-   so a phone that subscribed before the drawer existed keeps its alerts. */
-export const recipients = (tokens, adminOnly, adminEmail, kind, prefs, except) =>
+   so a phone that subscribed before the drawer existed keeps its alerts.
+
+   `only` is the other direction: an announcement addressed to named people
+   rather than broadcast. A device that stored a timestamp instead of an address
+   is signed out and belongs to nobody, so it is never on such a list. */
+export const recipients = (tokens, adminOnly, adminEmail, kind, prefs, except, only) =>
   Object.keys(tokens || {}).filter(t =>
     (!adminOnly || tokens[t] === adminEmail) &&
+    !(only && !only.includes(tokens[t])) &&
     !(typeof except === 'string' && tokens[t] === except) &&
     !(kind && ((prefs || {})[t] || {})[kind] === false));
 
@@ -89,9 +94,25 @@ export const chalTime = ms => new Date(ms).toLocaleTimeString('en-US',
 export const chalPair = (c, a, b) => `${c.slots[a].name} & ${c.slots[b].name}`;
 export const chalTeams = c => `${chalPair(c, 'bf', 'bd')} vs ${chalPair(c, 'rf', 'rd')}`;
 
+/* A claim is a score one of the four has filed and the other side has not
+   agreed to yet. It is announced whenever it changes hands or figures, so a
+   counter-offer reaches the person who filed the first one — hence an identity
+   built from the filer and the numbers, not merely "a claim exists". */
+export const chalClaim = c => c && c.pending && c.pending.b != null && c.pending.r != null ? c.pending : null;
+export const chalClaimId = c => {
+  const p = chalClaim(c);
+  return p ? `${p.by}|${p.b}-${p.r}` : null;
+};
+export const chalSeatOf = (c, email) => SEAT_IDS.find(s => c.slots && c.slots[s] && c.slots[s].email === email);
+// whoever has to answer for it: the two seats on the far side of the table
+export const chalOthers = (c, side) => (side === 'b' ? ['rf', 'rd'] : ['bf', 'bd'])
+  .map(s => c.slots && c.slots[s] && c.slots[s].email).filter(Boolean);
+
 /* What is worth saying about one lobby, given what it looked like last time.
    `except` is the address behind the change — you are not told about your own
-   tap. A score has no author, so that one goes to everybody.
+   tap. A confirmed score goes to everybody, because that is the moment the
+   ladder moves; the claim before it goes only to the people who can settle it,
+   which is what `only` carries.
 
    A lobby first seen already full or already played is news to nobody: that is
    a row this process simply hadn't met yet, not something that just happened. */
@@ -115,6 +136,22 @@ export const chalNews = (prev, c, fmt = chalTime) => {
       body: b === r ? `${chalTeams(c)} — drawn.`
         : `${b > r ? chalPair(c, 'bf', 'bd') : chalPair(c, 'rf', 'rd')} win the challenge.`,
       except: null,
+    };
+  }
+  /* A claim goes to the two people who can settle it and nobody else — main()
+     adds the admin, who is the fallback. It is checked after the score so that
+     confirming, which clears the claim and writes the score in one update,
+     reads as the result it is rather than as a claim that vanished. */
+  const claim = chalClaim(c), claimId = chalClaimId(c);
+  if (claim && claimId !== prev.claim && seats.length === 4) {
+    const seat = chalSeatOf(c, claim.by);
+    const by = (seat && c.slots[seat].name) || claim.by;
+    return {
+      title: 'Score to confirm',
+      body: `${by} filed ${claim.b}\u2013${claim.r} in ${chalTeams(c)} — tap to confirm or reject.`,
+      except: claim.by,
+      only: chalOthers(c, claim.side),
+      kind: 'suggest',
     };
   }
   if (prev.seats.length < 4 && seats.length === 4) {
@@ -155,8 +192,8 @@ async function main() {
 
   // ponytail: sendEachForMulticast caps at 500 tokens; chunk it if a cup ever
   // outgrows that, which for one office's foosball it will not
-  async function send(title, body, adminOnly, kind, except) {
-    const list = recipients(tokens, adminOnly, ADMIN_EMAIL, kind, prefs, except);
+  async function send(title, body, adminOnly, kind, except, only) {
+    const list = recipients(tokens, adminOnly, ADMIN_EMAIL, kind, prefs, except, only);
     if (!list.length) return;
     const res = await fcm.sendEachForMulticast({
       tokens: list,
@@ -249,12 +286,14 @@ async function main() {
     const now = new Map();
     Object.entries(s.val() || {}).forEach(([id, c]) => {
       if (!c || !c.at) return;
-      now.set(id, { seats: chalSeats(c), scored: chalScored(c) });
+      now.set(id, { seats: chalSeats(c), scored: chalScored(c), claim: chalClaimId(c) });
       armChal(id, c);
       if (!chalSeen) return; // first pass only seeds
       const news = chalNews(chalSeen.get(id), c);
-      if (news) send(news.title, news.body, false, 'challenge', news.except)
-        .catch(e => console.error('[send] failed:', e));
+      // the admin rides along on a claim as the fallback confirmer, and is the
+      // one address this end can add — chalNews knows no admin
+      if (news) send(news.title, news.body, false, news.kind || 'challenge', news.except,
+        news.only && [...news.only, ADMIN_EMAIL]).catch(e => console.error('[send] failed:', e));
     });
     // a cancelled lobby takes its reminder with it
     if (chalSeen) chalSeen.forEach((_, id) => { if (!now.has(id)) cancel('chal:' + id); });

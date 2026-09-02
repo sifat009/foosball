@@ -1154,6 +1154,13 @@
     border: 1.5px solid #dbe3ee; border-radius: 10px; background: #fbfcfe;
   }
   .ch-score input:focus { border-color: #17854a; outline: none; background: #fff; }
+  /* a filed claim, deliberately unlike a real score — same amber the cup uses */
+  .ch-score input.suggesting { border-color: #e6c65c; background: #fff8e6; }
+  /* the shared bar sits above a score row in the cup and below one here */
+  .ch-card .sug-bar { margin: 11px 0 0; }
+  /* the cup's bar spells a whole breakdown out and needs the room to wrap; a
+     claim here is four words, so the buttons stay on its line until they can't */
+  .ch-card .sug-bar .who { flex: 1 1 9em; }
   .ch-score span { font-size: 0.72rem; font-weight: 800; color: #8fa0b8; letter-spacing: 0.08em; }
   .ch-note { font-size: 0.76rem; font-weight: 600; color: #8fa0b8; text-align: center; padding: 4px 0 2px; }
   /* the ladder: a fixed grid so the columns line up, and it scrolls inside its
@@ -1180,6 +1187,22 @@
   .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
   .ch-rt b { color: #172b4d; }
   .ch-rs { font-size: 0.86rem; font-weight: 900; color: #172b4d; white-space: nowrap; }
+  /* the same score, editable, and no wider than the text it replaces */
+  .ch-fix { display: flex; align-items: baseline; gap: 1px; }
+  /* the spinners would take more room than the digit at this size, and there is
+     nowhere for a nudged score to go that typing does not reach faster */
+  .ch-fix input::-webkit-inner-spin-button,
+  .ch-fix input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .ch-fix input {
+    appearance: textfield; -moz-appearance: textfield;
+    width: 26px; padding: 2px 0; text-align: center; font-family: inherit;
+    font-size: 0.86rem; font-weight: 900; color: #172b4d;
+    /* a border faint enough to stay out of the way of reading the results, and
+       present enough to say the number can be typed over */
+    border: 1px solid #eef1f6; border-radius: 7px; background: #fbfcfe;
+  }
+  .ch-fix input:hover { border-color: #dbe3ee; background: #fff; }
+  .ch-fix input:focus { border-color: #17854a; outline: none; background: #fff; }
   .ch-rd { font-size: 0.72rem; font-weight: 600; color: #8fa0b8; white-space: nowrap; }
   #btnBar { display: contents; } /* desktop: the wrapper isn't a box at all */
   /* Every fixed button must be declared above this block. A media query adds
@@ -1729,7 +1752,7 @@ Nur</textarea>
       <input type="checkbox" class="sw" data-kind="challenge">
     </label>
     <label class="al-row al-admin" style="display:none">
-      <div class="al-txt"><b>Score suggestions</b><i>Someone suggested a score to accept</i></div>
+      <div class="al-txt"><b>Score suggestions</b><i>A score is waiting on you to confirm</i></div>
       <input type="checkbox" class="sw" data-kind="suggest">
     </label>
     <button id="alertsClose">Close</button>
@@ -1828,7 +1851,9 @@ function paintAlerts(on = !!window.pushOn) {
     box.checked = on && prefs[box.dataset.kind];
     box.disabled = !on; // off means off — no half-lit rows promising alerts
   });
-  document.querySelector('.al-admin').style.display = isAdmin ? '' : 'none';
+  // a cup suggestion is the admin's to accept, but a challenge claim is waiting
+  // on whichever player sat on the other side — so this row is anyone signed in
+  document.querySelector('.al-admin').style.display = isAdmin || acctEmail ? '' : 'none';
 }
 
 // the master row is the subscription itself, and turning it back on means all
@@ -2466,9 +2491,19 @@ var acctEmail = null, allChal = {}, chalLit = null, newSeat = null;
 const myName = () => EMAIL_NAMES[acctEmail] || null;
 const chalFull = c => SEATS.every(([id]) => c.slots && c.slots[id]);
 const chalDone = c => !!(c.score && c.score.b != null && c.score.r != null);
-// an unfinished lobby drops off the board once it is stale; a played one keeps
-const chalLive = c => chalDone(c) || (c.playAt || c.at || 0) + CH_STALE > Date.now();
+/* A claim, not a score: one of the four has filed a result and it is waiting on
+   somebody from the other side. The ladder never sees it — everything derived
+   reads `score`, which stays the agreed figure and nothing else. */
+const chalPending = c => c.pending && c.pending.b != null && c.pending.r != null ? c.pending : null;
+/* An unfinished lobby drops off the board once it is stale; a played one keeps.
+   So does one with a claim on it: nothing ratifies a claim by silence, so a
+   score filed at the table must not fall off the board that evening while it
+   waits for the opponent to open the app. */
+const chalLive = c => chalDone(c) || !!chalPending(c) || (c.playAt || c.at || 0) + CH_STALE > Date.now();
 const chalSat = c => !!acctEmail && SEATS.some(([id]) => c.slots && c.slots[id] && c.slots[id].email === acctEmail);
+// which half of the table you are sitting at, or null if you are watching
+const chalSide = c => !acctEmail ? null
+  : SEATS.reduce((f, [id]) => f || (c.slots && c.slots[id] && c.slots[id].email === acctEmail ? id[0] : null), null);
 /* One row per player, worked out at render time from the finished lobbies —
    the way career() derives everything from history. No rollup node and no
    stored totals, so correcting a mistyped score fixes the board at once.
@@ -2509,7 +2544,7 @@ function seatBtn(c, seat, team, role) {
      rule rather than the database's, because it guards against a mis-tap, not
      against anybody malicious — the seat you'd be taking is empty, and the
      write is honestly yours. */
-  const live = !!name && !chalDone(c);
+  const live = !!name && !chalDone(c) && !chalPending(c);
   const tag = live && (held ? mine : !chalSat(c)) ? 'button' : 'div';
   const el = document.createElement(tag);
   el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '') + (mine ? ' mine' : '');
@@ -2524,26 +2559,86 @@ function seatBtn(c, seat, team, role) {
   return el;
 }
 
-function scoreRow(c) {
+/* The boxes file a claim, never a score. What they show is the most recent
+   figure — a claim in flight if there is one, otherwise the agreed score — so
+   typing over a settled result is how a correction gets filed, with no second
+   control to explain. Retyping what is already there files nothing: nobody
+   should put a settled game back in front of the other side by tabbing
+   through it. */
+function scoreRow(c, pend) {
   const wrap = document.createElement('div');
   wrap.className = 'ch-score';
+  const side = chalSide(c);
   const box = (key, val) => {
     const i = document.createElement('input');
     i.type = 'number'; i.min = '0'; i.inputMode = 'numeric';
     i.value = val == null ? '' : val;
+    if (pend) i.classList.add('suggesting');
     i.setAttribute('aria-label', key === 'b' ? 'Blue score' : 'Red score');
     i.onchange = () => {
       const b = +wrap.querySelector('[data-k="b"]').value, r = +wrap.querySelector('[data-k="r"]').value;
       const raw = [...wrap.querySelectorAll('input')].map(x => x.value.trim());
       if (raw.some(v => v === '') || !Number.isInteger(b) || !Number.isInteger(r) || b < 0 || r < 0) return;
-      window.chalScore(c.id, { b, r });
+      const std = pend || c.score;
+      if (std && +std.b === b && +std.r === r) return;
+      window.chalFile(c.id, { b, r, by: acctEmail, side, at: Date.now() });
     };
     i.dataset.k = key;
     return i;
   };
   const lbl = t => { const s = document.createElement('span'); s.textContent = t; return s; };
-  wrap.append(lbl('BLUE'), box('b', c.score && c.score.b), box('r', c.score && c.score.r), lbl('RED'));
+  const show = pend || c.score || {};
+  wrap.append(lbl('BLUE'), box('b', show.b), box('r', show.r), lbl('RED'));
   return wrap;
+}
+
+// the seat an address is sitting in, for putting a name to a claim
+const seatOf = (c, email) => SEATS.map(([id]) => id)
+  .find(id => c.slots && c.slots[id] && c.slots[id].email === email);
+
+/* A claim in words, with the buttons that settle it. This is the cup's pending
+   state on the same colours and the same classes: amber for a score waiting on
+   you, green for one your own side sent. Which buttons you get depends on where
+   you are sitting — only the other half of the table can confirm, and the admin
+   settles anybody's claim but one they filed themselves. */
+function pendBar(c, pend) {
+  const side = chalSide(c);
+  const ours = side === pend.side;      // your half of the table filed it
+  const filer = pend.by === acctEmail;
+  const settle = side ? !ours : (isAdmin && !filer);
+  const bar = document.createElement('div');
+  bar.className = 'sug-bar' + (ours ? ' mine' : '');
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.innerHTML = svg(ours ? 'check' : 'bulb'); // icon is static markup...
+  const score = pend.b + '\u2013' + pend.r;
+  const seat = seatOf(c, pend.by);
+  // ...names are user input and stay text nodes
+  const by = (seat && c.slots[seat].name) || EMAIL_NAMES[pend.by] || 'Someone';
+  const them = pend.side === 'b' ? pairName(c, 'rf', 'rd') : pairName(c, 'bf', 'bd');
+  who.append(filer ? ` Sent ${score} \u2014 waiting on ${them}.`
+    : ours ? ` ${by} filed ${score} \u2014 waiting on ${them}.`
+    : settle ? ` ${by} filed ${score}.`
+    : ` ${by} filed ${score} \u2014 waiting on ${them} to confirm.`);
+  bar.appendChild(who);
+  if (settle) {
+    const ok = document.createElement('button');
+    ok.className = 'sug-btn sug-ok';
+    ok.innerHTML = svg('check') + ' Confirm';
+    ok.onclick = () => window.chalConfirm(c.id, pend);
+    const no = document.createElement('button');
+    no.className = 'sug-btn sug-no';
+    no.innerHTML = svg('x') + ' Reject';
+    no.onclick = () => window.chalReject(c.id);
+    bar.append(ok, no);
+  } else if (filer) { // take back a score you sent by mistake
+    const w = document.createElement('button');
+    w.className = 'sug-btn sug-withdraw';
+    w.innerHTML = svg('x') + ' Withdraw';
+    w.onclick = () => window.chalReject(c.id);
+    bar.appendChild(w);
+  }
+  return bar;
 }
 
 function chalCard(c) {
@@ -2558,9 +2653,13 @@ function chalCard(c) {
   SEATS.forEach(([seat, team, role]) => grid.append(seatBtn(c, seat, team, role)));
   el.append(when, grid);
 
-  if (chalFull(c) && chalSat(c)) el.append(scoreRow(c));
-  else if (chalFull(c) && !chalDone(c))
-    el.append(part('ch-note', 'Waiting on one of the four to file the score.'));
+  const pend = chalPending(c);
+  if (chalFull(c)) {
+    if (chalSat(c)) el.append(scoreRow(c, pend));
+    if (pend) el.append(pendBar(c, pend));
+    else if (!chalSat(c) && !chalDone(c))
+      el.append(part('ch-note', 'Waiting on one of the four to file the score.'));
+  }
 
   const act = part('ch-act');
   const share = document.createElement('button');
@@ -2612,6 +2711,33 @@ async function shareChal(c, btn) {
   }
 }
 
+/* A settled score, editable by the four who played it. Two boxes rather than a
+   button and a dialog: the correction is the number, and typing it is the whole
+   gesture. It files a claim like any other, so the board does not move until
+   the other side agrees. */
+function fixRow(c, b, r) {
+  const wrap = part('ch-rs ch-fix');
+  const side = chalSide(c);
+  const box = (key, val) => {
+    const i = document.createElement('input');
+    i.type = 'number'; i.min = '0'; i.inputMode = 'numeric';
+    i.value = val;
+    i.dataset.k = key;
+    i.title = 'Correct this score';
+    i.setAttribute('aria-label', (key === 'b' ? 'Blue' : 'Red') + ' score — correct it');
+    i.onchange = () => {
+      const nb = +wrap.querySelector('[data-k="b"]').value, nr = +wrap.querySelector('[data-k="r"]').value;
+      const raw = [...wrap.querySelectorAll('input')].map(x => x.value.trim());
+      if (raw.some(v => v === '') || !Number.isInteger(nb) || !Number.isInteger(nr) || nb < 0 || nr < 0) return;
+      if (nb === b && nr === r) return; // the score it already is, is not a correction
+      window.chalFile(c.id, { b: nb, r: nr, by: acctEmail, side, at: Date.now() });
+    };
+    return i;
+  };
+  wrap.append(box('b', b), part('', '\u2013', 'span'), box('r', r));
+  return wrap;
+}
+
 function ladderEl(rows) {
   const board = chalLadder(rows);
   if (!board.length) return part('hall-empty', 'No challenge has been played yet.');
@@ -2644,8 +2770,12 @@ function ladderEl(rows) {
 function renderChal() {
   const rows = Object.entries(allChal || {}).map(([id, c]) => Object.assign({ id }, c))
     .filter(c => c && c.at);
-  const open = rows.filter(c => !chalDone(c) && chalLive(c)).sort((a, b) => (a.playAt || a.at) - (b.playAt || b.at));
-  const done = rows.filter(chalDone).sort((a, b) => (b.playAt || b.at) - (a.playAt || a.at));
+  /* A settled game with a claim on it is an open question again: it goes back
+     to the Open pane, which is where the bar and its two buttons are. The
+     recorded score stays on it until somebody confirms the correction. */
+  const open = rows.filter(c => (!chalDone(c) || chalPending(c)) && chalLive(c))
+    .sort((a, b) => (a.playAt || a.at) - (b.playAt || b.at));
+  const done = rows.filter(c => chalDone(c) && !chalPending(c)).sort((a, b) => (b.playAt || b.at) - (a.playAt || a.at));
 
   const btn = $('chalBtn');
   if (open.length) btn.setAttribute('data-n', open.length); else btn.removeAttribute('data-n');
@@ -2684,7 +2814,10 @@ function renderChal() {
     // textContent: names are user input
     teams.append(part('', pairName(c, 'bf', 'bd'), 'span'), part('', ' v ', 'b'),
       part('', pairName(c, 'rf', 'rd'), 'span'));
-    row.append(teams, part('ch-rs', b + '\u2013' + r));
+    /* For the four who played, the recorded score is the place a correction
+       starts: type over it and it goes back to the other side as a claim, the
+       same path the first score took. Everyone else reads it. */
+    row.append(teams, chalSat(c) ? fixRow(c, b, r) : part('ch-rs', b + '\u2013' + r));
     row.title = b === r ? 'Drawn' : (b > r ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won';
     rec.append(row);
   });
@@ -2744,7 +2877,7 @@ $('chalPost').onclick = () => {
 /* Auth lands after the first paint, and the admin plays too — isAdmin says
    who may edit the cup, which is a different question from who is sitting at
    the table. */
-window.setAccount = email => { acctEmail = email || null; renderChal(); };
+window.setAccount = email => { acctEmail = email || null; renderChal(); paintAlerts(); };
 
 /* Three panes rather than three stacked sections: on a laptop the card is 80vh
    and the ladder sat below the fold behind however many lobbies were open. Same
@@ -4852,7 +4985,7 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, remove, push, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
+import { getDatabase, ref, onValue, set, update, remove, push, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -4928,10 +5061,32 @@ window.chalSeat = (id, seat, row) => {
   });
 };
 
-window.chalScore = (id, score) => set(ref(db, `challenges/${id}/score`), score)
+/* A score is two people agreeing, so it lands in two steps. One of the four
+   files a claim; somebody from the other side turns it into the score. The
+   rules are what actually enforce that — this end only decides which buttons
+   to draw. See database.rules.json.
+
+   Confirming is one update, not a write and a delete: the claim and the score
+   it becomes must never both be on the row, or a repaint between them would
+   show the game as settled and still pending. */
+window.chalFile = (id, claim) => set(ref(db, `challenges/${id}/pending`), claim)
   .catch(err => {
-    console.error('[chal] score rejected:', err);
-    alert('Could not record that score: ' + err.message);
+    console.error('[chal] claim rejected:', err);
+    alert('Could not file that score: ' + err.message);
+  });
+
+window.chalConfirm = (id, pend) =>
+  update(ref(db, 'challenges/' + id), { score: { b: +pend.b, r: +pend.r }, pending: null })
+    .catch(err => {
+      console.error('[chal] confirm rejected:', err);
+      alert('Could not confirm that score: ' + err.message);
+    });
+
+// reject and withdraw are the same write — the claim goes, the boxes reopen
+window.chalReject = id => remove(ref(db, `challenges/${id}/pending`))
+  .catch(err => {
+    console.error('[chal] reject rejected:', err);
+    alert('Could not clear that score: ' + err.message);
   });
 
 window.chalRemove = id => remove(ref(db, 'challenges/' + id))

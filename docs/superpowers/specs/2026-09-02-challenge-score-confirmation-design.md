@@ -107,13 +107,19 @@ card shows depends on who is looking:
 | --- | --- | --- | --- | --- |
 | No score, no claim | boxes | boxes | boxes | "Waiting on one of the four" |
 | Claim pending | "Sent — waiting on Siddiq & Shewa" + Withdraw | "Rifat filed 5–3" + Confirm + Reject | Confirm + Reject, unless it is their own claim | "5–3, waiting to be confirmed" |
-| Confirmed | score + "Correct this score" | same | same | score |
+| Confirmed (Recent pane) | score as editable boxes | same | same | score as text |
 
 The pending bar borrows the cup's existing visual language for this exact
 state — amber `#e6c65c` on `#fff8e6` (`index.html:364`) — so a pending
-challenge score reads like a pending cup score. "Correct this score" reopens
-the boxes and files a fresh claim; the confirmed score stays in the ladder
-until the correction is confirmed.
+challenge score reads like a pending cup score.
+
+**Where a correction starts.** A settled game leaves the Open pane entirely and
+appears on Recent as a plain row, so the card has no "Confirmed" state to hang
+a correction off. Instead the recorded score on the Recent row *is* the control:
+for the four who played, it renders as two small boxes, and typing over one
+files a claim like any other. A game with a claim on it then returns to the
+Open pane, where the bar and its two buttons live — the recorded score stays in
+the ladder until the correction is confirmed.
 
 Three new writers: `chalFile`, `chalConfirm` (the multi-path update) and
 `chalReject` (a `remove`). `chalScore` goes away.
