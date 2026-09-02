@@ -2206,11 +2206,16 @@ assert.deepEqual(await page.$$eval('#chalRecent .ch-rs', n => n.map(x => x.textC
   ['4–4', '5–0', '5–3'], 'Recent is not the finished games, newest first');
 
 // ---- Share hands over an invitation, not a bare address ----
+/* Share splits on the pointer: the OS sheet on a phone, the clipboard on a
+   machine with a keyboard. Headless reports a fine pointer and would only ever
+   walk the desktop half, so the query is stubbed to cover both. */
 await page.evaluate(f => {
   showChalTab('open'); // Recent is up from the pane check above
   window.setAccount('sifat@x.com'); window.renderChallenges(f);
   window.shared = [];
   navigator.share = payload => { window.shared.push(payload); return Promise.resolve(); };
+  window.realMatchMedia = window.matchMedia;
+  window.matchMedia = q => q === '(pointer: coarse)' ? { matches: true } : window.realMatchMedia.call(window, q);
 }, CH.fixture);
 await page.click('#ch-open1 .ch-mini');
 const invite = (await page.evaluate(() => window.shared))[0];
@@ -2222,6 +2227,22 @@ assert.match(invite.text, /2 seats left/, 'the invitation does not say what is l
 await page.click('#ch-open2 .ch-mini');
 assert.match((await page.evaluate(() => window.shared))[1].text,
   /Nur & Ofi vs Rashed & Toufiq/, 'a full lobby was shared as though it had seats going');
+
+// on a keyboard the link goes to the clipboard instead: macOS Safari's share
+// popover renders its own preview of the link and can spin on it forever
+await page.evaluate(f => {
+  window.matchMedia = window.realMatchMedia;
+  window.copied = [];
+  Object.defineProperty(navigator, 'clipboard',
+    { configurable: true, value: { writeText: t => { window.copied.push(t); return Promise.resolve(); } } });
+  window.shared = []; window.renderChallenges(f);
+}, CH.fixture);
+await page.click('#ch-open1 .ch-mini');
+assert.deepEqual(await page.evaluate(() => window.shared), [], 'desktop opened the share sheet');
+assert.ok((await page.evaluate(() => window.copied))[0].endsWith('#c/open1'),
+  'desktop did not copy the link that joins the lobby');
+assert.equal(await page.textContent('#ch-open1 .ch-mini'), 'Link copied',
+  'the button did not say the link had been copied');
 
 // ---- a shared link ----
 await page.evaluate(f => {
