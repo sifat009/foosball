@@ -3865,7 +3865,11 @@ function renderGroups() {
     const { order, stats } = rank(g);
     // 10+ send eight to the quarterfinals, 5-9 send four to the semis, 3-4 send
     // two straight to the final
-    const advance = order.length >= 10 ? 8 : order.length >= 5 ? 4 : 2;
+    // nobody is qualifying off an empty table — the band only means something
+    // once a result has moved someone, so it stays off until the first one lands
+    const advance = g.matches.some(settled)
+      ? (order.length >= 10 ? 8 : order.length >= 5 ? 4 : 2)
+      : 0;
     const box = document.createElement('div');
     box.className = 'group card';
     box.innerHTML = `<h4>${g.name}</h4>`;
