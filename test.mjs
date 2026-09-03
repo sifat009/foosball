@@ -2480,6 +2480,52 @@ await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccoun
 
 console.log('challenges OK');
 
+// ---------- the draw remembers who played with whom ----------
+/* Sixteen cups of memoryless draws left Sajeeb+Toufiq together seven times.
+   planDraw is pure, so drive it directly rather than through sixteen draft runs. */
+const drawCheck = await page.evaluate(() => {
+  const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
+  const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
+  const key = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+  const cups = [];                                 // hall entries, oldest first
+  const out = { badPair: null, badShape: null, worst: 0, empty: [] };
+
+  for (let c = 0; c < 16; c++) {
+    const plan = planDraw(F, D, pairLedger(cups));
+    // a plan must be a perfect matching: every player once, nobody twice
+    const fs = new Set(plan.map(t => t.fwd)), ds = new Set(plan.map(t => t.def));
+    if (plan.length !== 5 || fs.size !== 5 || ds.size !== 5) out.badShape = { c, plan };
+    // and nobody from either of the last two cups
+    for (const t of plan) {
+      for (const prev of cups.slice(-2))
+        if (prev.teams.some(o => key(o.fwd, o.def) === key(t.fwd, t.def)))
+          out.badPair = { c, pair: key(t.fwd, t.def) };
+    }
+    cups.push({ teams: plan });
+  }
+  const tally = new Map();
+  cups.forEach(c => c.teams.forEach(t => {
+    const k = key(t.fwd, t.def);
+    tally.set(k, (tally.get(k) || 0) + 1);
+  }));
+  out.worst = Math.max(...tally.values());
+
+  // every roster size the club has actually used, plus the relaxation path:
+  // a ledger where every pair is on cooldown must still produce a full draw
+  for (const n of [4, 5, 6]) {
+    const f = F.concat('Abir').slice(0, n), d = D.concat('Irin').slice(0, n);
+    if (planDraw(f, d, pairLedger([])).length !== n) out.empty.push(n);
+    const all = { teams: f.map((x, i) => ({ fwd: x, def: d[i] })) };
+    if (planDraw(f, d, pairLedger([all, all])).length !== n) out.empty.push(n + 100);
+  }
+  return out;
+});
+assert.equal(drawCheck.badShape, null, 'planDraw returned something that is not a perfect matching');
+assert.equal(drawCheck.badPair, null, 'a pair was redrawn inside the two-cup cooldown');
+assert.ok(drawCheck.worst < 6, `worst pair repeated ${drawCheck.worst} times in 16 cups — the cooldown is not biting`);
+assert.deepEqual(drawCheck.empty, [], 'planDraw wedged instead of relaxing the cooldown');
+console.log('draw cooldown OK — worst pair over 16 cups:', drawCheck.worst);
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

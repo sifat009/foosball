@@ -100,6 +100,10 @@ history/<cupId>
 admin wholesale with no per-field validation, so no rules change is needed.
 
 The sixteen existing cups are backfilled once from the stat-line reconstruction.
+Role order in those entries is not real history — history never stored it. The
+champion string fixes the order for one team per cup and the rest are
+reconstruction order. Nothing reads them: the ledger sorts the pair before
+keying. Do not treat a backfilled `fwd`/`def` as evidence of who played where.
 
 Only cups with a recorded champion enter the ledger. An abandoned cup never
 reaches `history` and never counts against a pair — correct, since those teams
@@ -119,8 +123,14 @@ both forward and defender across the sixteen cups, so a ledger keyed on
 
 ## Choosing the draw
 
-When the draft opens — in `startBtn.onclick`, after the rosters parse and before
-the first spin:
+The plan is built on the first spin rather than when the draft opens, and it is
+built from whoever is still undrafted. That one choice covers the admin
+reloading mid-draft: the plan lives only in memory, and rebuilding it for the
+remaining players is correct whether it is the first spin or the fourth. It is
+never published and never saved — a viewer who could read it would know the
+teams before the wheels turned.
+
+Given the forwards and defenders still available:
 
 1. Enumerate every perfect matching of forwards to defenders. 120 for 5v5, 720
    for 6v6; the roster has never exceeded six a side.
@@ -132,7 +142,8 @@ the first spin:
    roster.
 
 The result is an ordered list of `{fwd, def}` pairs — the plan the wheels will
-land on.
+land on. Enumeration uses reservoir sampling rather than collecting every
+candidate: the count is factorial and exactly one of them is ever used.
 
 Roster changes need no special handling. Abir and Irin have come and gone, and
 two cups ran with eight players. A pair that has never played has no cooldown

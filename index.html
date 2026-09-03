@@ -2959,7 +2959,7 @@ $('resetBtn').onclick = () => {
   lastChamp = null; confettiRun = false;
   $('celebrate').style.display = 'none';
   teams = []; groups = []; koRounds = []; koStarted = false; doubleRound = false;
-  spin = null; lastSpinN = null; deadlineAt = null; deadlineFrom = null;
+  spin = null; lastSpinN = null; drawPlan = []; deadlineAt = null; deadlineFrom = null;
   if (window.saveToDb) window.saveToDb(null); // clears the database for every viewer
   if (window.clearAllSuggestions) window.clearAllSuggestions(); // old cups' suggestions would just accumulate
   show('setup'); // player names stay in the textareas; everything else rebuilds on Start Draft
@@ -2990,7 +2990,7 @@ $('startBtn').onclick = () => {
   }
   session++;
   teams = []; groups = []; koRounds = []; koStarted = false; doubleRound = false;
-  spin = null; lastSpinN = null; // a new draft restarts the spin count
+  spin = null; lastSpinN = null; drawPlan = []; // a new draft restarts the spin count
   $('champion').innerHTML = '';
   $('teamList').innerHTML = '';
   $('status').innerHTML = '';
@@ -3180,6 +3180,74 @@ window.addEventListener('resize', redrawWheels);
 
 const availIdx = players => players.map((p, i) => p.picked ? -1 : i).filter(i => i >= 0);
 
+/* ================= PAIR MEMORY =================
+   Sixteen cups of memoryless draws put Sajeeb + Toufiq together seven times and
+   carried three of five teams straight from cup 15 into cup 16. With five a side
+   there are only twenty-five possible pairs, so a fresh roll every time will
+   always clump — the draw needs a memory, and this is it: a pair that played in
+   either of the last two cups cannot be drawn again.
+
+   Two cups, not three. Three forbids three of five partners per forward, which
+   leaves exactly two legal draws every night — more predetermined than the
+   rotation this replaced. Two leaves a dozen.
+
+   Keyed on the names sorted, never the roles. Sifat, Nur, Sazedul and Siddiq
+   have each played both ends across the sixteen cups, and the only question the
+   ledger answers is whether these two were on the same team. */
+const COOLDOWN = 2;
+const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+
+// entries are the hall's, oldest first — the index is the cup's age, nothing more
+function pairLedger(entries) {
+  const last = new Map();
+  entries.forEach((e, i) => (e.teams || []).forEach(t => last.set(pairKey(t.fwd, t.def), i)));
+  return { last, n: entries.length };
+}
+
+/* Every way to pair these forwards with these defenders, minus the arrangements
+   that revive a recent team; one of the survivors at random. Six a side is 720
+   arrangements and the cooldown prunes most of them, so this is a walk, not a
+   search. Reservoir sampling rather than an array of every candidate: the count
+   is factorial and only one of them is ever used. */
+function planDraw(fwdNames, defNames, ledger, cool = COOLDOWN) {
+  const fresh = (f, d) => {
+    const at = ledger.last.get(pairKey(f, d));
+    return at === undefined || ledger.n - at > cool;
+  };
+  let seen = 0, keep = null;
+  const used = [], acc = [];
+  (function walk(i) {
+    if (i === fwdNames.length) { if (Math.random() * ++seen < 1) keep = acc.slice(); return; }
+    for (let j = 0; j < defNames.length; j++) {
+      if (used[j] || !fresh(fwdNames[i], defNames[j])) continue;
+      used[j] = 1; acc.push(defNames[j]);
+      walk(i + 1);
+      acc.pop(); used[j] = 0;
+    }
+  })(0);
+  // a thin roster can make the cooldown unsatisfiable — loosen it rather than wedge
+  if (!keep) return cool > 0 ? planDraw(fwdNames, defNames, ledger, cool - 1) : [];
+  const plan = fwdNames.map((f, i) => ({ fwd: f, def: keep[i] }));
+  // the reveal would otherwise run straight down the forward list
+  for (let i = plan.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [plan[i], plan[j]] = [plan[j], plan[i]];
+  }
+  return plan;
+}
+
+/* The plan is never published and never stored: a viewer who could read it would
+   know the teams before the wheels turned. It is built from whoever is still
+   undrafted, so an admin reload mid-draft simply rebuilds it for the rest. */
+var drawPlan = [];
+function nextPair() {
+  const af = availIdx(fwds), ad = availIdx(defs);
+  if (!drawPlan.length)
+    drawPlan = planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name), pairLedger(hallEntries));
+  const t = drawPlan.shift();
+  return [fwds.findIndex(f => f.name === t.fwd), defs.findIndex(d => d.name === t.def)];
+}
+
 /* The one spin animation, run by the admin and replayed by every viewer from the
    same published start angles, so both wheels land identically. */
 function animateSpin(fi, di, startF, startD, done) {
@@ -3213,9 +3281,7 @@ $('spinBtn').onclick = () => {
   if (spinning) return;
   spinning = true;
   $('spinBtn').disabled = true;
-  const af = availIdx(fwds), ad = availIdx(defs);
-  const fi = af[Math.floor(Math.random() * af.length)];
-  const di = ad[Math.floor(Math.random() * ad.length)];
+  const [fi, di] = nextPair();
   const sess = session;
   // publish before animating, so viewers turn the same wheels at the same time
   spin = { n: (spin ? spin.n : 0) + 1, fi, di, sf: fwdAngle, sd: defAngle };
@@ -4276,7 +4342,7 @@ function renderGolden() {
 
 function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
-  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null); }
+  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null, teams); }
   else window.clearChampion(cupId);
 }
 
@@ -5022,8 +5088,8 @@ const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
 
-window.recordChampion = (id, champion, players, awards) => set(ref(db, 'history/' + id),
-  { champion, date: Date.now(), players: players || null, awards: awards || null })
+window.recordChampion = (id, champion, players, awards, teams) => set(ref(db, 'history/' + id),
+  { champion, date: Date.now(), players: players || null, awards: awards || null, teams: teams || null })
   .catch(err => {
     console.error('[history] write rejected:', err);
     alert('Could not record the champion: ' + err.message);
