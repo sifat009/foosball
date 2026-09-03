@@ -2495,9 +2495,9 @@ const drawCheck = await page.evaluate(() => {
     // a plan must be a perfect matching: every player once, nobody twice
     const fs = new Set(plan.map(t => t.fwd)), ds = new Set(plan.map(t => t.def));
     if (plan.length !== 5 || fs.size !== 5 || ds.size !== 5) out.badShape = { c, plan };
-    // and nobody from either of the last two cups
+    // and nobody from any of the last three cups
     for (const t of plan) {
-      for (const prev of cups.slice(-2))
+      for (const prev of cups.slice(-3))
         if (prev.teams.some(o => key(o.fwd, o.def) === key(t.fwd, t.def)))
           out.badPair = { c, pair: key(t.fwd, t.def) };
     }
@@ -2516,14 +2516,26 @@ const drawCheck = await page.evaluate(() => {
     const f = F.concat('Abir').slice(0, n), d = D.concat('Irin').slice(0, n);
     if (planDraw(f, d, pairLedger([])).length !== n) out.empty.push(n);
     const all = { teams: f.map((x, i) => ({ fwd: x, def: d[i] })) };
-    if (planDraw(f, d, pairLedger([all, all])).length !== n) out.empty.push(n + 100);
+    if (planDraw(f, d, pairLedger([all, all, all])).length !== n) out.empty.push(n + 100);
   }
+
+  /* Four a side, every forward down to one legal partner: three cups that each
+     shift the pairing by one leave exactly one arrangement at the full cooldown.
+     The draw must loosen rather than hand back the same teams every time. */
+  const f4 = F.slice(0, 4), d4 = D.slice(0, 4);
+  const shifted = k => ({ teams: f4.map((x, i) => ({ fwd: x, def: d4[(i + k) % 4] })) });
+  const forced = pairLedger([shifted(0), shifted(1), shifted(2)]);
+  const seen4 = new Set();
+  for (let i = 0; i < 40; i++)
+    seen4.add(planDraw(f4, d4, forced).map(t => key(t.fwd, t.def)).sort().join(','));
+  out.forcedVariants = seen4.size;
   return out;
 });
 assert.equal(drawCheck.badShape, null, 'planDraw returned something that is not a perfect matching');
-assert.equal(drawCheck.badPair, null, 'a pair was redrawn inside the two-cup cooldown');
-assert.ok(drawCheck.worst < 6, `worst pair repeated ${drawCheck.worst} times in 16 cups — the cooldown is not biting`);
+assert.equal(drawCheck.badPair, null, 'a pair was redrawn inside the three-cup cooldown');
+assert.ok(drawCheck.worst < 5, `worst pair repeated ${drawCheck.worst} times in 16 cups — the cooldown is not biting`);
 assert.deepEqual(drawCheck.empty, [], 'planDraw wedged instead of relaxing the cooldown');
+assert.ok(drawCheck.forcedVariants > 1, 'four a side left exactly one legal draw and planDraw kept returning it');
 console.log('draw cooldown OK — worst pair over 16 cups:', drawCheck.worst);
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));

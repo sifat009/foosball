@@ -29,11 +29,11 @@ clump. The fix is to give it a memory.
 
 ## The rule in one sentence
 
-A pair that were teammates in either of the last two cups cannot be drawn
+A pair that were teammates in any of the last three cups cannot be drawn
 together again.
 
 That is the whole rule. No rankings, no seeding, no special handling for weaker
-players — everyone is subject to the same two-cup cooldown, and the players who
+players — everyone is subject to the same three-cup cooldown, and the players who
 were stuck together get unstuck as a side effect.
 
 ## What this is not
@@ -47,31 +47,46 @@ cycle. The fifth cup has exactly one possible outcome and the fourth has two, so
 on those nights the wheels are ceremony and everyone present already knows the
 teams.
 
-A three-cup cooldown was rejected for the same reason in a worse form. On a 5×5
-roster it forbids three of five partners per forward, leaving a 2-regular
-bipartite graph — **two legal draws every single night**, not one night in five.
+A four-cup cooldown reaches the rotation by another road and pays the same
+price, in a worse form. On a 5×5 roster it blocks four of five partners per
+forward, so exactly one partner survives — and those survivors always form a
+valid matching. From the fifth cup onward there is **one legal draw, forever**.
+Worse than the Latin square, which at least restarts with a 120-way choice at
+the top of each cycle; a rolling four-cup cooldown never restarts, so cup 5's
+teams are cup 10's teams are cup 15's teams until the roster changes. The
+relaxation in step 3 below never rescues it, because one arrangement always
+survives — which is why the code loosens at one, not at zero.
 
-Two cups is the largest cooldown that leaves the draw genuinely open.
+Three cups is the largest cooldown that leaves the draw genuinely open. It
+forbids three of five partners per forward, leaving a 2-regular bipartite graph
+that in practice yields two or three arrangements a night — few, but never one,
+and never the same two nights running.
 
 ## Measured effect
 
-Four hundred simulated sixteen-cup runs, compared against the sixteen cups
-actually played:
+Simulated sixteen-cup runs, compared against the sixteen cups actually played:
 
-| | worst repeated pair | back-to-back repeats | legal draws per cup |
-|---|---|---|---|
-| today | 7 | 6 | 120 |
-| cooldown 2, uniform random | 4.8 | 0 | ≥12 |
-| cooldown 2, prefer least-played | 4.0 | 0 | as low as 1 |
+| | worst repeated pair | back-to-back repeats | legal draws per cup | all five partners within 5 cups |
+|---|---|---|---|---|
+| today | 7 | 6 | 120 | 1% |
+| cooldown 2 | 4.8 | 0 | ≥12 | 1% |
+| **cooldown 3** | **4.0** | **0** | **2–3** | **41%** |
+| cooldown 4 | 4.0 | 0 | 1 from cup 5 on | 100% |
 
-Preferring the least-played surviving pair buys 4.8 → 4.0 and reintroduces
-fully-determined nights. It is not worth it, so among the legal draws the choice
-is uniform.
+Four thousand simulated sixteen-cup runs each. At cooldown 3 the worst pair never
+once exceeded 4, against 7 actually played. Everyone meets everyone inside five
+cups 41% of the time, inside six 65%, inside eight 88% — the rotation as a strong
+tendency rather than a promise, which is the most that can be had without
+handing back a determined night.
+
+Weighting the choice toward the most overdue pair was measured and skipped. It
+buys coverage — 96% within eight cups — but concentrates the probability: some
+nights one arrangement carries 98% of the mass, so the night is determined in
+everything but name. Among the legal draws the choice stays uniform.
 
 The cooldown does not promise that any one player meets every partner in turn.
-It promises three different partners in any three consecutive cups, and in
-practice covers all five over a five-to-six cup stretch. That is the trade: a
-live draw every night instead of a schedule.
+It promises four different partners in any four consecutive cups. That is the
+trade: a live draw every night instead of a schedule.
 
 ## Data
 
@@ -134,9 +149,12 @@ Given the forwards and defenders still available:
 
 1. Enumerate every perfect matching of forwards to defenders. 120 for 5v5, 720
    for 6v6; the roster has never exceeded six a side.
-2. Discard any matching containing a pair whose last cup was one of the last two.
-3. If nothing survives, relax to a one-cup cooldown; if still nothing, drop the
-   cooldown entirely. A thin or unusual roster must never wedge the draw.
+2. Discard any matching containing a pair whose last cup was one of the last three.
+3. If one or fewer survive, drop the cooldown by a cup and try again, down to
+   nothing. A thin roster must never wedge the draw, and a roster that leaves a
+   single arrangement must never turn the wheels into a replay. Four a side is
+   the case that matters: three of four partners blocked leaves each forward one
+   legal partner, and the club has played two cups that short.
 4. Pick uniformly at random from the survivors.
 5. Shuffle the order of the resulting teams, so the reveal does not run down the
    roster.
@@ -183,11 +201,13 @@ defender wheel is still turning.
 and `test.mjs` can reach it through `page.evaluate` — the pattern the suite
 already uses. Added there:
 
-- a pair from either of the last two cups never appears in the plan
+- a pair from any of the last three cups never appears in the plan
+- a four-a-side roster pinned to a single legal arrangement returns more than one
+  distinct plan across repeated calls — the loosening fires at one, not at zero
 - the plan is a valid perfect matching: every forward and every defender once
 - the chooser returns a full plan for 4v4, 5v5 and 6v6 rosters, and for a
   cooldown state tight enough to force the relaxation path
-- over sixteen simulated cups the worst pair count stays below six
+- over sixteen simulated cups the worst pair count stays below five
 
 ## Skipped
 

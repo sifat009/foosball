@@ -3185,16 +3185,19 @@ const availIdx = players => players.map((p, i) => p.picked ? -1 : i).filter(i =>
    carried three of five teams straight from cup 15 into cup 16. With five a side
    there are only twenty-five possible pairs, so a fresh roll every time will
    always clump — the draw needs a memory, and this is it: a pair that played in
-   either of the last two cups cannot be drawn again.
+   any of the last three cups cannot be drawn again.
 
-   Two cups, not three. Three forbids three of five partners per forward, which
-   leaves exactly two legal draws every night — more predetermined than the
-   rotation this replaced. Two leaves a dozen.
+   Three cups, not four. Four blocks four of five partners per forward, leaving
+   exactly one legal draw from the fifth cup onward — a single five-cup cycle
+   repeating forever, the wheels pure ceremony. It reaches the full rotation the
+   club wanted and pays for it with the draw itself. Three leaves two or three
+   arrangements a night at five a side and everyone meets everyone inside five
+   cups about two nights in five, without ever locking.
 
    Keyed on the names sorted, never the roles. Sifat, Nur, Sazedul and Siddiq
    have each played both ends across the sixteen cups, and the only question the
    ledger answers is whether these two were on the same team. */
-const COOLDOWN = 2;
+const COOLDOWN = 3;
 const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
 
 // entries are the hall's, oldest first — the index is the cup's age, nothing more
@@ -3225,8 +3228,13 @@ function planDraw(fwdNames, defNames, ledger, cool = COOLDOWN) {
       acc.pop(); used[j] = 0;
     }
   })(0);
-  // a thin roster can make the cooldown unsatisfiable — loosen it rather than wedge
-  if (!keep) return cool > 0 ? planDraw(fwdNames, defNames, ledger, cool - 1) : [];
+  /* One surviving arrangement is no draw at all — the wheels would be replaying a
+     result anyone could have worked out beforehand — and none at all wedges. Both
+     loosen. Four a side is why: three of four partners blocked leaves each forward
+     a single legal partner, and the club has played two cups that short. `seen` is
+     the reservoir's own count, so this costs nothing extra. */
+  if (seen <= 1 && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1);
+  if (!keep) return [];
   const plan = fwdNames.map((f, i) => ({ fwd: f, def: keep[i] }));
   // the reveal would otherwise run straight down the forward list
   for (let i = plan.length - 1; i > 0; i--) {
