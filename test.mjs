@@ -2578,9 +2578,9 @@ await page.click('#coins');
 assert.ok(await page.isVisible('#coinInfo'), 'tapping the coins card opened nothing');
 assert.match(await page.textContent('#coinInfo'), /\+2 coins/, 'the sheet never says what a win pays');
 assert.match(await page.textContent('#coinInfo'), /10 coins/, 'the sheet never says what a re-spin costs');
-// every overlay's Close wears the same button; a bare browser default is a miss
-assert.notEqual(await page.evaluate(() =>
-  getComputedStyle($('coinInfoClose')).borderRadius), '0px', 'the coins sheet Close is unstyled');
+// the X in the corner and the green button are the two ways out; no third
+assert.equal(await page.evaluate(() => !!document.getElementById('coinInfoClose')), false,
+  'the coins sheet still has a Close under its primary action');
 await page.click('#coinGo');
 assert.ok(!(await page.isVisible('#coinInfo')), 'the sheet stayed open behind the board');
 assert.ok(await page.isVisible('#chal'), 'the sheet button did not open the challenges board');
@@ -2745,6 +2745,51 @@ assert.equal(honour.rich, true, 'ten banked coins did not buy a re-spin');
 assert.equal(honour.poor, false, 'a re-spin was honoured for somebody who never won a challenge');
 assert.equal(honour.second, false, 'a second re-spin in one cup was honoured — the limit is one');
 
+/* The cup has an id from the moment the draft opens. Everything the re-spin does
+   is keyed on it — the blocked pairs, the rows, the once-a-cup limit — and it used
+   to arrive only at kick-off, which is after the wheels have stopped mattering.
+   renderHold bails without one, so the button could never appear. */
+const idAtDraft = await page.evaluate(() => {
+  window.isAdmin = true; window.gotRemote = true; window.restoring = false;
+  window.cupId = null;
+  window.writes = [];
+  window.saveToDb = j => window.writes.push(j);
+  $('fwdInput').value = 'Nur\nRifat'; $('defInput').value = 'Sifat\nOfi';
+  $('startBtn').click();
+  const last = window.writes[window.writes.length - 1];
+  return { atDraft: cupId, seen: last && JSON.parse(last).cupId };
+});
+assert.ok(idAtDraft.atDraft, 'the draft opened without a cup id — no re-spin can be filed');
+assert.equal(idAtDraft.seen, idAtDraft.atDraft, 'the draft kept its cup id to itself; viewers never see it');
+
+// the button reaches the player the wheels landed on, in a real draft state
+const btnReal = await page.evaluate(() => {
+  const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
+  const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
+  const cups = [];
+  for (let c = 0; c < 20; c++) cups.push({ date: c, teams: F.map((f, i) => ({ fwd: f, def: D[(i + c) % 5] })) });
+  window.renderHall(cups);
+  window.fwds = F.map(n => ({ name: n })); window.defs = D.map(n => ({ name: n }));
+  window.teams = []; window.histCups = new Set(); window.allRespins = {};
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const g = (at, b, r) => ({ at, playAt: at,
+    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
+  window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
+  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };   // Nur + Sifat
+  window.setAccount('nur@x.com');                                       // Nur: 10 coins
+  window.renderHold();
+  const offered = !!document.getElementById('holdBtn');
+  window.setAccount('ofi@x.com');                                       // Ofi: 10 coins, not in the pair
+  window.renderHold();
+  const bystander = !!document.getElementById('holdBtn');
+  window.setAccount('rifat@x.com');                                     // in no pair, and broke
+  window.renderHold();
+  return { offered, bystander, broke: !!document.getElementById('holdBtn') };
+});
+assert.equal(btnReal.offered, true, 'the player the wheels landed on was offered no re-spin');
+assert.equal(btnReal.bystander, false, 'somebody outside the landed pair was offered a re-spin');
+assert.equal(btnReal.broke, false, 'a re-spin was offered to somebody who is not in the pair');
+
 // the hold: a landing that has not become a team yet, counting down on every screen
 const hold = await page.evaluate(() => {
   window.allRespins = {}; window.allChal = {};
@@ -2770,6 +2815,12 @@ assert.equal(hold.counting, true, 'the wheels landed and nothing counted down');
 assert.equal(hold.noBtn, true, 'a signed-out reader was offered a re-spin');
 assert.equal(hold.closed, true, 'the hold stayed up after the team formed');
 assert.equal(hold.expired, true, 'the hold never expired');
+// the last pair has no alternative partner by construction; say so rather than
+// leaving somebody with ten coins hunting for a button that cannot exist
+assert.match(await page.textContent('#rules'), /last pair.{0,80}can't re-spin/is,
+  "the rules sheet never says the last pair can't re-spin");
+assert.match(await page.textContent('#coinInfo'), /last pair can't/i,
+  "the coins sheet never says the last pair can't re-spin");
 
 await page.evaluate(() => {
   window.spin = null; window.teams = []; window.cupId = null;

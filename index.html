@@ -935,8 +935,7 @@
   }
   .card-x:active { background: #e7ebf2; }
   .card-x:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose, #chalClose,
-  #coinInfoClose {
+  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose, #chalClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1410,6 +1409,7 @@
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+  <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3.4"/><path d="M4 7v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4V7"/><path d="M4 12v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4v-5"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></symbol>
 </defs></svg>
 
@@ -1698,6 +1698,9 @@ Nur</textarea>
         <li>The rotation still comes first: on the <b>last night of a cycle</b> there
         is only one legal draw, so there is nowhere for a re-spin to go and nothing
         is charged.</li>
+        <li>The <b>last pair can't re-spin</b>. When one forward and one defender are
+        left they are drawn together automatically — there is nobody else to be
+        drawn with, so there is nothing to buy.</li>
         <li>Coins never touch a title, a badge, the Golden Boot or the Glove.</li>
       </ul>
 
@@ -1819,7 +1822,7 @@ Nur</textarea>
      is what turns having read it into a lobby, while they are still interested. -->
 <div id="coinInfo">
   <div class="hall-card">
-    <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Coins</div>
+    <div class="hall-title"><svg class="ico"><use href="#i-coin"/></svg> Coins</div>
     <div class="sheet-body">
       <p>Coins come from the <b>Challenges</b> board — the casual 2v2 pickup games
       between cups. They don't touch a title, a badge or the Golden Boot.</p>
@@ -1837,11 +1840,15 @@ Nur</textarea>
         <li><b>Once a cup.</b> Whoever you rejected can't come back to you that night.</li>
         <li>The rotation still comes first. On the last night of a cycle there is only
         one legal draw, so there is nowhere for a re-spin to go and nothing is charged.</li>
+        <li><b>The last pair can't.</b> With one forward and one defender left they are
+        drawn together automatically — there is nobody else to be drawn with.</li>
       </ul>
       <div id="coinYou" class="coin-you"></div>
     </div>
+    <!-- no Close: every card already carries an X in its corner, and this one has
+         a primary action under it. A grey Close beneath a green button is a second
+         way out competing with the one thing the sheet is for. -->
     <button id="coinGo" class="btn btn-green">Open the Challenges board</button>
-    <button id="coinInfoClose">Close</button>
   </div>
 </div>
 
@@ -3153,7 +3160,6 @@ $('coins').onclick = () => $('coinInfo').classList.add('open');
 $('coins').onkeydown = e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('coinInfo').classList.add('open'); }
 };
-$('coinInfoClose').onclick = () => $('coinInfo').classList.remove('open');
 $('coinInfo').onclick = e => { if (e.target === $('coinInfo')) $('coinInfo').classList.remove('open'); };
 // the conversion: reading about coins, one tap from the board that pays them
 $('coinGo').onclick = () => { $('coinInfo').classList.remove('open'); $('chal').classList.add('open'); };
@@ -3238,6 +3244,11 @@ $('startBtn').onclick = () => {
   session++;
   teams = []; groups = []; koRounds = []; koStarted = false; doubleRound = false;
   spin = null; lastSpinN = null; drawPlan = []; // a new draft restarts the spin count
+  /* The id is minted here rather than at kick-off, because the draft is already
+     part of this cup: a re-spin is filed under `respins/<cupId>` while the wheels
+     are still turning, and there is no cup to hang it on otherwise. save() below
+     publishes it, so every viewer has it before the first spin. */
+  cupId = String(Date.now());
   $('champion').innerHTML = '';
   $('teamList').innerHTML = '';
   $('status').innerHTML = '';
@@ -3623,7 +3634,10 @@ function finishSpin(fi, di, sess) {
       setTimeout(() => {
         if (sess !== session) return;
         formTeam(af[0], ad[0]);
-        $('status').innerHTML = `<span class="last-pick">Last pair auto-assigned!</span> All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
+        /* One of each left is one legal pairing, so a re-spin has nothing to
+           reach and no button appears. Said out loud: somebody holding ten coins
+           is looking for one, and silence reads as a bug rather than a rule. */
+        $('status').innerHTML = `<span class="last-pick">Last pair auto-assigned!</span> Nobody left to swap with, so no re-spin here. All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
         finishDraft();
       }, 700);
     } else if (af.length === 0) {
@@ -3777,8 +3791,10 @@ function startCup() {
   // calling us), or every remote snapshot would push the deadline two days
   // further out, and the renders below would key suggestions to an id no other
   // client has ever seen
+  // the draft already minted it; only a cup that somehow arrives without one
+  // needs a fresh id, and taking a new one here would orphan the draft's re-spins
   if (!restoring) {
-    cupId = String(Date.now());
+    if (!cupId) cupId = String(Date.now());
     deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS);
   }
   $('champion').innerHTML = '';
@@ -4047,6 +4063,8 @@ function applyState(s) {
   deadlineAt = s.deadlineAt || null; // cups started before deadlines existed just have none
   deadlineFrom = s.deadlineFrom || null;
   fillSched(); // the row is admin-only in CSS, so no need to gate on isAdmin here
+  // before the branches: the draft needs it as much as the cup does
+  if (s.cupId) cupId = s.cupId;
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
     stopCountdown();
     fwds = s.fwds; defs = s.defs; teams = s.teams || [];
