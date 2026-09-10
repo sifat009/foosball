@@ -2566,6 +2566,13 @@ assert.equal(coinCard.aboveScreens, true, 'the coin pill sits below the screens 
 assert.equal(coinCard.signedOut, '\u2013', 'a signed-out reader was shown a balance');
 assert.match(coinCard.signedOutTip, /Sign in/, 'a signed-out reader is not told what the pill is for');
 assert.equal(coinCard.mine, '10', 'the pill does not show the reader their own balance');
+// a balance with nobody against it was the first thing everybody asked about
+assert.equal(await page.evaluate(() => {
+  window.setAccount('nur@x.com');
+  const w = $('coinWho').textContent;
+  window.setAccount(null);
+  return w;
+}), 'Nur', 'the coin pill never says which player the balance belongs to');
 assert.match(coinCard.mineTip, /Enough for a re-spin/, 'ten coins was not reported as enough');
 assert.match(coinCard.sheetMine, /You have 10 coins/, 'the sheet does not spell the balance out');
 /* A wallet is the reader's own business. Nobody else's balance may reach the

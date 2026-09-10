@@ -418,6 +418,14 @@
     color: #fff; font-size: 0.92rem; font-weight: 800; letter-spacing: 0.01em;
     min-width: 12px; text-align: center;
   }
+  /* the name rides with the balance. A number with nobody against it is the
+     question everybody asked first, and the bottom tab bar is the wrong place to
+     answer it — you are not looking down there while the wheels are turning. */
+  #coinWho {
+    color: #93a1b8; font-size: 0.76rem; font-weight: 700;
+    max-width: 9ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #coinWho:empty { display: none; }
   /* drawn rather than an <svg>: a disc with a rim and a highlight is three
      gradients, and the icon sheet has no coin in it */
   .coin-disc {
@@ -1423,6 +1431,7 @@
   <button id="coins" type="button" aria-label="Your coins">
     <span class="coin-disc" aria-hidden="true"></span>
     <span id="coinN">0</span>
+    <span id="coinWho"></span>
     <span class="coin-plus" aria-hidden="true">+</span>
   </button>
 </div>
@@ -2752,6 +2761,7 @@ function renderCoins() {
   const n = myCoins(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
   $('coinN').textContent = n === null ? '\u2013' : n;
+  $('coinWho').textContent = myName() || ''; // textContent: EMAIL_NAMES is edited by hand
   pill.title = n === null ? 'Sign in to see your coins'
     : n >= COIN_RESPIN ? 'Enough for a re-spin at the next draft'
     : coinGap(n);
