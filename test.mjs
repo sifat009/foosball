@@ -2530,30 +2530,43 @@ assert.equal(coinCheck.tooEarly.Sifat, 10, 'a re-spin was honoured out of coins 
 assert.equal(coinCheck.twice.Sifat, 10, 'a second re-spin in one cup was charged — the limit is one');
 assert.equal(coinCheck.live.Sifat, 0, 'the running cup did not charge, so a second re-spin would be free');
 
-// the card is on the home screen, and it is never hidden — ten names on zero is the pitch
+// the card is never hidden, and it answers one question: yours
 const coinCard = await page.evaluate(() => {
   window.allRespins = {};
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const g = (at, b, r) => ({ at, playAt: at,
+    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
+  window.setAccount(null);
   window.renderChallenges({});
   const card = $('coins');
-  return {
+  const out = {
     hidden: getComputedStyle(card).display === 'none',
     // it belongs to the reader, not to a screen: outside all three, above all three
     onAScreen: !!card.closest('.screen'),
     aboveScreens: [...document.querySelectorAll('.screen')].every(sc =>
       card.compareDocumentPosition(sc) & Node.DOCUMENT_POSITION_FOLLOWING),
-    note: $('coinNote').textContent,
-    names: [...document.querySelectorAll('#coinRows .coin-c b')].map(e => e.textContent),
-    values: [...document.querySelectorAll('#coinRows .coin-c .coin-n')].map(e => e.textContent),
+    signedOut: card.textContent,
   };
+  // five wins for Sifat and Ofi, five losses for Nur and Rashed
+  window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
+  window.setAccount('sifat@x.com');
+  out.mine = card.textContent;
+  window.setAccount('nur@x.com');
+  out.theirs = card.textContent;
+  window.setAccount(null);
+  return out;
 });
-assert.equal(coinCard.hidden, false, 'the coins card hides itself when everyone is on zero — that is the pitch');
+assert.equal(coinCard.hidden, false, 'the coins card hides itself instead of saying how to earn one');
 assert.equal(coinCard.onAScreen, false, 'the coins card is trapped on one screen — it is missing from the others');
 assert.equal(coinCard.aboveScreens, true, 'the coins card sits below the screens instead of above them');
-assert.match(coinCard.note, /Nobody has earned a coin yet/, 'the empty card does not say how to earn one');
-assert.ok(coinCard.values.every(v => v === '0'), 'balances showed before any challenge was played');
-// level balances sort alphabetically, so two readers never see a different order
-assert.deepEqual(coinCard.names, [...coinCard.names].sort((a, b) => a.localeCompare(b)),
-  'level balances did not fall back to alphabetical — the card reorders between readers');
+assert.match(coinCard.signedOut, /Sign in to see your coins/, 'a signed-out reader is not told what the card is for');
+assert.match(coinCard.mine, /You have\s*10\s*coins/, "the card does not show the reader their own balance");
+assert.match(coinCard.mine, /Enough for a re-spin/, 'ten coins was not reported as enough');
+/* A wallet is the reader's own business. Nobody else's name or number may reach
+   the card — this is the whole point of it not being a leaderboard. */
+assert.ok(!/Ofi|Nur|Rashed/.test(coinCard.mine), 'somebody else appeared on the reader\'s wallet');
+assert.ok(!/10/.test(coinCard.theirs), "a player with nothing was shown somebody else's balance");
+assert.match(coinCard.theirs, /No coins yet/, 'a player on zero is not told how to earn one');
 
 // the sheet explains it, and its button is the way in to the board
 await page.click('#coins');
@@ -2576,6 +2589,15 @@ const toggleGate = await page.evaluate(() => {
 });
 assert.equal(toggleGate.viewer, 'none', 'a viewer was offered the double round-robin toggle');
 assert.notEqual(toggleGate.admin, 'none', 'the admin lost the double round-robin toggle');
+
+// the challenge ladder shows form; wallets are not part of it
+const ladderPrivate = await page.evaluate(() => {
+  $('chal').classList.add('open');
+  const hd = [...document.querySelectorAll('#chalLadder .ch-lrow.hd span')].map(e => e.textContent);
+  $('chal').classList.remove('open');
+  return hd;
+});
+assert.ok(!ladderPrivate.includes('Coins'), "the challenge ladder still publishes everyone's balance");
 
 console.log('coins OK');
 

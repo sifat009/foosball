@@ -284,16 +284,19 @@ carries no timestamp of its own.
 
 ### Where it lives
 
-On the **home screen**, above the group stage — not behind the Challenges
-button, because that button is what has been failing. `#coins` is built like
-`#golden` but is **never hidden**: ten names on zero is the pitch, and a card
-that appears once somebody has earned would appear after it stopped being
-needed. Tapping it opens a sheet that explains the two rules and ends in a
-button straight to the challenge board. That button is the point of the surface.
+On the **home screen**, above every screen rather than on one — the wallet
+belongs to whoever is reading, not to whatever the cup is doing, and the draft
+is exactly when somebody wants to know what they can afford. `#coins` is built
+like `#golden` but is **never hidden**: signed out it says what a coin is and
+how to get one, which is the only pitch the board has ever had. Tapping it opens
+a sheet that explains the two rules and ends in a button straight to the
+challenge board. That button is the point of the surface.
 
-Above the group stage looks backwards during a live cup and is right the rest of
-the time: the card matters most *between* cups, when the stage below it is
-finished and the board is what should be happening.
+**It shows your balance and nobody else's.** An earlier version put all ten
+players on the card, and it was meant as a leaderboard — seeing somebody else on
+ten is what makes a coin worth having. It also told the room what everyone could
+afford, and a wallet is the reader's own business. The challenge ladder went the
+same way: it shows form, not wallets.
 
 ## Before it works
 
@@ -587,10 +590,10 @@ Coins are checked the same way, and for the same reason: nothing is stored, so
 the derivation is driven directly. Two wins pay four, a draw and an unconfirmed
 claim pay nothing, a spend filed before the coins were earned is not honoured
 out of later winnings, a second re-spin in one cup is ignored, and a cup that
-never reached `history` charges nobody. The card is checked for the one thing it
-must not do — hide itself when everyone is on zero — along with its place above
-the group stage, the alphabetical fallback that stops two readers seeing
-different orders, and the sheet's button actually opening the board.
+never reached `history` charges nobody. The card is checked for the two things it
+must not do — hide itself from somebody with nothing, and show one reader
+another player's balance — along with its place above every screen and the
+sheet's button actually opening the board.
 
 The re-spin's own check is the availability rule, because it is the only change
 here that can quietly damage something people rely on. A blocked pair never

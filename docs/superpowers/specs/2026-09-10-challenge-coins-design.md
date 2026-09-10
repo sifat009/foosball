@@ -223,26 +223,27 @@ not a reward.
 
 ### The coins card
 
-A `#coins` card on `#tourney`, above the Group Stage. It is the same conditional
-`.card` pattern `#golden` already uses (`index.html:1587`), so it needs no new
-layout primitive, and it costs nothing in data — every balance derives from the
-lobbies and `respins` rows the page already subscribes to. No node, no rule, no
-migration.
+A `#coins` card above every screen rather than inside one. It is the same
+conditional `.card` pattern `#golden` already uses (`index.html:1587`), so it
+needs no new layout primitive, and it costs nothing in data — every balance
+derives from the lobbies and `respins` rows the page already subscribes to. No
+node, no rule, no migration.
 
-Above the group stage rather than below it, which looks backwards during a live
-cup and is right the rest of the time: the card matters most **between** cups,
-when the group stage is finished and the screen is otherwise empty. It is
-prominent exactly when the challenge board is the thing that should be happening.
+Outside the screens because a wallet belongs to whoever is reading rather than to
+whatever the cup is doing. Built into the cup screen, a viewer sitting on the
+draft — exactly when somebody wants to know what they can afford — could not see
+their own balance at all.
 
-Every player, every balance, highest first, level balances alphabetical — the
-same tie rule `chalLadder` uses, so the card never reorders itself between two
-readers. Yours is marked.
+**It shows the reader's balance and nobody else's.** All ten on the card was
+designed first and dropped: it reads as a leaderboard, which was the intent —
+seeing somebody else on ten is what makes a coin worth having — but it also
+publishes what everyone in the room can afford, and a wallet is the reader's own
+business. The challenge ladder loses its Coins column for the same reason.
 
 **It is never hidden.** This is the one place it must differ from `#golden`,
-which disappears when there is nothing to show. Every balance is 0 today, and
-ten names on zero under "nobody has earned a coin yet — two coins a win" is the
-strongest prompt in the app. A card that switches itself on only once somebody
-has earned is a card that appears after it has stopped being needed.
+which disappears when there is nothing to show. Signed out it says what a coin is
+and how to get one; on zero it says the same. A card that switches itself on only
+once somebody has earned is a card that appears after it has stopped being needed.
 
 ### The sheet
 
@@ -285,8 +286,8 @@ through `page.evaluate`, the pattern the suite already uses:
 - balance is `2 x wins - charges`, and a cup with no champion charges nothing
 - a re-spin on the second-to-last pair is refused when it would force the payer
   onto the only remaining player anyway
-- the coins card renders with every balance at zero, and is not hidden there
-- level balances sort alphabetically, so two readers see the same order
+- the card renders for a signed-out reader and for one on zero, hidden in neither
+- no other player's name or number ever reaches the card
 
 In `test-rules.mjs`, matching the existing coverage: a row must carry the
 writer's own address, and an existing row cannot be overwritten or deleted.

@@ -415,6 +415,7 @@
     padding: 6px 12px; font-size: 0.8rem; font-weight: 700; color: #5b6a7d;
   }
   .coin-c b { color: #172b4d; font-weight: 800; }
+  .coin-c .coin-n { font-size: 1.05rem; }
   .coin-c .coin-n { color: #96660a; font-weight: 800; }
   .coin-c.zero .coin-n { color: #c3ccda; }
   .coin-c.me { background: #fff8e6; border-color: #f0dca8; }
@@ -1209,8 +1210,8 @@
      own box rather than crushing eight numbers into a 360px screen */
   .ch-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .ch-lrow {
-    display: grid; grid-template-columns: 20px minmax(92px, 1fr) repeat(7, 28px) 46px 40px;
-    align-items: baseline; gap: 8px 6px; min-width: 414px;
+    display: grid; grid-template-columns: 20px minmax(92px, 1fr) repeat(7, 28px) 46px;
+    align-items: baseline; gap: 8px 6px; min-width: 372px;
     padding: 10px 4px; border-bottom: 1px solid #eef1f6;
   }
   .ch-lrow:last-child { border-bottom: 0; }
@@ -2704,35 +2705,48 @@ function coins(rows, respins, played, liveCup) {
 }
 window.coins = coins;
 
-// highest first, level balances alphabetical — chalLadder's tie rule, so the card
-// never reorders itself between two readers
-const coinBoard = () => Object.entries(coins(
-    Object.values(allChal || {}).filter(c => c && c.at),
-    allRespins, histCups, cupId ? String(cupId) : null))
-  .map(([name, n]) => ({ name, n }))
-  .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+/* Your balance and nobody else's. An earlier version put all ten on the card,
+   which reads as a leaderboard and was meant to: seeing somebody else on ten is
+   what makes a coin worth having. It also tells the room what everyone can
+   afford, and a wallet is the reader's own business — so the card answers one
+   question, for whoever is looking at it. */
+const myCoins = () => {
+  const bal = coins(Object.values(allChal || {}).filter(c => c && c.at),
+    allRespins, histCups, cupId ? String(cupId) : null);
+  const me = myName();
+  return me ? (bal[me] || 0) : null;
+};
+window.myCoins = myCoins;
+
+// how many more wins buys the next re-spin, or nothing left to say
+const coinGap = n => {
+  const w = Math.ceil((COIN_RESPIN - n) / COIN_WIN);
+  return `${w} more challenge win${w === 1 ? '' : 's'} buys a re-spin.`;
+};
 
 function renderCoins() {
-  const board = coinBoard(), me = myName();
-  const rows = $('coinRows');
+  const n = myCoins(), rows = $('coinRows');
   rows.innerHTML = '';
-  board.forEach(e => {
-    const chip = part('coin-c' + (e.name === me ? ' me' : '') + (e.n ? '' : ' zero'), '', 'span');
-    chip.append(part('', e.name, 'b'), part('coin-n', String(e.n), 'span')); // textContent: names are input
+  if (n === null) {
+    $('coinNote').textContent = acctEmail
+      ? 'Signed in, but not on the player list — ask the admin to add you.'
+      : 'Sign in to see your coins. Two for a challenge win, ten buys a re-spin at the draft.';
+  } else {
+    const chip = part('coin-c me' + (n ? '' : ' zero'), '', 'span');
+    chip.append(part('', 'You have', 'b'), part('coin-n', String(n), 'span'),
+      part('', n === 1 ? 'coin' : 'coins', 'span'));
     rows.append(chip);
-  });
-  $('coinNote').textContent = board.some(e => e.n)
-    ? 'Two coins for a challenge win. Ten buys one re-spin at the draft.'
-    : 'Nobody has earned a coin yet — two coins for a challenge win.';
+    $('coinNote').textContent = n >= COIN_RESPIN
+      ? 'Enough for a re-spin at the next draft.'
+      : n ? coinGap(n)
+      : 'No coins yet — two for a challenge win, ten buys a re-spin at the draft.';
+  }
 
   const you = $('coinYou');
   you.textContent = '';
-  if (!me) { you.textContent = 'Sign in as a player to start earning.'; return; }
-  const n = (board.find(e => e.name === me) || { n: 0 }).n;
-  you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), n >= COIN_RESPIN
-    ? ' — enough for a re-spin at the next draft.'
-    : ` — ${Math.ceil((COIN_RESPIN - n) / COIN_WIN)} more challenge win${
-        Math.ceil((COIN_RESPIN - n) / COIN_WIN) === 1 ? '' : 's'} buys a re-spin.`);
+  if (n === null) { you.textContent = 'Sign in as a player to start earning.'; return; }
+  you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'),
+    n >= COIN_RESPIN ? ' — enough for a re-spin at the next draft.' : ' — ' + coinGap(n));
 }
 window.renderCoins = renderCoins;
 
@@ -2953,19 +2967,18 @@ function ladderEl(rows) {
   scroll.className = 'ch-scroll';
   const head = document.createElement('div');
   head.className = 'ch-lrow hd';
-  ['', 'Player', 'P', 'W', 'D', 'L', 'GF', 'GA', 'Nil', 'Win %', 'Coins'].forEach((t, i) => {
+  ['', 'Player', 'P', 'W', 'D', 'L', 'GF', 'GA', 'Nil', 'Win %'].forEach((t, i) => {
     const s = document.createElement('span');
     s.className = i === 0 ? 'ch-ln' : i === 1 ? 'ch-lname' : '';
     s.textContent = t;
     head.append(s);
   });
   scroll.append(head);
-  const bal = coins(rows, allRespins, histCups, cupId ? String(cupId) : null);
   board.forEach((e, i) => {
     const r = document.createElement('div');
     r.className = 'ch-lrow';
     [[String(i + 1), 'ch-ln'], [e.name, 'ch-lname'], [e.p], [e.w], [e.d], [e.l], [e.gf], [e.ga], [e.nil],
-     [chalPct(e) + '%', 'ch-lpc'], [bal[e.name] == null ? '\u2013' : bal[e.name], 'ch-lpc']].forEach(([t, cls]) => {
+     [chalPct(e) + '%', 'ch-lpc']].forEach(([t, cls]) => {
       const s = document.createElement('span');
       if (cls) s.className = cls;
       s.textContent = t;
