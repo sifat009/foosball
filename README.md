@@ -202,6 +202,99 @@ admin, because mistyping 5-3 as 53 must not need a database console. A lobby
 still unfilled six hours past its kick-off drops off the board, and the admin's
 page is what actually deletes those rows — it holds the only account allowed to.
 
+## Coins
+
+The challenge board shipped and sat at zero. Not a handful of stale lobbies —
+`challenges.json` held nothing, nine days in, while seventeen cups ran in
+forty-six days at near-perfect attendance. It was never access, plumbing or
+discovery: all ten players are in `EMAIL_NAMES`, the rules are enforced and
+tested, the relay announces a lobby three times, and `chalBtn` carries a badge.
+It was that the section above says out loud what a pickup game is worth —
+*"count for nothing a cup counts"* — two days before a cup that counts for
+everything.
+
+So a challenge win pays. **Two coins** to each player on the winning side of a
+settled score; a draw, a loss and an unconfirmed claim pay nothing. The board
+goes on storing draws and giving them a column, because Win % still needs them.
+
+**Ten coins buys one re-spin a cup.** The wheels land, and for fifteen seconds
+the pair is not yet a team: either of the two named may spend to reject the
+other and turn the wheels again. The rejected pair is blocked for the rest of
+that draft and no longer. The partner is not consulted — the draw has never
+asked either.
+
+### The rotation comes first
+
+`canRespin` asks `planDraw` whether a legal arrangement still exists with that
+pair blocked, and asks it in **strict** mode. This is the whole safety of the
+feature. The walk's own relaxation (`if (!seen && cool > 0)`) exists so a roster
+change cannot wedge the draw; borrowed by the availability check it would answer
+"yes, there is somewhere to go" by forgetting the oldest cup of the cycle —
+one player's ten coins dissolving the rotation for all ten, including the
+guarantee it was built to give the two who never win.
+
+So the legal draws collapse 120 → 44 → 13 → 2 → 1 across a cycle, and the coin
+collapses with them. On the fourth night at most one re-spin is possible all
+evening, and on the **last night of a cycle there is no button at all** and
+nothing is charged. Coins are worth most at the top of a cycle and nothing at
+its end. That is the price of the guarantee, and it is a rule players can hold
+in their heads.
+
+### The hold
+
+`finishSpin` waits `HOLD_MS` before `formTeam` instead of committing after a
+beat. That is one delay on one client: **viewers never form a team from a spin**
+— they animate when `spin.n` changes and read `teams` out of the snapshot — so
+they are already waiting on the admin's `save()`, and there is nothing to
+synchronise. `spin.at` is when the wheels *stop*, and it rides on the published
+record only so every screen counts the same fifteen seconds down; it decides
+what the countdown says, never what is committed. A re-spin is then an ordinary
+`n + 1` spin, and since no team was formed there is nothing to undo.
+
+A hold is on when `spin.n > teams.length` — spins counted against teams, with
+exactly one unformed pair between them. Pure published state, so the admin and
+every viewer answer it identically with nothing passed between them.
+
+### What the rules can't do
+
+They cannot count coins, any more than they can tell who the four people at the
+table were. So `respins/<cupId>/<pushId>` is **append-only** — a verified
+account, a row carrying its own `auth.token.email`, writable only when the row
+does not exist. No overwrite, no delete, not even by the admin. A filed row is
+the record; what it *costs* is decided by the replay.
+
+Every client walks the rows in `at` order and honours one only when the payer
+has ten coins at that instant and has had none honoured in that cup already.
+The walk is deterministic, so the admin's draft and every reader's ledger reach
+the same answer, and the once-a-cup limit needs no storage of its own. A row
+nobody could afford is written, ignored, and never charged.
+
+### Balances
+
+Derived at render, never stored, the way `career()` and `chalLadder()` already
+work: `2 x wins - 10 x honoured re-spins`. Only cups that reached `history`
+charge, so an abandoned cup refunds everyone — the same rule the pair ledger
+follows. The running cup charges anyway, which is what stops a second re-spin
+inside the draft happening right now. Correcting a mistyped challenge score
+corrects every wallet in the building at once, with nothing to migrate.
+
+The walk is chronological rather than two sums: a spend can only be honoured out
+of coins already earned. A lobby earns at its own `at`, since an agreed score
+carries no timestamp of its own.
+
+### Where it lives
+
+On the **home screen**, above the group stage — not behind the Challenges
+button, because that button is what has been failing. `#coins` is built like
+`#golden` but is **never hidden**: ten names on zero is the pitch, and a card
+that appears once somebody has earned would appear after it stopped being
+needed. Tapping it opens a sheet that explains the two rules and ends in a
+button straight to the challenge board. That button is the point of the surface.
+
+Above the group stage looks backwards during a live cup and is right the rest of
+the time: the card matters most *between* cups, when the stage below it is
+finished and the board is what should be happening.
+
 ## Before it works
 
 **Authorized domains.** Firebase Console → Authentication → Settings →
@@ -490,9 +583,29 @@ is — a claim, not a result — along with the bar each of the five viewpoints
 gets (filer, teammate, opponent, admin, bystander), the counter-offer, the
 correction, and a claim keeping a stale lobby on the board.
 
+Coins are checked the same way, and for the same reason: nothing is stored, so
+the derivation is driven directly. Two wins pay four, a draw and an unconfirmed
+claim pay nothing, a spend filed before the coins were earned is not honoured
+out of later winnings, a second re-spin in one cup is ignored, and a cup that
+never reached `history` charges nobody. The card is checked for the one thing it
+must not do — hide itself when everyone is on zero — along with its place above
+the group stage, the alphabetical fallback that stops two readers seeing
+different orders, and the sheet's button actually opening the board.
+
+The re-spin's own check is the availability rule, because it is the only change
+here that can quietly damage something people rely on. A blocked pair never
+returns in the same draft; and on a night pinned to one legal draw, **strict**
+refuses while the relaxing path would have found an answer — the second half of
+that pair matters, since without it the first proves nothing. The hold is checked
+as the pure state it is: counting down while a landing has no team, closed once
+the team forms, and closed again once the fifteen seconds are up.
+
 `test-rules.mjs` is the only check that evaluates a rule: `test.mjs` stubs the
 database out, so nothing there ever reaches one, and the rules are what
-actually stop a challenge score being whatever the last person typed. It talks
+actually stop a challenge score being whatever the last person typed, and the
+one place a re-spin row is made permanent — filed rows are append-only, so the
+suite tries to overwrite, edit and delete one as its author and as the admin,
+and tries to file one carrying somebody else's address. It talks
 to the database emulator over REST with hand-made tokens — the emulator does
 not check a signature, so there is no key, no service account and nothing to
 install beyond `firebase-tools`.
