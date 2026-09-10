@@ -31,9 +31,12 @@
     color: #1c2733; min-height: 100vh; padding: 40px 20px 80px;
   }
   .eyebrow {
-    display: flex; justify-content: center; margin-bottom: 18px;
+    display: flex; justify-content: center; align-items: center;
+    gap: 10px; flex-wrap: wrap; margin-bottom: 18px;
   }
-  .eyebrow span {
+  /* direct child only: the coin pill lives here too, and its own spans must not
+     inherit the federation badge's padding, letter-spacing and background */
+  .eyebrow > span {
     display: inline-flex; align-items: center; gap: 8px;
     background: #16233a; color: #f3f6fb; font-size: 0.72rem; font-weight: 800;
     letter-spacing: 0.28em; text-transform: uppercase;
@@ -398,28 +401,39 @@
     letter-spacing: 0.18em; color: #96660a; background: #fdf4dc;
     padding: 7px 18px; border-radius: 999px; margin-bottom: 14px;
   }
-  /* THE WALLET. On the home screen, not behind the Challenges button: the board
-     sat behind a badged toolbar button for nine days and took zero rows, and a
-     reward nobody can see from where they already are is not a reward. Unlike
-     #golden this card is never hidden — ten names on zero is the pitch. */
-  #coins { padding: 16px 18px; margin: 0 auto 18px; max-width: 1150px; cursor: pointer; }
-  #coins:hover { border-color: #bcd3f7; }
-  .coin-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
-  .coin-t { font-weight: 800; color: #172b4d; display: inline-flex; align-items: center; gap: 8px; }
-  .coin-t .ico { width: 18px; height: 18px; }
-  .coin-hint { font-size: 0.72rem; font-weight: 700; color: #2563eb; margin-left: auto; }
-  .coin-rows { display: flex; flex-wrap: wrap; gap: 8px; }
-  .coin-c {
-    display: inline-flex; align-items: baseline; gap: 6px;
-    background: #f4f7fb; border: 1px solid #e7ecf3; border-radius: 999px;
-    padding: 6px 12px; font-size: 0.8rem; font-weight: 700; color: #5b6a7d;
+  /* THE WALLET. A pill in the chrome, the shape every game puts a currency in:
+     a coin, a number, and a plus that means "get more" — which here is the
+     challenge board. Small on purpose. The card it replaced was a full-width
+     band that said more than a balance ever needs to. */
+  #coins {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: #16233a; border: 0; border-radius: 999px;
+    padding: 5px 6px 5px 8px; cursor: pointer; font-family: inherit;
+    box-shadow: 0 8px 24px rgba(22,35,58,0.25);
   }
-  .coin-c b { color: #172b4d; font-weight: 800; }
-  .coin-c .coin-n { font-size: 1.05rem; }
-  .coin-c .coin-n { color: #96660a; font-weight: 800; }
-  .coin-c.zero .coin-n { color: #c3ccda; }
-  .coin-c.me { background: #fff8e6; border-color: #f0dca8; }
-  .coin-note { font-size: 0.76rem; color: #97a3b3; margin-top: 12px; }
+  #coins:hover { background: #1e2f4d; }
+  #coins:active { transform: translateY(1px); }
+  #coinN {
+    color: #fff; font-size: 0.92rem; font-weight: 800; letter-spacing: 0.01em;
+    min-width: 12px; text-align: center;
+  }
+  /* drawn rather than an <svg>: a disc with a rim and a highlight is three
+     gradients, and the icon sheet has no coin in it */
+  .coin-disc {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10);
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.45), 0 1px 3px rgba(0,0,0,0.3);
+  }
+  .coin-plus {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: linear-gradient(135deg, #22ab5f, #17854a); color: #fff;
+    font-size: 0.95rem; font-weight: 800; line-height: 1;
+  }
+  /* signed out, or not on the player list: the pill still says what it is */
+  #coins.coin-out .coin-disc { filter: grayscale(0.7) brightness(1.1); }
+  #coins.coin-out #coinN { color: #93a1b8; }
+
   .coin-you { background: #f4f7fb; border-radius: 14px; padding: 14px 16px; margin-top: 4px; font-size: 0.85rem; }
   .coin-you b { color: #96660a; }
   /* the card is the scroll container, so the way in pins to its bottom edge
@@ -1398,7 +1412,18 @@
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></symbol>
 </defs></svg>
 
-<div class="eyebrow"><span><svg class="ico"><use href="#i-ball"/></svg> Ollyo Foosball Federation</span></div>
+<!-- The wallet rides in the eyebrow rather than in a card of its own: it belongs
+     to whoever is reading, not to whatever the cup is doing, so it sits in the
+     chrome above every screen. A balance is a glance, not a panel — the rules and
+     what it buys are one tap away in the sheet. -->
+<div class="eyebrow">
+  <span><svg class="ico"><use href="#i-ball"/></svg> Ollyo Foosball Federation</span>
+  <button id="coins" type="button" aria-label="Your coins">
+    <span class="coin-disc" aria-hidden="true"></span>
+    <span id="coinN">0</span>
+    <span class="coin-plus" aria-hidden="true">+</span>
+  </button>
+</div>
 <div id="viewBadge"><svg class="ico"><use href="#i-eye"/></svg> Live standings — updating automatically</div>
 <div id="boot">Loading the cup…</div>
 <!-- display:contents on desktop, so each button keeps its own fixed corner;
@@ -1535,19 +1560,6 @@
 </div>
 
 <!-- Screen 1: setup -->
-<!-- The wallet sits outside the screens, not on one: it belongs to whoever is
-   reading rather than to whatever the cup is doing, and the draft is exactly
-   when somebody wants to know what they can afford. Hidden while booting, like
-   everything else that would otherwise flash before the snapshot lands. -->
-<div id="coins" class="card" role="button" tabindex="0" aria-label="What coins are">
-  <div class="coin-h">
-    <span class="coin-t"><svg class="ico"><use href="#i-swords"/></svg> Coins</span>
-    <span class="coin-hint">What's this?</span>
-  </div>
-  <div id="coinRows" class="coin-rows"></div>
-  <div id="coinNote" class="coin-note"></div>
-</div>
-
 <div id="setup" class="screen active">
   <h1>The <span class="accent">Ollyo Foosball Cup</span></h1>
   <div class="subtitle">Register your squad — one name per line, then let the wheels decide.</div>
@@ -2725,26 +2737,22 @@ const coinGap = n => {
 };
 
 function renderCoins() {
-  const n = myCoins(), rows = $('coinRows');
-  rows.innerHTML = '';
-  if (n === null) {
-    $('coinNote').textContent = acctEmail
-      ? 'Signed in, but not on the player list — ask the admin to add you.'
-      : 'Sign in to see your coins. Two for a challenge win, ten buys a re-spin at the draft.';
-  } else {
-    const chip = part('coin-c me' + (n ? '' : ' zero'), '', 'span');
-    chip.append(part('', 'You have', 'b'), part('coin-n', String(n), 'span'),
-      part('', n === 1 ? 'coin' : 'coins', 'span'));
-    rows.append(chip);
-    $('coinNote').textContent = n >= COIN_RESPIN
-      ? 'Enough for a re-spin at the next draft.'
-      : n ? coinGap(n)
-      : 'No coins yet — two for a challenge win, ten buys a re-spin at the draft.';
-  }
+  const n = myCoins(), pill = $('coins');
+  pill.classList.toggle('coin-out', n === null);
+  $('coinN').textContent = n === null ? '\u2013' : n;
+  pill.title = n === null ? 'Sign in to see your coins'
+    : n >= COIN_RESPIN ? 'Enough for a re-spin at the next draft'
+    : coinGap(n);
 
+  // the pill is a number; the sheet is where a number gets a meaning
   const you = $('coinYou');
   you.textContent = '';
-  if (n === null) { you.textContent = 'Sign in as a player to start earning.'; return; }
+  if (n === null) {
+    you.textContent = acctEmail
+      ? 'Signed in, but not on the player list — ask the admin to add you.'
+      : 'Sign in as a player to start earning.';
+    return;
+  }
   you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'),
     n >= COIN_RESPIN ? ' — enough for a re-spin at the next draft.' : ' — ' + coinGap(n));
 }

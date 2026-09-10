@@ -284,19 +284,29 @@ carries no timestamp of its own.
 
 ### Where it lives
 
-On the **home screen**, above every screen rather than on one — the wallet
-belongs to whoever is reading, not to whatever the cup is doing, and the draft
-is exactly when somebody wants to know what they can afford. `#coins` is built
-like `#golden` but is **never hidden**: signed out it says what a coin is and
-how to get one, which is the only pitch the board has ever had. Tapping it opens
-a sheet that explains the two rules and ends in a button straight to the
-challenge board. That button is the point of the surface.
+A **pill in the eyebrow**, beside the federation badge: a coin, a number, and a
+green plus that means "get more" — which here is the challenge board. It rides in
+the chrome above every screen rather than inside one, because the wallet belongs
+to whoever is reading, not to whatever the cup is doing, and the draft is exactly
+when somebody wants to know what they can afford.
 
-**It shows your balance and nobody else's.** An earlier version put all ten
-players on the card, and it was meant as a leaderboard — seeing somebody else on
-ten is what makes a coin worth having. It also told the room what everyone could
-afford, and a wallet is the reader's own business. The challenge ladder went the
-same way: it shows form, not wallets.
+It replaced a full-width card that listed every player and their balance. Two
+things were wrong with it. It said far more than a balance ever needs to — a
+number is a glance, and what it buys is one tap away in the sheet. And it was a
+leaderboard, which was the intent (seeing somebody else on ten is what makes a
+coin worth having) but it also told the room what everyone could afford, and a
+wallet is the reader's own business. The challenge ladder lost its Coins column
+the same way: it shows form, not wallets.
+
+Signed out the pill shows a dash and still says what a coin is, which is the only
+pitch the board has ever had. Tapping it opens the sheet that explains the two
+rules and ends in a button straight to the challenge board — that button is the
+point of the surface.
+
+The coin is drawn, not an icon: the sheet has no coin in it, and a disc with a
+rim and a highlight is three gradients. Note that `.eyebrow > span` is scoped to
+the direct child on purpose — the badge's padding and letter-spacing would
+otherwise land on the pill's own spans and flatten it.
 
 ## Before it works
 
@@ -590,7 +600,7 @@ Coins are checked the same way, and for the same reason: nothing is stored, so
 the derivation is driven directly. Two wins pay four, a draw and an unconfirmed
 claim pay nothing, a spend filed before the coins were earned is not honoured
 out of later winnings, a second re-spin in one cup is ignored, and a cup that
-never reached `history` charges nobody. The card is checked for the two things it
+never reached `history` charges nobody. The pill is checked for the two things it
 must not do — hide itself from somebody with nothing, and show one reader
 another player's balance — along with its place above every screen and the
 sheet's button actually opening the board.

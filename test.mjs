@@ -2530,7 +2530,7 @@ assert.equal(coinCheck.tooEarly.Sifat, 10, 'a re-spin was honoured out of coins 
 assert.equal(coinCheck.twice.Sifat, 10, 'a second re-spin in one cup was charged — the limit is one');
 assert.equal(coinCheck.live.Sifat, 0, 'the running cup did not charge, so a second re-spin would be free');
 
-// the card is never hidden, and it answers one question: yours
+// the pill is in the chrome, on every screen, and it shows one balance: yours
 const coinCard = await page.evaluate(() => {
   window.allRespins = {};
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
@@ -2538,35 +2538,40 @@ const coinCard = await page.evaluate(() => {
     slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
   window.setAccount(null);
   window.renderChallenges({});
-  const card = $('coins');
+  const pill = $('coins');
   const out = {
-    hidden: getComputedStyle(card).display === 'none',
+    hidden: getComputedStyle(pill).display === 'none',
     // it belongs to the reader, not to a screen: outside all three, above all three
-    onAScreen: !!card.closest('.screen'),
+    onAScreen: !!pill.closest('.screen'),
     aboveScreens: [...document.querySelectorAll('.screen')].every(sc =>
-      card.compareDocumentPosition(sc) & Node.DOCUMENT_POSITION_FOLLOWING),
-    signedOut: card.textContent,
+      pill.compareDocumentPosition(sc) & Node.DOCUMENT_POSITION_FOLLOWING),
+    signedOut: $('coinN').textContent,
+    signedOutTip: pill.title,
   };
   // five wins for Sifat and Ofi, five losses for Nur and Rashed
   window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
   window.setAccount('sifat@x.com');
-  out.mine = card.textContent;
+  out.mine = $('coinN').textContent;
+  out.mineTip = pill.title;
+  out.sheetMine = $('coinYou').textContent;
   window.setAccount('nur@x.com');
-  out.theirs = card.textContent;
+  out.theirs = $('coinN').textContent;
+  out.sheetTheirs = $('coinYou').textContent;
   window.setAccount(null);
   return out;
 });
-assert.equal(coinCard.hidden, false, 'the coins card hides itself instead of saying how to earn one');
-assert.equal(coinCard.onAScreen, false, 'the coins card is trapped on one screen — it is missing from the others');
-assert.equal(coinCard.aboveScreens, true, 'the coins card sits below the screens instead of above them');
-assert.match(coinCard.signedOut, /Sign in to see your coins/, 'a signed-out reader is not told what the card is for');
-assert.match(coinCard.mine, /You have\s*10\s*coins/, "the card does not show the reader their own balance");
-assert.match(coinCard.mine, /Enough for a re-spin/, 'ten coins was not reported as enough');
-/* A wallet is the reader's own business. Nobody else's name or number may reach
-   the card — this is the whole point of it not being a leaderboard. */
-assert.ok(!/Ofi|Nur|Rashed/.test(coinCard.mine), 'somebody else appeared on the reader\'s wallet');
-assert.ok(!/10/.test(coinCard.theirs), "a player with nothing was shown somebody else's balance");
-assert.match(coinCard.theirs, /No coins yet/, 'a player on zero is not told how to earn one');
+assert.equal(coinCard.hidden, false, 'the coin pill hides itself instead of saying what it is');
+assert.equal(coinCard.onAScreen, false, 'the coin pill is trapped on one screen — it is missing from the others');
+assert.equal(coinCard.aboveScreens, true, 'the coin pill sits below the screens instead of above them');
+assert.equal(coinCard.signedOut, '\u2013', 'a signed-out reader was shown a balance');
+assert.match(coinCard.signedOutTip, /Sign in/, 'a signed-out reader is not told what the pill is for');
+assert.equal(coinCard.mine, '10', 'the pill does not show the reader their own balance');
+assert.match(coinCard.mineTip, /Enough for a re-spin/, 'ten coins was not reported as enough');
+assert.match(coinCard.sheetMine, /You have 10 coins/, 'the sheet does not spell the balance out');
+/* A wallet is the reader's own business. Nobody else's balance may reach the
+   pill or the sheet — this is the whole point of it not being a leaderboard. */
+assert.equal(coinCard.theirs, '0', "a player with nothing was shown somebody else's balance");
+assert.ok(!/10/.test(coinCard.sheetTheirs), "the sheet leaked another player's balance");
 
 // the sheet explains it, and its button is the way in to the board
 await page.click('#coins');

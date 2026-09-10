@@ -221,29 +221,28 @@ correct: the board has sat behind a toolbar button with a badge count for nine
 days and has zero rows. A reward nobody can see from where they already are is
 not a reward.
 
-### The coins card
+### The coin pill
 
-A `#coins` card above every screen rather than inside one. It is the same
-conditional `.card` pattern `#golden` already uses (`index.html:1587`), so it
-needs no new layout primitive, and it costs nothing in data — every balance
-derives from the lobbies and `respins` rows the page already subscribes to. No
-node, no rule, no migration.
+`#coins` is a pill in the eyebrow, beside the federation badge — a coin, a
+number, and a green plus meaning "get more", which here is the challenge board.
+It costs nothing in data: every balance derives from the lobbies and `respins`
+rows the page already subscribes to. No node, no rule, no migration.
 
-Outside the screens because a wallet belongs to whoever is reading rather than to
-whatever the cup is doing. Built into the cup screen, a viewer sitting on the
-draft — exactly when somebody wants to know what they can afford — could not see
-their own balance at all.
+In the chrome rather than on a screen, because a wallet belongs to whoever is
+reading rather than to whatever the cup is doing. Built into the cup screen, a
+viewer sitting on the draft — exactly when somebody wants to know what they can
+afford — could not see their own balance at all.
 
-**It shows the reader's balance and nobody else's.** All ten on the card was
-designed first and dropped: it reads as a leaderboard, which was the intent —
-seeing somebody else on ten is what makes a coin worth having — but it also
-publishes what everyone in the room can afford, and a wallet is the reader's own
-business. The challenge ladder loses its Coins column for the same reason.
+**It shows the reader's balance and nobody else's.** A card listing all ten was
+designed first and dropped twice over: it reads as a leaderboard, which was the
+intent — seeing somebody else on ten is what makes a coin worth having — but it
+publishes what everyone in the room can afford, and it says far more than a
+balance needs to. A number is a glance; what it buys belongs in the sheet. The
+challenge ladder loses its Coins column for the same reason.
 
-**It is never hidden.** This is the one place it must differ from `#golden`,
-which disappears when there is nothing to show. Signed out it says what a coin is
-and how to get one; on zero it says the same. A card that switches itself on only
-once somebody has earned is a card that appears after it has stopped being needed.
+**It is never hidden.** Signed out it shows a dash and still says what a coin is.
+A wallet that appears only once somebody has earned appears after it has stopped
+being needed.
 
 ### The sheet
 
