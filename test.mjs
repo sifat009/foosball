@@ -2873,6 +2873,41 @@ assert.equal(viewerHold.gotSpin, true, 'a viewer never learns what the wheels la
 assert.equal(viewerHold.counting, true, 'a viewer sees no countdown — the hold is admin-only');
 assert.equal(viewerHold.offered, true, 'a viewer in the landed pair was offered no re-spin');
 
+/* The whole loop, end to end: a row lands in `respins` and the admin's page turns
+   the wheels again with that pair blocked. Everything above tests one half. */
+const loop = await page.evaluate(async () => {
+  const F = ['Nur', 'Rifat', 'Sazedul'], D = ['Sifat', 'Ofi', 'Rashed'];
+  window.isAdmin = true; window.gotRemote = true; window.restoring = false;
+  window.session++;
+  window.SPIN_MS = 10;
+  window.writes = []; window.saveToDb = j => window.writes.push(j);
+  window.fwds = F.map(n => ({ name: n, picked: false }));
+  window.defs = D.map(n => ({ name: n, picked: false }));
+  window.teams = []; window.cupId = '4242'; window.drawPlan = [];
+  window.allRespins = {}; window.histCups = new Set(); window.renderHall([]);
+  window.spinning = true;
+  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };   // Nur + Sifat
+  const before = window.spin.n;
+  // Nur pays: the row arrives the way the subscription delivers it
+  window.allRespins = { 4242: { r1: { name: 'Nur', email: 'nur@x.com', rejected: 'Sifat', n: 1, at: Date.now() } } };
+  window.maybeRespin();
+  await new Promise(r => setTimeout(r, 120));
+  return {
+    before, after: window.spin.n,
+    blocked: [...respinBlocked()],
+    landedPair: [(window.fwds[window.spin.fi] || {}).name, (window.defs[window.spin.di] || {}).name],
+    formedNone: window.teams.length,
+  };
+});
+assert.equal(loop.after, loop.before + 1, 'a filed re-spin did not turn the wheels again');
+assert.deepEqual(loop.blocked, ['Nur|Sifat'], 'the rejected pair was not blocked for the rest of the draft');
+assert.notDeepEqual(loop.landedPair, ['Nur', 'Sifat'], 'the wheels landed on the pair that was just rejected');
+assert.equal(loop.formedNone, 0, 'a team was formed for the landing that was rejected');
+await page.evaluate(() => {
+  window.SPIN_MS = 4000; window.spinning = false; window.spin = null;
+  window.teams = []; window.allRespins = {}; window.drawPlan = []; window.session++;
+});
+
 // the hold: a landing that has not become a team yet, counting down on every screen
 const hold = await page.evaluate(() => {
   window.allRespins = {}; window.allChal = {};

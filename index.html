@@ -3727,7 +3727,9 @@ setInterval(renderHold, 500);
    to notice: the payer drove it, and making the room watch the admin turns a
    fifteen-second moment into an awkward one. It is an ordinary next spin — no
    team was formed for the landing it replaces, so there is nothing to undo. */
-window.maybeRespin = () => maybeRespin();
+/* No `window.maybeRespin = () => maybeRespin()` wrapper here: a top-level function
+   declaration is already a property of window, so the wrapper overwrote it and
+   then called itself. The subscription's every call blew the stack. */
 function maybeRespin() {
   if (!isAdmin || !spinning || !spin) return;
   const row = respinRows().filter(r => r.n === spin.n)
