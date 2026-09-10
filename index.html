@@ -664,6 +664,15 @@
   .hall-n { color: #c3ccda; font-weight: 800; font-size: 0.8rem; min-width: 22px; }
   .hall-name { flex: 1; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
   .hall-date { color: #8fa0b8; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
+  /* five cups make a season; the tint band is what makes the boundary visible */
+  .hall-row.alt { background: #f6f8fd; }
+  .hall-row.alt:active { background: #eaeff8; }
+  .hall-season {
+    display: flex; justify-content: space-between; align-items: baseline;
+    padding: 14px 4px 5px; color: #8fa0b8;
+    font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .hall-season span { letter-spacing: 0; text-transform: none; font-weight: 700; }
   .hall-empty { text-align: center; color: #8fa0b8; font-size: 0.85rem; padding: 22px 0; }
   .hall-tabs {
     display: flex; gap: 6px; background: #f4f6fa; border-radius: 999px;
@@ -2436,12 +2445,33 @@ function renderHall(entries) {
   note.className = 'hall-note';
   note.textContent = 'Tap any cup to replay its celebration.';
   list.appendChild(note);
+  /* A season is one draw cycle: everyone meets everyone before anyone meets twice.
+     Same seam the draw uses, so the bands here are the rotation, not a second rule
+     — cups before CYCLE_ANCHOR were random draws and belong to no season.
+     Five teams a night makes a cycle five cups; a roster change re-measures the
+     draw's cycle but leaves these bands where the club counted them. */
+  const SEASON_LEN = 5;
+  let lastSeason = null;
   entries.slice().reverse().forEach((e, i) => { // newest first
+    const num = entries.length - i;
+    const season = num <= CYCLE_ANCHOR ? 0 : Math.floor((num - CYCLE_ANCHOR - 1) / SEASON_LEN) + 1;
+    if (season !== lastSeason) {
+      lastSeason = season;
+      const h = document.createElement('div');
+      h.className = 'hall-season';
+      const lo = season ? CYCLE_ANCHOR + 1 + (season - 1) * SEASON_LEN : 1;
+      const hi = Math.min(season ? lo + SEASON_LEN - 1 : CYCLE_ANCHOR, entries.length);
+      h.textContent = season ? 'Season ' + season : 'Before seasons';
+      const range = document.createElement('span');
+      range.textContent = hi === lo ? '#' + lo : '#' + lo + '\u2013#' + hi;
+      h.appendChild(range);
+      list.appendChild(h);
+    }
     const row = document.createElement('button');
-    row.className = 'hall-row';
+    row.className = 'hall-row' + (season % 2 ? ' alt' : '');
     row.onclick = () => celebrate(e.champion, e); // the entry dates the share card
     const n = document.createElement('div');
-    n.className = 'hall-n'; n.textContent = '#' + (entries.length - i);
+    n.className = 'hall-n'; n.textContent = '#' + num;
     const name = document.createElement('div');
     name.className = 'hall-name'; name.textContent = e.champion; // textContent: player names are user input
     const d = document.createElement('div');
