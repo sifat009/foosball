@@ -402,7 +402,7 @@
      sat behind a badged toolbar button for nine days and took zero rows, and a
      reward nobody can see from where they already are is not a reward. Unlike
      #golden this card is never hidden — ten names on zero is the pitch. */
-  #coins { padding: 16px 18px; margin: 0 0 18px; cursor: pointer; }
+  #coins { padding: 16px 18px; margin: 0 auto 18px; max-width: 1150px; cursor: pointer; }
   #coins:hover { border-color: #bcd3f7; }
   .coin-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
   .coin-t { font-weight: 800; color: #172b4d; display: inline-flex; align-items: center; gap: 8px; }
@@ -1346,7 +1346,8 @@
   }
   /* view mode (anyone not signed in as admin): writes are hidden or inert */
   body.view #spinBtn, body.view #tourneyBtn, body.view #koBtn,
-  body.view #startBtn, body.view #resetBtn, body.view #schedRow { display: none !important; }
+  body.view #startBtn, body.view #resetBtn, body.view #schedRow,
+  body.view #doubleRoundLabel { display: none !important; }
   body.view textarea { pointer-events: none; opacity: 0.65; }
   #viewBadge {
     display: none; justify-content: center; gap: 8px; align-items: center;
@@ -1368,7 +1369,8 @@
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
   body.booting #resetBtn, body.booting #hallBtn, body.booting #installBtn,
-  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar { display: none !important; }
+  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar,
+  body.booting #coins { display: none !important; }
 </style>
 </head>
 <body>
@@ -1532,6 +1534,19 @@
 </div>
 
 <!-- Screen 1: setup -->
+<!-- The wallet sits outside the screens, not on one: it belongs to whoever is
+   reading rather than to whatever the cup is doing, and the draft is exactly
+   when somebody wants to know what they can afford. Hidden while booting, like
+   everything else that would otherwise flash before the snapshot lands. -->
+<div id="coins" class="card" role="button" tabindex="0" aria-label="What coins are">
+  <div class="coin-h">
+    <span class="coin-t"><svg class="ico"><use href="#i-swords"/></svg> Coins</span>
+    <span class="coin-hint">What's this?</span>
+  </div>
+  <div id="coinRows" class="coin-rows"></div>
+  <div id="coinNote" class="coin-note"></div>
+</div>
+
 <div id="setup" class="screen active">
   <h1>The <span class="accent">Ollyo Foosball Cup</span></h1>
   <div class="subtitle">Register your squad — one name per line, then let the wheels decide.</div>
@@ -1613,17 +1628,6 @@ Nur</textarea>
   <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
-  <!-- the wallet: above the group stage, which looks backwards during a live cup
-       and is right the rest of the time — it matters most between cups, when the
-       stage below it is finished and the board is what should be happening. -->
-  <div id="coins" class="card" role="button" tabindex="0" aria-label="What coins are">
-    <div class="coin-h">
-      <span class="coin-t"><svg class="ico"><use href="#i-swords"/></svg> Coins</span>
-      <span class="coin-hint">What's this?</span>
-    </div>
-    <div id="coinRows" class="coin-rows"></div>
-    <div id="coinNote" class="coin-note"></div>
-  </div>
   <details id="groupSection" open>
     <summary class="section-title">Group Stage <span class="fold"></span></summary>
     <div id="groups" class="groups"></div>

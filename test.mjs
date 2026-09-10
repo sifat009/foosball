@@ -2537,16 +2537,18 @@ const coinCard = await page.evaluate(() => {
   const card = $('coins');
   return {
     hidden: getComputedStyle(card).display === 'none',
-    inTourney: !!card.closest('#tourney'),
-    aboveGroups: !!(card.compareDocumentPosition($('groupSection')) & Node.DOCUMENT_POSITION_FOLLOWING),
+    // it belongs to the reader, not to a screen: outside all three, above all three
+    onAScreen: !!card.closest('.screen'),
+    aboveScreens: [...document.querySelectorAll('.screen')].every(sc =>
+      card.compareDocumentPosition(sc) & Node.DOCUMENT_POSITION_FOLLOWING),
     note: $('coinNote').textContent,
     names: [...document.querySelectorAll('#coinRows .coin-c b')].map(e => e.textContent),
     values: [...document.querySelectorAll('#coinRows .coin-c .coin-n')].map(e => e.textContent),
   };
 });
 assert.equal(coinCard.hidden, false, 'the coins card hides itself when everyone is on zero — that is the pitch');
-assert.equal(coinCard.inTourney, true, 'the coins card is not on the home screen');
-assert.equal(coinCard.aboveGroups, true, 'the coins card sits below the group stage instead of above it');
+assert.equal(coinCard.onAScreen, false, 'the coins card is trapped on one screen — it is missing from the others');
+assert.equal(coinCard.aboveScreens, true, 'the coins card sits below the screens instead of above them');
 assert.match(coinCard.note, /Nobody has earned a coin yet/, 'the empty card does not say how to earn one');
 assert.ok(coinCard.values.every(v => v === '0'), 'balances showed before any challenge was played');
 // level balances sort alphabetically, so two readers never see a different order
@@ -2562,6 +2564,18 @@ await page.click('#coinGo');
 assert.ok(!(await page.isVisible('#coinInfo')), 'the sheet stayed open behind the board');
 assert.ok(await page.isVisible('#chal'), 'the sheet button did not open the challenges board');
 await page.evaluate(() => $('chal').classList.remove('open'));
+
+// the draft's own controls are the admin's, and the toggle is one of them
+const toggleGate = await page.evaluate(() => {
+  document.body.classList.add('view');
+  const viewer = getComputedStyle($('doubleRoundLabel')).display;
+  document.body.classList.remove('view');
+  $('doubleRoundLabel').style.display = '';
+  const admin = getComputedStyle($('doubleRoundLabel')).display;
+  return { viewer, admin };
+});
+assert.equal(toggleGate.viewer, 'none', 'a viewer was offered the double round-robin toggle');
+assert.notEqual(toggleGate.admin, 'none', 'the admin lost the double round-robin toggle');
 
 console.log('coins OK');
 
