@@ -60,32 +60,34 @@ other. Then:
 
 If both players file against the same landing, the earlier `at` stands and the
 other is ignored and not charged — the pair is blocked either way, so the second
-row buys nothing that the first has not already bought.
+row buys nothing the first has not already bought. An ignored row spends nothing
+and burns nobody's one re-spin: only an honoured row counts against the limit.
 
 The rejected partner is not consulted. The draw has always assigned partners
 without asking, and putting a second person between the payer and the wheel
 would turn a fifteen-second moment into a negotiation.
 
-### The price escalates
+### Ten coins, once a cup
 
-| Re-spin, per player, per draft | Cost |
-|---|---|
-| first | 4 |
-| second | 8 |
-| third | 16 |
+A re-spin costs **10 coins**, and a player may buy one per tournament. Nothing
+escalates, because nothing repeats: your second re-spin of the night does not
+have a price, it has a refusal.
 
-`4 << (n)` where `n` is how many that player has already bought tonight.
+At two coins a win that is five challenge wins for one re-spin — about a week of
+lunch games, not an afternoon. The scarcity is the point, and it was chosen over
+a cheaper start with eyes open: a re-spin should be a thing the room talks about
+afterwards, not a routine step in every draft. The cost is a slower first
+purchase from a board sitting at zero, which is the risk this design is
+otherwise built to avoid.
 
-Flat pricing was considered and rejected. At two coins a win, four coins is two
-wins — cheap enough that the first purchase is reachable in a lunch break, which
-is the number that matters most while the board is at zero. But a flat four
-lets a player sitting on twenty coins spin until they get the partner they
-wanted, and a draft that can be bought outright is not a draft. Doubling makes
-the third attempt cost eight wins. Nobody will do it twice for fun.
+Escalating prices were designed and dropped. They existed to stop a player with
+a large balance spinning until they got the partner they wanted; a hard limit of
+one does that outright and needs no table. `4 << n` is a rule to explain. "Once a
+cup" is not.
 
-The blocking rule limits it a second time and independently: each re-spin
-burns a partner. A player who re-spins twice has forbidden themselves two of
-the five people they could have been drawn with.
+The limit also makes the blocking rule almost decorative. A player who re-spins
+has forbidden themselves exactly one partner for the night, and cannot reach the
+second.
 
 ## The rotation binds, and sometimes it binds absolutely
 
@@ -98,7 +100,7 @@ collapse across a five-cup cycle:
 | 1 | 0 | 120 | freely |
 | 2 | 1 | 44 | freely |
 | 3 | 2 | 13 | usually |
-| 4 | 3 | 2 | at most one, all night |
+| 4 | 3 | 2 | at most one, whoever gets there |
 | 5 | 4 | 1 | **none** |
 
 On the last night of a cycle the draw is determined by construction. There is
@@ -119,7 +121,7 @@ asks whether one exists pairing the payer with somebody other than the name on
 the wheel. That enumeration runs *without* the `if (!seen && cool > 0)` fallback.
 Left in, a paid re-spin on a tight night would silently forget the oldest cup of
 the cycle and dissolve the rotation for all ten players — the guarantee sold for
-four coins by one person who did not like their partner.
+ten coins by one person who did not like their partner.
 
 ## Data
 
@@ -147,7 +149,7 @@ Derived at render, never stored, the way `career()` and `chalLadder()` already
 work:
 
 ```
-2 x (challenge wins)  -  sum of re-spin prices on cups that reached history
+2 x (challenge wins)  -  10 x (honoured re-spins on cups that reached history)
 ```
 
 A cup with no recorded champion charges nothing — the same rule the pair ledger
@@ -161,10 +163,11 @@ tell who the four people at the table were — the honour system the score flow
 already runs on.
 
 So enforcement sits where it changes something. Every client replays the rows of
-`respins/<cupId>` in `at` order, charging each at the escalated price only if the
-balance covers it at that point and ignoring it otherwise. The walk is
-deterministic, so the admin's draft and every reader's ledger reach the same
-answer. A row nobody could afford is written, ignored, and never charged.
+`respins/<cupId>` in `at` order, honouring a row only when the payer has 10 coins
+at that point and has not already had one honoured this cup. Everything else is
+ignored and not charged. The walk is deterministic, so the admin's draft and
+every reader's ledger reach the same answer, and the once-a-cup limit needs no
+storage of its own — it is a property of the rows already there.
 
 A forged row — filed by someone not in the landed pair, or after the pair
 committed — fails the same replay and does nothing. Writing it is possible.
@@ -212,7 +215,8 @@ through `page.evaluate`, the pattern the suite already uses:
 - the availability check refuses on the last night of a cycle, and charges nothing
 - the check never triggers the `!seen && cool > 0` fallback — a tight night with a
   paid re-spin leaves the rotation's blocking set exactly as it was
-- prices escalate 4 / 8 / 16 per player per draft, and reset at the next cup
+- a second row from the same player in one draft is ignored and costs nothing,
+  and the limit resets at the next cup
 - a row the payer cannot afford is ignored by the replay and costs nothing
 - two rows against the same spin index: the earlier `at` stands
 - balance is `2 x wins - charges`, and a cup with no champion charges nothing
@@ -225,10 +229,13 @@ writer's own address, and an existing row cannot be overwritten or deleted.
 ## Skipped
 
 **Push on a purchase.** The relay already watches `challenges` directly and one
-more listener would announce "Rifat spent 4 coins rather than play with Nur" to
+more listener would announce "Rifat spent 10 coins rather than play with Nur" to
 every phone in the office. That is the strongest growth loop available here and
 it is deliberately not in v1 — add it once people are earning, when the
 announcement has something to announce.
+
+**Escalating prices.** Superseded by the one-a-cup limit, which achieves the
+same thing without a table.
 
 **A second sink.** Coins buy one thing. The wallet is generic by construction —
 a spend is a priced row against a cup — so a second sink is a price and a button,
