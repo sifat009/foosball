@@ -199,12 +199,57 @@ and no button appears.
 
 ## Surface
 
-The wallet lives in the **Challenges** overlay header, and the ladder gains a
-Coins column. Deliberate: the only place to see what you have is the board we
-want opened. During the hold, the two named players see a button with their own
-price on it; everyone else sees the countdown.
+The wallet's home is the **home screen**, not the challenge board. Putting it
+only where challenges live would repeat the mistake this whole design exists to
+correct: the board has sat behind a toolbar button with a badge count for nine
+days and has zero rows. A reward nobody can see from where they already are is
+not a reward.
 
-One paragraph in "How the Cup works", next to the rotation.
+### The coins card
+
+A `#coins` card on `#tourney`, above the Group Stage. It is the same conditional
+`.card` pattern `#golden` already uses (`index.html:1587`), so it needs no new
+layout primitive, and it costs nothing in data — every balance derives from the
+lobbies and `respins` rows the page already subscribes to. No node, no rule, no
+migration.
+
+Above the group stage rather than below it, which looks backwards during a live
+cup and is right the rest of the time: the card matters most **between** cups,
+when the group stage is finished and the screen is otherwise empty. It is
+prominent exactly when the challenge board is the thing that should be happening.
+
+Every player, every balance, highest first, level balances alphabetical — the
+same tie rule `chalLadder` uses, so the card never reorders itself between two
+readers. Yours is marked.
+
+**It is never hidden.** This is the one place it must differ from `#golden`,
+which disappears when there is nothing to show. Every balance is 0 today, and
+ten names on zero under "nobody has earned a coin yet — two coins a win" is the
+strongest prompt in the app. A card that switches itself on only once somebody
+has earned is a card that appears after it has stopped being needed.
+
+### The sheet
+
+Tapping the card opens its own sheet, in the shape of "How the Cup works": what a
+coin is, `+2` for a challenge win, `10` buys one re-spin a cup, your balance, and
+whether you can afford one right now.
+
+It ends in a button that opens the **Challenges** board. That button is the point
+of the whole surface. An explainer tells somebody what a coin is worth; the
+button is what turns having read it into a lobby, in the one tap where they are
+still interested. Folding this into the footer's rules sheet was considered and
+dropped: it lands a curious player in a wall of format rules, several scrolls
+from anything they can act on.
+
+### Elsewhere
+
+The Challenges ladder gains a Coins column, for the people already looking at it.
+During the hold, the two named players see a button carrying the price; everyone
+else sees the countdown. One paragraph in "How the Cup works", next to the
+rotation.
+
+All of it wraps on a phone. Ten short name-and-number pairs is a chip row, not a
+table, and the app is phone-first everywhere else.
 
 ## Check
 
@@ -222,6 +267,8 @@ through `page.evaluate`, the pattern the suite already uses:
 - balance is `2 x wins - charges`, and a cup with no champion charges nothing
 - a re-spin on the second-to-last pair is refused when it would force the payer
   onto the only remaining player anyway
+- the coins card renders with every balance at zero, and is not hidden there
+- level balances sort alphabetically, so two readers see the same order
 
 In `test-rules.mjs`, matching the existing coverage: a row must carry the
 writer's own address, and an existing row cannot be overwritten or deleted.
