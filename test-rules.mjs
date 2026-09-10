@@ -162,4 +162,35 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
     'an ordinary lobby could not be opened');
 }
 
+// ---- re-spin rows: append-only, and yours alone ----
+{
+  const row = (who, name) => ({ name, email: who, rejected: 'Shewa', n: 1, at: 1 });
+
+  assert.ok(await put('respins/c1/a', B1, row(B1, 'Rifat')),
+    'a player could not file their own re-spin');
+
+  // the row has to carry the writer's own address — the page turns that into a
+  // name, so a forged one would spend somebody else's coins
+  assert.ok(!await put('respins/c1/b', B1, row(B2, 'Rashed')),
+    'a re-spin was filed carrying somebody else\'s address');
+  assert.ok(!await put('respins/c1/c', OUT, { name: 'Rifat', email: OUT, rejected: 'Shewa', n: 1 }),
+    'a re-spin was filed with no timestamp');
+
+  /* Append-only is the whole rule. What a row costs is decided by the replay,
+     not by the row, so the only thing the rules have to guarantee is that a
+     filed row stays filed. */
+  assert.ok(!await put('respins/c1/a', B1, row(B1, 'Rifat')),
+    'an existing re-spin row was overwritten by its own author');
+  assert.ok(!await put('respins/c1/a', ADMIN, row(ADMIN, 'Sifat')),
+    'the admin overwrote a filed re-spin row');
+  assert.ok(!await del('respins/c1/a', B1), 'a filed re-spin row was deleted by its author');
+  assert.ok(!await del('respins/c1/a', ADMIN), 'a filed re-spin row was deleted by the admin');
+  assert.ok(!await patch('respins/c1/a', B1, { rejected: 'Ofi' }),
+    'a filed re-spin row was edited after the fact');
+
+  // nothing unexpected rides along
+  assert.ok(!await put('respins/c1/d', B1, Object.assign(row(B1, 'Rifat'), { coins: 999 })),
+    'a re-spin row carried a field nobody reads');
+}
+
 console.log('ok');

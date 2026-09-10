@@ -201,6 +201,11 @@
   }
   .double-round-toggle input { cursor: pointer; }
   #status { text-align: center; margin-top: 20px; font-size: 1.08rem; color: #5b6a7d; min-height: 1.6em; font-weight: 600; }
+  /* the fifteen seconds between the wheels landing and the team forming */
+  #hold { text-align: center; margin-top: 10px; }
+  .hold-t { font-size: 0.82rem; font-weight: 700; color: #97a3b3; }
+  .hold-t b { color: #96660a; }
+  #holdBtn { margin-top: 10px; }
   #status b { color: #96660a; }
   #status .last-pick { color: #17854a; font-weight: 800; }
   /* team cards */
@@ -1597,6 +1602,7 @@ Nur</textarea>
     <input type="checkbox" id="doubleRoundChk"> Double round-robin — every pairing on both sides of the table
   </label>
   <div id="status"></div>
+  <div id="hold" style="display:none"></div>
   <div id="teamList" class="team-grid"></div>
 </div>
 
@@ -3427,17 +3433,19 @@ function pairLedger(entries) {
    is 720 arrangements and the cycle prunes most of them, so this is a walk, not a
    search. Reservoir sampling rather than an array of every candidate: the count
    is factorial and only one of them is ever used. */
-function planDraw(fwdNames, defNames, ledger, cool = ledger.cool) {
+function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null, strict = false) {
   const fresh = (f, d) => {
     const at = ledger.last.get(pairKey(f, d));
     return at === undefined || ledger.n - at > cool;
   };
+  // a pair somebody has paid to get out of, for tonight only — see canRespin
+  const free = (f, d) => !blocked || !blocked.has(pairKey(f, d));
   let seen = 0, keep = null;
   const used = [], acc = [];
   (function walk(i) {
     if (i === fwdNames.length) { if (Math.random() * ++seen < 1) keep = acc.slice(); return; }
     for (let j = 0; j < defNames.length; j++) {
-      if (used[j] || !fresh(fwdNames[i], defNames[j])) continue;
+      if (used[j] || !fresh(fwdNames[i], defNames[j]) || !free(fwdNames[i], defNames[j])) continue;
       used[j] = 1; acc.push(defNames[j]);
       walk(i + 1);
       acc.pop(); used[j] = 0;
@@ -3448,7 +3456,12 @@ function planDraw(fwdNames, defNames, ledger, cool = ledger.cool) {
      the whole thing was built for. Zero survivors is the roster having changed
      underneath a half-finished cycle, and that must never wedge the draw: forget
      the oldest cup of the cycle and try again, down to a free roll. */
-  if (!seen && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1);
+  /* `strict` is the whole safety of the re-spin. canRespin asks this same walk
+     whether a paid re-spin has anywhere legal to go, and if that question were
+     allowed to relax it would answer "yes" by forgetting the oldest cup of the
+     cycle — one player's ten coins dissolving the rotation for all ten. So the
+     asker never relaxes; only the draw itself does. */
+  if (!seen && cool > 0 && !strict) return planDraw(fwdNames, defNames, ledger, cool - 1, blocked, strict);
   if (!keep) return [];
   const plan = fwdNames.map((f, i) => ({ fwd: f, def: keep[i] }));
   // the reveal would otherwise run straight down the forward list
@@ -3459,6 +3472,32 @@ function planDraw(fwdNames, defNames, ledger, cool = ledger.cool) {
   return plan;
 }
 
+/* Ten coins buys one re-spin a cup: the wheels land, and either of the two named
+   may pay to reject the other. The rejected pair is blocked for the rest of this
+   draft and no longer — read back out of `respins/<cupId>` rather than held in
+   memory, so an admin reload mid-draft restores it exactly as it already restores
+   the plan. */
+const respinRows = () => Object.values((allRespins || {})[String(cupId)] || {}).filter(r => r && r.name);
+const respinBlocked = () => new Set(respinRows().map(r => pairKey(r.name, r.rejected)));
+
+/* Whether `payer` could be drawn with somebody other than the name the wheels
+   just landed on. Block that pair and ask for a whole legal plan: if one exists,
+   the re-spin has somewhere to go. Strict, so the question can never be answered
+   by relaxing the rotation — see planDraw.
+
+   On the last night of a cycle there is one legal draw by construction, so this
+   is false for everybody and nothing is charged. Coins are worth most at the top
+   of a cycle and nothing at its end; that is the price of the guarantee. */
+function canRespin(payer, partner) {
+  const af = availIdx(fwds), ad = availIdx(defs);
+  const blocked = respinBlocked();
+  blocked.add(pairKey(payer, partner));
+  const led = pairLedger(hallEntries);
+  return planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name),
+    led, led.cool, blocked, true).length > 0;
+}
+window.canRespin = canRespin;
+
 /* The plan is never published and never stored: a viewer who could read it would
    know the teams before the wheels turned. It is built from whoever is still
    undrafted, so an admin reload mid-draft simply rebuilds it for the rest. */
@@ -3466,7 +3505,8 @@ var drawPlan = [];
 function nextPair() {
   const af = availIdx(fwds), ad = availIdx(defs);
   if (!drawPlan.length)
-    drawPlan = planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name), pairLedger(hallEntries));
+    drawPlan = planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name),
+      pairLedger(hallEntries), undefined, respinBlocked());
   const t = drawPlan.shift();
   return [fwds.findIndex(f => f.name === t.fwd), defs.findIndex(d => d.name === t.def)];
 }
@@ -3500,23 +3540,38 @@ function animateSpin(fi, di, startF, startD, done) {
   })(t0);
 }
 
-$('spinBtn').onclick = () => {
-  if (spinning) return;
+/* A landing is held before it becomes a team, so the two named have a moment to
+   pay their way out of it. `at` is when the wheels stop, not when they start, and
+   it rides on the published record only so every screen counts the same fifteen
+   seconds down — it decides what the countdown says, never what is committed.
+
+   The commit stays where it always was: the admin's formTeam, and the save() it
+   already calls. Viewers never form a team from a spin — they animate on `n`
+   changing and read `teams` out of the snapshot — so they are already waiting on
+   that write and there is nothing to synchronise. */
+const HOLD_MS = 15000;
+var holdT = null;
+
+function spinOnce() {
   spinning = true;
   $('spinBtn').disabled = true;
   const [fi, di] = nextPair();
   const sess = session;
   // publish before animating, so viewers turn the same wheels at the same time
-  spin = { n: (spin ? spin.n : 0) + 1, fi, di, sf: fwdAngle, sd: defAngle };
+  spin = { n: (spin ? spin.n : 0) + 1, fi, di, sf: fwdAngle, sd: defAngle, at: Date.now() + SPIN_MS };
   save();
   animateSpin(fi, di, spin.sf, spin.sd, () => finishSpin(fi, di, sess));
-};
+}
+$('spinBtn').onclick = () => { if (!spinning) spinOnce(); };
 
 function finishSpin(fi, di, sess) {
   ding();
   $('status').innerHTML = `${svg('sparkles')} <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
-  setTimeout(() => {
+  renderHold();
+  clearTimeout(holdT);
+  holdT = setTimeout(() => {
     if (sess !== session) return;
+    renderHold();
     formTeam(fi, di);
     const af = availIdx(fwds), ad = availIdx(defs);
     if (af.length === 1 && ad.length === 1) {
@@ -3534,7 +3589,76 @@ function finishSpin(fi, di, sess) {
       spinning = false;
       $('spinBtn').disabled = false;
     }
-  }, 1100);
+  }, Math.max(1100, (spin && spin.at || Date.now()) + HOLD_MS - Date.now()));
+}
+
+/* Whether a filed row is one the draw will act on and the ledger will charge —
+   the same two questions in both places, so the button never offers something the
+   draft would ignore. One a cup, and affordable out of coins banked before
+   tonight: a challenge cannot be played during a draft, so nothing can be earned
+   between the rows of one. */
+function respinHonoured(row) {
+  if (respinRows().some(r => r.name === row.name && (r.at || 0) < (row.at || 0))) return false;
+  const others = Object.assign({}, allRespins);
+  delete others[String(cupId)];
+  const bal = coins(Object.values(allChal || {}).filter(c => c && c.at), others, histCups, null);
+  return (bal[row.name] || 0) >= COIN_RESPIN;
+}
+
+/* A hold is on when a landing has not become a team yet — `spin.n` counts spins,
+   `teams.length` counts teams, and between the two is exactly one unformed pair.
+   Pure state, so the admin and every viewer answer it identically with nothing
+   passed between them.
+
+   Repainted from one interval rather than a timer per spin: two ticks a second
+   costs nothing and there is no lifecycle to get wrong. */
+function renderHold() {
+  const el = $('hold');
+  if (!el) return;
+  const on = spin && spin.n > teams.length && Date.now() < (spin.at || 0) + HOLD_MS;
+  el.style.display = on ? '' : 'none';
+  if (!on) { el.innerHTML = ''; return; }
+  const left = Math.ceil(((spin.at || 0) + HOLD_MS - Date.now()) / 1000);
+  const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
+  const me = myName();
+  const partner = me === f ? d : me === d ? f : null;
+  el.innerHTML = '';
+  const t = part('hold-t', '', 'div');
+  t.append('Locking in ', part('', left + 's', 'b'));
+  el.append(t);
+  if (!partner || !cupId) return;
+  if (!respinHonoured({ name: me, at: Date.now() }) || !canRespin(me, partner)) return;
+  const btn = document.createElement('button');
+  btn.id = 'holdBtn';
+  btn.className = 'btn btn-gold';
+  btn.textContent = `Spend ${COIN_RESPIN} coins — not ${partner}`;
+  btn.onclick = () => {
+    btn.disabled = true;
+    window.respinFile(String(cupId),
+      { name: me, email: acctEmail, rejected: partner, n: spin.n, at: Date.now() });
+  };
+  el.append(btn);
+}
+window.renderHold = renderHold;
+setInterval(renderHold, 500);
+
+/* The re-spin fires by itself when a row lands, rather than waiting for the admin
+   to notice: the payer drove it, and making the room watch the admin turns a
+   fifteen-second moment into an awkward one. It is an ordinary next spin — no
+   team was formed for the landing it replaces, so there is nothing to undo. */
+window.maybeRespin = () => maybeRespin();
+function maybeRespin() {
+  if (!isAdmin || !spinning || !spin) return;
+  const row = respinRows().filter(r => r.n === spin.n)
+    .sort((a, b) => (a.at || 0) - (b.at || 0))[0];
+  if (!row) return;
+  const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
+  if (row.name !== f && row.name !== d) return;      // not their landing to reject
+  if (row.rejected !== (row.name === f ? d : f)) return;
+  if (!respinHonoured(row)) return;                  // unaffordable, or their second
+  clearTimeout(holdT);
+  drawPlan = [];                                     // rebuilt with the pair blocked
+  spinOnce();
 }
 
 function addTeamCard(t, n) {
@@ -5389,8 +5513,21 @@ window.chalRemove = id => remove(ref(db, 'challenges/' + id))
 onValue(ref(db, 'challenges'), snap => window.renderChallenges(snap.val() || {}),
   err => console.error('[chal] read failed:', err));
 
-onValue(ref(db, 'respins'), snap => { allRespins = snap.val() || {}; window.renderCoins(); },
-  err => console.error('[respins] read failed:', err));
+/* Append-only, and the id is a push key rather than a name: a player may reject
+   somebody in one cup and somebody else in the next, and no row ever needs to be
+   found again by who wrote it. The rules refuse an overwrite, so a filed row is
+   the record — what it costs is decided by the replay, not by the row. */
+window.respinFile = (cup, row) => set(push(ref(db, 'respins/' + cup)), row)
+  .catch(err => {
+    console.error('[respins] write rejected:', err);
+    alert('Could not spend those coins: ' + err.message);
+  });
+
+onValue(ref(db, 'respins'), snap => {
+  allRespins = snap.val() || {};
+  window.renderCoins();
+  window.maybeRespin();
+}, err => console.error('[respins] read failed:', err));
 
 window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
   set(ref(db, `suggestions/${cup}/${key}`),

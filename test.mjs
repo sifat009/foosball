@@ -2633,6 +2633,106 @@ assert.deepEqual(drawCheck.empty, [], 'planDraw wedged on a clean ledger');
 assert.deepEqual(drawCheck.wedged, [], 'planDraw wedged when the roster changed mid-cycle');
 console.log('draw rotation OK — four cycles, every pair once each');
 
+// ---------- the re-spin ----------
+/* Ten coins buys one a cup: the wheels land and either of the two named can pay
+   to reject the other. The rotation comes first, and the check that decides
+   whether a re-spin has anywhere to go must never buy its answer by relaxing. */
+const respinCheck = await page.evaluate(() => {
+  const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
+  const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
+  const key = (a, b) => a < b ? a + '|' + b : b + '|' + a;
+  // a cycle's worth of cups, so cup n is a known depth into the rotation
+  const cups = [];
+  for (let c = 0; c < 24; c++)
+    cups.push({ teams: F.map((f, i) => ({ fwd: f, def: D[(i + c) % 5] })) });
+
+  const out = {};
+  // a blocked pair never comes back in the same draft
+  const blocked = new Set([key('Nur', 'Sifat')]);
+  out.blockedHeld = Array.from({ length: 40 }, () =>
+    planDraw(F, D, pairLedger(cups.slice(0, 20)), undefined, blocked)
+      .some(t => key(t.fwd, t.def) === key('Nur', 'Sifat'))).every(v => v === false);
+
+  /* Strict is the safety. On the last night of a cycle there is one legal draw,
+     so blocking any pair in it leaves nothing — and strict must say so rather
+     than forgetting a cup to find an answer.
+
+     Found rather than counted: the cycle is anchored at CYCLE_ANCHOR, so which
+     slice lands on the last night moves whenever that does. */
+  let last = null;
+  for (let n = 6; n <= cups.length && !last; n++) {
+    const l = pairLedger(cups.slice(0, n));
+    if (l.cool === 4) last = l;
+  }
+  const only = planDraw(F, D, last);
+  const b2 = new Set([key(only[0].fwd, only[0].def)]);
+  out.lastNightCool = last.cool;
+  out.lastNightVariants = new Set(Array.from({ length: 40 }, () =>
+    JSON.stringify(planDraw(F, D, last).map(t => t.fwd + '|' + t.def).sort()))).size;
+  out.strictRefuses = planDraw(F, D, last, last.cool, b2, true).length === 0;
+  out.looseWouldRelax = planDraw(F, D, last, last.cool, b2, false).length > 0;
+  return out;
+});
+assert.equal(respinCheck.blockedHeld, true, 'a rejected pair came back later in the same draft');
+assert.equal(respinCheck.lastNightCool, 4, 'the fixture is not sitting on the last night of a cycle');
+assert.equal(respinCheck.lastNightVariants, 1, 'the last night of a cycle was not forced to one draw');
+assert.equal(respinCheck.strictRefuses, true,
+  'the availability check found a re-spin on a night that has exactly one legal draw');
+assert.equal(respinCheck.looseWouldRelax, true,
+  'the relaxing path no longer relaxes — then strict is proving nothing');
+
+// one a cup, and only out of coins already banked
+const honour = await page.evaluate(() => {
+  const seat = n => ({ name: n, email: n + '@x.com' });
+  const g = (at, b, r) => ({ at, playAt: at,
+    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
+  window.cupId = '999';
+  window.allChal = {};                              // five wins for Nur and Ofi = 10 coins
+  [1, 2, 3, 4, 5].forEach(i => { window.allChal['w' + i] = g(i, 5, 0); });
+  window.histCups = new Set();
+  window.allRespins = {};
+  const rich = window.respinHonoured({ name: 'Nur', at: 100 });
+  const poor = window.respinHonoured({ name: 'Rifat', at: 100 });     // lost all five
+  window.allRespins = { 999: { a: { name: 'Nur', rejected: 'Sifat', n: 1, at: 50 } } };
+  const second = window.respinHonoured({ name: 'Nur', at: 100 });     // already spent tonight
+  return { rich, poor, second };
+});
+assert.equal(honour.rich, true, 'ten banked coins did not buy a re-spin');
+assert.equal(honour.poor, false, 'a re-spin was honoured for somebody who never won a challenge');
+assert.equal(honour.second, false, 'a second re-spin in one cup was honoured — the limit is one');
+
+// the hold: a landing that has not become a team yet, counting down on every screen
+const hold = await page.evaluate(() => {
+  window.allRespins = {}; window.allChal = {};
+  window.fwds = [{ name: 'Nur' }, { name: 'Rifat' }];
+  window.defs = [{ name: 'Sifat' }, { name: 'Ofi' }];
+  window.teams = [];
+  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };
+  window.setAccount(null);
+  window.renderHold();
+  const counting = $('hold').style.display !== 'none' && /Locking in \d+s/.test($('hold').textContent);
+  const noBtn = !document.getElementById('holdBtn');
+  // the landing became a team: the hold is over
+  window.teams = [{ fwd: 'Nur', def: 'Sifat' }];
+  window.renderHold();
+  const closed = $('hold').style.display === 'none';
+  // and it is over once the fifteen seconds are up, team or no team
+  window.teams = [];
+  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() - 20000 };
+  window.renderHold();
+  return { counting, noBtn, closed, expired: $('hold').style.display === 'none' };
+});
+assert.equal(hold.counting, true, 'the wheels landed and nothing counted down');
+assert.equal(hold.noBtn, true, 'a signed-out reader was offered a re-spin');
+assert.equal(hold.closed, true, 'the hold stayed up after the team formed');
+assert.equal(hold.expired, true, 'the hold never expired');
+
+await page.evaluate(() => {
+  window.spin = null; window.teams = []; window.cupId = null;
+  window.allRespins = {}; window.allChal = {}; window.renderHold();
+});
+console.log('re-spin OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

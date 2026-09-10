@@ -58,6 +58,21 @@
         ".validate": "newData.isNumber() || (auth != null && newData.val() === auth.token.email)"
       }
     },
+    "respins": {
+      ".read": true,
+      "$cup": {
+        "$id": {
+          ".write": "auth != null && auth.token.email_verified === true && !data.exists()",
+          ".validate": "newData.hasChildren(['name', 'email', 'rejected', 'n', 'at']) && newData.child('email').val() === auth.token.email",
+          "name": { ".validate": "newData.isString() && newData.val().length > 0" },
+          "email": { ".validate": "newData.isString()" },
+          "rejected": { ".validate": "newData.isString() && newData.val().length > 0" },
+          "n": { ".validate": "newData.isNumber()" },
+          "at": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
     "pushPrefs": {
       ".read": false,
       "$token": {
