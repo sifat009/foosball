@@ -393,6 +393,33 @@
     letter-spacing: 0.18em; color: #96660a; background: #fdf4dc;
     padding: 7px 18px; border-radius: 999px; margin-bottom: 14px;
   }
+  /* THE WALLET. On the home screen, not behind the Challenges button: the board
+     sat behind a badged toolbar button for nine days and took zero rows, and a
+     reward nobody can see from where they already are is not a reward. Unlike
+     #golden this card is never hidden — ten names on zero is the pitch. */
+  #coins { padding: 16px 18px; margin: 0 0 18px; cursor: pointer; }
+  #coins:hover { border-color: #bcd3f7; }
+  .coin-h { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .coin-t { font-weight: 800; color: #172b4d; display: inline-flex; align-items: center; gap: 8px; }
+  .coin-t .ico { width: 18px; height: 18px; }
+  .coin-hint { font-size: 0.72rem; font-weight: 700; color: #2563eb; margin-left: auto; }
+  .coin-rows { display: flex; flex-wrap: wrap; gap: 8px; }
+  .coin-c {
+    display: inline-flex; align-items: baseline; gap: 6px;
+    background: #f4f7fb; border: 1px solid #e7ecf3; border-radius: 999px;
+    padding: 6px 12px; font-size: 0.8rem; font-weight: 700; color: #5b6a7d;
+  }
+  .coin-c b { color: #172b4d; font-weight: 800; }
+  .coin-c .coin-n { color: #96660a; font-weight: 800; }
+  .coin-c.zero .coin-n { color: #c3ccda; }
+  .coin-c.me { background: #fff8e6; border-color: #f0dca8; }
+  .coin-note { font-size: 0.76rem; color: #97a3b3; margin-top: 12px; }
+  .coin-you { background: #f4f7fb; border-radius: 14px; padding: 14px 16px; margin-top: 4px; font-size: 0.85rem; }
+  .coin-you b { color: #96660a; }
+  /* the card is the scroll container, so the way in pins to its bottom edge
+     rather than sitting under however much of the sheet a phone can't show */
+  #coinGo { width: 100%; margin-top: 4px; position: sticky; bottom: 0; }
+
   .gb-race + .gb-race { margin-top: 20px; }
   /* sits beside the pill where there is room, wraps under it on a phone */
   .gb-note { font-size: 0.72rem; color: #97a3b3; margin: 0 0 14px 10px; display: inline-block; }
@@ -628,13 +655,14 @@
   }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss, #alerts, #profile, #chal {
+  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
-  #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open, #chal.open { display: flex; }
+  #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open, #chal.open,
+  #coinInfo.open { display: flex; }
   /* it opens off a row of the Hall, so it has to sit over the Hall */
   #profile { z-index: 45; }
   .hall-card {
@@ -1176,8 +1204,8 @@
      own box rather than crushing eight numbers into a 360px screen */
   .ch-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .ch-lrow {
-    display: grid; grid-template-columns: 20px minmax(92px, 1fr) repeat(7, 28px) 46px;
-    align-items: baseline; gap: 8px 6px; min-width: 372px;
+    display: grid; grid-template-columns: 20px minmax(92px, 1fr) repeat(7, 28px) 46px 40px;
+    align-items: baseline; gap: 8px 6px; min-width: 414px;
     padding: 10px 4px; border-bottom: 1px solid #eef1f6;
   }
   .ch-lrow:last-child { border-bottom: 0; }
@@ -1579,6 +1607,17 @@ Nur</textarea>
   <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
+  <!-- the wallet: above the group stage, which looks backwards during a live cup
+       and is right the rest of the time — it matters most between cups, when the
+       stage below it is finished and the board is what should be happening. -->
+  <div id="coins" class="card" role="button" tabindex="0" aria-label="What coins are">
+    <div class="coin-h">
+      <span class="coin-t"><svg class="ico"><use href="#i-swords"/></svg> Coins</span>
+      <span class="coin-hint">What's this?</span>
+    </div>
+    <div id="coinRows" class="coin-rows"></div>
+    <div id="coinNote" class="coin-note"></div>
+  </div>
   <details id="groupSection" open>
     <summary class="section-title">Group Stage <span class="fold"></span></summary>
     <div id="groups" class="groups"></div>
@@ -1730,6 +1769,37 @@ Nur</textarea>
       </ul>
     </div>
     <button id="rulesClose">Close</button>
+  </div>
+</div>
+
+<!-- The explainer, and the way in. The button at the bottom is the point of the
+     whole surface: an explainer tells somebody what a coin is worth, the button
+     is what turns having read it into a lobby, while they are still interested. -->
+<div id="coinInfo">
+  <div class="hall-card">
+    <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Coins</div>
+    <div class="sheet-body">
+      <p>Coins come from the <b>Challenges</b> board — the casual 2v2 pickup games
+      between cups. They don't touch a title, a badge or the Golden Boot.</p>
+      <div class="rules-h">Earning</div>
+      <ul>
+        <li><b>+2 coins</b> to each player on the winning side of a challenge, once
+        both sides have agreed the score.</li>
+        <li>A draw or a loss pays nothing, and a score still waiting to be confirmed
+        pays nothing until it is.</li>
+      </ul>
+      <div class="rules-h">Spending</div>
+      <ul>
+        <li><b>10 coins</b> buys one <b>re-spin</b> at the draft: when the wheels land
+        on you, you can pay to reject your partner and turn them again.</li>
+        <li><b>Once a cup.</b> Whoever you rejected can't come back to you that night.</li>
+        <li>The rotation still comes first. On the last night of a cycle there is only
+        one legal draw, so there is nowhere for a re-spin to go and nothing is charged.</li>
+      </ul>
+      <div id="coinYou" class="coin-you"></div>
+    </div>
+    <button id="coinGo" class="btn btn-green">Open the Challenges board</button>
+    <button id="coinInfoClose">Close</button>
   </div>
 </div>
 
@@ -2438,6 +2508,7 @@ var hallEntries = [];
 function renderHall(entries) {
   hallEntries = entries;
   renderPlayers(entries);
+  renderCoins(); // a cup reaching history is what turns a re-spin into a charge
   const list = $('hallList');
   if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
   list.innerHTML = '';
@@ -2557,6 +2628,85 @@ function chalLadder(rows) {
   return Object.values(t).sort((a, b) => pct(b) - pct(a) || b.p - a.p || a.name.localeCompare(b.name));
 }
 window.chalLadder = chalLadder;
+
+/* ================= COINS =================
+   A challenge win is worth two coins; ten buys one re-spin at the draft. Derived
+   at render from the same finished lobbies the ladder reads and the rows in
+   `respins` — no rollup node, no stored totals, so correcting a mistyped score
+   corrects every wallet in the building at once.
+
+   Chronological rather than two sums. A spend can only be honoured out of coins
+   already earned, so earnings and spends go into one list ordered by time and are
+   walked once. A lobby earns at its own `at`: the agreed score carries no
+   timestamp of its own, and a lunch game is filed the day it is opened. */
+const COIN_WIN = 2, COIN_RESPIN = 10;
+var allRespins = {}, histCups = new Set();
+
+function coins(rows, respins, played, liveCup) {
+  const bal = {};
+  Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
+  const ev = [];
+  (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
+    const b = +c.score.b, r = +c.score.r;
+    if (b === r) return; // a draw pays nothing — turning up is not an achievement
+    (b > r ? ['bf', 'bd'] : ['rf', 'rd']).forEach(seat =>
+      ev.push({ t: c.at || 0, name: c.slots[seat].name, win: 1 }));
+  });
+  Object.entries(respins || {}).forEach(([cup, byId]) =>
+    Object.values(byId || {}).forEach(r => r && r.name &&
+      ev.push({ t: r.at || 0, name: r.name, cup })));
+  ev.sort((a, b) => a.t - b.t);
+
+  const spent = new Set();
+  ev.forEach(e => {
+    if (bal[e.name] === undefined) return; // not on the player list any more
+    if (e.win) { bal[e.name] += COIN_WIN; return; }
+    /* Only a cup that reached history charges — an abandoned one refunds
+       everyone, the same rule the pair ledger follows. The running cup is not in
+       history yet and charges anyway, which is what stops a second re-spin inside
+       the draft that is happening right now. */
+    if (!played.has(e.cup) && e.cup !== liveCup) return;
+    const key = e.cup + '|' + e.name;
+    if (spent.has(key)) return;                   // one re-spin a cup, per player
+    if (bal[e.name] < COIN_RESPIN) return;        // could not afford it: ignored, not owed
+    spent.add(key);
+    bal[e.name] -= COIN_RESPIN;
+  });
+  return bal;
+}
+window.coins = coins;
+
+// highest first, level balances alphabetical — chalLadder's tie rule, so the card
+// never reorders itself between two readers
+const coinBoard = () => Object.entries(coins(
+    Object.values(allChal || {}).filter(c => c && c.at),
+    allRespins, histCups, cupId ? String(cupId) : null))
+  .map(([name, n]) => ({ name, n }))
+  .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+
+function renderCoins() {
+  const board = coinBoard(), me = myName();
+  const rows = $('coinRows');
+  rows.innerHTML = '';
+  board.forEach(e => {
+    const chip = part('coin-c' + (e.name === me ? ' me' : '') + (e.n ? '' : ' zero'), '', 'span');
+    chip.append(part('', e.name, 'b'), part('coin-n', String(e.n), 'span')); // textContent: names are input
+    rows.append(chip);
+  });
+  $('coinNote').textContent = board.some(e => e.n)
+    ? 'Two coins for a challenge win. Ten buys one re-spin at the draft.'
+    : 'Nobody has earned a coin yet — two coins for a challenge win.';
+
+  const you = $('coinYou');
+  you.textContent = '';
+  if (!me) { you.textContent = 'Sign in as a player to start earning.'; return; }
+  const n = (board.find(e => e.name === me) || { n: 0 }).n;
+  you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), n >= COIN_RESPIN
+    ? ' — enough for a re-spin at the next draft.'
+    : ` — ${Math.ceil((COIN_RESPIN - n) / COIN_WIN)} more challenge win${
+        Math.ceil((COIN_RESPIN - n) / COIN_WIN) === 1 ? '' : 's'} buys a re-spin.`);
+}
+window.renderCoins = renderCoins;
 
 const chalPct = e => Math.round((e.w + e.d / 2) / e.p * 100);
 const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
@@ -2775,18 +2925,19 @@ function ladderEl(rows) {
   scroll.className = 'ch-scroll';
   const head = document.createElement('div');
   head.className = 'ch-lrow hd';
-  ['', 'Player', 'P', 'W', 'D', 'L', 'GF', 'GA', 'Nil', 'Win %'].forEach((t, i) => {
+  ['', 'Player', 'P', 'W', 'D', 'L', 'GF', 'GA', 'Nil', 'Win %', 'Coins'].forEach((t, i) => {
     const s = document.createElement('span');
     s.className = i === 0 ? 'ch-ln' : i === 1 ? 'ch-lname' : '';
     s.textContent = t;
     head.append(s);
   });
   scroll.append(head);
+  const bal = coins(rows, allRespins, histCups, cupId ? String(cupId) : null);
   board.forEach((e, i) => {
     const r = document.createElement('div');
     r.className = 'ch-lrow';
     [[String(i + 1), 'ch-ln'], [e.name, 'ch-lname'], [e.p], [e.w], [e.d], [e.l], [e.gf], [e.ga], [e.nil],
-     [chalPct(e) + '%', 'ch-lpc']].forEach(([t, cls]) => {
+     [chalPct(e) + '%', 'ch-lpc'], [bal[e.name] == null ? '\u2013' : bal[e.name], 'ch-lpc']].forEach(([t, cls]) => {
       const s = document.createElement('span');
       if (cls) s.className = cls;
       s.textContent = t;
@@ -2819,6 +2970,8 @@ function renderChal() {
     : 'Sign in to open or join a challenge.';
   $('chalNew').style.display = name ? '' : 'none';
   if (!name) closeChalForm();
+
+  renderCoins(); // same inputs: the lobbies, and who is signed in
 
   const list = $('chalOpen');
   list.innerHTML = '';
@@ -2944,12 +3097,23 @@ window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate 
   $(close).onclick = () => $(panel).classList.remove('open');
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
 });
+/* The card is the only way into the sheet — it has no toolbar button, the way the
+   profile has none. Keyboard too: it is a role=button, so it has to answer one. */
+$('coins').onclick = () => $('coinInfo').classList.add('open');
+$('coins').onkeydown = e => {
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('coinInfo').classList.add('open'); }
+};
+$('coinInfoClose').onclick = () => $('coinInfo').classList.remove('open');
+$('coinInfo').onclick = e => { if (e.target === $('coinInfo')) $('coinInfo').classList.remove('open'); };
+// the conversion: reading about coins, one tap from the board that pays them
+$('coinGo').onclick = () => { $('coinInfo').classList.remove('open'); $('chal').classList.add('open'); };
+
 // the profile has no toolbar button of its own — a row of the board opens it
 $('profileClose').onclick = () => $('profile').classList.remove('open');
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 /* Every overlay card carries the same X in its corner — built here rather than
    in five copies of the markup, and it dismisses whichever card it sits in. */
-document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal').forEach(p => {
+document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo').forEach(p => {
   const x = document.createElement('button');
   x.className = 'card-x';
   x.type = 'button';
@@ -2971,6 +3135,9 @@ document.addEventListener('keydown', e => {
   if ($('celebrate').style.display === 'flex') { closeCelebration(); return; }
   // the profile sits on the Hall it was opened from, so it closes on its own
   if ($('profile').classList.contains('open')) { $('profile').classList.remove('open'); return; }
+  // the coins sheet sits on the home screen it was opened from, and the board it
+  // opens sits over it — so it closes first, like the profile does
+  if ($('coinInfo').classList.contains('open')) { $('coinInfo').classList.remove('open'); return; }
   ['hall', 'rules', 'toss', 'alerts', 'chal'].forEach(p => $(p).classList.remove('open'));
 });
 const HALL_PANES = { cups: 'hallList', players: 'hallPlayers', badges: 'hallBadges' };
@@ -5156,6 +5323,7 @@ window.clearChampion = id => remove(ref(db, 'history/' + id))
 
 onValue(historyRef, snap => {
   const v = snap.val() || {};
+  histCups = new Set(Object.keys(v));
   window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
 
@@ -5220,6 +5388,9 @@ window.chalRemove = id => remove(ref(db, 'challenges/' + id))
 
 onValue(ref(db, 'challenges'), snap => window.renderChallenges(snap.val() || {}),
   err => console.error('[chal] read failed:', err));
+
+onValue(ref(db, 'respins'), snap => { allRespins = snap.val() || {}; window.renderCoins(); },
+  err => console.error('[respins] read failed:', err));
 
 window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
   set(ref(db, `suggestions/${cup}/${key}`),

@@ -2480,6 +2480,91 @@ await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccoun
 
 console.log('challenges OK');
 
+// ---------- coins ----------
+/* A challenge win is worth two coins, ten buys a re-spin at the draft. The
+   derivation is pure and the page never stores a balance, so drive it directly
+   the way the rotation check drives planDraw. */
+const seat4 = (bf, bd, rf, rd) => ({
+  bf: { name: bf, email: bf + '@x.com' }, bd: { name: bd, email: bd + '@x.com' },
+  rf: { name: rf, email: rf + '@x.com' }, rd: { name: rd, email: rd + '@x.com' },
+});
+const coinCheck = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const g = (at, b, r) => ({ at, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b, r } });
+  const none = new Set();
+  return {
+    // two wins for Sifat and Ofi, two losses for Nur and Rashed
+    twoWins: window.coins([g(1, 5, 3), g(2, 5, 1)], {}, none, null),
+    // a draw pays nobody
+    draw: window.coins([g(1, 4, 4)], {}, none, null),
+    // a claim nobody has confirmed is not a result
+    pendingOnly: window.coins(
+      [{ at: 1, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), pending: { b: 5, r: 3 } }], {}, none, null),
+    // five wins = 10 coins, then a re-spin on a cup that finished
+    spend: window.coins([g(1, 5, 0), g(2, 5, 0), g(3, 5, 0), g(4, 5, 0), g(5, 5, 0)],
+      { c1: { a: { name: 'Sifat', at: 6 } } }, new Set(['c1']), null),
+    // the same re-spin, but the cup never reached history and is not the live one
+    abandoned: window.coins([g(1, 5, 0), g(2, 5, 0), g(3, 5, 0), g(4, 5, 0), g(5, 5, 0)],
+      { c1: { a: { name: 'Sifat', at: 6 } } }, none, null),
+    // filed before the coins were earned: a spend cannot come out of later winnings
+    tooEarly: window.coins([g(9, 5, 0), g(10, 5, 0), g(11, 5, 0), g(12, 5, 0), g(13, 5, 0)],
+      { c1: { a: { name: 'Sifat', at: 1 } } }, new Set(['c1']), null),
+    // two rows, one cup: the second is ignored and costs nothing
+    twice: window.coins(Array.from({ length: 10 }, (_, i) => g(i + 1, 5, 0)),
+      { c1: { a: { name: 'Sifat', at: 90 }, b: { name: 'Sifat', at: 91 } } }, new Set(['c1']), null),
+    // the running cup charges even though it has not reached history yet
+    live: window.coins([g(1, 5, 0), g(2, 5, 0), g(3, 5, 0), g(4, 5, 0), g(5, 5, 0)],
+      { c9: { a: { name: 'Sifat', at: 6 } } }, none, 'c9'),
+  };
+}, String(seat4));
+
+assert.equal(coinCheck.twoWins.Sifat, 4, 'two challenge wins should pay four coins');
+assert.equal(coinCheck.twoWins.Ofi, 4, 'the winning defender earns the same as the forward');
+assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
+assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
+assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
+assert.equal(coinCheck.spend.Sifat, 0, 'five wins then a re-spin should leave nothing');
+assert.equal(coinCheck.spend.Ofi, 10, 'the partner who did not spend was charged');
+assert.equal(coinCheck.abandoned.Sifat, 10, 'a cup that never reached history charged for a re-spin');
+assert.equal(coinCheck.tooEarly.Sifat, 10, 'a re-spin was honoured out of coins earned after it');
+assert.equal(coinCheck.twice.Sifat, 10, 'a second re-spin in one cup was charged — the limit is one');
+assert.equal(coinCheck.live.Sifat, 0, 'the running cup did not charge, so a second re-spin would be free');
+
+// the card is on the home screen, and it is never hidden — ten names on zero is the pitch
+const coinCard = await page.evaluate(() => {
+  window.allRespins = {};
+  window.renderChallenges({});
+  const card = $('coins');
+  return {
+    hidden: getComputedStyle(card).display === 'none',
+    inTourney: !!card.closest('#tourney'),
+    aboveGroups: !!(card.compareDocumentPosition($('groupSection')) & Node.DOCUMENT_POSITION_FOLLOWING),
+    note: $('coinNote').textContent,
+    names: [...document.querySelectorAll('#coinRows .coin-c b')].map(e => e.textContent),
+    values: [...document.querySelectorAll('#coinRows .coin-c .coin-n')].map(e => e.textContent),
+  };
+});
+assert.equal(coinCard.hidden, false, 'the coins card hides itself when everyone is on zero — that is the pitch');
+assert.equal(coinCard.inTourney, true, 'the coins card is not on the home screen');
+assert.equal(coinCard.aboveGroups, true, 'the coins card sits below the group stage instead of above it');
+assert.match(coinCard.note, /Nobody has earned a coin yet/, 'the empty card does not say how to earn one');
+assert.ok(coinCard.values.every(v => v === '0'), 'balances showed before any challenge was played');
+// level balances sort alphabetically, so two readers never see a different order
+assert.deepEqual(coinCard.names, [...coinCard.names].sort((a, b) => a.localeCompare(b)),
+  'level balances did not fall back to alphabetical — the card reorders between readers');
+
+// the sheet explains it, and its button is the way in to the board
+await page.click('#coins');
+assert.ok(await page.isVisible('#coinInfo'), 'tapping the coins card opened nothing');
+assert.match(await page.textContent('#coinInfo'), /\+2 coins/, 'the sheet never says what a win pays');
+assert.match(await page.textContent('#coinInfo'), /10 coins/, 'the sheet never says what a re-spin costs');
+await page.click('#coinGo');
+assert.ok(!(await page.isVisible('#coinInfo')), 'the sheet stayed open behind the board');
+assert.ok(await page.isVisible('#chal'), 'the sheet button did not open the challenges board');
+await page.evaluate(() => $('chal').classList.remove('open'));
+
+console.log('coins OK');
+
 // ---------- the draw rotates: everyone meets everyone before a repeat ----------
 /* Sixteen cups of memoryless draws left Sajeeb+Toufiq together seven times, and
    Rashed and Siddiq never got round the roster. planDraw is pure, so drive it
