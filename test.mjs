@@ -2578,6 +2578,9 @@ await page.click('#coins');
 assert.ok(await page.isVisible('#coinInfo'), 'tapping the coins card opened nothing');
 assert.match(await page.textContent('#coinInfo'), /\+2 coins/, 'the sheet never says what a win pays');
 assert.match(await page.textContent('#coinInfo'), /10 coins/, 'the sheet never says what a re-spin costs');
+// every overlay's Close wears the same button; a bare browser default is a miss
+assert.notEqual(await page.evaluate(() =>
+  getComputedStyle($('coinInfoClose')).borderRadius), '0px', 'the coins sheet Close is unstyled');
 await page.click('#coinGo');
 assert.ok(!(await page.isVisible('#coinInfo')), 'the sheet stayed open behind the board');
 assert.ok(await page.isVisible('#chal'), 'the sheet button did not open the challenges board');
