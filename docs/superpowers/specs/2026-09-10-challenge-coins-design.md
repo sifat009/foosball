@@ -175,23 +175,39 @@ Having it mean anything is not.
 
 ## The hold, and how viewers see it
 
-The one genuinely new piece of the draft. Today `animateSpin` lands and
-`finishSpin` forms the team. Between them goes a hold with a visible countdown,
-defaulting to **15 seconds**, showing the two names and the price to each of
-them.
+The one genuinely new piece of the draft, and smaller than it first looks.
 
-The commit must be identical on every client, and viewers replay from the
-published record rather than from messages, so the record carries the clock:
+Today `animateSpin` lands and its callback runs `finishSpin`, which after a beat
+calls `formTeam` — and `formTeam` calls `save()`. That `save()` is what puts the
+team on every other screen. **Viewers never form a team from a spin.** They
+animate when `s.spin.n` changes (`index.html:3730`) and read `teams` straight out
+of the snapshot (`index.html:3717`).
+
+So the hold is one delay on one client. `finishSpin` waits before `formTeam`
+instead of committing after 1100ms, and every viewer is already waiting on that
+`save()` — nothing to synchronise, no shared clock, no divergence between what
+the admin sees and what the room sees.
+
+A re-spin is then an **ordinary spin**. The admin discards `drawPlan`, adds the
+rejected pair to the blocked set, and publishes `{ n: n + 1, ... }` exactly as
+`spinBtn.onclick` does today. Viewers see `n` change and animate again. No team
+was formed, so there is nothing to undo, and no viewer code changes at all.
+
+One field is added, and only so the countdown reads the same everywhere:
 
 ```
-cup.spin   { n, fi, di, sf, sd, at }      at: new
+cup.spin   { n, fi, di, sf, sd, at }      at: when the wheels landed
 ```
 
-Every client — admin and viewer alike — forms the team when `at + HOLD_MS`
-passes with no replacement. A record arriving with the **same `n`** replaces the
-previous landing: the first is discarded, never formed, and the new one animates.
-No extra signal, no commit message, no divergence between what the admin sees and
-what the room sees.
+Viewers render the remaining hold from `at`; the admin renders it from the same
+number. It decides what the countdown says, never what is committed. An earlier
+draft of this design made every client commit on `at + HOLD_MS`. That was
+solving a problem the replay path does not have, and it would have introduced
+one — two clients disagreeing about a team.
+
+The re-spin fires by itself when an honoured row arrives, rather than waiting for
+the admin to tap again. The payer drove it; making the room wait on the admin
+noticing turns a fifteen-second moment into an awkward one.
 
 The last-pair auto-assign needs no special case. One forward and one defender
 remaining is one legal arrangement, the availability check finds no alternative,
@@ -257,6 +273,8 @@ table, and the app is phone-first everywhere else.
 through `page.evaluate`, the pattern the suite already uses:
 
 - a rejected pair never reappears later in the same draft
+- a re-spin publishes an ordinary n+1 spin, and no team is formed for the landing
+  it replaced
 - the availability check refuses on the last night of a cycle, and charges nothing
 - the check never triggers the `!seen && cool > 0` fallback — a tight night with a
   paid re-spin leaves the rotation's blocking set exactly as it was
