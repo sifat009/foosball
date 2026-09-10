@@ -1,3 +1,10 @@
+> **Superseded 2026-09-10.** The rotation this document rejects is what ships.
+> The club asked for the guarantee — everyone plays with Siddiq and Rashed before
+> anyone repeats — and accepted the price named in "What this is not": the last
+> cup of each cycle has one legal draw. The cooldown described below ran from
+> 2026-09-03 to 2026-09-10. Everything here about the ledger, the data field, the
+> pair key and the plan still holds; only the blocking rule changed.
+
 # The draw has no memory
 
 Every draw since the first cup has been a fresh roll. `spinBtn.onclick` picks a

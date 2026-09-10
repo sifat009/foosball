@@ -3180,39 +3180,57 @@ window.addEventListener('resize', redrawWheels);
 
 const availIdx = players => players.map((p, i) => p.picked ? -1 : i).filter(i => i >= 0);
 
-/* ================= PAIR MEMORY =================
+/* ================= THE ROTATION =================
    Sixteen cups of memoryless draws put Sajeeb + Toufiq together seven times and
    carried three of five teams straight from cup 15 into cup 16. With five a side
    there are only twenty-five possible pairs, so a fresh roll every time will
-   always clump — the draw needs a memory, and this is it: a pair that played in
-   any of the last three cups cannot be drawn again.
+   always clump. The draw runs a rotation instead: inside a cycle, no pair plays
+   twice, so every forward meets every defender exactly once before anyone gets a
+   repeat. Rashed and Siddiq are why — the two weakest players needed every
+   partner in turn, not a tendency toward it — but the rule names nobody.
 
-   Three cups, not four. Four blocks four of five partners per forward, leaving
-   exactly one legal draw from the fifth cup onward — a single five-cup cycle
-   repeating forever, the wheels pure ceremony. It reaches the full rotation the
-   club wanted and pays for it with the draw itself. Three leaves two or three
-   arrangements a night at five a side and everyone meets everyone inside five
-   cups about two nights in five, without ever locking.
+   The cost was weighed and accepted: the legal draws collapse 120 -> 44 -> 13 ->
+   2 -> 1 across a five-cup cycle, so the fourth night is a coin flip and the
+   fifth is known to anyone who kept count. Two nights in five the wheels are
+   ceremony. That is the price of the guarantee.
 
    Keyed on the names sorted, never the roles. Sifat, Nur, Sazedul and Siddiq
    have each played both ends across the sixteen cups, and the only question the
    ledger answers is whether these two were on the same team. */
-const COOLDOWN = 3;
 const pairKey = (a, b) => a < b ? a + '|' + b : b + '|' + a;
 
-// entries are the hall's, oldest first — the index is the cup's age, nothing more
+/* Where the current cycle began, counted in completed cups: the club started this
+   rotation at cup 18, and seventeen cups were in the Hall before it. Nothing in a
+   history entry says which cup it was — `Object.values` drops the key on the way in
+   — so the only handle the ledger has is how many entries precede it, and the seam
+   cannot be read back out of the pairs either: the first cup of a cycle is a free
+   draw, so it need not repeat anything from the cup before it. Hence a constant.
+   Deleting a recorded cup shifts the whole cycle by one; re-set this if that ever
+   happens. */
+const CYCLE_ANCHOR = 17;
+
+/* entries are the hall's, oldest first — the index is the cup's age, nothing more.
+   `cool` is how deep into the current cycle we are, and so how many cups back still
+   block a pair: nothing at the top of a cycle, four cups by its last night.
+
+   Cycle length is the teams per cup, read off the newest entry, so a roster change
+   re-measures it and lands the boundary somewhere new — that restarts the rotation
+   rather than stranding a half-finished cycle, the case that sank an earlier
+   rotation design, and it would have hit four of the sixteen cups played. */
 function pairLedger(entries) {
   const last = new Map();
   entries.forEach((e, i) => (e.teams || []).forEach(t => last.set(pairKey(t.fwd, t.def), i)));
-  return { last, n: entries.length };
+  const len = entries.length ? (entries[entries.length - 1].teams || []).length : 0;
+  const since = Math.max(0, entries.length - CYCLE_ANCHOR);
+  return { last, n: entries.length, cool: len ? since % len : 0 };
 }
 
 /* Every way to pair these forwards with these defenders, minus the arrangements
-   that revive a recent team; one of the survivors at random. Six a side is 720
-   arrangements and the cooldown prunes most of them, so this is a walk, not a
+   that revive a pair from this cycle; one of the survivors at random. Six a side
+   is 720 arrangements and the cycle prunes most of them, so this is a walk, not a
    search. Reservoir sampling rather than an array of every candidate: the count
    is factorial and only one of them is ever used. */
-function planDraw(fwdNames, defNames, ledger, cool = COOLDOWN) {
+function planDraw(fwdNames, defNames, ledger, cool = ledger.cool) {
   const fresh = (f, d) => {
     const at = ledger.last.get(pairKey(f, d));
     return at === undefined || ledger.n - at > cool;
@@ -3228,12 +3246,12 @@ function planDraw(fwdNames, defNames, ledger, cool = COOLDOWN) {
       acc.pop(); used[j] = 0;
     }
   })(0);
-  /* One surviving arrangement is no draw at all — the wheels would be replaying a
-     result anyone could have worked out beforehand — and none at all wedges. Both
-     loosen. Four a side is why: three of four partners blocked leaves each forward
-     a single legal partner, and the club has played two cups that short. `seen` is
-     the reservoir's own count, so this costs nothing extra. */
-  if (seen <= 1 && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1);
+  /* A single survivor is the rotation working — the last cup of a cycle has one
+     legal draw by construction, and relaxing there would give back the guarantee
+     the whole thing was built for. Zero survivors is the roster having changed
+     underneath a half-finished cycle, and that must never wedge the draw: forget
+     the oldest cup of the cycle and try again, down to a free roll. */
+  if (!seen && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1);
   if (!keep) return [];
   const plan = fwdNames.map((f, i) => ({ fwd: f, def: keep[i] }));
   // the reveal would otherwise run straight down the forward list

@@ -2480,63 +2480,73 @@ await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccoun
 
 console.log('challenges OK');
 
-// ---------- the draw remembers who played with whom ----------
-/* Sixteen cups of memoryless draws left Sajeeb+Toufiq together seven times.
-   planDraw is pure, so drive it directly rather than through sixteen draft runs. */
+// ---------- the draw rotates: everyone meets everyone before a repeat ----------
+/* Sixteen cups of memoryless draws left Sajeeb+Toufiq together seven times, and
+   Rashed and Siddiq never got round the roster. planDraw is pure, so drive it
+   directly rather than through twenty draft runs. */
 const drawCheck = await page.evaluate(() => {
   const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
   const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
   const key = (a, b) => a < b ? a + '|' + b : b + '|' + a;
-  const cups = [];                                 // hall entries, oldest first
-  const out = { badPair: null, badShape: null, worst: 0, empty: [] };
+  const out = { badShape: null, badCycle: null, empty: [], wedged: [] };
 
-  for (let c = 0; c < 16; c++) {
+  /* The seventeen cups played before the rotation started. They are shaped like
+     hall entries so the ledger can read a cycle length off them, and nothing more
+     is asked of them — cup 18 is a free draw, so their pairs never block. */
+  const cups = [];
+  for (let c = 0; c < 17; c++)
+    cups.push({ teams: F.map((f, i) => ({ fwd: f, def: D[(i + c) % 5] })) });
+
+  for (let c = 0; c < 20; c++) {                   // four whole five-cup cycles
     const plan = planDraw(F, D, pairLedger(cups));
     // a plan must be a perfect matching: every player once, nobody twice
     const fs = new Set(plan.map(t => t.fwd)), ds = new Set(plan.map(t => t.def));
     if (plan.length !== 5 || fs.size !== 5 || ds.size !== 5) out.badShape = { c, plan };
-    // and nobody from any of the last three cups
-    for (const t of plan) {
-      for (const prev of cups.slice(-3))
-        if (prev.teams.some(o => key(o.fwd, o.def) === key(t.fwd, t.def)))
-          out.badPair = { c, pair: key(t.fwd, t.def) };
-    }
     cups.push({ teams: plan });
   }
-  const tally = new Map();
-  cups.forEach(c => c.teams.forEach(t => {
-    const k = key(t.fwd, t.def);
-    tally.set(k, (tally.get(k) || 0) + 1);
-  }));
-  out.worst = Math.max(...tally.values());
+  /* The guarantee itself: five cups holding twenty-five distinct pairs is a Latin
+     square, so every forward met every defender exactly once — Siddiq and Rashed
+     included, which is the whole point of the rotation. */
+  for (let c = 17; c < 37; c += 5) {
+    const seen = new Set();
+    cups.slice(c, c + 5).forEach(x => x.teams.forEach(t => seen.add(key(t.fwd, t.def))));
+    if (seen.size !== 25) out.badCycle = { firstCup: c + 1, distinct: seen.size };
+  }
 
-  // every roster size the club has actually used, plus the relaxation path:
-  // a ledger where every pair is on cooldown must still produce a full draw
+  /* Where the club actually stands: nineteen cups recorded, cup 20 on the table,
+     so tonight is the third of the cycle and the two cups behind it are blocked. */
+  out.coolTonight = pairLedger(cups.slice(0, 19)).cool;
+
+  /* The accepted cost, pinned so it cannot quietly turn back into a cooldown: four
+     cups into a cycle there is exactly one legal draw, and the draw must return it
+     rather than loosen. */
+  const four = pairLedger(cups.slice(0, 21));
+  const seenLast = new Set();
+  for (let i = 0; i < 20; i++)
+    seenLast.add(planDraw(F, D, four).map(t => key(t.fwd, t.def)).sort().join(','));
+  out.lastCupVariants = seenLast.size;
+
+  // every roster size the club has actually used, drawn from a clean ledger
   for (const n of [4, 5, 6]) {
     const f = F.concat('Abir').slice(0, n), d = D.concat('Irin').slice(0, n);
     if (planDraw(f, d, pairLedger([])).length !== n) out.empty.push(n);
-    const all = { teams: f.map((x, i) => ({ fwd: x, def: d[i] })) };
-    if (planDraw(f, d, pairLedger([all, all, all])).length !== n) out.empty.push(n + 100);
   }
-
-  /* Four a side, every forward down to one legal partner: three cups that each
-     shift the pairing by one leave exactly one arrangement at the full cooldown.
-     The draw must loosen rather than hand back the same teams every time. */
-  const f4 = F.slice(0, 4), d4 = D.slice(0, 4);
-  const shifted = k => ({ teams: f4.map((x, i) => ({ fwd: x, def: d4[(i + k) % 4] })) });
-  const forced = pairLedger([shifted(0), shifted(1), shifted(2)]);
-  const seen4 = new Set();
-  for (let i = 0; i < 40; i++)
-    seen4.add(planDraw(f4, d4, forced).map(t => key(t.fwd, t.def)).sort().join(','));
-  out.forcedVariants = seen4.size;
+  /* Abir and Irin have come and gone and two cups ran four a side. A roster that
+     changes under a half-finished cycle must relax, never wedge. */
+  const mid = cups.slice(0, 19);                   // two cups into a cycle
+  for (const n of [4, 6]) {
+    const f = F.concat('Abir').slice(0, n), d = D.concat('Irin').slice(0, n);
+    if (planDraw(f, d, pairLedger(mid)).length !== n) out.wedged.push(n);
+  }
   return out;
 });
 assert.equal(drawCheck.badShape, null, 'planDraw returned something that is not a perfect matching');
-assert.equal(drawCheck.badPair, null, 'a pair was redrawn inside the three-cup cooldown');
-assert.ok(drawCheck.worst < 5, `worst pair repeated ${drawCheck.worst} times in 16 cups — the cooldown is not biting`);
-assert.deepEqual(drawCheck.empty, [], 'planDraw wedged instead of relaxing the cooldown');
-assert.ok(drawCheck.forcedVariants > 1, 'four a side left exactly one legal draw and planDraw kept returning it');
-console.log('draw cooldown OK — worst pair over 16 cups:', drawCheck.worst);
+assert.equal(drawCheck.badCycle, null, 'a five-cup cycle was not a full rotation: ' + JSON.stringify(drawCheck.badCycle));
+assert.equal(drawCheck.coolTonight, 2, 'cup 20 is not the third cup of the cycle — the anchor has slipped');
+assert.equal(drawCheck.lastCupVariants, 1, 'the last cup of a cycle was not forced — the rotation is leaking');
+assert.deepEqual(drawCheck.empty, [], 'planDraw wedged on a clean ledger');
+assert.deepEqual(drawCheck.wedged, [], 'planDraw wedged when the roster changed mid-cycle');
+console.log('draw rotation OK — four cycles, every pair once each');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
