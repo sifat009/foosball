@@ -208,6 +208,7 @@
   #hold { text-align: center; margin-top: 10px; }
   .hold-t { font-size: 0.82rem; font-weight: 700; color: #97a3b3; }
   .hold-t b { color: #96660a; }
+  .hold-why { margin-top: 8px; font-size: 0.78rem; font-weight: 600; color: #97a3b3; }
   #holdBtn { margin-top: 10px; }
   #status b { color: #96660a; }
   #status .last-pick { color: #17854a; font-weight: 800; }
@@ -2639,6 +2640,9 @@ const CH_STALE = 6 * 3600e3; // an unplayed lobby this long past kick-off is ove
 
 var acctEmail = null, allChal = {}, chalLit = null, newSeat = null;
 const myName = () => EMAIL_NAMES[acctEmail] || null;
+// the module script signs you in; this is how it asks the page who that turned out
+// to be, since an address is not a player until EMAIL_NAMES says so
+window.playerName = () => myName();
 const chalFull = c => SEATS.every(([id]) => c.slots && c.slots[id]);
 const chalDone = c => !!(c.score && c.score.b != null && c.score.r != null);
 /* A claim, not a score: one of the four has filed a result and it is waiting on
@@ -3678,14 +3682,23 @@ function renderHold() {
   if (!on) { el.innerHTML = ''; return; }
   const left = Math.ceil(((spin.at || 0) + HOLD_MS - Date.now()) / 1000);
   const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
-  const me = myName();
+  const me = myName(), n = myCoins() || 0;
   const partner = me === f ? d : me === d ? f : null;
   el.innerHTML = '';
   const t = part('hold-t', '', 'div');
   t.append('Locking in ', part('', left + 's', 'b'));
   el.append(t);
-  if (!partner || !cupId) return;
-  if (!respinHonoured({ name: me, at: Date.now() }) || !canRespin(me, partner)) return;
+  if (!partner) return;
+  /* Every one of these used to be silence, and silence reads as a bug rather than
+     as a rule — which is exactly how a dead cupId hid for a whole release. If the
+     button is not there, the reason is. */
+  const spent = respinRows().some(r => r.name === me);
+  const why = !cupId ? 'This draft has no cup id — reopen it to spend coins.'
+    : spent ? 'You have already used your re-spin this cup.'
+    : n < COIN_RESPIN ? `${COIN_RESPIN} coins for a re-spin — you have ${n}.`
+    : !canRespin(me, partner) ? 'No re-spin tonight — the rotation leaves you no other partner.'
+    : null;
+  if (why) { el.append(part('hold-why', why)); return; }
   const btn = document.createElement('button');
   btn.id = 'holdBtn';
   btn.className = 'btn btn-gold';
@@ -5834,9 +5847,15 @@ onAuthStateChanged(auth, user => {
   window.setAccount(user && user.emailVerified ? user.email : null);
   // only the label moves — the icon and data-lbl are what the mobile tab bar shows
   $('authBtn').querySelector('use').setAttribute('href', admin ? '#i-check' : '#i-user');
+  /* "Sign out" answers what the button does and not who you are, which is the
+     question actually being asked — the coin pill next to it is your balance, and
+     it means nothing without a name against it. data-lbl too: that is all the
+     mobile tab bar shows, and it read "Account" for everybody. */
+  const who = window.playerName && window.playerName();
   $('authBtn').querySelector('.lbl').textContent = user
-    ? (admin ? ' Admin — sign out' : ' Sign out')
+    ? (who ? ` ${who} — sign out` : admin ? ' Admin — sign out' : ' Sign out')
     : ' Sign in';
+  $('authBtn').dataset.lbl = who || 'Account';
 });
 
 $('authBtn').onclick = () => {

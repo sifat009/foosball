@@ -2788,6 +2788,41 @@ const btnReal = await page.evaluate(() => {
 });
 assert.equal(btnReal.offered, true, 'the player the wheels landed on was offered no re-spin');
 assert.equal(btnReal.bystander, false, 'somebody outside the landed pair was offered a re-spin');
+
+/* A missing button must always carry its reason. Silence is how a dead cupId hid
+   for a whole release: a real bug and an ordinary rule looked identical. */
+const holdWhy = await page.evaluate(() => {
+  const read = () => (document.querySelector('.hold-why') || {}).textContent || '';
+  const out = {};
+  window.spin = { n: 1, fi: 0, di: 2, sf: 0, sd: 0, at: Date.now() };  // Nur + Rashed
+  window.setAccount('toufiq@x.com');                           // in no pair: nothing to say
+  window.renderHold();
+  out.bystander = read();
+  window.setAccount('rashed@x.com');                           // in the pair, lost all five
+  window.renderHold();
+  out.broke = read();
+  window.setAccount('nur@x.com');                              // in the pair, ten coins
+  window.allRespins = { [String(cupId)]: { a: { name: 'Nur', rejected: 'Ofi', n: 0, at: 1 } } };
+  window.renderHold();
+  out.spent = read();
+  window.allRespins = {};
+  const keep = window.cupId; window.cupId = null;
+  window.renderHold();
+  out.noId = read();
+  window.cupId = keep;
+  return out;
+});
+assert.equal(holdWhy.bystander, '', 'somebody not in the landed pair was told why they cannot re-spin');
+assert.match(holdWhy.broke, /10 coins for a re-spin — you have 0/, 'a player short of coins is not told so');
+assert.match(holdWhy.spent, /already used your re-spin/, 'a second re-spin is refused without saying why');
+assert.match(holdWhy.noId, /no cup id/, 'a draft with no cup id fails silently — the exact bug that hid');
+window: {
+  const nameLbl = await page.evaluate(() => {
+    window.setAccount('nur@x.com');
+    return { lbl: window.playerName(), tab: $('authBtn').dataset.lbl };
+  });
+  assert.equal(nameLbl.lbl, 'Nur', 'the page cannot say which player is signed in');
+}
 assert.equal(btnReal.broke, false, 'a re-spin was offered to somebody who is not in the pair');
 
 // the hold: a landing that has not become a team yet, counting down on every screen
