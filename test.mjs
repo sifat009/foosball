@@ -2832,6 +2832,47 @@ window: {
 }
 assert.equal(btnReal.broke, false, 'a re-spin was offered to somebody who is not in the pair');
 
+/* A viewer is where this lives: the two named players are almost never the admin.
+   applyState is their only source of state, so drive it the way the database does
+   rather than setting the globals by hand — which is how `spin` never being
+   assigned there survived every check above. */
+const viewerHold = await page.evaluate(async () => {
+  const F = ['Nur', 'Rifat'], D = ['Sifat', 'Ofi'];
+  window.isAdmin = false;
+  document.body.classList.add('view');
+  window.lastSpinN = null;
+  window.SPIN_MS = 10;
+  const state = {
+    screen: 'draw', cupId: '4242',
+    fwds: F.map(n => ({ name: n, picked: false })), defs: D.map(n => ({ name: n, picked: false })),
+    teams: [], spin: null,
+  };
+  window.applyState(state);
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const g = (at, b, r) => ({ at, playAt: at,
+    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
+  window.allRespins = {}; window.histCups = new Set(); window.renderHall([]);
+  window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
+  window.setAccount('nur@x.com');                       // Nur: 10 coins, on the forward wheel
+  // the admin spins: the snapshot carries the landing, not just its number
+  window.applyState(Object.assign({}, state,
+    { spin: { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() } }));
+  await new Promise(r => setTimeout(r, 60));
+  window.renderHold();
+  const out = {
+    gotSpin: !!window.spin,
+    counting: /Locking in/.test($('hold').textContent),
+    offered: !!document.getElementById('holdBtn'),
+  };
+  window.SPIN_MS = 4000;
+  document.body.classList.remove('view');
+  window.isAdmin = true; window.lastSpinN = null;
+  return out;
+});
+assert.equal(viewerHold.gotSpin, true, 'a viewer never learns what the wheels landed on');
+assert.equal(viewerHold.counting, true, 'a viewer sees no countdown — the hold is admin-only');
+assert.equal(viewerHold.offered, true, 'a viewer in the landed pair was offered no re-spin');
+
 // the hold: a landing that has not become a team yet, counting down on every screen
 const hold = await page.evaluate(() => {
   window.allRespins = {}; window.allChal = {};

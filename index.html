@@ -4091,6 +4091,14 @@ function applyState(s) {
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
     stopCountdown();
     fwds = s.fwds; defs = s.defs; teams = s.teams || [];
+    /* The landing itself, not just its animation. The replay below reads s.spin
+       to turn the wheels and used to drop it on the floor, so on every viewer the
+       module's `spin` stayed null for the whole draft — and renderHold, which
+       decides a hold is on by comparing spin.n against teams.length, saw nothing
+       to hold. The countdown, the button and the reason line were admin-only.
+       It round-trips the admin's own write, so assigning it here is a no-op for
+       them and the whole feature for everybody else. */
+    spin = s.spin || null;
     doubleRound = !!s.doubleRound; // old cups predate the field — default single round-robin
     $('doubleRoundChk').checked = doubleRound;
     $('teamList').innerHTML = '';
