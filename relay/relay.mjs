@@ -16,7 +16,6 @@
  *   DB_URL                          databaseURL from the firebase config
  *   ADMIN_EMAIL                     must match ADMIN_EMAIL in index.html
  *   SITE_URL                        where tapping a notification lands
- *   TZ                              the office timezone, for kick-off times
  */
 /* The two decisions worth getting right, kept pure so test-relay.mjs can check
    them without a database or a service-account key. firebase-admin is imported
@@ -84,13 +83,6 @@ export const sugText = v => {
 export const SEAT_IDS = ['bf', 'bd', 'rf', 'rd'];
 export const chalSeats = c => SEAT_IDS.filter(s => c && c.slots && c.slots[s]);
 export const chalScored = c => !!(c && c.score && c.score.b != null && c.score.r != null);
-/* Pinned, not the host's clock: this text is written once on the VM and read
-   on every phone, so it has to be the office's time whatever the box thinks it
-   is. TZ in the unit file is a hint the host can lose (an unset TZ printed a
-   kick-off 1h45m out); the office moves timezone less often than the VM does. */
-export const OFFICE_TZ = 'Asia/Dhaka';
-export const chalTime = ms => new Date(ms).toLocaleTimeString('en-US',
-  { hour: 'numeric', minute: '2-digit', timeZone: OFFICE_TZ });
 export const chalPair = (c, a, b) => `${c.slots[a].name} & ${c.slots[b].name}`;
 export const chalTeams = c => `${chalPair(c, 'bf', 'bd')} vs ${chalPair(c, 'rf', 'rd')}`;
 
@@ -116,7 +108,7 @@ export const chalOthers = (c, side) => (side === 'b' ? ['rf', 'rd'] : ['bf', 'bd
 
    A lobby first seen already full or already played is news to nobody: that is
    a row this process simply hadn't met yet, not something that just happened. */
-export const chalNews = (prev, c, fmt = chalTime) => {
+export const chalNews = (prev, c) => {
   if (!c || !c.at) return null;
   const seats = chalSeats(c), scored = chalScored(c);
   if (!prev) {
@@ -125,7 +117,7 @@ export const chalNews = (prev, c, fmt = chalTime) => {
     const who = seats.length ? c.slots[seats[0]].name : 'Someone';
     return {
       title: 'Challenge open',
-      body: `${who} wants a game at ${fmt(c.playAt)} — ${left} ${left === 1 ? 'seat' : 'seats'} left.`,
+      body: `${who} wants a game — ${left} ${left === 1 ? 'seat' : 'seats'} left.`,
       except: c.by,
     };
   }
@@ -158,7 +150,7 @@ export const chalNews = (prev, c, fmt = chalTime) => {
     const last = seats.find(x => !prev.seats.includes(x));
     return {
       title: 'Challenge on',
-      body: `${chalTeams(c)} at ${fmt(c.playAt)}.`,
+      body: `${chalTeams(c)} — all four in.`,
       except: last ? c.slots[last].email : null,
     };
   }
@@ -263,31 +255,13 @@ async function main() {
   });
 
   /* Challenges. `seen` seeds on the first snapshot for the same reason
-     suggestions does — otherwise a restart re-announces every open lobby.
-
-     The reminder is armed from the snapshot rather than from the news, so a
-     restart re-arms every pending kick-off: the listener refires on boot with
-     the whole node, exactly as /notify rows are re-read. */
+     suggestions does — otherwise a restart re-announces every open lobby. */
   let chalSeen = null;
-  const armChal = (id, c) => {
-    const key = 'chal:' + id;
-    const wait = (c.playAt || 0) - Date.now();
-    const due = chalSeats(c).length === 4 && !chalScored(c) && wait > 0 && wait < 2 ** 31 - 1;
-    if (!due) return cancel(key);
-    if (timers.has(key)) return;
-    timers.set(key, setTimeout(() => {
-      timers.delete(key);
-      send('Kick-off', `${chalTeams(c)} — the challenge starts now.`, false, 'challenge')
-        .catch(e => console.error('[send] failed:', e));
-    }, wait));
-  };
-
   db.ref('challenges').on('value', s => {
     const now = new Map();
     Object.entries(s.val() || {}).forEach(([id, c]) => {
       if (!c || !c.at) return;
       now.set(id, { seats: chalSeats(c), scored: chalScored(c), claim: chalClaimId(c) });
-      armChal(id, c);
       if (!chalSeen) return; // first pass only seeds
       const news = chalNews(chalSeen.get(id), c);
       // the admin rides along on a claim as the fallback confirmer, and is the
@@ -295,8 +269,6 @@ async function main() {
       if (news) send(news.title, news.body, false, news.kind || 'challenge', news.except,
         news.only && [...news.only, ADMIN_EMAIL]).catch(e => console.error('[send] failed:', e));
     });
-    // a cancelled lobby takes its reminder with it
-    if (chalSeen) chalSeen.forEach((_, id) => { if (!now.has(id)) cancel('chal:' + id); });
     chalSeen = now;
   });
 

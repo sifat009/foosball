@@ -2073,20 +2073,20 @@ const CH = await page.evaluate(() => {
   return {
     seat: seat('Sifat'),
     fixture: {
-      open1: { by: 'sifat@x.com', at: Date.now(), playAt: Date.now() + HOUR,
+      open1: { by: 'sifat@x.com', at: Date.now(),
                slots: { bf: seat('Sifat'), rf: seat('Nur') } },
-      open2: { by: 'nur@x.com', at: Date.now(), playAt: Date.now() + 2 * HOUR,
+      open2: { by: 'nur@x.com', at: Date.now(),
                slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rashed'), rd: seat('Toufiq') } },
-      stale: { by: 'ofi@x.com', at: Date.now() - 30 * HOUR, playAt: Date.now() - 24 * HOUR,
+      stale: { by: 'ofi@x.com', at: Date.now() - 30 * HOUR,
                slots: { bf: seat('Ofi') } },
       // three played games: Sifat 2 wins, Nur a win and a loss, a 4-4 draw, one nil
-      d1: { by: 'sifat@x.com', at: 1, playAt: 1,
+      d1: { by: 'sifat@x.com', at: 1,
             slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') },
             score: { b: 5, r: 3 } },
-      d2: { by: 'sifat@x.com', at: 2, playAt: 2,
+      d2: { by: 'sifat@x.com', at: 2,
             slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') },
             score: { b: 5, r: 0 } },
-      d3: { by: 'nur@x.com', at: 3, playAt: 3,
+      d3: { by: 'nur@x.com', at: 3,
             slots: { bf: seat('Nur'), bd: seat('Toufiq'), rf: seat('Sifat'), rd: seat('Ofi') },
             score: { b: 4, r: 4 } },
     },
@@ -2534,7 +2534,7 @@ assert.equal(coinCheck.live.Sifat, 0, 'the running cup did not charge, so a seco
 const coinCard = await page.evaluate(() => {
   window.allRespins = {};
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at, playAt: at,
+  const g = (at, b, r) => ({ at,
     slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
   window.setAccount(null);
   window.renderChallenges({});
@@ -2735,7 +2735,7 @@ assert.equal(respinCheck.looseWouldRelax, true,
 // one a cup, and only out of coins already banked
 const honour = await page.evaluate(() => {
   const seat = n => ({ name: n, email: n + '@x.com' });
-  const g = (at, b, r) => ({ at, playAt: at,
+  const g = (at, b, r) => ({ at,
     slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
   window.cupId = '999';
   window.allChal = {};                              // five wins for Nur and Ofi = 10 coins
@@ -2779,7 +2779,7 @@ const btnReal = await page.evaluate(() => {
   window.fwds = F.map(n => ({ name: n })); window.defs = D.map(n => ({ name: n }));
   window.teams = []; window.histCups = new Set(); window.allRespins = {};
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at, playAt: at,
+  const g = (at, b, r) => ({ at,
     slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
   window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
   window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };   // Nur + Sifat
@@ -2849,7 +2849,7 @@ const viewerHold = await page.evaluate(async () => {
   };
   window.applyState(state);
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at, playAt: at,
+  const g = (at, b, r) => ({ at,
     slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
   window.allRespins = {}; window.histCups = new Set(); window.renderHall([]);
   window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });

@@ -97,9 +97,9 @@ footer explains the format, the table, and the knockout — keep it in step with
 ## Challenges
 
 Between cups there is the **Challenges** board: casual 2v2 pickup games that
-count for nothing a cup counts. One player opens a lobby — their seat and a
-kick-off time — and the other three seats fill from whoever sees it. Any of the
-four then files the score, and somebody from the other side of the table has to
+count for nothing a cup counts. One player opens a lobby by taking a seat, and
+the other three fill from whoever sees it. There is no kick-off time: people
+play when they play. Any of the four then files the score, and somebody from the other side of the table has to
 agree to it. Cup titles, badges, the Golden Boot and the Players board are
 untouched by all of it: nothing here ever writes to `history`.
 
@@ -107,8 +107,8 @@ It lives at `challenges/<id>`, where the id is `Date.now()`, the same
 convention `cupId` uses:
 
 ```
-by      the creator's email        playAt  kick-off, set by the creator
-at      opened                     slots   bf / bd / rf / rd -> { name, email }
+by      the creator's email        slots   bf / bd / rf / rd -> { name, email }
+at      opened; a lobby nobody filled ages out a day later
 score   { b, r }, the agreed result, absent until both sides have agreed
 pending { b, r, by, side, at }, a claim in flight, absent the rest of the time
 ```
@@ -199,7 +199,7 @@ honestly the tapper's own.
 Leaving is allowed until a score is filed and reopens the seat; the creator can
 cancel at any point. A filed score can be corrected by the four or by the
 admin, because mistyping 5-3 as 53 must not need a database console. A lobby
-still unfilled six hours past its kick-off drops off the board, and the admin's
+still unfilled a day after it was opened drops off the board, and the admin's
 page is what actually deletes those rows — it holds the only account allowed to.
 
 ## Coins
@@ -398,12 +398,8 @@ account would let any Google user push to every phone in the office.
 
 A challenge announces itself three times — opened, all four seats gone, score
 filed — and one `value` listener tells them apart by diffing against the last
-snapshot. A full lobby also arms a kick-off reminder on the relay's own timer.
-Whoever caused an announcement is left out of it: `recipients` takes an
-`except` address, so nobody is pinged about their own tap. Kick-off times are
-formatted in `OFFICE_TZ` at the top of `relay.mjs` (`Asia/Dhaka`), not the
-host's clock — a VM that quietly sits on another timezone can't print the wrong
-kick-off. Change that constant if the office moves.
+snapshot. Whoever caused an announcement is left out of it: `recipients` takes
+an `except` address, so nobody is pinged about their own tap.
 
 **Until it's configured nothing changes.** `VAPID_KEY` in `index.html` is empty
 by default and the Notify button stays hidden, so the app is exactly what it
@@ -493,7 +489,6 @@ Environment=GOOGLE_APPLICATION_CREDENTIALS=/opt/foosball-relay/sa.json
 Environment=DB_URL=https://ollyo-foosball-default-rtdb.asia-southeast1.firebasedatabase.app
 Environment=ADMIN_EMAIL=bhacker150@gmail.com
 Environment=SITE_URL=https://sifat009.github.io/foosball/
-Environment=TZ=Asia/Dhaka
 User=foosrelay
 Restart=always
 RestartSec=10

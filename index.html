@@ -127,18 +127,18 @@
     display: block; font-weight: 800; margin-bottom: 10px;
     text-transform: uppercase; letter-spacing: 0.14em; font-size: 0.82rem; color: #7d8a9c;
   }
-  #schedInput, #chalWhen {
+  #schedInput {
     font-family: inherit; font-size: 1rem; padding: 10px 14px; border-radius: 12px;
     border: 2px solid #e7ecf3; color: #16233a; background: #fff;
   }
-  #schedInput:focus, #chalWhen:focus { border-color: #17854a; outline: none; }
+  #schedInput:focus { border-color: #17854a; outline: none; }
   /* wraps on a narrow phone so the button drops under the picker instead of squeezing it */
   .sched-controls { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
-  #schedNow, #chalNow {
+  #schedNow {
     font-family: inherit; font-size: 0.9rem; font-weight: 800; padding: 10px 18px;
     border-radius: 12px; border: 2px solid #e7ecf3; background: #fff; color: #17854a; cursor: pointer;
   }
-  #schedNow:hover, #chalNow:hover { border-color: #17854a; }
+  #schedNow:hover { border-color: #17854a; }
   #schedNote { margin-top: 10px; color: #17854a; font-weight: 700; font-size: 0.9rem; min-height: 1.2em; }
   /* viewer: live-draft countdown */
   #countdown { text-align: center; padding-top: 4vh; }
@@ -1156,8 +1156,6 @@
     text-underline-offset: 3px;
   }
   .ch-link:hover { color: #d43d3d; }
-  #chalErr { color: #d43d3d; font-size: 0.8rem; font-weight: 700; margin-top: 10px; }
-  #chalErr:empty { display: none; }
   .ch-card {
     border: 1px solid #e7ecf3; border-radius: 16px; padding: 14px; margin-bottom: 12px;
     background: #fff;
@@ -1488,16 +1486,10 @@
     <div id="chalForm" hidden>
       <div class="ch-flbl">Choose your position</div>
       <div class="ch-grid" id="chalNewSeats"></div>
-      <div class="ch-flbl">Kick-off</div>
-      <div class="sched-controls">
-        <input type="datetime-local" id="chalWhen">
-        <button type="button" id="chalNow">Now</button>
-      </div>
       <div class="ch-fact">
         <button id="chalPost" class="btn btn-green">Post it</button>
         <button id="chalDrop" class="ch-link" type="button">Cancel</button>
       </div>
-      <div id="chalErr"></div>
     </div>
     <div class="hall-tabs" id="chalTabs">
       <button class="hall-tab active" data-tab="open">Open</button>
@@ -2618,9 +2610,11 @@ function renderHall(entries) {
 window.renderHall = renderHall;
 
 /* ================= CHALLENGES =================
-   Casual 2v2 pickup games between cups: one player opens a lobby with a
-   kick-off time, three others take the remaining seats, any of the four files
-   the score. Its own node and its own board — nothing here ever reaches
+   Casual 2v2 pickup games between cups: one player opens a lobby by taking a
+   position, three others take the remaining seats, any of the four files the
+   score. No kick-off time: people played in their own time and the clock on
+   the card was only ever a guess, so a lobby is an open invitation that ages
+   out a day after it was opened. Its own node and its own board — nothing here ever reaches
    `history`, so no title, badge or Golden Boot moves because of a lunch-break
    game.
 
@@ -2645,7 +2639,7 @@ const EMAIL_NAMES = {
    so the same four entries lay out the card and the create form. */
 const SEATS = [['bf', 'Blue', 'Forward'], ['rf', 'Red', 'Forward'],
                ['bd', 'Blue', 'Defender'], ['rd', 'Red', 'Defender']];
-const CH_STALE = 6 * 3600e3; // an unplayed lobby this long past kick-off is over
+const CH_STALE = 24 * 3600e3; // an unplayed lobby this long after it opened is over
 
 var acctEmail = null, allChal = {}, chalLit = null, newSeat = null;
 const myName = () => EMAIL_NAMES[acctEmail] || null;
@@ -2662,7 +2656,7 @@ const chalPending = c => c.pending && c.pending.b != null && c.pending.r != null
    So does one with a claim on it: nothing ratifies a claim by silence, so a
    score filed at the table must not fall off the board that evening while it
    waits for the opponent to open the app. */
-const chalLive = c => chalDone(c) || !!chalPending(c) || (c.playAt || c.at || 0) + CH_STALE > Date.now();
+const chalLive = c => chalDone(c) || !!chalPending(c) || (c.at || 0) + CH_STALE > Date.now();
 const chalSat = c => !!acctEmail && SEATS.some(([id]) => c.slots && c.slots[id] && c.slots[id].email === acctEmail);
 // which half of the table you are sitting at, or null if you are watching
 const chalSide = c => !acctEmail ? null
@@ -2899,7 +2893,7 @@ function chalCard(c) {
   el.id = 'ch-' + c.id;
   const left = 4 - SEATS.filter(([seat]) => c.slots && c.slots[seat]).length;
   const when = part('ch-when');
-  when.append(part('', fmtWhen(c.playAt || c.at, 'short'), 'b'),
+  when.append(part('', 'Opened ' + fmtWhen(c.at), 'b'),
     part('', chalDone(c) ? 'Played' : left ? left + (left === 1 ? ' seat left' : ' seats left') : 'All four in', 'i'));
   const grid = part('ch-grid');
   SEATS.forEach(([seat, team, role]) => grid.append(seatBtn(c, seat, team, role)));
@@ -2942,10 +2936,9 @@ function chalCard(c) {
 async function shareChal(c, btn) {
   const url = new URL('#c/' + c.id, location.href).href;
   const left = 4 - SEATS.filter(([seat]) => c.slots && c.slots[seat]).length;
-  const when = fmtWhen(c.playAt || c.at, 'short');
   const text = left
-    ? `Foosball at ${when} — ${left} ${left === 1 ? 'seat' : 'seats'} left. Take one.`
-    : `Foosball at ${when} — ${chalTeamLine(c)}.`;
+    ? `Foosball — ${left} ${left === 1 ? 'seat' : 'seats'} left. Take one.`
+    : `Foosball — ${chalTeamLine(c)}.`;
   const say = t => { const was = btn.innerHTML; btn.textContent = t; setTimeout(() => { btn.innerHTML = was; }, 1600); };
   try {
     // Phones get the OS sheet. Desktop does not: macOS Safari's share popover
@@ -3026,8 +3019,8 @@ function renderChal() {
      to the Open pane, which is where the bar and its two buttons are. The
      recorded score stays on it until somebody confirms the correction. */
   const open = rows.filter(c => (!chalDone(c) || chalPending(c)) && chalLive(c))
-    .sort((a, b) => (a.playAt || a.at) - (b.playAt || b.at));
-  const done = rows.filter(c => chalDone(c) && !chalPending(c)).sort((a, b) => (b.playAt || b.at) - (a.playAt || a.at));
+    .sort((a, b) => a.at - b.at);
+  const done = rows.filter(c => chalDone(c) && !chalPending(c)).sort((a, b) => b.at - a.at);
 
   const btn = $('chalBtn');
   if (open.length) btn.setAttribute('data-n', open.length); else btn.removeAttribute('data-n');
@@ -3089,7 +3082,6 @@ window.renderChallenges = all => {
 /* ---- opening one ---- */
 function closeChalForm() {
   $('chalForm').hidden = true;
-  $('chalErr').textContent = '';
   newSeat = null;
 }
 function paintNewSeats() {
@@ -3110,19 +3102,15 @@ function paintNewSeats() {
 $('chalNew').onclick = () => {
   $('chalForm').hidden = false;
   newSeat = newSeat || 'bf';
-  $('chalWhen').value = msToInput(Date.now() + 30 * 60000);
   paintNewSeats();
 };
 $('chalDrop').onclick = closeChalForm;
-$('chalNow').onclick = () => { $('chalWhen').value = msToInput(Date.now()); };
 $('chalPost').onclick = () => {
   const name = myName();
-  const when = $('chalWhen').value;
   if (!name) return;
-  if (!when) { $('chalErr').textContent = 'Pick a kick-off time.'; return; }
   const id = String(Date.now());
   window.chalCreate(id, {
-    by: acctEmail, at: Date.now(), playAt: new Date(when).getTime(),
+    by: acctEmail, at: Date.now(),
     slots: { [newSeat]: { name, email: acctEmail } },
   });
   closeChalForm();

@@ -53,44 +53,42 @@ assert.deepEqual(recipients(tokens, false, 'boss@x.com', null, null, 'mate@x.com
   ['mate@x.com', 'boss@x.com']), ['boss']);
 
 // ---- challenges ----
-const at = { hour: 'numeric', minute: '2-digit' };
-const fmt = () => '3:00 PM'; // the clock is the host's; the branches are what matter
 const seat = (n, e) => ({ name: n, email: e || n.toLowerCase() + '@x.com' });
-const lobby = (slots, score) => ({ by: 'sifat@x.com', at: NOW, playAt: NOW + 3_600_000, slots, score });
+const lobby = (slots, score) => ({ by: 'sifat@x.com', at: NOW, slots, score });
 
 const one = lobby({ bf: seat('Sifat') });
 assert.deepEqual(chalSeats(one), ['bf']);
 assert.equal(chalScored(one), false);
 
 // opened: three seats to fill, and the person who opened it is not told
-const opened = chalNews(null, one, fmt);
+const opened = chalNews(null, one);
 assert.equal(opened.title, 'Challenge open');
-assert.equal(opened.body, 'Sifat wants a game at 3:00 PM — 3 seats left.');
+assert.equal(opened.body, 'Sifat wants a game — 3 seats left.');
 assert.equal(opened.except, 'sifat@x.com');
 // one seat left reads as a seat, not as 1 seats
-assert.match(chalNews(null, lobby({ bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur') }), fmt).body,
+assert.match(chalNews(null, lobby({ bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur') })).body,
   /1 seat left\.$/);
 
 const full = lobby({ bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') });
 // full: the announcement names both pairs, and skips whoever just sat down
-const on = chalNews({ seats: ['bf', 'bd', 'rf'], scored: false }, full, fmt);
+const on = chalNews({ seats: ['bf', 'bd', 'rf'], scored: false }, full);
 assert.equal(on.title, 'Challenge on');
-assert.equal(on.body, 'Sifat & Ofi vs Nur & Rashed at 3:00 PM.');
+assert.equal(on.body, 'Sifat & Ofi vs Nur & Rashed — all four in.');
 assert.equal(on.except, 'rashed@x.com');
 
 // scored: both sides have agreed by the time this fires, so it goes to everybody
 const won = chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
-  { ...full, score: { b: 5, r: 3 } }, fmt);
+  { ...full, score: { b: 5, r: 3 } });
 assert.equal(won.title, 'Blue 5–3 Red');
 assert.equal(won.body, 'Sifat & Ofi win the challenge.');
 assert.equal(won.except, null);
 assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
-  { ...full, score: { b: 3, r: 5 } }, fmt).body, 'Nur & Rashed win the challenge.');
+  { ...full, score: { b: 3, r: 5 } }).body, 'Nur & Rashed win the challenge.');
 assert.match(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
-  { ...full, score: { b: 4, r: 4 } }, fmt).body, /drawn\.$/);
+  { ...full, score: { b: 4, r: 4 } }).body, /drawn\.$/);
 // 0 is a score: a nil still announces the winner rather than reading as unplayed
 assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: false },
-  { ...full, score: { b: 5, r: 0 } }, fmt).title, 'Blue 5–0 Red');
+  { ...full, score: { b: 5, r: 0 } }).title, 'Blue 5–0 Red');
 
 // ---- claims ----
 // half a claim is not one: nothing is announced until both figures are in
@@ -107,7 +105,7 @@ assert.deepEqual(chalOthers(full, 'r'), ['sifat@x.com', 'ofi@x.com']);
 
 const claimed = { ...full, pending: { b: 5, r: 3, by: 'sifat@x.com', side: 'b' } };
 const prevFull = { seats: ['bf', 'bd', 'rf', 'rd'], scored: false, claim: null };
-const filed = chalNews(prevFull, claimed, fmt);
+const filed = chalNews(prevFull, claimed);
 assert.equal(filed.title, 'Score to confirm');
 assert.equal(filed.body, 'Sifat filed 5–3 in Sifat & Ofi vs Nur & Rashed — tap to confirm or reject.');
 // it goes to the two who can settle it, never to the person who filed it
@@ -117,41 +115,41 @@ assert.equal(filed.except, 'sifat@x.com');
 assert.equal(filed.kind, 'suggest');
 
 // the same claim twice is not news; a counter-offer from the other side is
-assert.equal(chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' }, claimed, fmt), null);
+assert.equal(chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' }, claimed), null);
 const counter = chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' },
-  { ...full, pending: { b: 5, r: 4, by: 'nur@x.com', side: 'r' } }, fmt);
+  { ...full, pending: { b: 5, r: 4, by: 'nur@x.com', side: 'r' } });
 assert.equal(counter.body, 'Nur filed 5–4 in Sifat & Ofi vs Nur & Rashed — tap to confirm or reject.');
 // it now waits on the side that filed the first one
 assert.deepEqual(counter.only, ['sifat@x.com', 'ofi@x.com']);
 // a filer who never took a seat still reads as somebody
-assert.match(chalNews(prevFull, { ...full, pending: { b: 5, r: 3, by: 'boss@x.com', side: 'b' } }, fmt).body,
+assert.match(chalNews(prevFull, { ...full, pending: { b: 5, r: 3, by: 'boss@x.com', side: 'b' } }).body,
   /^boss@x\.com filed 5–3 /);
 
 // confirming clears the claim and writes the score in one update: that reads as
 // the result, going to everybody, not as a claim that quietly disappeared
 const agreed = chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' },
-  { ...full, score: { b: 5, r: 3 } }, fmt);
+  { ...full, score: { b: 5, r: 3 } });
 assert.equal(agreed.title, 'Blue 5–3 Red');
 assert.equal(agreed.except, null);
 assert.equal(agreed.only, undefined);
 // a rejected claim just goes — there is nothing to announce about silence
-assert.equal(chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' }, full, fmt), null);
+assert.equal(chalNews({ ...prevFull, claim: 'sifat@x.com|5-3' }, full), null);
 // a lobby first met with a claim on it is a row this process hadn't seen, not news
-assert.equal(chalNews(null, claimed, fmt), null);
+assert.equal(chalNews(null, claimed), null);
 
 // nothing happened: the same snapshot twice says nothing
-assert.equal(chalNews({ seats: ['bf'], scored: false }, one, fmt), null);
+assert.equal(chalNews({ seats: ['bf'], scored: false }, one), null);
 assert.equal(chalNews({ seats: ['bf', 'bd', 'rf', 'rd'], scored: true },
-  { ...full, score: { b: 5, r: 3 } }, fmt), null);
+  { ...full, score: { b: 5, r: 3 } }), null);
 // a seat filled short of the fourth is nobody's business but the board's
 assert.equal(chalNews({ seats: ['bf'], scored: false },
-  lobby({ bf: seat('Sifat'), bd: seat('Ofi') }), fmt), null);
+  lobby({ bf: seat('Sifat'), bd: seat('Ofi') })), null);
 // a lobby this process first meets already full or already played just is —
 // announcing it would fire the whole node at everybody on a restart
-assert.equal(chalNews(null, full, fmt), null);
-assert.equal(chalNews(null, { ...full, score: { b: 5, r: 3 } }, fmt), null);
-assert.equal(chalNews(null, null, fmt), null);
-assert.equal(chalNews(null, { slots: {} }, fmt), null); // a row with no `at` is not a challenge
+assert.equal(chalNews(null, full), null);
+assert.equal(chalNews(null, { ...full, score: { b: 5, r: 3 } }), null);
+assert.equal(chalNews(null, null), null);
+assert.equal(chalNews(null, { slots: {} }), null); // a row with no `at` is not a challenge
 
 // a suggestion saved box by box: nothing is announced until both teams are in,
 // or the admin's phone gets "9–undefined" and no second ping ever corrects it

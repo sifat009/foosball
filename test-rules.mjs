@@ -54,7 +54,7 @@ let n = 0;
 const lobby = async extra => {
   const id = 'c' + (++n);
   assert.ok(await put('challenges/' + id, 'owner',
-    { by: B1, at: 1, playAt: 2, slots: SLOTS, ...extra }), 'fixture ' + id + ' failed to plant');
+    { by: B1, at: 1, slots: SLOTS, ...extra }), 'fixture ' + id + ' failed to plant');
   return id;
 };
 const claim = (by, side, b, r) => ({ b, r, by, side, at: 3 });
@@ -148,17 +148,17 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
   // the create write grants everything under it, so without this one clause an
   // account could open a lobby holding four names it typed and a score to match
   assert.ok(!await put('challenges/forged', OUT, {
-    by: OUT, at: 1, playAt: 2, score: { b: 10, r: 0 },
+    by: OUT, at: 1, score: { b: 10, r: 0 },
     slots: { bf: { name: 'Rifat', email: OUT }, bd: { name: 'Rashed', email: OUT },
              rf: { name: 'Siddiq', email: OUT }, rd: { name: 'Shewa', email: OUT } },
   }), 'a lobby was created with a score on it');
   assert.ok(!await put('challenges/forged2', OUT, {
-    by: OUT, at: 1, playAt: 2, pending: claim(OUT, 'b', 10, 0),
+    by: OUT, at: 1, pending: claim(OUT, 'b', 10, 0),
     slots: { bf: { name: 'Rifat', email: OUT } },
   }), 'a lobby was created with a claim on it');
   // opening one the ordinary way still works
   assert.ok(await put('challenges/plain', OUT,
-    { by: OUT, at: 1, playAt: 2, slots: { bf: { name: 'Stranger', email: OUT } } }),
+    { by: OUT, at: 1, slots: { bf: { name: 'Stranger', email: OUT } } }),
     'an ordinary lobby could not be opened');
 }
 

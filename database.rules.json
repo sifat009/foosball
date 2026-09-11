@@ -16,7 +16,7 @@
       ".read": true,
       "$id": {
         ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (data.child('by').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')))",
-        ".validate": "newData.hasChildren(['by', 'at', 'playAt']) && (data.exists() || (!newData.child('score').exists() && !newData.child('pending').exists()))",
+        ".validate": "newData.hasChildren(['by', 'at']) && (data.exists() || (!newData.child('score').exists() && !newData.child('pending').exists()))",
         "by": { ".validate": "newData.val() === auth.token.email || data.val() === newData.val()" },
         "at": { ".validate": "newData.isNumber()" },
         "playAt": { ".validate": "newData.isNumber()" },
