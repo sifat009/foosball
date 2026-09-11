@@ -794,6 +794,8 @@
     background-attachment: local, local, scroll, scroll;
   }
   @media (max-width: 560px) {
+    /* 40px of side padding wrapped the longer labels onto two lines inside a pill */
+    .btn { padding: 14px 22px; font-size: 0.95rem; }
     .pl-row { min-width: 447px; } /* 337px of fixed tracks + 110px of name */
     /* scrolled away, a row of numbers belongs to nobody — the rank and name
        stay pinned; z-index because the later cells would paint over them */
