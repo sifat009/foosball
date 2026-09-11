@@ -2169,6 +2169,13 @@ assert.deepEqual(await page.evaluate(() => window.chalLog), [
   ['chalSeat', 'open1', 'bf', null],
 ], 'taking an empty seat and vacating your own did not write what they claim to');
 
+/* The fourth player closes the line-up. The game is played long before anybody
+   files the score, so a seat vacated in between would take the lobby back under
+   four and the score boxes away with it. */
+await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
+assert.equal(await page.$$eval('#ch-open2 .ch-seat', n => n.filter(e => e.tagName === 'BUTTON').length), 0,
+  'a full lobby still offered a seat to leave');
+
 // ---- filing a score ----
 /* Filing does not record anything: it files a claim, which the other half of
    the table has to agree to. Any of the four may file — Nur opened open2,

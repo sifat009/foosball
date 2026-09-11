@@ -140,9 +140,9 @@ The rules are what enforce all of this, not the page: see
 `database.rules.json`, where a claim may only be filed by a seated player from
 the seat they actually hold, a `score` write must match a standing claim filed
 by somebody else on the other side, the admin can settle anybody's claim but
-their own, seats freeze while a claim stands, and a lobby can never be created
-with a result already on it. `test-rules.mjs` covers each of those against the
-emulator.
+their own, the fourth player to sit down freezes the line-up, and a lobby can
+never be created with a result already on it. `test-rules.mjs` covers each of
+those against the emulator.
 
 The ladder is **derived at render** from the finished lobbies, the way
 `career()` derives everything from `history`. No rollup node, no stored totals,
@@ -196,11 +196,15 @@ the page's rather than the database's — it guards against a mis-tap, not
 against anybody malicious, since the seat being taken is empty and the write is
 honestly the tapper's own.
 
-Leaving is allowed until a score is filed and reopens the seat; the creator can
-cancel at any point. A filed score can be corrected by the four or by the
-admin, because mistyping 5-3 as 53 must not need a database console. A lobby
-still unfilled a day after it was opened drops off the board, and the admin's
-page is what actually deletes those rows — it holds the only account allowed to.
+Leaving is allowed only while the lobby is short of four. The fourth player
+closes it: the game gets played long before anybody files the score, and a seat
+emptied in between takes the lobby back under four and the score boxes away with
+it. If the four are wrong, the creator or the admin cancels the lobby — and the
+admin can free a single seat, the one exception the rules keep. A filed score
+can be corrected by the four or by the admin, because mistyping 5-3 as 53 must
+not need a database console. A lobby still unfilled a day after it was opened
+drops off the board, and the admin's page is what actually deletes those rows —
+it holds the only account allowed to.
 
 ## Coins
 

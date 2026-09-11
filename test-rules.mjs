@@ -117,10 +117,16 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
   assert.ok(await confirm(id, R1, 9, 0), 'the opponent could not confirm the admin’s score');
 }
 
-// ---- a claim freezes the line-up ----
+// ---- the fourth player freezes the line-up ----
 {
-  const id = await lobby();
-  assert.ok(await del(`challenges/${id}/slots/bd`, B2), 'a player could not leave before a claim');
+  const id = await lobby({ slots: { ...SLOTS, rd: null } });
+  assert.ok(await del(`challenges/${id}/slots/bd`, B2), 'a player could not leave a lobby short of four');
+  assert.ok(await put(`challenges/${id}/slots/bd`, B2, { name: 'Rashed', email: B2 }), 'the seat did not go back');
+  // the fourth seat closes it: the game is played before the score is filed,
+  // and a seat emptied in between takes the score boxes away with it
+  assert.ok(await put(`challenges/${id}/slots/rd`, R2, { name: 'Shewa', email: R2 }), 'the last seat could not be taken');
+  assert.ok(!await del(`challenges/${id}/slots/bd`, B2), 'a player left a full lobby');
+  assert.ok(await del(`challenges/${id}/slots/bd`, ADMIN), 'the admin could not free a seat');
   assert.ok(await put(`challenges/${id}/slots/bd`, B2, { name: 'Rashed', email: B2 }), 'the seat did not go back');
   await put(`challenges/${id}/pending`, B1, claim(B1, 'b', 5, 3));
   // otherwise the side a claim was filed from could be vacated under it
