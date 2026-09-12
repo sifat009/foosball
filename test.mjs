@@ -2159,6 +2159,32 @@ assert.match(seen.who, /ask the admin/i, 'an unmapped account was not told why i
 assert.equal(await page.evaluate(() => getComputedStyle($('chalNew')).display), 'none',
   'an unmapped account was offered the New challenge button');
 
+/* ---- and by somebody who never signed in, which is most of them ----
+   The board used to have no control on it at all for these readers: the button
+   was hidden and every seat was an inert div, so the one feature that needs an
+   account was the one place that never asked for one. The seat is the way in
+   now — the tap files the intent and signs in, and setAccount spends it. */
+await page.evaluate(f => {
+  window.signInCalls = 0;
+  window.startSignIn = () => { window.signInCalls++; };
+  window.setAccount(null); window.renderChallenges(f); window.chalLog = [];
+}, CH.fixture);
+seen = await board();
+assert.deepEqual(seen.seats[0], ['div:Sifat', 'div:Nur', 'button:Open', 'button:Open'],
+  'a signed-out reader was not offered the empty seats');
+assert.equal(await page.evaluate(() => getComputedStyle($('chalNew')).display) === 'none', false,
+  'a signed-out reader was left with no way to open one');
+await page.click('#ch-open1 .ch-seat:nth-child(3)');   // blue defender, empty
+assert.deepEqual(
+  await page.evaluate(() => [window.chalLog, window.signInCalls, window.chalIntent]),
+  [[], 1, { id: 'open1', seat: 'bd' }],
+  'tapping a seat while signed out did not file the intent and ask for a sign-in');
+// the intent is spent on the way back, and only for somebody the map knows
+await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
+assert.deepEqual(await page.evaluate(() => [window.chalLog, window.chalIntent]),
+  [[['chalSeat', 'open1', 'bd', { name: 'Toufiq', email: 'toufiq@x.com' }]], null],
+  'signing in did not take the seat that was tapped, or left the intent behind');
+
 // ---- taking and vacating a seat ----
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
 await page.click('#ch-open1 .ch-seat:nth-child(3)');   // blue defender, empty

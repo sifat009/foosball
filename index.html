@@ -946,7 +946,7 @@
   }
   .card-x:active { background: #e7ebf2; }
   .card-x:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
-  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose, #chalClose {
+  #hallClose, #rulesClose, #tossClose, #alertsClose, #profileClose {
     display: block; margin: 18px auto 0; background: #f4f6fa; color: #5b6a7d;
     border: 0; border-radius: 999px; padding: 9px 22px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1144,14 +1144,30 @@
   }
   #chalWho b { color: #172b4d; }
   .ch-new { width: 100%; padding: 12px 0; font-size: 0.92rem; }
-  #chalForm { border: 1px solid #e7ecf3; border-radius: 14px; padding: 14px; margin-top: 12px; }
+  /* the way onto the second screen. Quiet while the board has seats to take —
+     they are the act, and two green controls would compete. renderChal swaps
+     this for .btn.btn-green.ch-new when there is nothing open to sit in. */
+  .ch-newlink {
+    display: block; width: 100%; margin-top: 14px; padding: 12px 0;
+    background: none; border: 1.5px dashed #dbe3ee; border-radius: 14px;
+    font-family: inherit; font-size: 0.85rem; font-weight: 800; color: #5b6a7d;
+    cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  .ch-newlink:hover { border-color: #17854a; color: #17854a; }
+  .ch-back {
+    display: inline-flex; align-items: center; gap: 7px; background: none; border: 0;
+    padding: 0; margin-bottom: 14px; font-family: inherit; font-size: 0.82rem;
+    font-weight: 800; color: #5b6a7d; cursor: pointer;
+  }
+  .ch-back:hover { color: #17854a; }
+  .ch-back .ico { transform: rotate(180deg); }
+  #chalForm { margin-top: 4px; }
+  #chalForm .btn { margin-top: 16px; }
   .ch-flbl {
     font-size: 0.7rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase;
     color: #8b97a8; margin-bottom: 8px;
   }
-  .ch-flbl ~ .ch-flbl, #chalForm .sched-controls + .ch-flbl { margin-top: 14px; }
-  .ch-fact { display: flex; align-items: center; gap: 14px; margin-top: 14px; }
-  .ch-fact .btn { flex: 1; padding: 11px 0; font-size: 0.88rem; }
+  .ch-flbl ~ .ch-flbl { margin-top: 14px; }
   .ch-link {
     background: none; border: 0; padding: 0; font-family: inherit; font-size: 0.82rem;
     font-weight: 700; color: #8b97a8; cursor: pointer; text-decoration: underline;
@@ -1185,6 +1201,15 @@
   .ch-seat.red { border-color: #f7d6c4; } .ch-seat.red u { color: #dc5a1e; }
   button.ch-seat { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
   button.ch-seat:hover { border-color: #17854a; background: #f4fbf7; }
+  /* an empty seat you may take is the control, so it looks like one — a phone
+     never sees the hover above, and a dashed grey box reads as a blank */
+  button.ch-seat.free { border-style: solid; border-color: #bfe3cf; background: #f2fbf6; }
+  button.ch-seat.free b { color: #17854a; display: flex; align-items: center; gap: 5px; }
+  button.ch-seat.free b::before {
+    content: "+"; flex: none; width: 17px; height: 17px; border-radius: 999px;
+    background: #17854a; color: #fff; font-size: 0.8rem; line-height: 1;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
   button.ch-seat:active { background: #eef7f2; }
   button.ch-seat.mine { border-color: #b6e3c9; background: #f4fbf7; }
   button.ch-seat.mine:hover { border-color: #e8b3b3; background: #fdf5f5; }
@@ -1482,26 +1507,32 @@
      every remote snapshot and would close a screen out from under a reader. -->
 <div id="chal">
   <div class="hall-card">
-    <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Challenges</div>
-    <div id="chalWho"></div>
-    <button id="chalNew" class="btn btn-green ch-new">Open a challenge</button>
+    <!-- the board. Reading it and opening one are different jobs, so they are
+         different screens: the form used to unfold above the list and push it
+         out of sight while you picked a position. No Close under either — the X
+         in the corner, the backdrop and Esc already dismiss every card. -->
+    <div id="chalBoard">
+      <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Challenges</div>
+      <div id="chalWho"></div>
+      <div class="hall-tabs" id="chalTabs">
+        <button class="hall-tab active" data-tab="open">Open</button>
+        <button class="hall-tab" data-tab="ladder">Ladder</button>
+        <button class="hall-tab" data-tab="recent">Recent</button>
+      </div>
+      <div id="chalOpen"></div>
+      <div id="chalLadder" style="display:none"></div>
+      <div id="chalRecent" style="display:none"></div>
+      <!-- under the list, not above it: while there are seats to take, the
+           lobbies are the act. renderChal turns it green when there are none. -->
+      <button id="chalNew" class="ch-newlink" type="button">+ New challenge</button>
+    </div>
     <div id="chalForm" hidden>
+      <button id="chalDrop" class="ch-back" type="button"><svg class="ico"><use href="#i-arrow"/></svg> Challenges</button>
+      <div class="hall-title">New challenge</div>
       <div class="ch-flbl">Choose your position</div>
       <div class="ch-grid" id="chalNewSeats"></div>
-      <div class="ch-fact">
-        <button id="chalPost" class="btn btn-green">Post it</button>
-        <button id="chalDrop" class="ch-link" type="button">Cancel</button>
-      </div>
+      <button id="chalPost" class="btn btn-green ch-new">Post it</button>
     </div>
-    <div class="hall-tabs" id="chalTabs">
-      <button class="hall-tab active" data-tab="open">Open</button>
-      <button class="hall-tab" data-tab="ladder">Ladder</button>
-      <button class="hall-tab" data-tab="recent">Recent</button>
-    </div>
-    <div id="chalOpen"></div>
-    <div id="chalLadder" style="display:none"></div>
-    <div id="chalRecent" style="display:none"></div>
-    <button id="chalClose">Close</button>
   </div>
 </div>
 
@@ -2796,17 +2827,27 @@ function seatBtn(c, seat, team, role) {
      rule rather than the database's, because it guards against a mis-tap, not
      against anybody malicious — the seat you'd be taking is empty, and the
      write is honestly yours. */
-  const live = !!name && !chalDone(c) && !chalPending(c);
-  const tag = live && (held ? mine && !chalFull(c) : !chalSat(c)) ? 'button' : 'div';
+  /* Signed out, every seat used to be an inert div and the board had no control
+     on it at all — which is why nobody ever sat down. An empty seat is the
+     invitation, so it stays a button: the tap files the intent and signs you
+     in, and setAccount seats you on the way back. */
+  const settled = chalDone(c) || chalPending(c);
+  const live = !!name && !settled;
+  const invite = !acctEmail && !held && !settled;
+  const free = invite || (live && !held && !chalSat(c));
+  const tag = free || (live && held && mine && !chalFull(c)) ? 'button' : 'div';
   const el = document.createElement(tag);
-  el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '') + (mine ? ' mine' : '');
-  const who = part('', held ? held.name : tag === 'button' ? 'Join' : '\u2014', 'b'); // textContent: names are user input
+  el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '')
+    + (mine ? ' mine' : '') + (free ? ' free' : '');
+  const who = part('', held ? held.name : !free ? '\u2014' : invite ? 'Open' : 'Join', 'b'); // textContent: names are user input
   if (mine) who.append(part('ch-you', 'you', 'span'));
   el.append(part('', team + ' ' + role, 'u'), who);
   if (tag === 'button') {
     el.type = 'button';
-    el.title = mine ? 'Leave this seat' : 'Take this seat';
-    el.onclick = () => window.chalSeat(c.id, seat, mine ? null : { name, email: acctEmail });
+    el.title = invite ? 'Sign in and take this seat' : mine ? 'Leave this seat' : 'Take this seat';
+    el.onclick = invite
+      ? () => { window.chalIntent = { id: c.id, seat }; window.startSignIn(); }
+      : () => window.chalSeat(c.id, seat, mine ? null : { name, email: acctEmail });
   }
   return el;
 }
@@ -3035,17 +3076,25 @@ function renderChal() {
   const name = myName();
   who.textContent = '';
   if (name) { who.append('Playing as ', part('', name, 'b')); } // textContent: names are user input
-  else who.textContent = acctEmail
-    ? 'Signed in, but not on the player list — ask the admin to add you.'
-    : 'Sign in to open or join a challenge.';
-  $('chalNew').style.display = name ? '' : 'none';
-  if (!name) closeChalForm();
+  /* Signed out there is nothing to say: the seats and the button below are
+     the invitation, and a line telling somebody to sign in is a line they have
+     to read before a tap that would have signed them in anyway. */
+  else if (acctEmail) who.textContent = 'Signed in, but not on the player list — ask the admin to add you.';
+  /* Signed in but off the player list is the one state with nothing to tap:
+     the line above already says to ask the admin. Everyone else gets a way in —
+     quiet while the board has seats to take, green when it has none. */
+  const mk = $('chalNew');
+  mk.style.display = acctEmail && !name ? 'none' : '';
+  mk.className = open.length ? 'ch-newlink' : 'btn btn-green ch-new';
+  mk.textContent = open.length ? '+ New challenge'
+    : name ? 'Start the first one' : 'Sign in to start one';
+  if (acctEmail && !name) closeChalForm();
 
   renderCoins(); // same inputs: the lobbies, and who is signed in
 
   const list = $('chalOpen');
   list.innerHTML = '';
-  if (!open.length) list.append(part('hall-empty', 'Nothing open. Start one.'));
+  if (!open.length) list.append(part('hall-empty', 'Nothing open yet.'));
   else open.forEach(c => list.append(chalCard(c)));
 
   const lad = $('chalLadder');
@@ -3088,8 +3137,20 @@ window.renderChallenges = all => {
 /* ---- opening one ---- */
 function closeChalForm() {
   $('chalForm').hidden = true;
+  $('chalBoard').hidden = false;
   newSeat = null;
 }
+/* Opening one is its own screen, not a panel that unfolds over the list: one
+   question at a time, and the board stays where the reader left it. Signed
+   out, the way in is the same one the seats use — sign in first, land here. */
+function openChalForm() {
+  if (!myName()) { window.chalIntent = { form: true }; return window.startSignIn(); }
+  $('chalBoard').hidden = true;
+  $('chalForm').hidden = false;
+  newSeat = newSeat || 'bf';
+  paintNewSeats();
+}
+window.closeChalForm = closeChalForm;
 function paintNewSeats() {
   const box = $('chalNewSeats');
   box.innerHTML = '';
@@ -3105,11 +3166,7 @@ function paintNewSeats() {
     box.append(b);
   });
 }
-$('chalNew').onclick = () => {
-  $('chalForm').hidden = false;
-  newSeat = newSeat || 'bf';
-  paintNewSeats();
-};
+$('chalNew').onclick = openChalForm;
 $('chalDrop').onclick = closeChalForm;
 $('chalPost').onclick = () => {
   const name = myName();
@@ -3119,13 +3176,31 @@ $('chalPost').onclick = () => {
     by: acctEmail, at: Date.now(),
     slots: { [newSeat]: { name, email: acctEmail } },
   });
+  chalLit = id; // back on the board with the lobby just opened outlined
+  chalFound = false;
   closeChalForm();
 };
 
 /* Auth lands after the first paint, and the admin plays too — isAdmin says
    who may edit the cup, which is a different question from who is sitting at
    the table. */
-window.setAccount = email => { acctEmail = email || null; renderChal(); paintAlerts(); };
+window.setAccount = email => {
+  acctEmail = email || null;
+  /* Where a tap made before signing in lands. A name is the whole test: an
+     account nobody has added to the map has no seat to be given, and the board
+     already tells it to ask the admin. Either way the intent is spent here. */
+  const want = window.chalIntent;
+  window.chalIntent = null;
+  if (want && myName()) {
+    if (want.seat) {
+      chalLit = want.id; // the lobby it came from, outlined on the way back
+      chalFound = false;
+      window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
+    } else openChalForm();
+  }
+  renderChal();
+  paintAlerts();
+};
 
 /* Three panes rather than three stacked sections: on a laptop the card is 80vh
    and the ladder sat below the fold behind however many lobbies were open. Same
@@ -3148,6 +3223,7 @@ function openChalFromHash() {
   if (!m) return;
   chalLit = m[1];
   chalFound = false;
+  closeChalForm();
   $('chal').classList.add('open');
   showChalTab('open'); // the link is an invitation to a lobby, not to the ladder
   renderChal();
@@ -3155,13 +3231,17 @@ function openChalFromHash() {
 addEventListener('hashchange', openChalFromHash);
 window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate lifts
 
-// overlays: tap the backdrop or Close to dismiss, Esc closes whichever is open
+/* overlays: tap the backdrop or Close to dismiss, Esc closes whichever is open.
+   The board carries no Close — the X in its corner, the backdrop and Esc are
+   three ways out already, and a fourth sat under a screen it had to scroll. */
 [['hallBtn', 'hall', 'hallClose'], ['rulesBtn', 'rules', 'rulesClose'],
- ['chalBtn', 'chal', 'chalClose'], ['notifyBtn', 'alerts', 'alertsClose']].forEach(([btn, panel, close]) => {
+ ['chalBtn', 'chal', null], ['notifyBtn', 'alerts', 'alertsClose']].forEach(([btn, panel, close]) => {
   $(btn).onclick = () => $(panel).classList.add('open');
-  $(close).onclick = () => $(panel).classList.remove('open');
+  if (close) $(close).onclick = () => $(panel).classList.remove('open');
   $(panel).onclick = e => { if (e.target === $(panel)) $(panel).classList.remove('open'); };
 });
+// the board is what opens, never the form somebody left behind last time
+$('chalBtn').addEventListener('click', closeChalForm);
 /* The card is the only way into the sheet — it has no toolbar button, the way the
    profile has none. Keyboard too: it is a role=button, so it has to answer one. */
 $('coins').onclick = () => $('coinInfo').classList.add('open');
@@ -3202,6 +3282,8 @@ document.addEventListener('keydown', e => {
   // the coins sheet sits on the home screen it was opened from, and the board it
   // opens sits over it — so it closes first, like the profile does
   if ($('coinInfo').classList.contains('open')) { $('coinInfo').classList.remove('open'); return; }
+  // the create screen sits on the board it was opened from, like the profile
+  if (!$('chalForm').hidden && $('chal').classList.contains('open')) { window.closeChalForm(); return; }
   ['hall', 'rules', 'toss', 'alerts', 'chal'].forEach(p => $(p).classList.remove('open'));
 });
 const HALL_PANES = { cups: 'hallList', players: 'hallPlayers', badges: 'hallBadges' };
@@ -5875,6 +5957,7 @@ onAuthStateChanged(auth, user => {
 $('authBtn').onclick = () => {
   if (auth.currentUser) return signOut(auth);
   signInWithPopup(auth, new GoogleAuthProvider()).catch(err => {
+    window.chalIntent = null; // backing out drops the seat they tapped, not the next one
     if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
     console.error('[auth]', err);
     alert('Sign-in failed: ' + err.message);
