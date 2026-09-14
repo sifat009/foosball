@@ -161,6 +161,16 @@ the same cost as adding them to a cup. The admin plays like everybody else:
 who may edit the cup and who is sitting at the table are different questions,
 which is why the page tracks `acctEmail` alongside `isAdmin`.
 
+Signing in asks for a **name, not an address**. Most people carry several Gmail
+accounts, and Google's popup hands back whichever one the browser is already
+in — so somebody would sign in as nobody, and the seat they tapped went nowhere.
+Tapping Sign in (or an empty seat) opens a grid built from `EMAIL_NAMES`, one
+tile per player; the tile passes that player's address to Google as a
+`login_hint`, which opens straight on it. It is a hint and not a filter: if they
+aren't signed into that account Google still asks, and an address off the map
+still lands on the same "ask the admin" line. Somebody with two addresses in the
+map gets one tile, hinting the first — the map is many-to-one by name.
+
 The `challenges` rules are the one place a non-admin write is really enforced
 rather than trusted. Anyone verified may create a lobby; only its creator or
 the admin may delete one; a seat is writable only when it's empty or already

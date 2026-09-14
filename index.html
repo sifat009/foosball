@@ -684,16 +684,35 @@
   }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo {
+  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
   #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open, #chal.open,
-  #coinInfo.open { display: flex; }
+  #coinInfo.open, #who.open { display: flex; }
   /* it opens off a row of the Hall, so it has to sit over the Hall */
   #profile { z-index: 45; }
+  /* the seats that ask you to sign in live inside the Challenges overlay, so
+     the picker has to sit over that */
+  #who { z-index: 50; }
+  /* a tile per player, not per address: people pick a person, and the map is
+     what turns that back into the Gmail to hand Google */
+  .who-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 8px; margin-bottom: 16px;
+  }
+  .who-name {
+    border: 1px solid #dbe3ee; border-radius: 12px; background: #fbfcfe;
+    padding: 13px 6px; width: 100%; cursor: pointer;
+    font: inherit; font-size: 0.9rem; font-weight: 800; color: #172b4d;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .who-name:hover { border-color: #17854a; background: #f4fbf7; color: #17854a; }
+  .who-name:active { background: #eef7f2; }
+  .who-name:focus-visible { outline: 2px solid #f0b429; outline-offset: -2px; }
+  .who-foot { margin: 0; text-align: center; color: #8fa0b8; font-size: 0.76rem; font-weight: 600; }
   .hall-card {
     background: #fff; border-radius: 18px; padding: 28px 26px 22px;
     width: min(520px, 100%); max-height: 80vh; overflow-y: auto;
@@ -1887,6 +1906,20 @@ Nur</textarea>
   </div>
 </div>
 
+<!-- Most people have several Gmail accounts, and Google's popup hands back
+     whichever one the browser happens to be in — which is how somebody ends up
+     signed in as nobody, with the seat they tapped silently dropped. So the
+     first question is a person, not an address: pick your name here and the
+     address goes to Google as a login_hint, which opens straight on it. The
+     grid is built from EMAIL_NAMES, so adding a player is still one edit. -->
+<div id="who">
+  <div class="hall-card">
+    <div class="hall-title"><svg class="ico"><use href="#i-user"/></svg> Who are you?</div>
+    <div id="whoGrid" class="who-grid"></div>
+    <p class="who-foot">Not on the list? Ask the admin to add you.</p>
+  </div>
+</div>
+
 <!-- what this phone wants to be told about. The master switch is the
      subscription itself; the rest are per-kind and ride along to the relay,
      which is what actually filters — see window.savePushPrefs. -->
@@ -1986,6 +2019,31 @@ window.startSignIn = () => {
   $('rules').classList.remove('open');
   if (!signedIn && !isAdmin) $('authBtn').click();
 };
+
+/* One tile per player, not per address: EMAIL_NAMES is many-to-one, so somebody
+   with two Gmails on it still gets one name, and the first address is the hint.
+   The tile is what the whole picker is for — you pick a person, and the map is
+   what turns that back into the Gmail Google is asked to open on. */
+window.pickAccount = () => {
+  const grid = $('whoGrid');
+  grid.innerHTML = '';
+  const seen = new Set();
+  Object.entries(EMAIL_NAMES).forEach(([email, name]) => {
+    if (seen.has(name)) return;
+    seen.add(name);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'who-name';
+    b.textContent = name; // textContent: EMAIL_NAMES is edited by hand
+    b.onclick = () => { $('who').classList.remove('open'); window.signInAs(email); };
+    grid.appendChild(b);
+  });
+  $('who').classList.add('open');
+};
+/* Backing out drops the seat that opened the picker, the same way closing
+   Google's own popup does — a kept intent would fire on some later sign-in and
+   seat somebody in a lobby they had forgotten about. */
+function closeWho() { $('who').classList.remove('open'); window.chalIntent = null; }
 
 /* ---- alerts drawer ----
    Which announcements this phone wants. The choice is per-device, so it lives
@@ -3257,7 +3315,7 @@ $('profileClose').onclick = () => $('profile').classList.remove('open');
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 /* Every overlay card carries the same X in its corner — built here rather than
    in five copies of the markup, and it dismisses whichever card it sits in. */
-document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo').forEach(p => {
+document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who').forEach(p => {
   const x = document.createElement('button');
   x.className = 'card-x';
   x.type = 'button';
@@ -3266,6 +3324,9 @@ document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coin
   x.onclick = () => p.classList.remove('open');
   p.querySelector('.hall-card').prepend(x);
 });
+// the picker is the one card whose dismissal has to spend the pending seat too
+$('who').querySelector('.card-x').onclick = closeWho;
+$('who').onclick = e => { if (e.target === $('who')) closeWho(); };
 // read on open, not once at load: which cup is running changes under a viewer
 $('rulesBtn').addEventListener('click', () => {
   $('rules').classList.toggle('no-indiv', !indivGoals());
@@ -3275,6 +3336,8 @@ document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   // the celebration covers every panel, so Esc has to dismiss the top layer
   // only — otherwise it shuts the Hall of Fame the replay was opened from
+  // the picker sits over every other card, including the board it was opened from
+  if ($('who').classList.contains('open')) { closeWho(); return; }
   if ($('installTip').classList.contains('open')) { $('installTip').classList.remove('open'); return; }
   if ($('celebrate').style.display === 'flex') { closeCelebration(); return; }
   // the profile sits on the Hall it was opened from, so it closes on its own
@@ -5956,7 +6019,17 @@ onAuthStateChanged(auth, user => {
 
 $('authBtn').onclick = () => {
   if (auth.currentUser) return signOut(auth);
-  signInWithPopup(auth, new GoogleAuthProvider()).catch(err => {
+  window.pickAccount(); // a name first; the picker is what calls signInAs
+};
+
+/* login_hint is what makes the name worth picking: Google opens straight on
+   that address instead of handing back whichever account the browser is already
+   in, which is how somebody with three Gmails signs in as nobody. It is a hint
+   and not a filter — if they aren't signed into it, Google still asks. */
+window.signInAs = email => {
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ login_hint: email });
+  signInWithPopup(auth, provider).catch(err => {
     window.chalIntent = null; // backing out drops the seat they tapped, not the next one
     if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
     console.error('[auth]', err);

@@ -2185,6 +2185,34 @@ assert.deepEqual(await page.evaluate(() => [window.chalLog, window.chalIntent]),
   [[['chalSeat', 'open1', 'bd', { name: 'Toufiq', email: 'toufiq@x.com' }]], null],
   'signing in did not take the seat that was tapped, or left the intent behind');
 
+/* ---- the picker asks for a name, not an address ----
+   Most people have several Gmails, and Google's popup hands back whichever one
+   the browser is already in — which is how somebody signs in as nobody and the
+   seat they tapped goes nowhere. So the first question is which player you are,
+   and the map turns that back into the address Google is opened on. The module
+   script is blocked here along with Firebase, so signInAs is stubbed the way
+   the challenge writes are: what is under test is the grid and what it hands on. */
+await page.evaluate(() => {
+  window.hints = [];
+  window.signInAs = e => window.hints.push(e);
+  window.chalIntent = { id: 'open1', seat: 'bd' }; // a seat tap is what opened it
+  window.pickAccount();
+});
+assert.deepEqual(
+  await page.evaluate(() => [...document.querySelectorAll('#whoGrid .who-name')].map(b => b.textContent)),
+  ['Sifat', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq', 'Shewa', 'Toufiq', 'Rashed', 'Nur', 'Ofi'],
+  'the picker is not one tile per player — a second address for somebody got its own tile');
+await page.click('#whoGrid .who-name');                // Sifat, who has two addresses on the map
+assert.deepEqual(await page.evaluate(() => [window.hints, $('who').classList.contains('open')]),
+  [['bhacker150@gmail.com'], false],
+  'picking a name did not hand Google that player’s address and close the picker');
+// backing out spends the seat too, the same way closing Google's own popup does
+await page.evaluate(() => { window.pickAccount(); });
+await page.click('#who .card-x');
+assert.deepEqual(await page.evaluate(() => [$('who').classList.contains('open'), window.chalIntent]),
+  [false, null],
+  'closing the picker left the tapped seat behind to fire on a later sign-in');
+
 // ---- taking and vacating a seat ----
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
 await page.click('#ch-open1 .ch-seat:nth-child(3)');   // blue defender, empty
