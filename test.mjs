@@ -3054,6 +3054,193 @@ await page.evaluate(() => {
 });
 console.log('re-spin OK');
 
+// ---------- freeze ----------
+/* Ten coins names both seats of the opposing pair for one match. The replay decides
+   what it costs and whether it stands; the card only reads the answer back. Driven
+   directly, the same way the coins walk and planDraw are. */
+const frz = await page.evaluate(() => {
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const g = (at, b, r) => ({ at,
+    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
+  const wins = n => Array.from({ length: n }, (_, i) => g(i + 1, 5, 0));
+  const F = (at, name) => ({ name, fwd: 'Toufiq', def: 'Siddiq', at });
+  const at = (cup, mid, id, r) => ({ [cup]: { [mid]: { [id]: r } } });
+  const none = new Set();
+  const done = new Set(['c1']);
+  const hon = new Set();
+  const withIds = window.coins(wins(5), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none, hon);
+  return {
+    // five challenge wins is ten coins, and one freeze on a cup that finished spends them
+    spend: window.coins(wins(5), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none),
+    // eight coins is not ten: ignored, and not owed either
+    poor: window.coins(wins(4), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none),
+    // filed before the coins were earned — a spend comes out of what is already banked
+    tooEarly: window.coins(wins(5).map(c => ({ ...c, at: c.at + 90 })), {}, done, null,
+      at('c1', '0_0', 'x', F(1, 'Sifat')), none),
+    // two freezes in one cup: the second is ignored and costs nothing
+    twice: window.coins(wins(10), {}, done, null,
+      { c1: { '0_0': { x: F(90, 'Sifat') }, '0_1': { y: F(91, 'Sifat') } } }, none),
+    // ...and the limit resets at the next cup
+    nextCup: window.coins(wins(10), {}, new Set(['c1', 'c2']), null,
+      { ...at('c1', '0_0', 'x', F(90, 'Sifat')), ...at('c2', '0_0', 'y', F(91, 'Sifat')) }, none),
+    // a cup that never reached history refunds everyone
+    abandoned: window.coins(wins(5), {}, none, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none),
+    // the running cup charges anyway — which is what stops a second freeze tonight
+    live: window.coins(wins(5), {}, none, 'c9', at('c9', '0_0', 'x', F(6, 'Sifat')), none),
+    // a row the fixtures no longer support is ignored and charged nothing
+    dead: window.coins(wins(5), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')),
+      new Set(['c1|x'])),
+    // separate budgets: a re-spin and a freeze in one cup both charge
+    both: window.coins(wins(10), { c1: { r: { name: 'Sifat', at: 50 } } }, done, null,
+      at('c1', '0_0', 'x', F(51, 'Sifat')), none),
+    honoured: [...hon],
+    honouredBal: withIds.Sifat,
+  };
+});
+
+assert.equal(frz.spend.Sifat, 0, 'five wins then a freeze should leave nothing');
+assert.equal(frz.spend.Ofi, 10, 'the partner who did not spend was charged for the freeze');
+assert.equal(frz.poor.Sifat, 8, 'a freeze nobody could afford was charged anyway');
+assert.equal(frz.tooEarly.Sifat, 10, 'a freeze was honoured out of coins earned after it');
+assert.equal(frz.twice.Sifat, 10, 'a second freeze in one cup was charged — the limit is one');
+assert.equal(frz.nextCup.Sifat, 0, 'the once-a-cup freeze limit did not reset at the next cup');
+assert.equal(frz.abandoned.Sifat, 10, 'a cup that never reached history charged for a freeze');
+assert.equal(frz.live.Sifat, 0, 'the running cup did not charge, so a second freeze would be free');
+assert.equal(frz.dead.Sifat, 10, 'a freeze the fixtures no longer support was charged');
+assert.equal(frz.both.Sifat, 0, 'a re-spin and a freeze in one cup should spend twenty coins');
+assert.deepEqual(frz.honoured, ['c1|x'], 'the walk did not report which freeze it charged for');
+assert.equal(frz.honouredBal, 0, 'reporting the honoured rows changed what the walk charged');
+
+/* Which fixture a row still names. The bracket is redrawn from the group table every
+   time, so a slot can change hands under a row that is already filed — the same
+   question sugFits asks of a suggestion in flight, and the reason a voided knockout
+   round costs the payer nothing. */
+const fits = await page.evaluate(() => {
+  const T = (f, d) => ({ fwd: f, def: d });
+  const m = { a: T('Sifat', 'Rifat'), b: T('Toufiq', 'Siddiq') };
+  const r = (name, fwd, def) => ({ name, fwd, def, at: 1 });
+  return {
+    ok: window.freezeFits(r('Sifat', 'Siddiq', 'Toufiq'), m),
+    asDrafted: window.freezeFits(r('Sifat', 'Toufiq', 'Siddiq'), m),
+    bystander: window.freezeFits(r('Ofi', 'Siddiq', 'Toufiq'), m),
+    ownPair: window.freezeFits(r('Sifat', 'Rifat', 'Sifat'), m),
+    goneAway: window.freezeFits(r('Sifat', 'Siddiq', 'Nur'), m),
+    halfEmpty: window.freezeFits(r('Sifat', 'Siddiq', 'Toufiq'), { a: T('Sifat', 'Rifat'), b: null }),
+  };
+});
+assert.equal(fits.ok, true, 'a freeze against the other pair in your own match did not fit it');
+assert.equal(fits.asDrafted, true, 'freezing them as drafted was refused — it is a lock, not a no-op');
+assert.equal(fits.bystander, false, 'somebody outside the match froze a pair in it');
+assert.equal(fits.ownPair, false, 'a player froze their own pair');
+assert.equal(fits.goneAway, false, 'a freeze stood against a pair that is not in that match');
+assert.equal(fits.halfEmpty, false, 'a freeze stood against a knockout tie only half filled');
+
+/* The card. The button reaches the two players in the fixture and nobody else, it
+   carries its reason when it cannot be offered, and a filed row replaces it with the
+   record — shown to both sides, because being frozen is something you find out on
+   the card rather than at the table. */
+const frzCard = await page.evaluate(() => {
+  Object.assign(EMAIL_NAMES, { 'siddiq@x.com': 'Siddiq', 'rifat@x.com': 'Rifat' });
+  const T = (f, d) => ({ fwd: f, def: d });
+  const A = T('Sifat', 'Rifat'), B = T('Toufiq', 'Siddiq');
+  window.isAdmin = false; window.koStarted = false; window.koRounds = [];
+  window.cupId = 'cFrz'; window.allFreezes = {}; window.allRespins = {};
+  window.teams = [A, B];
+  window.groups = [{ name: 'Group A', teams: [A, B], matches: [
+    { a: A, b: B, sa: null, sb: null, pa: null, pb: null, winner: null }] }];
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const g = (at, b, r) => ({ at,
+    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
+  const five = {}; for (let i = 0; i < 5; i++) five['w' + i] = g(i + 1, 5, 0);
+  window.renderChallenges(five);                       // Sifat and Ofi: ten coins each
+  const read = () => {
+    window.renderGroups();
+    const b = document.querySelector('#groups .frz-btn');
+    return {
+      btn: !!b, off: !!(b && b.disabled), why: (b && b.textContent) || '',
+      tags: [...document.querySelectorAll('#groups .frz-tag')].map(t => t.textContent),
+    };
+  };
+  const out = {};
+  window.setAccount('sifat@x.com'); out.player = read();      // in the match, ten coins
+  window.setAccount('nur@x.com');   out.bystander = read();   // not in the match at all
+  window.setAccount('rashed@x.com');out.notHere = read();     // a player, lost all five
+  window.setAccount('rifat@x.com'); out.broke = read();       // in the match, no coins
+  window.setAccount('sifat@x.com'); read();   // repaint as the payer before tapping it
+  // the sheet offers the two arrangements and nothing else
+  document.querySelector('#groups .frz-btn').click();
+  out.sheetOpen = $('freeze').classList.contains('open');
+  out.opts = [...document.querySelectorAll('#freezeOpts .frz-opt')]
+    .map(o => [...o.querySelectorAll('.frz-nm')].map(n => n.textContent).join('/'));
+  out.who = $('freezeWho').textContent;
+  $('freeze').classList.remove('open');
+  // a filed row: the button goes, the record stands, and both sides can read it
+  window.allFreezes = { cFrz: { '0_0': { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };
+  out.filed = read();
+  window.setAccount('toufiq@x.com'); out.frozenSide = read();
+  /* `.match` clips what overflows it, and the record is the one thing on the card
+     that runs to a second line on a phone. A tag taller than the card it sits in
+     loses the half that says which rod each of them holds. */
+  const card = document.querySelector('#groups .match');
+  const tag = document.querySelector('#groups .frz-tag');
+  out.tagFits = tag.getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom + 0.5;
+  out.tagWhole = tag.scrollHeight <= tag.clientHeight + 0.5;
+  // a score on the match closes the window
+  window.allFreezes = {};
+  window.groups[0].matches[0].sa = 10; window.groups[0].matches[0].sb = 8;
+  window.setAccount('sifat@x.com'); out.scored = read();
+  window.groups[0].matches[0].sa = null; window.groups[0].matches[0].sb = null;
+  return out;
+});
+
+assert.equal(frzCard.player.btn, true, 'a player in the match was offered no freeze');
+assert.equal(frzCard.player.off, false, 'a player with ten coins had the freeze disabled');
+assert.equal(frzCard.bystander.btn, false, 'somebody outside the match was offered a freeze');
+assert.equal(frzCard.notHere.btn, false, 'a player in no team was offered a freeze');
+assert.equal(frzCard.broke.btn, true, 'a player who cannot afford it got silence, not a reason');
+assert.equal(frzCard.broke.off, true, 'a player with no coins could still spend them');
+assert.ok(/you have 0/.test(frzCard.broke.why), 'the reason did not say what they actually have');
+assert.equal(frzCard.sheetOpen, true, 'the freeze button opened no sheet');
+assert.deepEqual(frzCard.opts, ['Toufiq/Siddiq', 'Siddiq/Toufiq'],
+  'the sheet did not offer exactly the two arrangements, drafted first');
+assert.ok(/Toufiq and Siddiq/.test(frzCard.who), 'the sheet did not name the pair it acts on');
+assert.equal(frzCard.filed.btn, false, 'a second freeze was offered against a pair already frozen');
+assert.equal(frzCard.filed.tags.length, 1, 'a filed freeze left no record on the card');
+assert.ok(/Siddiq forward, Toufiq back/.test(frzCard.filed.tags[0]),
+  'the record did not say which rod each of them holds');
+assert.ok(/Frozen by Sifat/.test(frzCard.filed.tags[0]), 'the record did not say who paid');
+assert.equal(frzCard.frozenSide.tags.length, 1, 'the frozen pair could not see it on their own card');
+assert.equal(frzCard.tagFits, true, 'the record overflowed the match card, which clips it');
+assert.equal(frzCard.tagWhole, true, 'the record was cut off inside its own box');
+assert.equal(frzCard.scored.btn, false, 'a match with a score on it could still be frozen');
+
+/* The record runs to two or three lines on a phone, and `.match` clips what
+   overflows it — the one width where the half naming the rods could go missing. */
+await page.setViewportSize({ width: 360, height: 780 });
+const frzPhone = await page.evaluate(() => {
+  window.allFreezes = { cFrz: { '0_0': { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };
+  window.setAccount('sifat@x.com');
+  window.renderGroups();
+  const card = document.querySelector('#groups .match');
+  const tag = document.querySelector('#groups .frz-tag');
+  return {
+    fits: tag.getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom + 0.5,
+    whole: tag.scrollHeight <= tag.clientHeight + 0.5,
+    lines: Math.round(tag.getBoundingClientRect().height),
+    page: document.documentElement.scrollWidth,
+  };
+});
+assert.equal(frzPhone.fits, true, 'on a phone the record overflowed the card, which clips it');
+assert.equal(frzPhone.whole, true, 'on a phone the record was cut off inside its own box');
+assert.equal(frzPhone.page, 360, 'the freeze pushed the page sideways on a phone');
+await page.setViewportSize({ width: 1280, height: 900 });
+
+await page.evaluate(() => {
+  window.allFreezes = {}; window.allChal = {}; window.groups = []; window.teams = [];
+  window.cupId = null; window.setAccount(null);
+});
+console.log('freeze OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

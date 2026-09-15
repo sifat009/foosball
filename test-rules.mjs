@@ -199,4 +199,35 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
     'a re-spin row carried a field nobody reads');
 }
 
+// ---- freeze rows: the same append-only contract, one level deeper ----
+{
+  const row = who => ({ name: 'Rifat', email: who, fwd: 'Toufiq', def: 'Siddiq', at: 1 });
+
+  assert.ok(await put('freezes/c1/0_0/a', B1, row(B1)),
+    'a player could not file their own freeze');
+
+  // the address is how the page turns a row into a name and a balance
+  assert.ok(!await put('freezes/c1/0_0/b', B1, row(B2)),
+    'a freeze was filed carrying somebody else\'s address');
+  assert.ok(!await put('freezes/c1/0_0/c', B1, { name: 'Rifat', email: B1, fwd: 'Toufiq', def: 'Siddiq' }),
+    'a freeze was filed with no timestamp');
+  // two rods, two people — a row naming one of them twice is not an arrangement
+  assert.ok(!await put('freezes/c1/0_0/d', B1, Object.assign(row(B1), { def: 'Toufiq' })),
+    'a freeze stood one player at both rods');
+
+  /* Append-only, exactly as a re-spin is: a filed row is the record, and what it
+     costs is decided by the replay rather than by the row. */
+  assert.ok(!await put('freezes/c1/0_0/a', B1, row(B1)),
+    'an existing freeze row was overwritten by its own author');
+  assert.ok(!await put('freezes/c1/0_0/a', ADMIN, Object.assign(row(ADMIN), { name: 'Sifat' })),
+    'the admin overwrote a filed freeze row');
+  assert.ok(!await del('freezes/c1/0_0/a', B1), 'a filed freeze row was deleted by its author');
+  assert.ok(!await del('freezes/c1/0_0/a', ADMIN), 'a filed freeze row was deleted by the admin');
+  assert.ok(!await patch('freezes/c1/0_0/a', B1, { fwd: 'Siddiq' }),
+    'a filed freeze row was edited after the fact');
+
+  assert.ok(!await put('freezes/c1/0_0/e', B1, Object.assign(row(B1), { coins: 999 })),
+    'a freeze row carried a field nobody reads');
+}
+
 console.log('ok');

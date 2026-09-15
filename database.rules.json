@@ -73,6 +73,23 @@
         }
       }
     },
+    "freezes": {
+      ".read": true,
+      "$cup": {
+        "$match": {
+          "$id": {
+            ".write": "auth != null && auth.token.email_verified === true && !data.exists()",
+            ".validate": "newData.hasChildren(['name', 'email', 'fwd', 'def', 'at']) && newData.child('email').val() === auth.token.email && newData.child('fwd').val() !== newData.child('def').val()",
+            "name": { ".validate": "newData.isString() && newData.val().length > 0" },
+            "email": { ".validate": "newData.isString()" },
+            "fwd": { ".validate": "newData.isString() && newData.val().length > 0" },
+            "def": { ".validate": "newData.isString() && newData.val().length > 0" },
+            "at": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          }
+        }
+      }
+    },
     "pushPrefs": {
       ".read": false,
       "$token": {

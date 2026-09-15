@@ -322,6 +322,89 @@ rim and a highlight is three gradients. Note that `.eyebrow > span` is scoped to
 the direct child on purpose — the badge's padding and letter-spacing would
 otherwise land on the pill's own spans and flatten it.
 
+## Freezing a pair
+
+The other thing ten coins buys, and the only one that reaches a trophy.
+
+A goal box is keyed by the seat, not the person. `matchBox` draws two inputs per
+team — `fwd` and `def` — and `credit` hands each one to the name drafted into it:
+
+```js
+add(team.fwd, won, gf, ga, (p && p.fwd) || 0, nil);
+add(team.def, won, gf, ga, (p && p.def) || 0, nil);
+```
+
+`t.fwd` is fixed for the whole cup; it is the wheel a player came off. So the
+forward box belongs to the drafted forward all night, whoever was holding that
+rod when the ball went in. Pairs do swap rods mid-match, and when they do the
+goals scored from the other end are filed under the partner's name — invisibly,
+because `credit` cannot see a rod. A pair splitting six goals three and three
+wins no Golden Boot; the same pair standing one man at the forward rod all
+evening files six under one name and takes it.
+
+**Ten coins names both seats of the opposing pair for one match**, and they hold
+those rods for all of it. Only the two players in that fixture may buy it,
+against the other pair, from the moment the fixture exists until a score is
+filed. Once a cup, on its own budget.
+
+There are two names and two rods, so there are exactly two arrangements, and
+both are worth buying. Naming them **as drafted** is a lock — they cannot swap
+mid-match to pile a Boot run onto one name. Naming the **swap** stands their
+scorer at the rod that is not his, and every goal he scores that match lands on
+his partner. It runs in both directions, because defenders are in the Boot race
+too: `boot` is `lead(ns, bootKey(P))` over every player in the rollup with no
+pool filter, and only the Glove is gated by `keepers`. The goals are not
+destroyed either — they are donated — so the same ten coins tank one Boot run
+and inflate another.
+
+### It changes nothing that is counted
+
+That is the argument for building it this way. `credit` and `rollupPlayers` read
+the boxes they always read; the boxes stay welded to `t.fwd` and `t.def`, and
+that weld *is* the feature. `pairLedger` is keyed on the names sorted, never the
+roles, so the rotation never notices. The Glove cannot notice: `ga` is a team
+total shared by both partners and the defence pool is cup-wide. `groupScores`
+and `koScores` keep their shape, so every cup already in the Hall replays
+identically. There is no `canRespin` equivalent to write, because a freeze
+cannot wedge a draw.
+
+The alternative — a per-match fwd/def override, relabelled boxes, `credit`
+reading the override — makes the record honest and closes the laundering hole.
+It also touches the archive and the replay path for every cup in the Hall, and
+it costs far more code to make the spend matter less. The credit consequence is
+the reason ten coins is worth spending.
+
+### What the rules can't do here either
+
+They cannot see a rod. Whether the pair actually stood where they were told is
+decided by the room; the freeze is printed on the match card and the four people
+present hold each other to it — the same contract a score claim already runs on,
+and the same one that makes the existing laundering possible. This is not a gap
+to be closed later.
+
+`freezes/<cupId>/<matchId>/<pushId>` is append-only, exactly as `respins` is: a
+row carrying its own `auth.token.email`, writable only when the row does not
+exist. `matchId` is the key the suggestions already use — `gi_mi` in the group,
+`kr_i` in the bracket — so one namespace names a match everywhere.
+
+The replay honours a row on the same two conditions a re-spin gets, plus one
+more: the live cup's fixtures must still support it. The bracket is redrawn from
+the group table every time, and re-running an earlier knockout round can move a
+pair out from under a row already filed. `freezeFits` asks the question
+`sugFits` asks of a suggestion in flight — both slots filled, one team is the
+pair it was bought against, the payer on the other — and a row that fails it is
+ignored and **charged nothing**. Only the live cup is asked; a cup already in
+the Hall settled the question on its way in.
+
+Two partners can both afford one and could name opposite arrangements, so the
+earlier `at` stands and the second is charged nothing. Both *sides* may spend:
+freezing one pair does not stop them freezing yours.
+
+Balances become `2 x wins - 10 x (honoured re-spins + honoured freezes)`, one
+more row type in the walk that already existed. Which rows it charged for is
+asked of the walk rather than derived again — `coins()` takes an out-parameter
+for them — so the card can never offer a lock the ledger did not pay for.
+
 ## Before it works
 
 **Authorized domains.** Firebase Console → Authentication → Settings →
@@ -622,12 +705,27 @@ that pair matters, since without it the first proves nothing. The hold is checke
 as the pure state it is: counting down while a landing has no team, closed once
 the team forms, and closed again once the fifteen seconds are up.
 
+The freeze is checked in the two places it lives. The replay: a row nobody could
+afford, a second in one cup, the limit resetting at the next, a spend filed
+before the coins were earned, an abandoned cup refunding and the running one
+charging, a re-spin and a freeze in one cup spending twenty, and the walk
+reporting which rows it charged for without that changing what it charged. Then
+`freezeFits`, which is the whole of whether a filed row still means anything —
+the pair it names must be in that match, the payer on the other side of it, and
+a half-filled knockout tie is nobody's to freeze. The card is driven from a real
+group: the button reaches the two players in the fixture and nobody else, carries
+its reason rather than going silent when it cannot be offered, the sheet offers
+exactly the two arrangements, and a filed row replaces the button with a record
+both sides can read.
+
 `test-rules.mjs` is the only check that evaluates a rule: `test.mjs` stubs the
 database out, so nothing there ever reaches one, and the rules are what
 actually stop a challenge score being whatever the last person typed, and the
-one place a re-spin row is made permanent — filed rows are append-only, so the
-suite tries to overwrite, edit and delete one as its author and as the admin,
-and tries to file one carrying somebody else's address. It talks
+one place a re-spin or a freeze row is made permanent — filed rows are
+append-only, so the suite tries to overwrite, edit and delete one of each as its
+author and as the admin, and tries to file one carrying somebody else's address.
+A freeze naming one player at both rods is refused there too, since it is not an
+arrangement. It talks
 to the database emulator over REST with hand-made tokens — the emulator does
 not check a signature, so there is no key, no service account and nothing to
 install beyond `firebase-tools`.
