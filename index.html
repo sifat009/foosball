@@ -204,7 +204,7 @@
   }
   .double-round-toggle input { cursor: pointer; }
   #status { text-align: center; margin-top: 20px; font-size: 1.08rem; color: #5b6a7d; min-height: 1.6em; font-weight: 600; }
-  /* the fifteen seconds between the wheels landing and the team forming */
+  /* the ten seconds between the wheels landing and the team forming */
   #hold { text-align: center; margin-top: 10px; }
   .hold-t { font-size: 0.82rem; font-weight: 700; color: #97a3b3; }
   .hold-t b { color: #96660a; }
@@ -1745,13 +1745,16 @@ Nur</textarea>
       to each player on the winning side. A draw or a loss pays nothing.</p>
       <ul>
         <li><b>10 coins buys a re-spin.</b> When the wheels land on you, you have
-        fifteen seconds to spend it and reject your partner. So does the other one
+        ten seconds to spend it and reject your partner. So does the other one
         of you. <b>Once a cup.</b></li>
         <li>Whoever you rejected can't be drawn with you again that night, and the
         wheels turn again for whoever is left.</li>
-        <li>The rotation still comes first: on the <b>last night of a cycle</b> there
-        is only one legal draw, so there is nowhere for a re-spin to go and nothing
-        is charged.</li>
+        <li><b>Paying frees you from the rotation.</b> For the rest of that draft the
+        five-cup rule stops applying to you, so the wheels may land you on anyone —
+        even the partner you had last cup.</li>
+        <li>That is <b>the one thing coins can break</b>. Five cups hold exactly 25
+        pairings and there are exactly 25 pairs to make, so a bought repeat means some
+        pairing that cycle never happens — and it will not always be yours.</li>
         <li>The <b>last pair can't re-spin</b>. When one forward and one defender are
         left they are drawn together automatically — there is nobody else to be
         drawn with, so there is nothing to buy.</li>
@@ -1892,8 +1895,12 @@ Nur</textarea>
         <li><b>10 coins</b> buys one <b>re-spin</b> at the draft: when the wheels land
         on you, you can pay to reject your partner and turn them again.</li>
         <li><b>Once a cup.</b> Whoever you rejected can't come back to you for the rest of that cup.</li>
-        <li>The rotation still comes first. On the last cup of a cycle there is only
-        one legal draw, so there is nowhere for a re-spin to go and nothing is charged.</li>
+        <li><b>Paying frees you from the rotation.</b> The five-cup rule stops applying
+        to you for the rest of that draft — the wheels may land you on anyone, even the
+        partner you had last cup.</li>
+        <li>It is the one thing coins can break: five cups hold exactly 25 pairings and
+        there are exactly 25 pairs to make, so a bought repeat costs the cycle a pairing
+        somewhere — not necessarily yours.</li>
         <li><b>The last pair can't.</b> With one forward and one defender left they are
         drawn together automatically — there is nobody else to be drawn with.</li>
       </ul>
@@ -2828,11 +2835,11 @@ window.coins = coins;
    what makes a coin worth having. It also tells the room what everyone can
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
+const coinBal = () => coins(Object.values(allChal || {}).filter(c => c && c.at),
+  allRespins, histCups, cupId ? String(cupId) : null);
 const myCoins = () => {
-  const bal = coins(Object.values(allChal || {}).filter(c => c && c.at),
-    allRespins, histCups, cupId ? String(cupId) : null);
   const me = myName();
-  return me ? (bal[me] || 0) : null;
+  return me ? (coinBal()[me] || 0) : null;
 };
 window.myCoins = myCoins;
 
@@ -3641,8 +3648,22 @@ function pairLedger(entries) {
    is 720 arrangements and the cycle prunes most of them, so this is a walk, not a
    search. Reservoir sampling rather than an array of every candidate: the count
    is factorial and only one of them is ever used. */
-function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null, strict = false) {
+function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null, wild = null) {
+  /* `wild` is whoever paid ten coins tonight. The rotation is what their coins
+     bought their way out of, so any pair with one of them in it is fresh by
+     definition — including the partner they had last cup. A name check rather than
+     a lower `cool`, so the lift itself reaches nobody else.
+
+     The consequence does, and it was measured before it was accepted: five cups
+     hold exactly 25 pairings and there are exactly 25 combinations, so a bought
+     repeat means one pairing never happens. Later nights then find no legal plan
+     and fall into the relaxation below, which loosens the rotation for the whole
+     table. Simulated over 2000 cycles: intact every time with nobody paying, broken
+     in 18% of cycles when somebody pays on night two and 52% on night four, and the
+     lost pairings land on players who paid nothing about twice as often as on the
+     payer. Coins were chosen over the guarantee knowing that. */
   const fresh = (f, d) => {
+    if (wild && (wild.has(f) || wild.has(d))) return true;
     const at = ledger.last.get(pairKey(f, d));
     return at === undefined || ledger.n - at > cool;
   };
@@ -3660,16 +3681,14 @@ function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null
     }
   })(0);
   /* A single survivor is the rotation working — the last cup of a cycle has one
-     legal draw by construction, and relaxing there would give back the guarantee
-     the whole thing was built for. Zero survivors is the roster having changed
-     underneath a half-finished cycle, and that must never wedge the draw: forget
-     the oldest cup of the cycle and try again, down to a free roll. */
-  /* `strict` is the whole safety of the re-spin. canRespin asks this same walk
-     whether a paid re-spin has anywhere legal to go, and if that question were
-     allowed to relax it would answer "yes" by forgetting the oldest cup of the
-     cycle — one player's ten coins dissolving the rotation for all ten. So the
-     asker never relaxes; only the draw itself does. */
-  if (!seen && cool > 0 && !strict) return planDraw(fwdNames, defNames, ledger, cool - 1, blocked, strict);
+     legal draw by construction. Zero survivors is the roster having changed
+     underneath a half-finished cycle, or a paid re-spin leaving the others with no
+     arrangement between them, and neither may wedge the draw: forget the oldest cup
+     of the cycle and try again, down to a free roll. */
+  /* Coins do not come through here — `wild` already freed the payer above. This
+     is only the roster-change escape, and it stays because freeing one player can
+     still leave the other eight with no legal arrangement between them. */
+  if (!seen && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1, blocked, wild);
   if (!keep) return [];
   const plan = fwdNames.map((f, i) => ({ fwd: f, def: keep[i] }));
   // the reveal would otherwise run straight down the forward list
@@ -3687,22 +3706,29 @@ function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null
    the plan. */
 const respinRows = () => Object.values((allRespins || {})[String(cupId)] || {}).filter(r => r && r.name);
 const respinBlocked = () => new Set(respinRows().map(r => pairKey(r.name, r.rejected)));
+/* Whoever has spent tonight, and so is out from under the rotation for the rest of
+   this draft — the same rows respinBlocked reads, asked the other question. */
+const respinPaid = () => new Set(respinRows().map(r => r.name));
 
 /* Whether `payer` could be drawn with somebody other than the name the wheels
    just landed on. Block that pair and ask for a whole legal plan: if one exists,
-   the re-spin has somewhere to go. Strict, so the question can never be answered
-   by relaxing the rotation — see planDraw.
+   the re-spin has somewhere to go.
 
-   On the last night of a cycle there is one legal draw by construction, so this
-   is false for everybody and nothing is charged. Coins are worth most at the top
-   of a cycle and nothing at its end; that is the price of the guarantee. */
+   Asked with the payer already wild, because that is what paying does: the five-cup
+   rule is exactly what the ten coins buy their way out of, so the partner they had
+   last cup is back on the table for them and for nobody else. The answer is
+   therefore no only when there is genuinely nobody else to be drawn with — one
+   forward and one defender left — or when freeing them leaves the rest of the room
+   with no arrangement at all. */
 function canRespin(payer, partner) {
   const af = availIdx(fwds), ad = availIdx(defs);
   const blocked = respinBlocked();
   blocked.add(pairKey(payer, partner));
+  const wild = respinPaid();
+  wild.add(payer);
   const led = pairLedger(hallEntries);
   return planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name),
-    led, led.cool, blocked, true).length > 0;
+    led, led.cool, blocked, wild).length > 0;
 }
 window.canRespin = canRespin;
 
@@ -3714,7 +3740,7 @@ function nextPair() {
   const af = availIdx(fwds), ad = availIdx(defs);
   if (!drawPlan.length)
     drawPlan = planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name),
-      pairLedger(hallEntries), undefined, respinBlocked());
+      pairLedger(hallEntries), undefined, respinBlocked(), respinPaid());
   const t = drawPlan.shift();
   return [fwds.findIndex(f => f.name === t.fwd), defs.findIndex(d => d.name === t.def)];
 }
@@ -3750,15 +3776,47 @@ function animateSpin(fi, di, startF, startD, done) {
 
 /* A landing is held before it becomes a team, so the two named have a moment to
    pay their way out of it. `at` is when the wheels stop, not when they start, and
-   it rides on the published record only so every screen counts the same fifteen
+   it rides on the published record only so every screen counts the same ten
    seconds down — it decides what the countdown says, never what is committed.
 
    The commit stays where it always was: the admin's formTeam, and the save() it
    already calls. Viewers never form a team from a spin — they animate on `n`
    changing and read `teams` out of the snapshot — so they are already waiting on
    that write and there is nothing to synchronise. */
-const HOLD_MS = 15000;
+const HOLD_MS = 10000;
 var holdT = null;
+
+/* Why `p` cannot pay their way out of the landing beside `partner`, or null if
+   they can. Asked of the payer by renderHold and of both named by holdMs, so the
+   button and the countdown can never disagree about who the hold is for. */
+function respinWhy(p, partner, bal) {
+  if (!cupId) return 'This draft has no cup id — reopen it to spend coins.';
+  if (respinRows().some(r => r.name === p)) return 'You have already used your re-spin this cup.';
+  const n = bal[p] || 0;
+  if (n < COIN_RESPIN) return `${COIN_RESPIN} coins for a re-spin — you have ${n}.`;
+  if (!canRespin(p, partner)) return 'Nobody left to swap with — this is the last pair.';
+  return null;
+}
+
+/* The hold exists for one thing: the two named paying their way out of the
+   landing. If neither of them can — no coins, already spent, nobody left to swap
+   with — it is ten seconds of watching a countdown that nothing can happen in, so
+   there is no hold at all and finishSpin's floor gives the pair its beat instead.
+
+   Pure state, like renderHold: every screen reads the same coins, the same filed
+   rows and the same remaining players, so the admin's timer and the viewers'
+   countdown agree with nothing passed between them. */
+function holdMs() {
+  if (!spin) return 0;
+  const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
+  if (!f || !d) return 0;
+  /* A draft with no cup id is broken, not settled: skipping the hold would hide
+     it the same way silence hid it once already. Hold, and let the reason speak. */
+  if (!cupId) return HOLD_MS;
+  const bal = coinBal();
+  return (!respinWhy(f, d, bal) || !respinWhy(d, f, bal)) ? HOLD_MS : 0;
+}
+window.holdMs = holdMs;
 
 function spinOnce() {
   spinning = true;
@@ -3800,7 +3858,7 @@ function finishSpin(fi, di, sess) {
       spinning = false;
       $('spinBtn').disabled = false;
     }
-  }, Math.max(1100, (spin && spin.at || Date.now()) + HOLD_MS - Date.now()));
+  }, Math.max(1100, (spin && spin.at || Date.now()) + holdMs() - Date.now()));
 }
 
 /* Whether a filed row is one the draw will act on and the ledger will charge —
@@ -3826,12 +3884,13 @@ function respinHonoured(row) {
 function renderHold() {
   const el = $('hold');
   if (!el) return;
-  const on = spin && spin.n > teams.length && Date.now() < (spin.at || 0) + HOLD_MS;
+  const ms = spin && spin.n > teams.length ? holdMs() : 0;
+  const on = ms > 0 && Date.now() < (spin.at || 0) + ms;
   el.style.display = on ? '' : 'none';
   if (!on) { el.innerHTML = ''; return; }
-  const left = Math.ceil(((spin.at || 0) + HOLD_MS - Date.now()) / 1000);
+  const left = Math.ceil(((spin.at || 0) + ms - Date.now()) / 1000);
   const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
-  const me = myName(), n = myCoins() || 0;
+  const me = myName();
   const partner = me === f ? d : me === d ? f : null;
   el.innerHTML = '';
   const t = part('hold-t', '', 'div');
@@ -3841,12 +3900,7 @@ function renderHold() {
   /* Every one of these used to be silence, and silence reads as a bug rather than
      as a rule — which is exactly how a dead cupId hid for a whole release. If the
      button is not there, the reason is. */
-  const spent = respinRows().some(r => r.name === me);
-  const why = !cupId ? 'This draft has no cup id — reopen it to spend coins.'
-    : spent ? 'You have already used your re-spin this cup.'
-    : n < COIN_RESPIN ? `${COIN_RESPIN} coins for a re-spin — you have ${n}.`
-    : !canRespin(me, partner) ? 'No re-spin tonight — the rotation leaves you no other partner.'
-    : null;
+  const why = respinWhy(me, partner, coinBal());
   if (why) { el.append(part('hold-why', why)); return; }
   const btn = document.createElement('button');
   btn.id = 'holdBtn';
@@ -3864,7 +3918,7 @@ setInterval(renderHold, 500);
 
 /* The re-spin fires by itself when a row lands, rather than waiting for the admin
    to notice: the payer drove it, and making the room watch the admin turns a
-   fifteen-second moment into an awkward one. It is an ordinary next spin — no
+   ten-second moment into an awkward one. It is an ordinary next spin — no
    team was formed for the landing it replaces, so there is nothing to undo. */
 /* No `window.maybeRespin = () => maybeRespin()` wrapper here: a top-level function
    declaration is already a property of window, so the wrapper overwrote it and

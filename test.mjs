@@ -2747,8 +2747,9 @@ console.log('draw rotation OK — four cycles, every pair once each');
 
 // ---------- the re-spin ----------
 /* Ten coins buys one a cup: the wheels land and either of the two named can pay
-   to reject the other. The rotation comes first, and the check that decides
-   whether a re-spin has anywhere to go must never buy its answer by relaxing. */
+   to reject the other. Paying lifts the five-cup rule off the payer and nobody
+   else, so the two halves to hold are that it lifts at all and that it lifts only
+   for them. */
 const respinCheck = await page.evaluate(() => {
   const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
   const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
@@ -2765,9 +2766,27 @@ const respinCheck = await page.evaluate(() => {
     planDraw(F, D, pairLedger(cups.slice(0, 20)), undefined, blocked)
       .some(t => key(t.fwd, t.def) === key('Nur', 'Sifat'))).every(v => v === false);
 
-  /* Strict is the safety. On the last night of a cycle there is one legal draw,
-     so blocking any pair in it leaves nothing — and strict must say so rather
-     than forgetting a cup to find an answer.
+  /* Paying lifts the rotation off the payer. Nur and Sifat were drawn together in
+     the cup that just finished, so the ordinary rule blocks them — and a wild Nur
+     must be able to land right back on Sifat, on a night where the rule is
+     otherwise biting and there are plenty of legal draws to hide behind.
+
+     `cool` is 1 here by construction: 23 cups puts us on the second night of a
+     cycle, where only the previous cup is blocked. */
+  const led1 = pairLedger(cups.slice(0, 23));
+  out.cool1 = led1.cool;
+  const wasPaired = key(cups[22].teams[0].fwd, cups[22].teams[0].def);  // Nur|<last partner>
+  const pairedIn = (plans, k) => plans.some(pl => pl.some(t => key(t.fwd, t.def) === k));
+  const runs = w => Array.from({ length: 60 }, () => planDraw(F, D, led1, led1.cool, null, w));
+  out.ruleBitesWithoutCoins = !pairedIn(runs(null), wasPaired);
+  out.paidGetsThemBack = pairedIn(runs(new Set(['Nur'])), wasPaired);
+  /* ...and only them. Sazedul paid nothing, so Sazedul's own pair from last cup
+     must stay blocked in those same wild draws. */
+  const sazedulWas = key(cups[22].teams[2].fwd, cups[22].teams[2].def);
+  out.othersStillBound = !pairedIn(runs(new Set(['Nur'])), sazedulWas);
+
+  /* On the last night of a cycle there is one legal draw, so blocking any pair in
+     it leaves nothing — and the walk must forget a cup rather than wedge.
 
      Found rather than counted: the cycle is anchored at CYCLE_ANCHOR, so which
      slice lands on the last night moves whenever that does. */
@@ -2781,17 +2800,25 @@ const respinCheck = await page.evaluate(() => {
   out.lastNightCool = last.cool;
   out.lastNightVariants = new Set(Array.from({ length: 40 }, () =>
     JSON.stringify(planDraw(F, D, last).map(t => t.fwd + '|' + t.def).sort()))).size;
-  out.strictRefuses = planDraw(F, D, last, last.cool, b2, true).length === 0;
-  out.looseWouldRelax = planDraw(F, D, last, last.cool, b2, false).length > 0;
+  const paid = planDraw(F, D, last, last.cool, b2);
+  out.paidFindsAPlan = paid.length > 0;
+  out.paidDropsThePair = !paid.some(t => key(t.fwd, t.def) === [...b2][0]);
   return out;
 });
 assert.equal(respinCheck.blockedHeld, true, 'a rejected pair came back later in the same draft');
 assert.equal(respinCheck.lastNightCool, 4, 'the fixture is not sitting on the last night of a cycle');
 assert.equal(respinCheck.lastNightVariants, 1, 'the last night of a cycle was not forced to one draw');
-assert.equal(respinCheck.strictRefuses, true,
-  'the availability check found a re-spin on a night that has exactly one legal draw');
-assert.equal(respinCheck.looseWouldRelax, true,
-  'the relaxing path no longer relaxes — then strict is proving nothing');
+assert.equal(respinCheck.cool1, 1, 'the fixture is not sitting on the second night of a cycle');
+assert.equal(respinCheck.ruleBitesWithoutCoins, true,
+  'last cup\'s pair came back without anybody paying — the rotation is not biting, so the test below proves nothing');
+assert.equal(respinCheck.paidGetsThemBack, true,
+  'ten coins did not lift the five-cup rule off the payer — they still cannot be drawn with last cup\'s partner');
+assert.equal(respinCheck.othersStillBound, true,
+  'one player paying lifted the rotation off somebody who paid nothing');
+assert.equal(respinCheck.paidFindsAPlan, true,
+  'a paid re-spin was refused on the last night of a cycle — coins are meant to beat the rotation');
+assert.equal(respinCheck.paidDropsThePair, true,
+  'the relaxed plan handed the payer back the pair they paid to reject');
 
 // one a cup, and only out of coins already banked
 const honour = await page.evaluate(() => {
@@ -2869,11 +2896,23 @@ const holdWhy = await page.evaluate(() => {
   window.setAccount('rashed@x.com');                           // in the pair, lost all five
   window.renderHold();
   out.broke = read();
+  /* Ofi is the partner here, not Rashed: the hold only stands while somebody in
+     the pair can still pay, and Ofi's ten coins are what keeps it open long enough
+     for Nur to be told they already spent theirs. */
+  window.spin = { n: 1, fi: 0, di: 1, sf: 0, sd: 0, at: Date.now() };  // Nur + Ofi
   window.setAccount('nur@x.com');                              // in the pair, ten coins
-  window.allRespins = { [String(cupId)]: { a: { name: 'Nur', rejected: 'Ofi', n: 0, at: 1 } } };
+  window.allRespins = { [String(cupId)]: { a: { name: 'Nur', rejected: 'Sazedul', n: 0, at: 1 } } };
   window.renderHold();
   out.spent = read();
   window.allRespins = {};
+  /* Neither of them can pay: there is nothing the ten seconds could be used for,
+     so there is no hold at all and the wheels move on. */
+  window.spin = { n: 1, fi: 1, di: 2, sf: 0, sd: 0, at: Date.now() };  // Rifat + Rashed, both broke
+  window.setAccount('rashed@x.com');
+  window.renderHold();
+  out.noneCanPay = $('hold').style.display;
+  out.noneMs = window.holdMs();
+  window.spin = { n: 1, fi: 0, di: 2, sf: 0, sd: 0, at: Date.now() };
   const keep = window.cupId; window.cupId = null;
   window.renderHold();
   out.noId = read();
@@ -2884,6 +2923,8 @@ assert.equal(holdWhy.bystander, '', 'somebody not in the landed pair was told wh
 assert.match(holdWhy.broke, /10 coins for a re-spin — you have 0/, 'a player short of coins is not told so');
 assert.match(holdWhy.spent, /already used your re-spin/, 'a second re-spin is refused without saying why');
 assert.match(holdWhy.noId, /no cup id/, 'a draft with no cup id fails silently — the exact bug that hid');
+assert.equal(holdWhy.noneCanPay, 'none', 'the draw held ten seconds open for a pair that cannot re-spin');
+assert.equal(holdWhy.noneMs, 0, 'holdMs kept a hold nobody in the pair could use');
 window: {
   const nameLbl = await page.evaluate(() => {
     window.setAccount('nur@x.com');
@@ -2971,7 +3012,13 @@ await page.evaluate(() => {
 
 // the hold: a landing that has not become a team yet, counting down on every screen
 const hold = await page.evaluate(() => {
-  window.allRespins = {}; window.allChal = {};
+  window.allRespins = {}; window.cupId = '4242'; window.histCups = new Set();
+  window.renderHall([]);
+  // Nur banks ten coins, so the landing below is one somebody could pay out of
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const g = (at, b, r) => ({ at,
+    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
+  window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
   window.fwds = [{ name: 'Nur' }, { name: 'Rifat' }];
   window.defs = [{ name: 'Sifat' }, { name: 'Ofi' }];
   window.teams = [];
@@ -2984,7 +3031,7 @@ const hold = await page.evaluate(() => {
   window.teams = [{ fwd: 'Nur', def: 'Sifat' }];
   window.renderHold();
   const closed = $('hold').style.display === 'none';
-  // and it is over once the fifteen seconds are up, team or no team
+  // and it is over once the ten seconds are up, team or no team
   window.teams = [];
   window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() - 20000 };
   window.renderHold();
