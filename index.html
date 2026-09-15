@@ -1787,11 +1787,11 @@ Nur</textarea>
 </div>
 
 <!-- Ten coins names both seats of the opposing pair for one match. Two names and
-     two rods make exactly two arrangements, so this is a choice between them and
+     two positions make exactly two arrangements, so this is a choice between them
      not a picker — and both of them are worth buying. -->
 <div id="freeze">
   <div class="hall-card">
-    <div class="hall-title"><svg class="ico"><use href="#i-coin"/></svg> Freeze their rods</div>
+    <div class="hall-title"><svg class="ico"><use href="#i-coin"/></svg> Freeze their positions</div>
     <div class="sheet-body">
       <p id="freezeWho" class="frz-q"></p>
       <p class="frz-sub">Two arrangements. Both are worth buying &mdash; they buy different things.</p>
@@ -1831,19 +1831,19 @@ Nur</textarea>
         <li>The <b>last pair can't re-spin</b>. When one forward and one defender are
         left they are drawn together automatically — there is nobody else to be
         drawn with, so there is nothing to buy.</li>
-        <li><b>10 coins freezes the other pair's rods</b> for one match you are in.
-        You name which of them plays forward and which plays back, and they hold
-        those rods all match. <b>Once a cup.</b></li>
+        <li><b>10 coins freezes the other pair's positions</b> for one match you are
+        in. You name which of them plays forward and which plays defender, and they
+        stay there all match. <b>Once a cup.</b></li>
         <li>A goal belongs to the <b>seat</b>, not the person — the forward box is the
-        drafted forward's all match. So standing their scorer at the other rod files
-        his goals under his partner's name.</li>
+        drafted forward's all match. So putting their scorer in the other position
+        files his goals under his partner's name.</li>
         <li>Freezing them <b>as drafted</b> is worth buying too: it stops them swapping
-        rods mid-match to pile a Boot run onto one name.</li>
-        <li>Nothing here can see a rod. A freeze is printed on the match card and the
-        four of you hold each other to it.</li>
+        places mid-match to pile a Boot run onto one name.</li>
+        <li>Nothing here can see who is standing where. A freeze is printed on the match
+        card and the four of you hold each other to it.</li>
         <li>Coins never touch a title or a badge. The freeze is the one that reaches a
         trophy: it decides whose column a goal lands in, and so the <b>Golden Boot</b>.
-        The Glove is out of reach — goals conceded are the pair's, not a rod's.</li>
+        The Glove is out of reach — goals conceded are the pair's, not one player's.</li>
       </ul>
 
       <div class="rules-h">Scoring a match</div>
@@ -1992,18 +1992,18 @@ Nur</textarea>
       </ul>
       <div class="rules-h">Spending &mdash; the table</div>
       <ul>
-        <li><b>10 coins</b> <b>freezes the other pair's rods</b> for one match you are
-        playing in: you name which of them takes forward and which takes back, and they
-        hold those rods all match.</li>
+        <li><b>10 coins</b> <b>freezes the other pair's positions</b> for one match you
+        are playing in: you name which of them plays forward and which plays defender,
+        and they stay there all match.</li>
         <li><b>Once a cup</b>, and only against the pair you are actually facing.</li>
         <li><b>A goal belongs to the seat, not the person.</b> The forward box is the
-        drafted forward's all match. Stand their scorer at the other rod and the goals
-        he scores are filed under his partner's name — which is what the ten coins
-        are really buying.</li>
+        drafted forward's all match. Put their scorer in the other position and the
+        goals he scores are filed under his partner's name — which is what the ten
+        coins are really buying.</li>
         <li>Naming them <b>as drafted</b> is worth buying too: it stops them swapping
-        rods mid-match to pile a Golden Boot run onto one name.</li>
-        <li>Nothing in the app can see a rod. The freeze is on the card and the four
-        of you hold each other to it.</li>
+        places mid-match to pile a Golden Boot run onto one name.</li>
+        <li>Nothing in the app can see who is standing where. The freeze is on the card
+        and the four of you hold each other to it.</li>
       </ul>
       <div id="coinYou" class="coin-you"></div>
     </div>
@@ -2966,14 +2966,14 @@ window.coins = coins;
    what makes a coin worth having. It also tells the room what everyone can
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
-/* ---- freezes: ten coins pins the other pair to their rods for one match ----
+/* ---- freezes: ten coins pins the other pair to their positions for one match ----
    A goal box is keyed by the seat and `credit` hands it to the name drafted into
    it, so where a player stands decides whose column his goals land in. A pair that
-   swaps rods mid-match files them under one name; this prices that and hands it to
+   swaps places mid-match files them under one name; this prices that and hands it to
    the other side of the table. Nothing derived moves — the boxes stay welded to
    `t.fwd` and `t.def`, which is the whole point. */
 const inTeam = (t, n) => !!t && (t.fwd === n || t.def === n);
-/* A row names the two people and which of them takes the forward rod. The pair is
+/* A row names the two people and which of them plays forward. The pair is
    unordered here on purpose: the row is matched to a team by who is in it, never by
    the arrangement it is asking for. */
 const sameTwo = (t, r) => !!t && !!r
@@ -3024,7 +3024,7 @@ function renderCoins() {
   $('coinN').textContent = n === null ? '\u2013' : n;
   $('coinWho').textContent = myName() || ''; // textContent: EMAIL_NAMES is edited by hand
   pill.title = n === null ? 'Sign in to see your coins'
-    : n >= COIN_RESPIN ? 'Enough for a re-spin, or to freeze a pair\u2019s rods'
+    : n >= COIN_RESPIN ? 'Enough for a re-spin, or to freeze a pair\u2019s positions'
     : coinGap(n);
 
   // the pill is a number; the sheet is where a number gets a meaning
@@ -3037,7 +3037,7 @@ function renderCoins() {
     return;
   }
   you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'),
-    n >= COIN_RESPIN ? ' — enough for a re-spin at the next draft, or to freeze a pair’s rods.'
+    n >= COIN_RESPIN ? ' — enough for a re-spin at the next draft, or to freeze a pair’s positions.'
       : ' — ' + coinGap(n));
 }
 window.renderCoins = renderCoins;
@@ -4676,7 +4676,7 @@ function freezeTag(r) {
   el.append(part('frz-lock', '\u2744'));
   const t = part('', '', 'span');
   t.append('Frozen by ', part('', r.name, 'b'), ' \u2014 ',
-    part('', r.fwd, 'b'), ' forward, ', part('', r.def, 'b'), ' back. Holds all match.');
+    part('', r.fwd, 'b'), ' forward, ', part('', r.def, 'b'), ' defender. Holds all match.');
   el.append(t);
   return el;
 }
@@ -4699,15 +4699,15 @@ function freezeBtn(mid, m, theirs, me) {
   }
   if (n < COIN_FREEZE) {
     el.disabled = true;
-    el.textContent = `${COIN_FREEZE} coins to freeze their rods \u2014 you have ${n}.`;
+    el.textContent = `${COIN_FREEZE} coins to freeze their positions \u2014 you have ${n}.`;
     return el;
   }
-  el.append(part('frz-disc', ''), `Freeze their rods \u00b7 ${COIN_FREEZE}`);
+  el.append(part('frz-disc', ''), `Freeze their positions \u00b7 ${COIN_FREEZE}`);
   el.onclick = () => openFreeze(mid, m, theirs, me);
   return el;
 }
 
-/* Two names and two rods, so there are exactly two arrangements and the sheet is a
+/* Two names and two positions, so there are exactly two arrangements and the sheet
    choice between them rather than a picker. Both are worth buying: as drafted is a
    lock against a mid-match swap, the other files their scorer's goals under his
    partner. */
@@ -4717,7 +4717,7 @@ function openFreeze(mid, m, theirs, me) {
     { fwd: theirs.fwd, def: theirs.def, head: 'As drafted', why:
       'They cannot swap mid-match to pile goals onto one name.' },
     { fwd: theirs.def, def: theirs.fwd, head: 'Swapped', why:
-      `${theirs.def} scores from the forward rod \u2014 and the forward box is ${theirs.fwd}'s.` },
+      `${theirs.def} scores as forward \u2014 and the forward box is ${theirs.fwd}'s.` },
   ];
   freezePick = 1;
   const wrap = $('freezeOpts');

@@ -3180,7 +3180,7 @@ const frzCard = await page.evaluate(() => {
   window.setAccount('toufiq@x.com'); out.frozenSide = read();
   /* `.match` clips what overflows it, and the record is the one thing on the card
      that runs to a second line on a phone. A tag taller than the card it sits in
-     loses the half that says which rod each of them holds. */
+     loses the half that says which position each of them plays. */
   const card = document.querySelector('#groups .match');
   const tag = document.querySelector('#groups .frz-tag');
   out.tagFits = tag.getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom + 0.5;
@@ -3206,8 +3206,8 @@ assert.deepEqual(frzCard.opts, ['Toufiq/Siddiq', 'Siddiq/Toufiq'],
 assert.ok(/Toufiq and Siddiq/.test(frzCard.who), 'the sheet did not name the pair it acts on');
 assert.equal(frzCard.filed.btn, false, 'a second freeze was offered against a pair already frozen');
 assert.equal(frzCard.filed.tags.length, 1, 'a filed freeze left no record on the card');
-assert.ok(/Siddiq forward, Toufiq back/.test(frzCard.filed.tags[0]),
-  'the record did not say which rod each of them holds');
+assert.ok(/Siddiq forward, Toufiq defender/.test(frzCard.filed.tags[0]),
+  'the record did not say which position each of them plays');
 assert.ok(/Frozen by Sifat/.test(frzCard.filed.tags[0]), 'the record did not say who paid');
 assert.equal(frzCard.frozenSide.tags.length, 1, 'the frozen pair could not see it on their own card');
 assert.equal(frzCard.tagFits, true, 'the record overflowed the match card, which clips it');
@@ -3215,7 +3215,7 @@ assert.equal(frzCard.tagWhole, true, 'the record was cut off inside its own box'
 assert.equal(frzCard.scored.btn, false, 'a match with a score on it could still be frozen');
 
 /* The record runs to two or three lines on a phone, and `.match` clips what
-   overflows it — the one width where the half naming the rods could go missing. */
+   overflows it — the one width where the half naming the positions could go missing. */
 await page.setViewportSize({ width: 360, height: 780 });
 const frzPhone = await page.evaluate(() => {
   window.allFreezes = { cFrz: { '0_0': { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };

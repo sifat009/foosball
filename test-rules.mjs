@@ -211,9 +211,9 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
     'a freeze was filed carrying somebody else\'s address');
   assert.ok(!await put('freezes/c1/0_0/c', B1, { name: 'Rifat', email: B1, fwd: 'Toufiq', def: 'Siddiq' }),
     'a freeze was filed with no timestamp');
-  // two rods, two people — a row naming one of them twice is not an arrangement
+  // two positions, two people — a row naming one of them twice is not an arrangement
   assert.ok(!await put('freezes/c1/0_0/d', B1, Object.assign(row(B1), { def: 'Toufiq' })),
-    'a freeze stood one player at both rods');
+    'a freeze stood one player in both positions');
 
   /* Append-only, exactly as a re-spin is: a filed row is the record, and what it
      costs is decided by the replay rather than by the row. */

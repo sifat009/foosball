@@ -1,4 +1,4 @@
-# Freeze their rods: buying the seat your opponent stands at
+# Freeze their positions: buying the seat your opponent plays
 
 A goal box is keyed by the seat, not the person. `matchBox` draws two inputs per
 team, `fwd` and `def` (`index.html:4519`), and `credit` hands each one to the
@@ -11,16 +11,16 @@ add(team.def, won, gf, ga, (p && p.def) || 0, nil);
 
 `t.fwd` is fixed for the whole cup — it is the wheel a player came off. So the
 forward box belongs to the drafted forward all night, whoever was actually
-holding that rod when the ball went in.
+standing there when the ball went in.
 
-Pairs swap rods mid-match. When they do, the goals a player scores from the
+Pairs swap places mid-match. When they do, the goals a player scores from the
 other end are filed under his partner's name, and nothing in the record says it
-happened: `credit` cannot see a rod, and `ga` is a team total shared by both
+happened: `credit` cannot see who stood where, and `ga` is a team total shared by both
 halves of the pair, so the Glove does not notice either.
 
 That is a free mechanic sitting in the cup right now. A pair splitting six goals
 three and three wins no Golden Boot; the same pair standing one man at the
-forward rod all evening files six under one name and takes it. Nobody has to
+forward position all evening files six under one name and takes it. Nobody has to
 cheat to do this — it is what the boxes mean.
 
 This spec does not close that hole. It puts a price on it and hands it to the
@@ -29,7 +29,7 @@ other side of the table.
 ## The rule in one sentence
 
 Before a match you are playing in, ten coins names both seats of the opposing
-pair, and they hold those rods for the whole match.
+pair, and they keep them for the whole match.
 
 ## Spending
 
@@ -71,12 +71,12 @@ Nothing about goal entry changes. The boxes stay welded to `t.fwd` and `t.def`,
 and that weld is the feature.
 
 Draft is `t.fwd = Toufiq`, `t.def = Siddiq`. Siddiq is four clear in the Boot
-race. Sifat pays and freezes Siddiq onto the **forward** rod.
+race. Sifat pays and freezes Siddiq into the **forward** position.
 
 | | Scored | Filed in | Credited to |
 |---|---|---|---|
-| Siddiq, at the forward rod | 4 | `fwd` box | **Toufiq** |
-| Toufiq, at the defence rod | 1 | `def` box | **Siddiq** |
+| Siddiq, playing forward | 4 | `fwd` box | **Toufiq** |
+| Toufiq, playing defender | 1 | `def` box | **Siddiq** |
 
 Siddiq scores four and banks one. The other four land on a partner who scored
 once. Ten coins moved a Boot run across the table.
@@ -85,7 +85,7 @@ It runs in both directions, because defenders are in the Boot race: `boot` is
 `lead(ns, bootKey(P))` over every player in the rollup with no pool filter
 (`index.html:4910`), and only the Glove is gated, by `keepers` on the cup-wide
 defence pool (`index.html:4898`). So whichever half of the pair is chasing the
-Boot, you stand him on the rod that is not his.
+Boot, you put him in the position that is not his.
 
 The goals are not destroyed. They are donated to his partner. The same ten coins
 tank one Boot run and inflate another, which means the spend can be aimed at the
@@ -97,7 +97,7 @@ leader or used to prop up a rival and split the race.
 row carrying its own `auth.token.email`, writable only when the row does not
 exist. No overwrite, no delete, not even by the admin.
 
-The row holds the payer, the two names, and which of them takes the forward rod.
+The row holds the payer, the two names, and which of them plays forward.
 `at` is the write time, and it is what the replay orders on.
 
 **The match key.** Matches have no id. They live positionally in
@@ -128,7 +128,7 @@ anyway, which is what stops a second freeze inside the cup happening now.
 
 ## What the rules cannot do
 
-They cannot count coins, and they cannot see a rod.
+They cannot count coins, and they cannot see who stood where.
 
 Affordability is decided by the replay, as it already is for re-spins. Whether
 the pair actually stood where they were told is decided by the room. Nothing in
@@ -136,23 +136,23 @@ the app observes the table, so the freeze is printed on the match card and the
 four people present hold each other to it — the same contract a score claim
 already runs on, and the same one that makes the existing laundering possible.
 
-This is not a gap to be closed later. A rod is not a thing the database can
-reach.
+This is not a gap to be closed later. Where somebody stood is not a thing the
+database can reach.
 
 ## Surface
 
 **The button.** On the match card, under the pair it acts on, visible only to
 the two players in that fixture and only while the match has no score. A coin
-disc and `Freeze their rods · 10`. Under ten coins it reads `Not enough coins`
+disc and `Freeze their positions · 10`. Under ten coins it reads `Not enough coins`
 and does nothing — the pill already pitches to people on zero, and this should
 too.
 
 **The sheet.** One question: where do these two stand? The two arrangements as
 two options, each saying what it buys, and a green `Spend 10 coins` to commit.
-Two names and two rods; no picker, no per-player toggles.
+Two names and two positions; no picker, no per-player toggles.
 
 **The tag.** Once filed, the button is replaced on the card by a locked line —
-who paid, who takes which rod, and that it holds all match. It is the record,
+who paid, who plays where, and that it holds all match. It is the record,
 and the card is where it belongs, because that is where the four people will be
 looking when they set up.
 
@@ -165,7 +165,7 @@ The two role colours are the ones the draft already uses: `#2563eb` forward,
 |---|---|
 | `credit`, `rollupPlayers` | Seats stay welded to `t.fwd` / `t.def`. The weld is the feature. |
 | `planDraw`, `pairLedger` | The ledger is keyed on names sorted, never roles (`index.html:3618`). |
-| `keepers`, `concededRate` | `ga` is a team total and the defence pool is cup-wide. The Glove cannot see a rod. |
+| `keepers`, `concededRate` | `ga` is a team total and the defence pool is cup-wide. The Glove cannot see who stood where. |
 | `groupScores`, `koScores` | The archive shape is unchanged, so every cup already in the Hall replays identically. |
 | `canRespin` | There is no rotation to protect here. A freeze cannot wedge a draw. |
 
@@ -203,7 +203,7 @@ already in the Hall. Rejected: the credit consequence is the reason ten coins is
 worth spending, and the honest version costs far more code to make the spend
 matter less.
 
-**Enforcing the rods.** Impossible, as above.
+**Enforcing the positions.** Impossible, as above.
 
 **A spectator freeze.** Ten coins reaching into a match you are not in makes the
 Boot race purchasable by people with no stake in it.

@@ -335,23 +335,23 @@ add(team.def, won, gf, ga, (p && p.def) || 0, nil);
 ```
 
 `t.fwd` is fixed for the whole cup; it is the wheel a player came off. So the
-forward box belongs to the drafted forward all night, whoever was holding that
-rod when the ball went in. Pairs do swap rods mid-match, and when they do the
+forward box belongs to the drafted forward all night, whoever was standing there
+when the ball went in. Pairs do swap places mid-match, and when they do the
 goals scored from the other end are filed under the partner's name — invisibly,
-because `credit` cannot see a rod. A pair splitting six goals three and three
-wins no Golden Boot; the same pair standing one man at the forward rod all
-evening files six under one name and takes it.
+because `credit` cannot see who is standing where. A pair splitting six goals
+three and three wins no Golden Boot; the same pair keeping one man in the
+forward position all evening files six under one name and takes it.
 
-**Ten coins names both seats of the opposing pair for one match**, and they hold
-those rods for all of it. Only the two players in that fixture may buy it,
+**Ten coins names both positions of the opposing pair for one match**, and they
+hold them for all of it. Only the two players in that fixture may buy it,
 against the other pair, from the moment the fixture exists until a score is
 filed. Once a cup, on its own budget.
 
-There are two names and two rods, so there are exactly two arrangements, and
-both are worth buying. Naming them **as drafted** is a lock — they cannot swap
-mid-match to pile a Boot run onto one name. Naming the **swap** stands their
-scorer at the rod that is not his, and every goal he scores that match lands on
-his partner. It runs in both directions, because defenders are in the Boot race
+There are two names and two positions, so there are exactly two arrangements,
+and both are worth buying. Naming them **as drafted** is a lock — they cannot
+swap mid-match to pile a Boot run onto one name. Naming the **swap** puts their
+scorer in the position that is not his, and every goal he scores that match
+lands on his partner. It runs in both directions, because defenders are in the Boot race
 too: `boot` is `lead(ns, bootKey(P))` over every player in the rollup with no
 pool filter, and only the Glove is gated by `keepers`. The goals are not
 destroyed either — they are donated — so the same ten coins tank one Boot run
@@ -376,7 +376,7 @@ the reason ten coins is worth spending.
 
 ### What the rules can't do here either
 
-They cannot see a rod. Whether the pair actually stood where they were told is
+They cannot see who stood where. Whether the pair kept to it is
 decided by the room; the freeze is printed on the match card and the four people
 present hold each other to it — the same contract a score claim already runs on,
 and the same one that makes the existing laundering possible. This is not a gap
@@ -724,7 +724,7 @@ actually stop a challenge score being whatever the last person typed, and the
 one place a re-spin or a freeze row is made permanent — filed rows are
 append-only, so the suite tries to overwrite, edit and delete one of each as its
 author and as the admin, and tries to file one carrying somebody else's address.
-A freeze naming one player at both rods is refused there too, since it is not an
+A freeze naming one player in both positions is refused there too, since it is not
 arrangement. It talks
 to the database emulator over REST with hand-made tokens — the emulator does
 not check a signature, so there is no key, no service account and nothing to
