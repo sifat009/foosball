@@ -99,8 +99,8 @@ footer explains the format, the table, and the knockout — keep it in step with
 Between cups there is the **Challenges** board: casual 2v2 pickup games that
 count for nothing a cup counts. One player opens a lobby by taking a seat, and
 the other three fill from whoever sees it. There is no kick-off time: people
-play when they play. Any of the four then files the score, and somebody from the other side of the table has to
-agree to it. Cup titles, badges, the Golden Boot and the Players board are
+play when they play. Any of the four then taps which side won, and somebody
+from the other side of the table has to agree to it. Cup titles, badges, the Golden Boot and the Players board are
 untouched by all of it: nothing here ever writes to `history`.
 
 It lives at `challenges/<id>`, where the id is `Date.now()`, the same
@@ -114,27 +114,38 @@ pending { b, r, by, side, at }, a claim in flight, absent the rest of the time
 ```
 
 There is no status field. An absent seat is an empty seat, an absent `score`
-means nobody has agreed a result yet, and the winner is `b > r`. Team score only —
-one box a side, not the cup's forward/defender pair — which still gives the
-winner, goal difference and the nils, with two numbers to agree on rather than
-four. Draws are storable and get their own column; foosball to a target score
-has none, but a timed lunch game does.
+means nobody has agreed a result yet, and the winner is `b > r`.
+
+`b` and `r` are **1 and 0**, not goals. The card asks which side won and nothing
+else: a lunch game has no referee, two people remember the figure differently,
+and every digit of it was a chance to mistype something the other side then had
+to squint at. One of two buttons is a question the four of them can always
+answer. The pair stays numeric rather than becoming a `winner` field so that the
+rules, `chalLadder()`, `coins()` and the rows already filed all carry on as they
+were — nothing below this line learned that the boxes went away. Rows filed while
+there were boxes keep their real score, which is why a draw is still storable and
+still worth half a win; nothing filed since can add another one.
 
 ### Two people, not one
 
-A score is two people agreeing, so it lands in two steps. One of the four files
+A result is two people agreeing, so it lands in two steps. One of the four files
 a claim into `pending`; somebody sitting on the **other** side turns it into
 `score`, in one update that writes the result and clears the claim together.
-Nothing ratifies a claim by silence — there is no timer that lets a wrong score
+Nothing ratifies a claim by silence — there is no timer that lets a wrong result
 through while nobody is looking — so a lobby with a claim on it stays on the
 board however stale it gets, and the two opponents (and the admin, as the
 fallback) get the ping.
 
-Rejecting and withdrawing are the same write: the claim goes and the boxes
-reopen. Typing a different score over a claim replaces it, so a counter-offer
-and a rejection-then-refile are one gesture. Correcting a settled score is the
-same path again — type over the result on the Recent pane, and the recorded
-figure stands until the other side confirms the new one.
+Rejecting and withdrawing are the same write: the claim goes and both buttons
+reopen. A tap files with nothing in the way — no hold, no second confirm — because
+the claim is the confirm: it cannot settle anything on its own, and **Withdraw**
+on the card is the undo for whoever sent it. Tapping the other side over a
+standing claim replaces it, so a counter-offer and a rejection-then-refile are
+one gesture; the side already filed is not a button, since re-filing what is
+standing is not a correction. Correcting a settled result is the same path again
+— **Wrong winner?** on the Recent pane, worded rather than tappable-by-accident
+because that pane is a list somebody scrolls, and the recorded result stands
+until the other side confirms the new one.
 
 The rules are what enforce all of this, not the page: see
 `database.rules.json`, where a claim may only be filed by a seated player from
@@ -146,12 +157,12 @@ those against the emulator.
 
 The ladder is **derived at render** from the finished lobbies, the way
 `career()` derives everything from `history`. No rollup node, no stored totals,
-no migration: correcting a mistyped score fixes the board immediately, and a
-claim nobody has confirmed never reaches it at all. `Nil`
-counts the games a side was held to nothing — the same thing the cup's Nil
-badge counts — and `Win %` scores a draw as half a win, so one 4-4 doesn't read
-like one 0-5. Level players sort alphabetically, so the board never reorders
-itself between two readers.
+no migration: flipping a wrongly filed winner fixes the board immediately, and a
+claim nobody has confirmed never reaches it at all. It is `P W L Win %` — the
+`GF`, `GA` and `Nil` columns went with the boxes, since there are no goals left
+to count. `Win %` still scores a draw as half a win for the rows that have one.
+Level players sort alphabetically, so the board never reorders itself between two
+readers.
 
 **Who you are is `EMAIL_NAMES` in `index.html`**, next to `ADMIN_EMAIL`. The
 rules can only see an email address; the page is what turns one into a player.
@@ -289,7 +300,7 @@ Derived at render, never stored, the way `career()` and `chalLadder()` already
 work: `2 x wins - 10 x honoured re-spins`. Only cups that reached `history`
 charge, so an abandoned cup refunds everyone — the same rule the pair ledger
 follows. The running cup charges anyway, which is what stops a second re-spin
-inside the draft happening right now. Correcting a mistyped challenge score
+inside the draft happening right now. Flipping a wrongly filed challenge winner
 corrects every wallet in the building at once, with nothing to migrate.
 
 The walk is chronological rather than two sums: a spend can only be honoured out
@@ -493,7 +504,7 @@ knew the match was over.
 the two things the relay watches directly — opening the node to every signed-in
 account would let any Google user push to every phone in the office.
 
-A challenge announces itself three times — opened, all four seats gone, score
+A challenge announces itself three times — opened, all four seats gone, result
 filed — and one `value` listener tells them apart by diffing against the last
 snapshot. Whoever caused an announcement is left out of it: `recipients` takes
 an `except` address, so nobody is pinged about their own tap.
@@ -720,7 +731,7 @@ both sides can read.
 
 `test-rules.mjs` is the only check that evaluates a rule: `test.mjs` stubs the
 database out, so nothing there ever reaches one, and the rules are what
-actually stop a challenge score being whatever the last person typed, and the
+actually stop a challenge result being whatever the last person tapped, and the
 one place a re-spin or a freeze row is made permanent — filed rows are
 append-only, so the suite tries to overwrite, edit and delete one of each as its
 author and as the admin, and tries to file one carrying somebody else's address.

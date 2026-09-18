@@ -1314,29 +1314,34 @@
     color: #5b6a7d; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
   }
   .ch-mini:hover { color: #2563eb; border-color: #bcd3f7; }
-  /* the two boxes a finished game needs — same shape as a group-stage score */
-  .ch-score { display: flex; align-items: center; justify-content: center; gap: 9px; margin-top: 12px; }
-  .ch-score input {
-    width: 52px; padding: 9px 2px; text-align: center; font-family: inherit;
-    font-size: 1rem; font-weight: 800; color: #172b4d;
-    border: 1.5px solid #dbe3ee; border-radius: 10px; background: #fbfcfe;
+  /* the one thing a finished game needs: which half of the table won. Two
+     targets the width of the card, because the gesture files straight through
+     to the other side and a thumb should not be able to miss. */
+  .ch-win { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .ch-wbtn {
+    border: 1.5px solid #dbe3ee; border-radius: 12px; padding: 11px 8px;
+    background: #fbfcfe; font-family: inherit; font-size: 0.84rem; font-weight: 800;
+    color: #5b6a7d; cursor: pointer; min-height: 44px;
+    transition: border-color 0.15s, background 0.15s, color 0.15s;
   }
-  .ch-score input:focus { border-color: #17854a; outline: none; background: #fff; }
-  /* a filed claim, deliberately unlike a real score — same amber the cup uses */
-  .ch-score input.suggesting { border-color: #e6c65c; background: #fff8e6; }
-  /* the shared bar sits above a score row in the cup and below one here */
+  .ch-wbtn.blue:hover { border-color: #2563eb; background: #f4f8ff; color: #2563eb; }
+  .ch-wbtn.red:hover { border-color: #dc5a1e; background: #fff7f3; color: #dc5a1e; }
+  /* the side that has been filed — the same amber the cup gives a claim in flight */
+  .ch-wbtn.on {
+    border-color: #e6c65c; background: #fff8e6; color: #172b4d; cursor: default;
+  }
+  /* the shared bar sits above a score row in the cup and below the winner buttons here */
   .ch-card .sug-bar { margin: 11px 0 0; }
   /* the cup's bar spells a whole breakdown out and needs the room to wrap; a
      claim here is four words, so the buttons stay on its line until they can't */
   .ch-card .sug-bar .who { flex: 1 1 9em; }
-  .ch-score span { font-size: 0.72rem; font-weight: 800; color: #8fa0b8; letter-spacing: 0.08em; }
   .ch-note { font-size: 0.76rem; font-weight: 600; color: #8fa0b8; text-align: center; padding: 4px 0 2px; }
-  /* the ladder: a fixed grid so the columns line up, and it scrolls inside its
-     own box rather than crushing eight numbers into a 360px screen */
+  /* the ladder: a fixed grid so the columns line up. Four of them fit a phone
+     where ten did not, but the scroll box stays — a long name is still a name */
   .ch-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .ch-lrow {
-    display: grid; grid-template-columns: 20px minmax(92px, 1fr) repeat(7, 28px) 46px;
-    align-items: baseline; gap: 8px 6px; min-width: 372px;
+    display: grid; grid-template-columns: 20px minmax(64px, 1fr) repeat(3, 28px) 46px;
+    align-items: baseline; gap: 8px 6px; min-width: 252px;
     padding: 10px 4px; border-bottom: 1px solid #eef1f6;
   }
   .ch-lrow:last-child { border-bottom: 0; }
@@ -1355,22 +1360,16 @@
   .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
   .ch-rt b { color: #172b4d; }
   .ch-rs { font-size: 0.86rem; font-weight: 900; color: #172b4d; white-space: nowrap; }
-  /* the same score, editable, and no wider than the text it replaces */
-  .ch-fix { display: flex; align-items: baseline; gap: 1px; }
-  /* the spinners would take more room than the digit at this size, and there is
-     nowhere for a nudged score to go that typing does not reach faster */
-  .ch-fix input::-webkit-inner-spin-button,
-  .ch-fix input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-  .ch-fix input {
-    appearance: textfield; -moz-appearance: textfield;
-    width: 26px; padding: 2px 0; text-align: center; font-family: inherit;
-    font-size: 0.86rem; font-weight: 900; color: #172b4d;
-    /* a border faint enough to stay out of the way of reading the results, and
-       present enough to say the number can be typed over */
-    border: 1px solid #eef1f6; border-radius: 7px; background: #fbfcfe;
+  /* a played result reads as the bolder pair; the loser stays grey */
+  .ch-rt .ch-wn { font-weight: 900; color: #172b4d; }
+  /* the correction, for the four who played it: small and worded, so it is
+     nothing like the row it sits on and nothing a thumb finds by accident */
+  .ch-flip {
+    flex: none; background: none; border: 0; padding: 2px 0; font-family: inherit;
+    font-size: 0.72rem; font-weight: 700; color: #b3bdcc; cursor: pointer;
+    text-decoration: underline; text-underline-offset: 3px; white-space: nowrap;
   }
-  .ch-fix input:hover { border-color: #dbe3ee; background: #fff; }
-  .ch-fix input:focus { border-color: #17854a; outline: none; background: #fff; }
+  .ch-flip:hover { color: #d43d3d; }
   .ch-rd { font-size: 0.72rem; font-weight: 600; color: #8fa0b8; white-space: nowrap; }
   #btnBar { display: contents; } /* desktop: the wrapper isn't a box at all */
   /* Every fixed button must be declared above this block. A media query adds
@@ -1815,7 +1814,7 @@ Nur</textarea>
 
       <div class="rules-h">Coins</div>
       <p>Winning a <b>challenge</b> — a casual 2v2 between cups — pays <b>2 coins</b>
-      to each player on the winning side. A draw or a loss pays nothing.</p>
+      to each player on the winning side. A loss pays nothing.</p>
       <ul>
         <li><b>10 coins buys a re-spin.</b> When the wheels land on you, you have
         ten seconds to spend it and reject your partner. So does the other one
@@ -1972,9 +1971,9 @@ Nur</textarea>
       <div class="rules-h">Earning</div>
       <ul>
         <li><b>+2 coins</b> to each player on the winning side of a challenge, once
-        both sides have agreed the score.</li>
-        <li>A draw or a loss pays nothing, and a score still waiting to be confirmed
-        pays nothing until it is.</li>
+        both sides have agreed who won.</li>
+        <li>A loss pays nothing, and a result still waiting to be confirmed pays
+        nothing until it is.</li>
       </ul>
       <div class="rules-h">Spending &mdash; the draft</div>
       <ul>
@@ -2871,23 +2870,24 @@ const chalSide = c => !acctEmail ? null
   : SEATS.reduce((f, [id]) => f || (c.slots && c.slots[id] && c.slots[id].email === acctEmail ? id[0] : null), null);
 /* One row per player, worked out at render time from the finished lobbies —
    the way career() derives everything from history. No rollup node and no
-   stored totals, so correcting a mistyped score fixes the board at once.
-   Nil counts the games a side was held to nothing, the same thing the cup's
-   Nil badge counts, which is why it sits in the same column of shame. */
+   stored totals, so flipping a wrongly filed winner fixes the board at once.
+   Goals are gone with the score boxes: the card files a side, not a figure, so
+   there is no GF, GA or Nil to count. `d` stays because the rows filed back when
+   there were boxes can hold a draw, and half a win each is still what it was
+   worth — nothing filed from here can ever add another one. */
 function chalLadder(rows) {
   const t = {};
-  const row = n => t[n] || (t[n] = { name: n, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, nil: 0 });
+  const row = n => t[n] || (t[n] = { name: n, p: 0, w: 0, d: 0, l: 0 });
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const bs = +c.score.b, rs = +c.score.r;
     [[['bf', 'bd'], bs, rs], [['rf', 'rd'], rs, bs]].forEach(([side, gf, ga]) =>
       side.forEach(seat => {
         const e = row(c.slots[seat].name);
-        e.p++; e.gf += gf; e.ga += ga;
+        e.p++;
         if (gf > ga) e.w++; else if (gf < ga) e.l++; else e.d++;
-        if (gf === 0) e.nil++;
       }));
   });
-  // a draw is half a win, so one 5-5 doesn't read the same as one 0-5
+  // a legacy draw is half a win, so one 5-5 doesn't read the same as one 0-5
   const pct = e => (e.w + e.d / 2) / e.p;
   return Object.values(t).sort((a, b) => pct(b) - pct(a) || b.p - a.p || a.name.localeCompare(b.name));
 }
@@ -2896,8 +2896,8 @@ window.chalLadder = chalLadder;
 /* ================= COINS =================
    A challenge win is worth two coins; ten buys one re-spin at the draft. Derived
    at render from the same finished lobbies the ladder reads and the rows in
-   `respins` — no rollup node, no stored totals, so correcting a mistyped score
-   corrects every wallet in the building at once.
+   `respins` — no rollup node, no stored totals, so flipping a wrongly filed
+   winner corrects every wallet in the building at once.
 
    Chronological rather than two sums. A spend can only be honoured out of coins
    already earned, so earnings and spends go into one list ordered by time and are
@@ -3095,36 +3095,36 @@ function seatBtn(c, seat, team, role) {
   return el;
 }
 
-/* The boxes file a claim, never a score. What they show is the most recent
-   figure — a claim in flight if there is one, otherwise the agreed score — so
-   typing over a settled result is how a correction gets filed, with no second
-   control to explain. Retyping what is already there files nothing: nobody
-   should put a settled game back in front of the other side by tabbing
-   through it. */
-function scoreRow(c, pend) {
-  const wrap = document.createElement('div');
-  wrap.className = 'ch-score';
+/* Which half of the table won, and nothing else. Nobody agreed on the figure
+   anyway — a lunch game has no referee and two people remember it differently —
+   so the boxes were asking for a number the room could not supply, and every
+   digit of it was a chance to mistype. One of two buttons is a question the four
+   of them can always answer.
+
+   It is still a claim, never a score: `chalFile` writes 1-0 or 0-1 into the same
+   `pending` the boxes wrote, so the database rules, the ladder and the wallets
+   never learn that the boxes are gone. A tap files straight through — the bar
+   below carries the Withdraw, and the other side has to agree regardless, so
+   there is nothing a mis-tap can settle on its own. The side already filed is
+   not a button: re-filing what is standing is not a correction. */
+const wonSide = s => !s || s.b == null || s.r == null ? null
+  : +s.b > +s.r ? 'b' : +s.b < +s.r ? 'r' : null;
+function winRow(c, pend) {
+  const wrap = part('ch-win');
   const side = chalSide(c);
-  const box = (key, val) => {
-    const i = document.createElement('input');
-    i.type = 'number'; i.min = '0'; i.inputMode = 'numeric';
-    i.value = val == null ? '' : val;
-    if (pend) i.classList.add('suggesting');
-    i.setAttribute('aria-label', key === 'b' ? 'Blue score' : 'Red score');
-    i.onchange = () => {
-      const b = +wrap.querySelector('[data-k="b"]').value, r = +wrap.querySelector('[data-k="r"]').value;
-      const raw = [...wrap.querySelectorAll('input')].map(x => x.value.trim());
-      if (raw.some(v => v === '') || !Number.isInteger(b) || !Number.isInteger(r) || b < 0 || r < 0) return;
-      const std = pend || c.score;
-      if (std && +std.b === b && +std.r === r) return;
-      window.chalFile(c.id, { b, r, by: acctEmail, side, at: Date.now() });
-    };
-    i.dataset.k = key;
-    return i;
-  };
-  const lbl = t => { const s = document.createElement('span'); s.textContent = t; return s; };
-  const show = pend || c.score || {};
-  wrap.append(lbl('BLUE'), box('b', show.b), box('r', show.r), lbl('RED'));
+  const now = wonSide(pend || c.score);
+  [['b', 'Blue', 'blue'], ['r', 'Red', 'red']].forEach(([k, name, cls]) => {
+    const on = now === k;
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'ch-wbtn ' + cls + (on ? ' on' : '');
+    el.textContent = name + ' won';
+    el.disabled = on;
+    el.title = on ? 'Filed' : 'File ' + name + ' as the winner';
+    el.onclick = () => window.chalFile(c.id,
+      { b: k === 'b' ? 1 : 0, r: k === 'r' ? 1 : 0, by: acctEmail, side, at: Date.now() });
+    wrap.append(el);
+  });
   return wrap;
 }
 
@@ -3133,10 +3133,14 @@ const seatOf = (c, email) => SEATS.map(([id]) => id)
   .find(id => c.slots && c.slots[id] && c.slots[id].email === email);
 
 /* A claim in words, with the buttons that settle it. This is the cup's pending
-   state on the same colours and the same classes: amber for a score waiting on
+   state on the same colours and the same classes: amber for a claim waiting on
    you, green for one your own side sent. Which buttons you get depends on where
    you are sitting — only the other half of the table can confirm, and the admin
-   settles anybody's claim but one they filed themselves. */
+   settles anybody's claim but one they filed themselves.
+
+   The Withdraw is the undo. A tap files with nothing in the way, so the filer
+   needs a way back out of it that is on the card and needs no apology — and it
+   is the same button a mistyped score used to be taken back with. */
 function pendBar(c, pend) {
   const side = chalSide(c);
   const ours = side === pend.side;      // your half of the table filed it
@@ -3147,15 +3151,17 @@ function pendBar(c, pend) {
   const who = document.createElement('div');
   who.className = 'who';
   who.innerHTML = svg(ours ? 'check' : 'bulb'); // icon is static markup...
-  const score = pend.b + '\u2013' + pend.r;
+  // the claim in the only terms it has left: the pair it says won
+  const w = wonSide(pend);
+  const won = w ? pairName(c, w + 'f', w + 'd') + ' won' : 'a draw';
   const seat = seatOf(c, pend.by);
   // ...names are user input and stay text nodes
   const by = (seat && c.slots[seat].name) || EMAIL_NAMES[pend.by] || 'Someone';
   const them = pend.side === 'b' ? pairName(c, 'rf', 'rd') : pairName(c, 'bf', 'bd');
-  who.append(filer ? ` Sent ${score} \u2014 waiting on ${them}.`
-    : ours ? ` ${by} filed ${score} \u2014 waiting on ${them}.`
-    : settle ? ` ${by} filed ${score}.`
-    : ` ${by} filed ${score} \u2014 waiting on ${them} to confirm.`);
+  who.append(filer ? ` Sent: ${won} \u2014 waiting on ${them}.`
+    : ours ? ` ${by} filed ${won} \u2014 waiting on ${them}.`
+    : settle ? ` ${by} filed ${won}.`
+    : ` ${by} filed ${won} \u2014 waiting on ${them} to confirm.`);
   bar.appendChild(who);
   if (settle) {
     const ok = document.createElement('button');
@@ -3191,10 +3197,10 @@ function chalCard(c) {
 
   const pend = chalPending(c);
   if (chalFull(c)) {
-    if (chalSat(c)) el.append(scoreRow(c, pend));
+    if (chalSat(c)) el.append(winRow(c, pend));
     if (pend) el.append(pendBar(c, pend));
     else if (!chalSat(c) && !chalDone(c))
-      el.append(part('ch-note', 'Waiting on one of the four to file the score.'));
+      el.append(part('ch-note', 'Waiting on one of the four to say who won.'));
   }
 
   const act = part('ch-act');
@@ -3246,31 +3252,22 @@ async function shareChal(c, btn) {
   }
 }
 
-/* A settled score, editable by the four who played it. Two boxes rather than a
-   button and a dialog: the correction is the number, and typing it is the whole
-   gesture. It files a claim like any other, so the board does not move until
-   the other side agrees. */
-function fixRow(c, b, r) {
-  const wrap = part('ch-rs ch-fix');
-  const side = chalSide(c);
-  const box = (key, val) => {
-    const i = document.createElement('input');
-    i.type = 'number'; i.min = '0'; i.inputMode = 'numeric';
-    i.value = val;
-    i.dataset.k = key;
-    i.title = 'Correct this score';
-    i.setAttribute('aria-label', (key === 'b' ? 'Blue' : 'Red') + ' score — correct it');
-    i.onchange = () => {
-      const nb = +wrap.querySelector('[data-k="b"]').value, nr = +wrap.querySelector('[data-k="r"]').value;
-      const raw = [...wrap.querySelectorAll('input')].map(x => x.value.trim());
-      if (raw.some(v => v === '') || !Number.isInteger(nb) || !Number.isInteger(nr) || nb < 0 || nr < 0) return;
-      if (nb === b && nr === r) return; // the score it already is, is not a correction
-      window.chalFile(c.id, { b: nb, r: nr, by: acctEmail, side, at: Date.now() });
-    };
-    return i;
-  };
-  wrap.append(box('b', b), part('', '\u2013', 'span'), box('r', r));
-  return wrap;
+/* A settled result, correctable by the four who played it. There is only one
+   thing left to get wrong, so there is only one control: a worded link that
+   files the other side. Deliberately not a tap on the result itself — the board
+   is a list somebody scrolls, and a settled game should take a sentence to
+   reopen, not a thumb landing on the wrong row. It files a claim like any
+   other, so nothing moves until the other side agrees, and the card it moves to
+   carries the Withdraw. */
+function flipBtn(c, blueWon) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'ch-flip';
+  b.textContent = 'Wrong winner?';
+  b.title = 'File ' + (blueWon ? 'Red' : 'Blue') + ' as the winner instead';
+  b.onclick = () => window.chalFile(c.id,
+    { b: blueWon ? 0 : 1, r: blueWon ? 1 : 0, by: acctEmail, side: chalSide(c), at: Date.now() });
+  return b;
 }
 
 function ladderEl(rows) {
@@ -3280,7 +3277,7 @@ function ladderEl(rows) {
   scroll.className = 'ch-scroll';
   const head = document.createElement('div');
   head.className = 'ch-lrow hd';
-  ['', 'Player', 'P', 'W', 'D', 'L', 'GF', 'GA', 'Nil', 'Win %'].forEach((t, i) => {
+  ['', 'Player', 'P', 'W', 'L', 'Win %'].forEach((t, i) => {
     const s = document.createElement('span');
     s.className = i === 0 ? 'ch-ln' : i === 1 ? 'ch-lname' : '';
     s.textContent = t;
@@ -3290,7 +3287,7 @@ function ladderEl(rows) {
   board.forEach((e, i) => {
     const r = document.createElement('div');
     r.className = 'ch-lrow';
-    [[String(i + 1), 'ch-ln'], [e.name, 'ch-lname'], [e.p], [e.w], [e.d], [e.l], [e.gf], [e.ga], [e.nil],
+    [[String(i + 1), 'ch-ln'], [e.name, 'ch-lname'], [e.p], [e.w], [e.l],
      [chalPct(e) + '%', 'ch-lpc']].forEach(([t, cls]) => {
       const s = document.createElement('span');
       if (cls) s.className = cls;
@@ -3353,17 +3350,21 @@ function renderChal() {
   rec.innerHTML = '';
   if (!done.length) rec.append(part('hall-empty', 'No results yet.'));
   done.slice(0, 10).forEach(c => {
-    const b = +c.score.b, r = +c.score.r;
+    const b = +c.score.b, r = +c.score.r, w = wonSide(c.score);
     const row = part('ch-rrow');
     const teams = part('ch-rt');
+    /* The result is the row: the pair that won is the bold one. No column of
+       figures to line up, because there are no figures any more — and the rows
+       filed back when there were keep theirs in the tooltip rather than putting
+       a number beside nine games that have none. */
     // textContent: names are user input
-    teams.append(part('', pairName(c, 'bf', 'bd'), 'span'), part('', ' v ', 'b'),
-      part('', pairName(c, 'rf', 'rd'), 'span'));
-    /* For the four who played, the recorded score is the place a correction
-       starts: type over it and it goes back to the other side as a claim, the
-       same path the first score took. Everyone else reads it. */
-    row.append(teams, chalSat(c) ? fixRow(c, b, r) : part('ch-rs', b + '\u2013' + r));
-    row.title = b === r ? 'Drawn' : (b > r ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won';
+    const pair = (k, f, d) => part(w === k ? 'ch-wn' : '', pairName(c, f, d), 'span');
+    teams.append(pair('b', 'bf', 'bd'), part('', ' v ', 'b'), pair('r', 'rf', 'rd'));
+    // for the four who played, the way to put a wrong winner right
+    row.append(teams);
+    if (chalSat(c)) row.append(flipBtn(c, w === 'b'));
+    const said = w ? (w === 'b' ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won' : 'Drawn';
+    row.title = b + r > 1 ? `${said} ${b}\u2013${r}` : said; // an old row still has its score
     rec.append(row);
   });
 }

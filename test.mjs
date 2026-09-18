@@ -2097,10 +2097,10 @@ const CH = await page.evaluate(() => {
 const ladder = await page.evaluate(f => window.chalLadder(
   Object.entries(f).map(([id, c]) => Object.assign({ id }, c))), CH.fixture);
 const byName = Object.fromEntries(ladder.map(r => [r.name, r]));
-assert.deepEqual(byName.Sifat, { name: 'Sifat', p: 3, w: 2, d: 1, l: 0, gf: 14, ga: 7, nil: 0 },
+assert.deepEqual(byName.Sifat, { name: 'Sifat', p: 3, w: 2, d: 1, l: 0 },
   'the ladder miscounted a player across three games');
-assert.deepEqual(byName.Nur, { name: 'Nur', p: 3, w: 0, d: 1, l: 2, gf: 7, ga: 14, nil: 1 },
-  'Nur: a draw is not a loss, and the 0 is a nil');
+assert.deepEqual(byName.Nur, { name: 'Nur', p: 3, w: 0, d: 1, l: 2 },
+  'Nur: a draw is not a loss');
 /* A draw is half a win: Toufiq's single 4-4 is 50%, which sits below the two
    on 83% and above Nur's one draw in three. Level players go alphabetical, so
    the board never reorders itself between two readers. */
@@ -2117,7 +2117,7 @@ const board = async () => page.evaluate(() => ({
   seats: [...document.querySelectorAll('#chalOpen .ch-card')].map(c =>
     [...c.querySelectorAll('.ch-seat')].map(s =>
       s.tagName.toLowerCase() + ':' + s.querySelector('b').textContent)),
-  boxes: [...document.querySelectorAll('#chalOpen .ch-score')].length,
+  boxes: [...document.querySelectorAll('#chalOpen .ch-win')].length,
   badge: $('chalBtn').getAttribute('data-n'),
   who: $('chalWho').textContent,
 }));
@@ -2138,7 +2138,7 @@ assert.match(seen.who, /Playing as Sifat/, 'a mapped account was not recognised 
 assert.deepEqual(seen.seats[0], ['button:Sifatyou', 'div:Nur', 'div:\u2014', 'div:\u2014'],
   'a seated player was offered a second seat, or lost the way out of their own');
 // the second lobby is full, but of four other people — not Sifat's to score
-assert.equal(seen.boxes, 0, 'the score boxes were offered to somebody outside the lobby');
+assert.equal(seen.boxes, 0, 'the winner buttons were offered to somebody outside the lobby');
 
 // ---- the same board, seen by somebody not in that game ----
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
@@ -2147,14 +2147,14 @@ seen = await board();
 assert.deepEqual(seen.seats[0], ['div:Sifat', 'div:Nur', 'button:Join', 'button:Join'],
   'a bystander was offered somebody else’s seat, or refused an empty one');
 // Toufiq is one of the four in that lobby, so the score is his to file
-assert.equal(seen.boxes, 1, 'a player in the full lobby was not offered its score boxes');
+assert.equal(seen.boxes, 1, 'a player in the full lobby was not offered its winner buttons');
 
 // ---- and by an account nobody has added to the map ----
 await page.evaluate(f => { window.setAccount('stranger@x.com'); window.renderChallenges(f); }, CH.fixture);
 seen = await board();
 assert.equal(seen.seats.flat().filter(s => s.startsWith('button')).length, 0,
   'an account off the player list was offered a seat');
-assert.equal(seen.boxes, 0, 'an account off the player list was offered the score boxes');
+assert.equal(seen.boxes, 0, 'an account off the player list was offered the winner buttons');
 assert.match(seen.who, /ask the admin/i, 'an unmapped account was not told why it cannot play');
 assert.equal(await page.evaluate(() => getComputedStyle($('chalNew')).display), 'none',
   'an unmapped account was offered the New challenge button');
@@ -2224,36 +2224,34 @@ assert.deepEqual(await page.evaluate(() => window.chalLog), [
 ], 'taking an empty seat and vacating your own did not write what they claim to');
 
 /* The fourth player closes the line-up. The game is played long before anybody
-   files the score, so a seat vacated in between would take the lobby back under
-   four and the score boxes away with it. */
+   files the result, so a seat vacated in between would take the lobby back under
+   four and the winner buttons away with it. */
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
 assert.equal(await page.$$eval('#ch-open2 .ch-seat', n => n.filter(e => e.tagName === 'BUTTON').length), 0,
   'a full lobby still offered a seat to leave');
 
-// ---- filing a score ----
+// ---- filing a result ----
 /* Filing does not record anything: it files a claim, which the other half of
    the table has to agree to. Any of the four may file — Nur opened open2,
-   Toufiq (Red) is the one typing. */
+   Toufiq (Red) is the one tapping. There is no score any more, so the claim is
+   1-0 or 0-1: the same `pending` shape the boxes wrote, which is what keeps the
+   rules, the ladder and the wallets out of this change. */
 // `at` is a clock reading; the rest is the claim
 const claims = () => page.evaluate(() => window.chalLog.map(row =>
   row.map(v => v && typeof v === 'object' ? { ...v, at: typeof v.at } : v)));
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
-const chBoxes = await page.$$('#ch-open2 .ch-score input');
-await chBoxes[0].fill('5');
-await chBoxes[0].evaluate(i => i.blur());
-assert.deepEqual(await page.evaluate(() => window.chalLog), [],
-  'half a score was written — the second box was still empty');
-await chBoxes[1].fill('3');
-await chBoxes[1].evaluate(i => i.blur());
+assert.deepEqual(await page.$$eval('#ch-open2 .ch-wbtn', n => n.map(b => b.textContent)),
+  ['Blue won', 'Red won'], 'the card did not offer one button a side');
+await page.click('#ch-open2 .ch-wbtn:nth-child(1)');   // Toufiq sits in Red, and files Blue
 assert.deepEqual(await claims(),
-  [['chalFile', 'open2', { b: 5, r: 3, by: 'toufiq@x.com', side: 'r', at: 'number' }]],
-  'a completed score did not reach the database as a claim from the filer’s own side');
+  [['chalFile', 'open2', { b: 1, r: 0, by: 'toufiq@x.com', side: 'r', at: 'number' }]],
+  'a tapped winner did not reach the database as a claim from the filer’s own side');
 
 // ---- a claim waits on the other side ----
 /* The claim is not the score. It lives in its own node, the ladder never sees
    it, and only somebody from the far half of the table turns one into the
-   other. Nur (Blue) has filed 5–3 in open2; Rashed and Toufiq sit in Red. */
-const CLAIMED = f => ({ ...f, open2: { ...f.open2, pending: { b: 5, r: 3, by: 'nur@x.com', side: 'b', at: 1 } } });
+   other. Nur (Blue) has filed Blue in open2; Rashed and Toufiq sit in Red. */
+const CLAIMED = f => ({ ...f, open2: { ...f.open2, pending: { b: 1, r: 0, by: 'nur@x.com', side: 'b', at: 1 } } });
 const asWho = (who, f) => page.evaluate(([w, fx]) => {
   window.setAccount(w); window.renderChallenges(fx); window.chalLog = [];
 }, [who, f]);
@@ -2263,8 +2261,9 @@ const claimBar = () => page.evaluate(() => {
     ours: b.classList.contains('mine'),
     text: b.querySelector('.who').textContent.trim(),
     btns: [...b.querySelectorAll('button')].map(x => x.textContent.trim()),
-    amber: [...document.querySelectorAll('#ch-open2 .ch-score input')].map(i => i.classList.contains('suggesting')),
-    shows: [...document.querySelectorAll('#ch-open2 .ch-score input')].map(i => i.value),
+    // the filed side is lit and inert; the other one is still a way to disagree
+    lit: [...document.querySelectorAll('#ch-open2 .ch-wbtn')].map(x => x.classList.contains('on')),
+    off: [...document.querySelectorAll('#ch-open2 .ch-wbtn')].map(x => x.disabled),
   };
 });
 const claimed = CLAIMED(CH.fixture);
@@ -2274,52 +2273,44 @@ assert.deepEqual(
   await page.evaluate(f => window.chalLadder(Object.entries(f).map(([id, c]) => Object.assign({ id }, c))), claimed),
   ladder, 'a claim nobody has confirmed reached the ladder');
 
-// the opponent: the numbers to check, and the two buttons that settle it
+// the opponent: the claim in words, and the two buttons that settle it
 await asWho('toufiq@x.com', claimed);
 const red = await claimBar();
 assert.equal(red.ours, false, 'the opponent got the bar meant for the side that filed');
-assert.equal(red.text, 'Nur filed 5–3.');
+assert.equal(red.text, 'Nur filed Nur & Ofi won.');
 assert.deepEqual(red.btns, ['Confirm', 'Reject']);
-// the boxes show what was filed, in the amber that says it is not a score yet
-assert.deepEqual(red.shows, ['5', '3'], 'the boxes did not show the claim');
-assert.deepEqual(red.amber, [true, true], 'a claim was painted as a settled score');
+// the filed side is lit and no longer a button; the other one still is
+assert.deepEqual(red.lit, [true, false], 'the buttons did not show which side was claimed');
+assert.deepEqual(red.off, [true, false], 're-filing the side already claimed was still on offer');
 await page.click('#ch-open2 .sug-ok');
-assert.deepEqual(await claims(), [['chalConfirm', 'open2', { b: 5, r: 3, by: 'nur@x.com', side: 'b', at: 'number' }]],
-  'Confirm did not turn the claim into the score');
+assert.deepEqual(await claims(), [['chalConfirm', 'open2', { b: 1, r: 0, by: 'nur@x.com', side: 'b', at: 'number' }]],
+  'Confirm did not turn the claim into the result');
 await asWho('toufiq@x.com', claimed);
 await page.click('#ch-open2 .sug-no');
 assert.deepEqual(await claims(), [['chalReject', 'open2']], 'Reject did not clear the claim');
-// typing over it is the counter-offer: the same write, now waiting on Blue
+// tapping the other side is the counter-offer: the same write, now waiting on Blue
 await asWho('toufiq@x.com', claimed);
-const counter = await page.$$('#ch-open2 .ch-score input');
-await counter[1].fill('4');
-await counter[1].evaluate(i => i.blur());
+await page.click('#ch-open2 .ch-wbtn:nth-child(2)');
 assert.deepEqual(await claims(),
-  [['chalFile', 'open2', { b: 5, r: 4, by: 'toufiq@x.com', side: 'r', at: 'number' }]],
+  [['chalFile', 'open2', { b: 0, r: 1, by: 'toufiq@x.com', side: 'r', at: 'number' }]],
   'a counter-offer did not replace the claim');
-// retyping the same score is not a new claim — tabbing through must not resend
-await asWho('toufiq@x.com', claimed);
-const same = await page.$$('#ch-open2 .ch-score input');
-await same[0].fill('5');
-await same[0].evaluate(i => i.blur());
-assert.deepEqual(await page.evaluate(() => window.chalLog), [], 'retyping the same score filed it again');
 
 // the filer: their own claim, and the way back out of it
 await asWho('nur@x.com', claimed);
 const mine = await claimBar();
 assert.equal(mine.ours, true, 'the filer got the bar meant for the other side');
-assert.equal(mine.text, 'Sent 5–3 — waiting on Rashed & Toufiq.');
+assert.equal(mine.text, 'Sent: Nur & Ofi won — waiting on Rashed & Toufiq.');
 assert.deepEqual(mine.btns, ['Withdraw'], 'the filer was offered somebody else’s buttons');
 // their teammate sees the same claim and cannot settle it either
 await asWho('ofi@x.com', claimed);
 const mate = await claimBar();
 assert.equal(mate.ours, true);
-assert.equal(mate.text, 'Nur filed 5–3 — waiting on Rashed & Toufiq.');
+assert.equal(mate.text, 'Nur filed Nur & Ofi won — waiting on Rashed & Toufiq.');
 assert.deepEqual(mate.btns, [], 'a teammate was offered Confirm');
 // somebody who was not at the table reads it and nothing more
 await asWho('sifat@x.com', claimed);
 const out = await claimBar();
-assert.equal(out.text, 'Nur filed 5–3 — waiting on Rashed & Toufiq to confirm.');
+assert.equal(out.text, 'Nur filed Nur & Ofi won — waiting on Rashed & Toufiq to confirm.');
 assert.deepEqual(out.btns, [], 'a bystander was offered Confirm');
 // the admin is the fallback, for the claim the opponents never answer
 await page.evaluate(f => { window.setAdmin(true); window.setAccount('boss@x.com'); window.renderChallenges(f); }, claimed);
@@ -2331,46 +2322,42 @@ await asWho('toufiq@x.com', claimed);
 assert.deepEqual(await page.$$eval('#ch-open2 .ch-seat', n => n.map(s => s.tagName.toLowerCase())),
   ['div', 'div', 'div', 'div'], 'a seat could still be vacated with a claim standing');
 
-/* Nothing ratifies a claim by silence, so a score filed at the table must not
+/* Nothing ratifies a claim by silence, so a result filed at the table must not
    fall off the board that evening for want of an answer. */
 const staleClaim = await page.evaluate(f => ({
-  stale: { ...f.stale, slots: f.open2.slots, pending: { b: 5, r: 3, by: 'nur@x.com', side: 'b', at: 1 } },
+  stale: { ...f.stale, slots: f.open2.slots, pending: { b: 1, r: 0, by: 'nur@x.com', side: 'b', at: 1 } },
 }), CH.fixture);
 await asWho('toufiq@x.com', staleClaim);
 assert.deepEqual(await page.$$eval('#chalOpen .ch-card', n => n.map(c => c.id)), ['ch-stale'],
   'a claim awaiting confirmation went stale and left the board');
 
-// ---- correcting a settled score ----
-/* Same path the first score took: type over the recorded one and it goes back
-   to the other side as a claim. The recorded score stands in the meantime —
-   the ladder does not move on a claim, only on a confirmation. */
+// ---- correcting a settled result ----
+/* Same path the first one took: the link files the other side as a claim, and
+   the recorded result stands in the meantime — the ladder does not move on a
+   claim, only on a confirmation. */
 await asWho('sifat@x.com', CH.fixture);
 await page.click('#chalTabs [data-tab="recent"]');
-// d1 is Sifat & Ofi 5–3 Nur & Rashed; Sifat played in it, so his row is editable
-const fix = await page.$$('#chalRecent .ch-rrow:nth-child(3) .ch-fix input');
-assert.equal(fix.length, 2, 'a player who played could not correct the recorded score');
-await fix[1].fill('4');
-await fix[1].evaluate(i => i.blur());
+// d1 is Sifat & Ofi over Nur & Rashed; Sifat played in it, so his row is correctable
+// the winning pair is the bold one, which is the whole of what a result says now
+assert.deepEqual(
+  await page.$$eval('#chalRecent .ch-rrow:nth-child(3) .ch-rt span',
+    n => n.map(x => [x.textContent, x.className])),
+  [['Sifat & Ofi', 'ch-wn'], ['Nur & Rashed', '']],
+  'the recent row did not mark the pair that won');
+await page.click('#chalRecent .ch-rrow:nth-child(3) .ch-flip');
 assert.deepEqual(await claims(),
-  [['chalFile', 'd1', { b: 5, r: 4, by: 'sifat@x.com', side: 'b', at: 'number' }]],
-  'correcting a settled score did not file a claim');
-// retyping the score it already is corrects nothing
-await asWho('sifat@x.com', CH.fixture);
-const nofix = await page.$$('#chalRecent .ch-rrow:nth-child(3) .ch-fix input');
-await nofix[0].fill('5');
-await nofix[0].evaluate(i => i.blur());
-assert.deepEqual(await page.evaluate(() => window.chalLog), [],
-  'retyping the recorded score filed a correction');
-// somebody who did not play reads the score and cannot touch it
+  [['chalFile', 'd1', { b: 0, r: 1, by: 'sifat@x.com', side: 'b', at: 'number' }]],
+  'correcting a settled result did not file the other side as a claim');
+// somebody who did not play reads the result and cannot touch it
 await asWho('toufiq@x.com', CH.fixture);
 assert.equal(await page.$$eval('#chalRecent .ch-rrow', n =>
-  n.filter(r => r.querySelector('.ch-fix')).length), 1,
+  n.filter(r => r.querySelector('.ch-flip')).length), 1,
   'the rows a player may correct are not the games they played in');
 /* A correction in flight puts the game back among the open ones: that is where
    the bar and its two buttons are, and it must not sit settled on Recent while
    the other side has yet to agree. */
 await asWho('nur@x.com', await page.evaluate(f => ({
-  d1: { ...f.d1, pending: { b: 5, r: 4, by: 'sifat@x.com', side: 'b', at: 1 } },
+  d1: { ...f.d1, pending: { b: 0, r: 1, by: 'sifat@x.com', side: 'b', at: 1 } },
 }), CH.fixture));
 assert.deepEqual(await page.$$eval('#chalOpen .ch-card', n => n.map(c => c.id)), ['ch-d1'],
   'a correction awaiting confirmation stayed on Recent');
@@ -2408,10 +2395,15 @@ assert.deepEqual(await page.$$eval('#hall .hall-tab',
 await page.click('#chalTabs [data-tab="recent"]');
 
 // ---- recent results ----
-// Nur played all three, so his scores read out of the boxes he can correct
-assert.deepEqual(await page.$$eval('#chalRecent .ch-rs', n => n.map(x =>
-  x.querySelector('input') ? [...x.querySelectorAll('input')].map(i => i.value).join('–') : x.textContent)),
-  ['4–4', '5–0', '5–3'], 'Recent is not the finished games, newest first');
+/* Newest first, and the row says who won rather than by how much. The three
+   fixtures were filed back when there were boxes, so their scores are the one
+   thing the tooltip still carries — a row filed since has none to carry. */
+assert.deepEqual(await page.$$eval('#chalRecent .ch-rrow', n => n.map(r => r.title)),
+  ['Drawn 4–4', 'Sifat & Ofi won 5–0', 'Sifat & Ofi won 5–3'],
+  'Recent is not the finished games, newest first');
+assert.deepEqual(await page.$$eval('#chalRecent .ch-rrow', n =>
+  n.map(r => [...r.querySelectorAll('.ch-wn')].map(x => x.textContent).join())),
+  ['', 'Sifat & Ofi', 'Sifat & Ofi'], 'the winning pair is not the bold one, and a draw has none');
 
 // ---- Share hands over an invitation, not a bare address ----
 /* Share splits on the pointer: the OS sheet on a phone, the clipboard on a
@@ -2492,7 +2484,7 @@ assert.equal(phoneCard.barRow, 1,
    sideways or scroll inside the card. */
 const phoneClaim = await page.evaluate(f => {
   window.renderChallenges({ ...f, open2: { ...f.open2,
-    pending: { b: 5, r: 3, by: 'nur@x.com', side: 'b', at: 1 } } });
+    pending: { b: 1, r: 0, by: 'nur@x.com', side: 'b', at: 1 } } });
   showChalTab('open');
   const card = document.getElementById('ch-open2');
   const bar = card.querySelector('.sug-bar');
@@ -2508,21 +2500,24 @@ assert.equal(phoneClaim.overflow, false, 'a card with a claim on it scrolls side
 assert.equal(phoneClaim.barFits, true, 'the claim bar does not wrap on a 360px screen');
 assert.equal(phoneClaim.inside, true, 'the claim bar hangs out past the card');
 
-// the same for the two boxes that correct a settled score on the Recent pane
+// the same for the link that corrects a settled result on the Recent pane —
+// two names and a worded link on one 360px row is the tightest it gets
 const phoneFix = await page.evaluate(f => {
   window.renderChallenges(f);
   showChalTab('recent');
   const row = document.querySelector('#chalRecent .ch-rrow');
   return { page: document.documentElement.scrollWidth,
            overflow: row.scrollWidth > row.clientWidth,
-           boxes: row.querySelectorAll('.ch-fix input').length };
+           flip: row.querySelectorAll('.ch-flip').length };
 }, CH.fixture);
-assert.equal(phoneFix.boxes, 2, 'the correctable score lost its boxes on a phone');
+assert.equal(phoneFix.flip, 1, 'the correctable result lost its link on a phone');
 assert.equal(phoneFix.page, 360, 'the Recent pane pushes the page sideways on a phone');
 assert.equal(phoneFix.overflow, false, 'a recent result scrolls sideways inside itself');
 await page.evaluate(() => showChalTab('open'));
 
-// ten columns will not fit 360px, so the ladder has to scroll inside its own box
+/* Four columns fit a phone where ten did not, so the ladder no longer scrolls —
+   but it still may not burst its card or push the page, which is what the box
+   was there for and is the thing worth holding. */
 const phoneLadder = await page.evaluate(() => {
   showChalTab('ladder');
   const scroll = document.querySelector('#chalLadder .ch-scroll');
@@ -2533,7 +2528,7 @@ const phoneLadder = await page.evaluate(() => {
   };
 });
 assert.equal(phoneLadder.fits, true, 'the ladder burst its card instead of scrolling inside it');
-assert.equal(phoneLadder.scrolls, true, 'the ladder did not actually scroll — the columns were squeezed');
+assert.equal(phoneLadder.scrolls, false, 'the ladder still needs a sideways scroll on a phone');
 assert.equal(phoneLadder.page, 360, 'the ladder pushed the page sideways instead of scrolling itself');
 
 await page.setViewportSize({ width: 1280, height: 900 });
