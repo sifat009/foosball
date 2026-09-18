@@ -15,7 +15,7 @@
     "challenges": {
       ".read": true,
       "$id": {
-        ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (data.child('by').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com')))",
+        ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (auth.token.email === 'bhacker150@gmail.com' || (data.child('by').val() === auth.token.email && !data.child('slots').hasChildren(['bf', 'bd', 'rf', 'rd'])))))",
         ".validate": "newData.hasChildren(['by', 'at']) && (data.exists() || (!newData.child('score').exists() && !newData.child('pending').exists()))",
         "by": { ".validate": "newData.val() === auth.token.email || data.val() === newData.val()" },
         "at": { ".validate": "newData.isNumber()" },

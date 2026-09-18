@@ -136,6 +136,20 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
   assert.ok(!await del(`challenges/${id}/slots/bd`, B2), 'a player left a settled game');
 }
 
+// ---- cancelling the lobby ----
+{
+  const id = await lobby({ slots: { ...SLOTS, rd: null } });
+  assert.ok(!await del('challenges/' + id, OUT), 'a stranger cancelled a lobby');
+  assert.ok(!await del('challenges/' + id, R1), 'a player cancelled somebody else’s lobby');
+  assert.ok(await del('challenges/' + id, B1), 'the creator could not cancel a lobby still filling');
+}
+{
+  // four in means the game gets played: a cancel from here is a loss deleted
+  const id = await lobby();
+  assert.ok(!await del('challenges/' + id, B1), 'the creator cancelled a full lobby');
+  assert.ok(await del('challenges/' + id, ADMIN), 'the admin could not cancel a full lobby');
+}
+
 // ---- correcting a settled score ----
 {
   const id = await lobby();

@@ -3210,8 +3210,11 @@ function chalCard(c) {
   share.innerHTML = svg('share') + ' Share';
   share.onclick = () => shareChal(c, share);
   act.append(share);
-  // the creator closes their own lobby; the admin can close anybody's
-  if ((acctEmail && acctEmail === c.by) || isAdmin) {
+  /* The creator closes their own lobby only while it is still filling: the
+     fourth player closes it the way the fourth seat closes the line-up. A
+     cancel after the game is played is a loss being deleted, and we watched
+     people reach for it. Past four, only the admin. */
+  if ((acctEmail && acctEmail === c.by && !chalFull(c)) || isAdmin) {
     const x = document.createElement('button');
     x.type = 'button';
     x.className = 'ch-link';
