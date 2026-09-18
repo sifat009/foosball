@@ -3214,6 +3214,41 @@ assert.equal(frzCard.tagFits, true, 'the record overflowed the match card, which
 assert.equal(frzCard.tagWhole, true, 'the record was cut off inside its own box');
 assert.equal(frzCard.scored.btn, false, 'a match with a score on it could still be frozen');
 
+/* The bracket is out of reach, the final with it, and the ledger agrees: a row
+   filed against a knockout is dead, so nobody pays for a lock nobody will honour. */
+const frzKo = await page.evaluate(() => {
+  const T = (f, d) => ({ fwd: f, def: d });
+  const A = T('Sifat', 'Rifat'), B = T('Toufiq', 'Siddiq');
+  const m = () => ({ a: A, b: B, sa: null, sb: null, pa: null, pb: null, winner: null });
+  window.isAdmin = false; window.koStarted = true; window.groups = [];
+  window.cupId = 'cFrz'; window.allFreezes = {}; window.allRespins = {};
+  window.teams = [A, B];
+  window.koRounds = [[m(), m()], [m()]];               // semis, then the final
+  window.setAccount('sifat@x.com');
+  window.renderBracket();
+  const out = {
+    stage: ['k0_0', 'k1_0', '0_0'].map(window.koMid),
+    btns: [...document.querySelectorAll('#bracket .frz-btn')]
+      .map(b => ({ off: b.disabled, why: b.textContent })),
+  };
+  // ten coins in hand and a row filed against the final: the walk must not charge
+  window.allFreezes = { cFrz: { k1_0: { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const five = {}; for (let i = 0; i < 5; i++) five['w' + i] = { at: i + 1,
+    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b: 5, r: 0 } };
+  window.renderChallenges(five);
+  out.bal = window.myCoins();
+  // hand the group fixture back: the phone check below reads a tag off it
+  window.koStarted = false; window.koRounds = []; window.allFreezes = {};
+  window.groups = [{ name: 'Group A', teams: [A, B], matches: [m()] }];
+  return out;
+});
+assert.deepEqual(frzKo.stage, [true, true, false], 'the bracket and the group were not told apart');
+assert.equal(frzKo.btns.length, 3, 'the bracket did not paint a freeze line on every match');
+assert.equal(frzKo.btns.filter(b => b.off).length, 3, 'a knockout match could still be frozen');
+assert.ok(/only the group stage/.test(frzKo.btns[0].why), 'the knockout got silence instead of a reason');
+assert.equal(frzKo.bal, 10, 'a freeze filed against a knockout was charged for');
+
 /* The record runs to two or three lines on a phone, and `.match` clips what
    overflows it — the one width where the half naming the positions could go missing. */
 await page.setViewportSize({ width: 360, height: 780 });

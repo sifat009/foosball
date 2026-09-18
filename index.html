@@ -1833,7 +1833,7 @@ Nur</textarea>
         drawn with, so there is nothing to buy.</li>
         <li><b>10 coins freezes the other pair's positions</b> for one match you are
         in. You name which of them plays forward and which plays defender, and they
-        stay there all match. <b>Once a cup.</b></li>
+        stay there all match. <b>Once a cup, and only in the group stage.</b></li>
         <li>A goal belongs to the <b>seat</b>, not the person — the forward box is the
         drafted forward's all match. So putting their scorer in the other position
         files his goals under his partner's name.</li>
@@ -1996,6 +1996,8 @@ Nur</textarea>
         are playing in: you name which of them plays forward and which plays defender,
         and they stay there all match.</li>
         <li><b>Once a cup</b>, and only against the pair you are actually facing.</li>
+        <li><b>Group stage only.</b> The knockouts &mdash; the final with them &mdash;
+        are played as drafted.</li>
         <li><b>A goal belongs to the seat, not the person.</b> The forward box is the
         drafted forward's all match. Put their scorer in the other position and the
         goals he scores are filed under his partner's name — which is what the ten
@@ -2985,6 +2987,12 @@ const sameTwo = (t, r) => !!t && !!r
 const freezeFits = (r, m) => !!(m && m.a && m.b && r)
   && ((sameTwo(m.b, r) && inTeam(m.a, r.name)) || (sameTwo(m.a, r) && inTeam(m.b, r.name)));
 window.freezeFits = freezeFits;
+/* The group stage and nowhere else. A coin buys a nudge in a match that costs a
+   place in the table; it does not get to arrange the people playing for the title,
+   or the round that puts them there — the room said so by refusing to honour one.
+   The mid carries the stage: 'k<round>_<i>' is the bracket, 'g_m' is the group. */
+const koMid = mid => !!mid && String(mid)[0] === 'k';
+window.koMid = koMid;
 /* Which filed rows the running cup can no longer support. Only the live cup is
    asked: `sugTarget` reads `groups` and `koRounds`, which describe this cup and no
    other, and a cup already in the Hall settled the question on its way in. Before
@@ -2995,7 +3003,7 @@ function freezeDead() {
   Object.entries((allFreezes || {})[cup] || {}).forEach(([mid, byId]) => {
     const t = sugTarget(mid);
     Object.entries(byId || {}).forEach(([id, r]) => {
-      if (!freezeFits(r, t && t.m)) dead.add(cup + '|' + id);
+      if (koMid(mid) || !freezeFits(r, t && t.m)) dead.add(cup + '|' + id);
     });
   });
   return dead;
@@ -4692,6 +4700,11 @@ function freezeBtn(mid, m, theirs, me) {
   const el = document.createElement('button');
   el.type = 'button';
   el.className = 'frz-btn';
+  if (koMid(mid)) {
+    el.disabled = true;
+    el.textContent = 'Knockout matches cannot be frozen \u2014 only the group stage.';
+    return el;
+  }
   if (used) {
     el.disabled = true;
     el.textContent = 'You have already used your freeze this cup.';
