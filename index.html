@@ -4082,6 +4082,15 @@ function renderHold() {
   /* Every one of these used to be silence, and silence reads as a bug rather than
      as a rule — which is exactly how a dead cupId hid for a whole release. If the
      button is not there, the reason is. */
+  /* One landing, one re-spin. Whoever filed first has already bought this spin,
+     and the other's button is ten coins for something that is already happening —
+     the ledger charges per player, so both would pay and only one would be acted
+     on. The row lands here before the new spin does, which is the window this
+     closes; two clicks inside one round trip still both stand. */
+  if (respinRows().some(r => r.n === spin.n)) {
+    el.append(part('hold-why', 'Re-spin already paid for — here it comes.'));
+    return;
+  }
   const why = respinWhy(me, partner, coinBal());
   if (why) { el.append(part('hold-why', why)); return; }
   const btn = document.createElement('button');

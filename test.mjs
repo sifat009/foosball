@@ -2920,6 +2920,22 @@ assert.match(holdWhy.spent, /already used your re-spin/, 'a second re-spin is re
 assert.match(holdWhy.noId, /no cup id/, 'a draft with no cup id fails silently — the exact bug that hid');
 assert.equal(holdWhy.noneCanPay, 'none', 'the draw held ten seconds open for a pair that cannot re-spin');
 assert.equal(holdWhy.noneMs, 0, 'holdMs kept a hold nobody in the pair could use');
+
+/* Both named can see the button at once, and the ledger charges per player, so two
+   clicks on one landing bill twenty coins for one spin. The first row to land takes
+   the button off the other's screen. */
+const holdTaken = await page.evaluate(() => {
+  window.spin = { n: 1, fi: 0, di: 1, sf: 0, sd: 0, at: Date.now() };  // Nur + Ofi
+  window.setAccount('nur@x.com');                              // ten coins, in the pair
+  window.allRespins = { [String(cupId)]: { a: { name: 'Ofi', rejected: 'Nur', n: 1, at: 1 } } };
+  window.renderHold();
+  const out = { btn: !!document.getElementById('holdBtn'),
+    why: (document.querySelector('.hold-why') || {}).textContent || '' };
+  window.allRespins = {};
+  return out;
+});
+assert.equal(holdTaken.btn, false, 'a landing somebody already paid to re-spin still offered the other a button');
+assert.match(holdTaken.why, /already paid for/, 'the taken-over landing said nothing about why the button went');
 window: {
   const nameLbl = await page.evaluate(() => {
     window.setAccount('nur@x.com');
