@@ -204,7 +204,7 @@
   }
   .double-round-toggle input { cursor: pointer; }
   #status { text-align: center; margin-top: 20px; font-size: 1.08rem; color: #5b6a7d; min-height: 1.6em; font-weight: 600; }
-  /* the ten seconds between the wheels landing and the team forming */
+  /* the fifteen seconds between the wheels landing and the team forming */
   #hold { text-align: center; margin-top: 10px; }
   .hold-t { font-size: 0.82rem; font-weight: 700; color: #97a3b3; }
   .hold-t b { color: #96660a; }
@@ -1817,7 +1817,7 @@ Nur</textarea>
       to each player on the winning side. A loss pays nothing.</p>
       <ul>
         <li><b>10 coins buys a re-spin.</b> When the wheels land on you, you have
-        ten seconds to spend it and reject your partner. So does the other one
+        fifteen seconds to spend it and reject your partner. So does the other one
         of you. <b>Once a cup.</b></li>
         <li>Whoever you rejected can't be drawn with you again that night, and the
         wheels turn again for whoever is left.</li>
@@ -3958,14 +3958,14 @@ function animateSpin(fi, di, startF, startD, done) {
 
 /* A landing is held before it becomes a team, so the two named have a moment to
    pay their way out of it. `at` is when the wheels stop, not when they start, and
-   it rides on the published record only so every screen counts the same ten
+   it rides on the published record only so every screen counts the same fifteen
    seconds down — it decides what the countdown says, never what is committed.
 
    The commit stays where it always was: the admin's formTeam, and the save() it
    already calls. Viewers never form a team from a spin — they animate on `n`
    changing and read `teams` out of the snapshot — so they are already waiting on
    that write and there is nothing to synchronise. */
-const HOLD_MS = 10000;
+const HOLD_MS = 15000;
 var holdT = null;
 
 /* Why `p` cannot pay their way out of the landing beside `partner`, or null if
@@ -3982,7 +3982,7 @@ function respinWhy(p, partner, bal) {
 
 /* The hold exists for one thing: the two named paying their way out of the
    landing. If neither of them can — no coins, already spent, nobody left to swap
-   with — it is ten seconds of watching a countdown that nothing can happen in, so
+   with — it is fifteen seconds of watching a countdown that nothing can happen in, so
    there is no hold at all and finishSpin's floor gives the pair its beat instead.
 
    Pure state, like renderHold: every screen reads the same coins, the same filed
