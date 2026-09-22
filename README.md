@@ -109,7 +109,8 @@ convention `cupId` uses:
 ```
 by      the creator's email        slots   bf / bd / rf / rd -> { name, email }
 at      opened; a lobby nobody filled ages out a day later
-score   { b, r }, the agreed result, absent until both sides have agreed
+stake   coins bet a head, absent means none; fixed when the lobby is opened
+score   { b, r, at }, the agreed result, absent until both sides have agreed
 pending { b, r, by, side, at }, a claim in flight, absent the rest of the time
 ```
 
@@ -121,7 +122,7 @@ else: a lunch game has no referee, two people remember the figure differently,
 and every digit of it was a chance to mistype something the other side then had
 to squint at. One of two buttons is a question the four of them can always
 answer. The pair stays numeric rather than becoming a `winner` field so that the
-rules, `chalLadder()`, `coins()` and the rows already filed all carry on as they
+rules, `coins()` and the rows already filed all carry on as they
 were — nothing below this line learned that the boxes went away. Rows filed while
 there were boxes keep their real score, which is why a draw is still storable and
 still worth half a win; nothing filed since can add another one.
@@ -155,14 +156,13 @@ their own, the fourth player to sit down freezes the line-up, and a lobby can
 never be created with a result already on it. `test-rules.mjs` covers each of
 those against the emulator.
 
-The ladder is **derived at render** from the finished lobbies, the way
-`career()` derives everything from `history`. No rollup node, no stored totals,
-no migration: flipping a wrongly filed winner fixes the board immediately, and a
-claim nobody has confirmed never reaches it at all. It is `P W L Win %` — the
-`GF`, `GA` and `Nil` columns went with the boxes, since there are no goals left
-to count. `Win %` still scores a draw as half a win for the rows that have one.
-Level players sort alphabetically, so the board never reorders itself between two
-readers.
+**There is no ladder.** There was one — `P W L Win %`, derived at render from
+the finished lobbies — and it went when coins became spendable here. It measured
+form, and the wallet measures the same wins already, priced. Two boards ranking
+the same ten people on the same games is one board too many, and the one that
+goes is the one that is only ever read. The `GF`, `GA` and `Nil` columns had
+already gone with the score boxes; `Win %`'s half-a-win for a draw was the last
+thing a draw was for.
 
 **Who you are is `EMAIL_NAMES` in `index.html`**, next to `ADMIN_EMAIL`. The
 rules can only see an email address; the page is what turns one into a player.
@@ -196,10 +196,10 @@ Taking a seat is a **transaction**, not a `set`: two people tapping the last
 one at the same moment would otherwise both be told they had it, and the second
 write would quietly overwrite the first.
 
-The board is three panes behind the same tab strip the Hall uses — **Open**,
-**Ladder**, **Recent** — because stacked, the ladder sat below the fold behind
-however many lobbies were open. Both cards scope their tab wiring to their own
-id, or one strip drives the other.
+The board is two panes behind the same tab strip the Hall uses — **Open** and
+**Recent** — because stacked, the results sat below the fold behind however many
+lobbies were open. There were three until the ladder went. Both cards scope
+their tab wiring to their own id, or one strip drives the other.
 
 **Share** on a lobby hands over an invitation, not a bare address: the link
 `#c/<id>`, and a line saying how many seats are left and when it kicks off (or
@@ -212,7 +212,7 @@ like everything else: sooner, it would show an empty board and fill it in a
 second later.
 
 Nobody holds two seats in one lobby: one person can't play both ends of a
-table, and the ladder would count them twice in the same game. That one rule is
+table, and the wallet would pay them twice for the same game. That one rule is
 the page's rather than the database's — it guards against a mis-tap, not
 against anybody malicious, since the seat being taken is empty and the write is
 honestly the tapper's own.
@@ -239,8 +239,58 @@ It was that the section above says out loud what a pickup game is worth —
 everything.
 
 So a challenge win pays. **Two coins** to each player on the winning side of a
-settled score; a draw, a loss and an unconfirmed claim pay nothing. The board
-goes on storing draws and giving them a column, because Win % still needs them.
+settled score; a draw, a loss and an unconfirmed claim pay nothing.
+
+### Betting them back
+
+Two coins for a win and nowhere to spend them but the draft is half a loop: the
+people playing pickup games earn the coin and never see it do anything, and the
+board that mints it is the one board it buys nothing on. So a lobby is opened
+**for** an amount — nothing, 2, 5, 10, or anything up to fifty typed in — and
+every seat at it agrees to that by being taken.
+
+A game played for a bet pays the bet **instead of** the two, not on top of it:
+each winner takes it, each loser pays it, and the four of them net to nothing.
+Which means coins only ever enter the world through a game played for nothing,
+and that is the point of keeping those — somebody who has bet themselves down to
+nothing can still play, still win, and still climb back to where they can bet
+again. A board where the broke have nothing to do is a board they stop opening.
+
+The bet is fixed when the lobby is opened and never moves: three people sit down
+on the strength of the number, so it may not change under them. That much the
+rules can hold, and do — `stake` is a whole number of coins inside the ceiling,
+and no `.write` rule grants it after the row exists.
+
+### Who may sit at a ten-coin table
+
+The rules cannot count coins. A balance is every row in `challenges`, `respins`
+and `freezes` walked in order, and rules have no loop and no sum — they can read
+a number somebody stored, and nothing here stores one. So the gate is the page's,
+the way *nobody holds two seats in one lobby* already is, and the replay is what
+makes it safe to leave it there: **sitting at a table you cannot cover does not
+pay you the bet.** There is nothing to steal, only a game to spoil, and the page
+refuses the seat with the reason printed on the card rather than going quiet.
+
+**Coins already on a table do not count.** A seat in a game nobody has agreed yet
+is spent until it settles, so three ten-coin seats need thirty. Without that one
+rule the same ten could be bet at three tables at once, only the first could be
+paid, and the other two would quietly pay out two instead — which needed a
+warning strip on the card, a downgraded row in Recent, and a paragraph here
+explaining both. Closing the hole deleted all three. `chalHeld` is the whole of
+it, and `chalFree` is worked out once a render because the balance is the entire
+ledger walked and four seats on a card would otherwise ask for it four times.
+
+A bet the losers cannot cover is still not honoured, because a corrected result
+can move somebody onto the losing side of a game they have since spent the coins
+from. It falls back to paying the winners the usual two — written, ignored,
+charged nothing, the same rule a re-spin nobody could afford already follows.
+
+**The coins move when both sides agree the result**, not when anybody sits down,
+which is why `score` carries an `at` of its own. It is the only honest moment:
+the lobby's `at` is when somebody opened it, and a game opened on Monday and
+agreed on Tuesday was not paid for on Monday. `chalConfirm` stamps it in the same
+update that writes the result and clears the claim, and a correction re-stamps —
+a result put right moves the coins when the new one was agreed, not the wrong one.
 
 **Ten coins buys one re-spin a cup.** The wheels land, and for fifteen seconds
 the pair is not yet a team: either of the two named may spend to reject the
@@ -296,16 +346,19 @@ nobody could afford is written, ignored, and never charged.
 
 ### Balances
 
-Derived at render, never stored, the way `career()` and `chalLadder()` already
-work: `2 x wins - 10 x honoured re-spins`. Only cups that reached `history`
+Derived at render, never stored, the way `career()` already
+works: `2 x wins at nothing + bets won - bets lost - 10 x honoured re-spins`.
+Only cups that reached `history`
 charge, so an abandoned cup refunds everyone — the same rule the pair ledger
 follows. The running cup charges anyway, which is what stops a second re-spin
 inside the draft happening right now. Flipping a wrongly filed challenge winner
 corrects every wallet in the building at once, with nothing to migrate.
 
 The walk is chronological rather than two sums: a spend can only be honoured out
-of coins already earned. A lobby earns at its own `at`, since an agreed score
-carries no timestamp of its own.
+of coins already earned, and a bet can only be paid out of coins its losers hold
+at the moment they agreed to have lost. A game lands at `chalAt` — its `score.at`
+where it has one, and its lobby's `at` for every row filed before the bet
+existed, which is the whole of the migration.
 
 ### Where it lives
 
@@ -320,8 +373,8 @@ things were wrong with it. It said far more than a balance ever needs to — a
 number is a glance, and what it buys is one tap away in the sheet. And it was a
 leaderboard, which was the intent (seeing somebody else on ten is what makes a
 coin worth having) but it also told the room what everyone could afford, and a
-wallet is the reader's own business. The challenge ladder lost its Coins column
-the same way: it shows form, not wallets.
+wallet is the reader's own business. The challenge ladder went the same way, in
+the end, and for a related reason: what it measured, the wallet measures already.
 
 Signed out the pill shows a dash and still says what a coin is, which is the only
 pitch the board has ever had. Tapping it opens the sheet that explains the two
@@ -689,9 +742,8 @@ that must stay silent, since a lobby this process is meeting for the first time
 already full is a restart, not news.
 
 The challenge board is driven from a fixture with the writes stubbed, which is
-what deriving the ladder at render time buys: the maths (draws, nils, and the
-win%-then-games sort), the seats read as mine / theirs / empty from three
-viewpoints, the score boxes reaching the lobby's four and nobody else, an
+what deriving everything at render time buys: the seats read as mine / theirs /
+empty from three viewpoints, the score boxes reaching the lobby's four and nobody else, an
 account off `EMAIL_NAMES` offered nothing, a stale lobby swept by the admin
 alone, a shared `#c/<id>` link marking the right card, and the whole thing at
 360px without pushing the page sideways. Filing a score is covered as what it
@@ -703,7 +755,21 @@ Coins are checked the same way, and for the same reason: nothing is stored, so
 the derivation is driven directly. Two wins pay four, a draw and an unconfirmed
 claim pay nothing, a spend filed before the coins were earned is not honoured
 out of later winnings, a second re-spin in one cup is ignored, and a cup that
-never reached `history` charges nobody. The pill is checked for the two things it
+never reached `history` charges nobody.
+
+The bet gets the same treatment on both halves. The walk: a bet moves four coins
+across the table and creates none, a bet the losers cannot cover falls back to
+the usual two and charges nobody, a drawn bet moves nothing, a row with no
+`stake` is a game played for nothing, and a lobby opened before anybody could
+cover it but agreed long after they could is settled on **when they agreed** —
+that last one is the whole of why `score` carries an `at`, and on the lobby's own
+time it would come out the other way. What a row is worth is clamped rather than
+trusted, since a number reaching the walk decides what other people are paid.
+Then the board: the strip says what a game is worth before anybody sits at it, a
+game played for nothing says the loser keeps theirs, a seat nobody can cover is
+not a button and carries its reason, somebody with nothing is still offered every
+game that costs nothing, and one ten is good for exactly one ten-coin table —
+taking the second seat is refused while the first is unsettled. The pill is checked for the two things it
 must not do — hide itself from somebody with nothing, and show one reader
 another player's balance — along with its place above every screen and the
 sheet's button actually opening the board.
@@ -736,7 +802,11 @@ one place a re-spin or a freeze row is made permanent — filed rows are
 append-only, so the suite tries to overwrite, edit and delete one of each as its
 author and as the admin, and tries to file one carrying somebody else's address.
 A freeze naming one player in both positions is refused there too, since it is not
-arrangement. It talks
+arrangement. A lobby's bet is held there as well: a whole number of coins inside
+the ceiling, and the suite tries to move it and to take it off after the fact, as
+the creator and as the admin, since three people sat down on the strength of it.
+A result carrying no time is refused, because a bet cannot be settled against one.
+It talks
 to the database emulator over REST with hand-made tokens — the emulator does
 not check a signature, so there is no key, no service account and nothing to
 install beyond `firebase-tools`.

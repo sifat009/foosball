@@ -2093,24 +2093,6 @@ const CH = await page.evaluate(() => {
   };
 });
 
-// the ladder is derived, so it can be checked as a pure function first
-const ladder = await page.evaluate(f => window.chalLadder(
-  Object.entries(f).map(([id, c]) => Object.assign({ id }, c))), CH.fixture);
-const byName = Object.fromEntries(ladder.map(r => [r.name, r]));
-assert.deepEqual(byName.Sifat, { name: 'Sifat', p: 3, w: 2, d: 1, l: 0 },
-  'the ladder miscounted a player across three games');
-assert.deepEqual(byName.Nur, { name: 'Nur', p: 3, w: 0, d: 1, l: 2 },
-  'Nur: a draw is not a loss');
-/* A draw is half a win: Toufiq's single 4-4 is 50%, which sits below the two
-   on 83% and above Nur's one draw in three. Level players go alphabetical, so
-   the board never reorders itself between two readers. */
-assert.deepEqual(ladder.map(r => r.name), ['Ofi', 'Sifat', 'Toufiq', 'Nur', 'Rashed'],
-  'the ladder is not sorted by win% then games played: ' + ladder.map(r => r.name).join(','));
-// an unplayed lobby contributes nothing — the board is results only
-assert.equal(await page.evaluate(() => window.chalLadder([
-  { id: 'x', at: 1, slots: { bf: { name: 'Sifat' } } }]).length), 0,
-  'an open lobby reached the ladder');
-
 // ---- the board, seen by one of the four ----
 const board = async () => page.evaluate(() => ({
   open: [...document.querySelectorAll('#chalOpen .ch-card')].map(c => c.id),
@@ -2268,11 +2250,6 @@ const claimBar = () => page.evaluate(() => {
 });
 const claimed = CLAIMED(CH.fixture);
 
-// a claim moves nothing: the ladder is the same board it was without one
-assert.deepEqual(
-  await page.evaluate(f => window.chalLadder(Object.entries(f).map(([id, c]) => Object.assign({ id }, c))), claimed),
-  ladder, 'a claim nobody has confirmed reached the ladder');
-
 // the opponent: the claim in words, and the two buttons that settle it
 await asWho('toufiq@x.com', claimed);
 const red = await claimBar();
@@ -2381,13 +2358,13 @@ await page.evaluate(f => {
 assert.deepEqual(await page.evaluate(() => window.chalLog), [],
   'a viewer tried to delete somebody else’s lobby');
 
-// ---- the three panes ----
+// ---- the two panes ----
 assert.deepEqual(await page.evaluate(() => Object.values(CHAL_PANES)
-  .map(id => $(id).style.display)), ['', 'none', 'none'],
-  'the board did not open on the Open pane with the other two put away');
-await page.click('#chalTabs [data-tab="ladder"]');
-assert.deepEqual(await page.evaluate(() => Object.values(CHAL_PANES)
-  .map(id => $(id).style.display)), ['none', '', 'none'], 'the Ladder tab did not swap the pane');
+  .map(id => $(id).style.display)), ['', 'none'],
+  'the board did not open on the Open pane with the other one put away');
+// the Ladder was the third: P W L Win % went when the wallet became the record
+assert.equal(await page.$$eval('#chalTabs .hall-tab', n => n.length), 2,
+  'the board still carries a third tab');
 // the Hall has its own strip: neither card may steal the other's tabs
 assert.deepEqual(await page.$$eval('#hall .hall-tab',
   n => n.map(t => t.classList.contains('active'))), [true, false, false],
@@ -2514,22 +2491,6 @@ assert.equal(phoneFix.flip, 1, 'the correctable result lost its link on a phone'
 assert.equal(phoneFix.page, 360, 'the Recent pane pushes the page sideways on a phone');
 assert.equal(phoneFix.overflow, false, 'a recent result scrolls sideways inside itself');
 await page.evaluate(() => showChalTab('open'));
-
-/* Four columns fit a phone where ten did not, so the ladder no longer scrolls —
-   but it still may not burst its card or push the page, which is what the box
-   was there for and is the thing worth holding. */
-const phoneLadder = await page.evaluate(() => {
-  showChalTab('ladder');
-  const scroll = document.querySelector('#chalLadder .ch-scroll');
-  return {
-    page: document.documentElement.scrollWidth,
-    fits: scroll.clientWidth <= document.querySelector('#chal .hall-card').clientWidth,
-    scrolls: scroll.scrollWidth > scroll.clientWidth,
-  };
-});
-assert.equal(phoneLadder.fits, true, 'the ladder burst its card instead of scrolling inside it');
-assert.equal(phoneLadder.scrolls, false, 'the ladder still needs a sideways scroll on a phone');
-assert.equal(phoneLadder.page, 360, 'the ladder pushed the page sideways instead of scrolling itself');
 
 await page.setViewportSize({ width: 1280, height: 900 });
 await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccount(null); });
@@ -2661,14 +2622,136 @@ const toggleGate = await page.evaluate(() => {
 assert.equal(toggleGate.viewer, 'none', 'a viewer was offered the double round-robin toggle');
 assert.notEqual(toggleGate.admin, 'none', 'the admin lost the double round-robin toggle');
 
-// the challenge ladder shows form; wallets are not part of it
-const ladderPrivate = await page.evaluate(() => {
-  $('chal').classList.add('open');
-  const hd = [...document.querySelectorAll('#chalLadder .ch-lrow.hd span')].map(e => e.textContent);
-  $('chal').classList.remove('open');
-  return hd;
+/* ---- a game played for a bet ----
+   The bet pays instead of the two, not on top of it, and the two who lost are
+   the two who have to cover it. All of it is the same pure walk, so drive it
+   directly. `w` is a game played for nothing (the only thing that makes coins),
+   `bet` one played for something. Both carry `score.at`: the coins move when
+   the two sides agree, not when somebody opened the lobby. */
+const betCheck = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const none = new Set();
+  const sides = blue => blue
+    ? { b: 1, r: 0 } : { b: 0, r: 1 };
+  const w = (at, blue) => ({ at, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'),
+    score: { ...sides(blue), at } });
+  const bet = (at, n, blue, opened) => ({ at: opened == null ? at : opened, stake: n,
+    slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { ...sides(blue), at } });
+  // two apiece first, so both halves of the table have something to bet with
+  const seed = [w(1, true), w(2, false)];
+  return {
+    // the winners take the bet and the losers pay it; nothing is created
+    paid: window.coins([...seed, bet(3, 2, true)], {}, none, null),
+    // the losers cannot cover ten, so the bet does not move and the win pays two
+    short: window.coins([...seed, bet(3, 10, true)], {}, none, null),
+    // level is level, bet or no bet
+    draw: window.coins([...seed, { at: 3, stake: 2,
+      slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 1, at: 3 } }], {}, none, null),
+    // no stake at all is a game played for nothing, which is every row already filed
+    legacy: window.coins([{ at: 3, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'),
+      score: { b: 5, r: 3 } }], {}, none, null),
+    /* Opened before anybody could cover it, agreed long after they could. The
+       settle time is what orders it: on the lobby's own `at` the losers would
+       still be broke and the bet would fall back to paying two. */
+    late: window.coins([w(50, false), bet(99, 2, true, 1)], {}, none, null),
+    /* What a row is worth is decided here, not by whoever wrote it: the rules
+       bound it too, but a number reaching the walk decides what other people
+       are paid. */
+    reads: [{}, { stake: 0 }, { stake: 7 }, { stake: '5' }, { stake: 2.6 },
+            { stake: -5 }, { stake: 9999 }, { stake: 'x' }].map(chalBet),
+  };
+}, String(seat4));
+
+assert.deepEqual(betCheck.reads, [0, 0, 7, 5, 3, 0, 50, 0],
+  'a lobby’s bet was not clamped to a whole number inside the ceiling: ' + betCheck.reads.join(','));
+
+assert.equal(betCheck.paid.Sifat, 4, 'a two-coin win paid the winner something other than the bet');
+assert.equal(betCheck.paid.Nur, 0, 'the loser of a two-coin game did not pay it');
+assert.equal(betCheck.paid.Sifat + betCheck.paid.Ofi + betCheck.paid.Nur + betCheck.paid.Rashed, 8,
+  'a bet created or burned coins — it only ever moves them across the table');
+assert.equal(betCheck.short.Sifat, 4, 'a bet nobody could cover did not fall back to the usual two');
+assert.equal(betCheck.short.Nur, 2, 'a loser was charged for a bet they could not cover');
+assert.equal(betCheck.draw.Sifat, 2, 'a drawn bet paid the bet out');
+assert.equal(betCheck.draw.Nur, 2, 'a drawn bet charged somebody');
+assert.equal(betCheck.legacy.Sifat, 2, 'a row filed before bets existed stopped paying its two');
+assert.equal(betCheck.late.Nur, 0,
+  'the bet was settled at the lobby’s own time, not when the two sides agreed it');
+assert.equal(betCheck.late.Sifat, 2, 'a bet agreed later than it was opened did not pay out');
+
+/* ---- the bet, on the board ----
+   The walk above decides what a game paid; this is the half that has to stop
+   somebody sitting at a table they cannot cover, since the rules cannot count
+   coins and never will be able to. Sifat and Ofi win five games played for
+   nothing, which is ten coins each and nothing for the other two. */
+const BET = await page.evaluate(() => {
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const four = { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') };
+  const f = {};
+  for (let i = 1; i <= 5; i++) f['won' + i] = { by: 'sifat@x.com', at: i, slots: four, score: { b: 1, r: 0, at: i } };
+  f.free = { by: 'nur@x.com', at: Date.now(), slots: { bf: seat('Nur') } };
+  f.ten = { by: 'nur@x.com', at: Date.now(), stake: 10, slots: { rf: seat('Nur') } };
+  f.tenB = { by: 'nur@x.com', at: Date.now(), stake: 10, slots: { rf: seat('Rashed') } };
+  return f;
 });
-assert.ok(!ladderPrivate.includes('Coins'), "the challenge ladder still publishes everyone's balance");
+const betBoard = who => page.evaluate(([w, f]) => {
+  window.setAccount(w); window.renderChallenges(f);
+  const card = id => {
+    const el = $('ch-' + id);
+    return {
+      strip: el.querySelector('.ch-bet') ? el.querySelector('.ch-bet').textContent : null,
+      none: el.querySelector('.ch-nobet') ? el.querySelector('.ch-nobet').textContent : null,
+      why: el.querySelector('.ch-shy') ? el.querySelector('.ch-shy').textContent : null,
+      takeable: [...el.querySelectorAll('.ch-seat')].filter(s => s.tagName === 'BUTTON').length,
+    };
+  };
+  return { free: card('free'), ten: card('ten'), tenB: card('tenB'), bal: window.myCoins() };
+}, [who, BET]);
+
+// the card says what the game is worth before anybody decides to sit at it
+const rich = await betBoard('sifat@x.com');
+assert.equal(rich.bal, 10, 'five wins played for nothing should be ten coins');
+assert.ok(/10-coin game/.test(rich.ten.strip), 'a lobby with a bet on it does not say so');
+assert.ok(/\+10/.test(rich.ten.strip) && /−10/.test(rich.ten.strip),
+  'the strip does not say what the winner takes and the loser pays: ' + rich.ten.strip);
+assert.equal(rich.ten.none, null, 'a game with a bet drew the line meant for one without');
+// and a game played for nothing says both halves, so nobody reads it as paying nothing
+assert.equal(rich.free.strip, null, 'a game with no bet was given the gold strip');
+assert.ok(/\+2/.test(rich.free.none) && /losers lose nothing/.test(rich.free.none),
+  'the no-bet line does not say the loser keeps theirs: ' + rich.free.none);
+
+// ten coins covers one ten-coin table
+assert.equal(rich.ten.why, null, 'somebody holding ten was refused a ten-coin seat');
+assert.equal(rich.ten.takeable, 3, 'the seats at a table they can cover were not theirs to take');
+
+// nothing covers none of it, and the card carries the reason rather than going quiet
+const poor = await betBoard('rashed@x.com');
+assert.equal(poor.bal, 0, 'the losing pair earned something');
+assert.equal(poor.ten.why, '10 coins to bet here — you have 0.',
+  'a seat nobody can cover was refused without saying why: ' + poor.ten.why);
+assert.equal(poor.ten.takeable, 0, 'a seat was offered to somebody who cannot cover the bet');
+// a game played for nothing is still open to them — that is how they climb back
+assert.equal(poor.free.why, null, 'a game with no bet was refused to somebody with no coins');
+assert.ok(poor.free.takeable > 0, 'somebody with nothing was locked out of a game costing nothing');
+
+/* Coins already on a table do not count. Sitting at one ten-coin table spends
+   the ten, so the second one is refused — otherwise one ten is bet at two
+   tables and only the first of them could ever be paid. */
+const held = await page.evaluate(f => {
+  const sat = { ...f, ten: { ...f.ten, slots: { ...f.ten.slots, bf: { name: 'Sifat', email: 'sifat@x.com' } } } };
+  window.setAccount('sifat@x.com'); window.renderChallenges(sat);
+  const el = $('ch-tenB');
+  return {
+    why: el.querySelector('.ch-shy') && el.querySelector('.ch-shy').textContent,
+    takeable: [...el.querySelectorAll('.ch-seat')].filter(s => s.tagName === 'BUTTON').length,
+    bal: window.myCoins(),
+  };
+}, BET);
+assert.equal(held.bal, 10, 'taking a seat moved coins — nothing moves until both sides agree');
+assert.equal(held.why, '10 coins to bet here — 10 of your 10 is on other tables.',
+  'a second ten-coin seat was offered on one ten: ' + held.why);
+assert.equal(held.takeable, 0, 'one ten was good for two ten-coin tables at once');
+
+await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); });
 
 console.log('coins OK');
 

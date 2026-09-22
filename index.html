@@ -1336,25 +1336,63 @@
      claim here is four words, so the buttons stay on its line until they can't */
   .ch-card .sug-bar .who { flex: 1 1 9em; }
   .ch-note { font-size: 0.76rem; font-weight: 600; color: #8fa0b8; text-align: center; padding: 4px 0 2px; }
-  /* the ladder: a fixed grid so the columns line up. Four of them fit a phone
-     where ten did not, but the scroll box stays — a long name is still a name */
-  .ch-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-  .ch-lrow {
-    display: grid; grid-template-columns: 20px minmax(64px, 1fr) repeat(3, 28px) 46px;
-    align-items: baseline; gap: 8px 6px; min-width: 252px;
-    padding: 10px 4px; border-bottom: 1px solid #eef1f6;
+  /* what the game is worth, above the seats: the strip is the first thing read
+     on a card somebody is deciding whether to sit at. Gold only when there is a
+     bet — a game with none is a line of text, not a banner. */
+  .ch-bet {
+    display: flex; align-items: center; gap: 9px; margin-bottom: 10px;
+    border: 1px solid #f3e0b0; border-radius: 12px; padding: 10px 11px; background: #fff8e8;
   }
-  .ch-lrow:last-child { border-bottom: 0; }
-  .ch-lrow.hd { border-bottom: 1.5px solid #e7ecf3; }
-  .ch-lrow.hd span {
-    font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
-    color: #8fa0b8;
+  .ch-bet b { font-size: 0.82rem; font-weight: 800; color: #96660a; }
+  .ch-bet i {
+    margin-left: auto; font-style: normal; font-size: 0.64rem; font-weight: 800;
+    color: #a8873a; text-align: right; line-height: 1.3;
   }
-  .ch-lrow .ch-ln { color: #c3ccda; font-weight: 800; font-size: 0.78rem; }
-  .ch-lrow .ch-lname { font-weight: 700; color: #172b4d; overflow-wrap: anywhere; text-align: left; }
-  .ch-lrow .ch-ln { text-align: left; }
-  .ch-lrow span { font-size: 0.8rem; font-weight: 700; color: #5b6a7d; text-align: right; }
-  .ch-lrow .ch-lpc { font-weight: 800; color: #172b4d; }
+  .ch-nobet { font-size: 0.76rem; font-weight: 800; color: #5b6a7d; padding: 2px 0 9px; }
+  .ch-nobet b { color: #17854a; }
+  /* why the seats are not yours to take. It carries the reason rather than
+     going quiet, the way the freeze button does when it cannot be offered. */
+  .ch-shy {
+    margin-top: 10px; border: 1px solid #f0dfb4; border-radius: 12px; padding: 10px 11px;
+    background: #fdf6e6; font-size: 0.76rem; font-weight: 800; color: #96660a; line-height: 1.45;
+  }
+  .ch-tiers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
+  .ch-tier {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    min-height: 56px; border: 1.5px solid #e2e8f1; border-radius: 12px; padding: 8px 4px;
+    background: #fbfcfe; font-family: inherit; font-size: 0.88rem; font-weight: 900;
+    color: #6b7a8f; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+  }
+  .ch-tier:hover { border-color: #b9c6d8; background: #fff; }
+  .ch-tier.on { border-color: #e0a81f; background: #fff8e8; color: #96660a; }
+  /* gold says there is something on the game, so the nought does not get it —
+     it takes the same green the position above it is picked in */
+  .ch-tier.on.none { border-color: #17854a; background: #f1faf5; color: #17854a; }
+  .ch-custom {
+    display: flex; align-items: center; gap: 9px; margin-top: 8px;
+    border: 1.5px solid #e2e8f1; border-radius: 12px; padding: 9px 11px; background: #fbfcfe;
+  }
+  .ch-custom label { font-size: 0.72rem; font-weight: 800; color: #8fa0b8; }
+  .ch-custom input {
+    flex: 1; min-width: 0; border: 0; background: none; font-family: inherit;
+    font-size: 0.88rem; font-weight: 800; color: #172b4d; padding: 2px 0;
+  }
+  .ch-custom input:focus { outline: none; }
+  .ch-custom i { font-style: normal; font-size: 0.66rem; font-weight: 700; color: #b3bfd0; }
+  .ch-betnote {
+    margin-top: 10px; border-radius: 12px; padding: 11px 12px;
+    font-size: 0.76rem; font-weight: 800; line-height: 1.45;
+    background: #f4f7fb; color: #5b6a7d;
+  }
+  .ch-betnote.bet { background: #fff8e8; border: 1px solid #f3e0b0; color: #96660a; }
+  .ch-betnote.no { background: #fdf6e6; border: 1px solid #f0dfb4; color: #96660a; }
+  .ch-betnote b { color: #17854a; }
+  /* the bet a finished game was played for, beside the pair that won it */
+  .ch-rbet {
+    flex: none; display: inline-flex; align-items: center; gap: 4px;
+    font-size: 0.72rem; font-weight: 900; color: #96660a; white-space: nowrap;
+  }
+  .ch-rbet .coin-disc { width: 13px; height: 13px; }
   .ch-rrow { display: flex; align-items: baseline; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #eef1f6; }
   .ch-rrow:last-child { border-bottom: 0; }
   .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
@@ -1592,11 +1630,9 @@
       <div id="chalWho"></div>
       <div class="hall-tabs" id="chalTabs">
         <button class="hall-tab active" data-tab="open">Open</button>
-        <button class="hall-tab" data-tab="ladder">Ladder</button>
         <button class="hall-tab" data-tab="recent">Recent</button>
       </div>
       <div id="chalOpen"></div>
-      <div id="chalLadder" style="display:none"></div>
       <div id="chalRecent" style="display:none"></div>
       <!-- under the list, not above it: while there are seats to take, the
            lobbies are the act. renderChal turns it green when there are none. -->
@@ -1607,6 +1643,15 @@
       <div class="hall-title">New challenge</div>
       <div class="ch-flbl">Choose your position</div>
       <div class="ch-grid" id="chalNewSeats"></div>
+      <div class="ch-flbl">Play for</div>
+      <div class="ch-tiers" id="chalTiers"></div>
+      <div class="ch-custom">
+        <label for="chalBetIn">or</label>
+        <span class="coin-disc"></span>
+        <input id="chalBetIn" type="number" min="0" max="50" step="1" placeholder="type an amount">
+        <i>max 50</i>
+      </div>
+      <div class="ch-betnote" id="chalBetNote"></div>
       <button id="chalPost" class="btn btn-green ch-new">Post it</button>
     </div>
   </div>
@@ -2023,7 +2068,7 @@ Nur</textarea>
      grid is built from EMAIL_NAMES, so adding a player is still one edit. -->
 <div id="who">
   <div class="hall-card">
-    <div class="hall-title"><svg class="ico"><use href="#i-user"/></svg> Who are you?</div>
+    <div class="hall-title"><svg class="ico"><use href="#i-user"/></svg> Select your name</div>
     <div id="whoGrid" class="who-grid"></div>
     <p class="who-foot">Not on the list? Ask the admin to add you.</p>
   </div>
@@ -2848,7 +2893,7 @@ const SEATS = [['bf', 'Blue', 'Forward'], ['rf', 'Red', 'Forward'],
                ['bd', 'Blue', 'Defender'], ['rd', 'Red', 'Defender']];
 const CH_STALE = 24 * 3600e3; // an unplayed lobby this long after it opened is over
 
-var acctEmail = null, allChal = {}, chalLit = null, newSeat = null;
+var acctEmail = null, allChal = {}, chalLit = null, newSeat = null, newBet = 0;
 const myName = () => EMAIL_NAMES[acctEmail] || null;
 // the module script signs you in; this is how it asks the page who that turned out
 // to be, since an address is not a player until EMAIL_NAMES says so
@@ -2868,41 +2913,36 @@ const chalSat = c => !!acctEmail && SEATS.some(([id]) => c.slots && c.slots[id] 
 // which half of the table you are sitting at, or null if you are watching
 const chalSide = c => !acctEmail ? null
   : SEATS.reduce((f, [id]) => f || (c.slots && c.slots[id] && c.slots[id].email === acctEmail ? id[0] : null), null);
-/* One row per player, worked out at render time from the finished lobbies —
-   the way career() derives everything from history. No rollup node and no
-   stored totals, so flipping a wrongly filed winner fixes the board at once.
-   Goals are gone with the score boxes: the card files a side, not a figure, so
-   there is no GF, GA or Nil to count. `d` stays because the rows filed back when
-   there were boxes can hold a draw, and half a win each is still what it was
-   worth — nothing filed from here can ever add another one. */
-function chalLadder(rows) {
-  const t = {};
-  const row = n => t[n] || (t[n] = { name: n, p: 0, w: 0, d: 0, l: 0 });
-  (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
-    const bs = +c.score.b, rs = +c.score.r;
-    [[['bf', 'bd'], bs, rs], [['rf', 'rd'], rs, bs]].forEach(([side, gf, ga]) =>
-      side.forEach(seat => {
-        const e = row(c.slots[seat].name);
-        e.p++;
-        if (gf > ga) e.w++; else if (gf < ga) e.l++; else e.d++;
-      }));
-  });
-  // a legacy draw is half a win, so one 5-5 doesn't read the same as one 0-5
-  const pct = e => (e.w + e.d / 2) / e.p;
-  return Object.values(t).sort((a, b) => pct(b) - pct(a) || b.p - a.p || a.name.localeCompare(b.name));
-}
-window.chalLadder = chalLadder;
+/* What a lobby was opened for. Absent is nought, so every row filed before the
+   bet existed reads as a game played for nothing and no migration is needed. It
+   is clamped here rather than trusted: the rules bound it too, but a number that
+   reaches the walk decides what other people are paid. */
+const CH_BETS = [0, 2, 5, 10], BET_MAX = 50;
+const chalBet = c => {
+  const n = Math.round(+((c && c.stake) || 0));
+  return n > 0 ? Math.min(n, BET_MAX) : 0;
+};
+/* When the coins moved. A result is two people agreeing, and the agreement is
+   the moment worth ordering on — so `chalConfirm` stamps the score as it writes
+   it. Rows filed before that fall back to when the lobby opened, which is what
+   the walk used for everything. */
+const chalAt = c => (c && c.score && c.score.at != null ? +c.score.at : (c && c.at) || 0);
 
 /* ================= COINS =================
    A challenge win is worth two coins; ten buys one re-spin at the draft. Derived
-   at render from the same finished lobbies the ladder reads and the rows in
+   at render from the same finished lobbies the board reads and the rows in
    `respins` — no rollup node, no stored totals, so flipping a wrongly filed
    winner corrects every wallet in the building at once.
 
    Chronological rather than two sums. A spend can only be honoured out of coins
-   already earned, so earnings and spends go into one list ordered by time and are
-   walked once. A lobby earns at its own `at`: the agreed score carries no
-   timestamp of its own, and a lunch game is filed the day it is opened. */
+   already earned, so earnings, bets and spends go into one list ordered by time
+   and are walked once. A game lands at `chalAt` — when the two sides agreed it,
+   which is when the coins move.
+
+   A game played for a bet pays the bet INSTEAD of the two, not on top of it:
+   winners take it, losers pay it, and the four of them net to nothing. So coins
+   only ever enter the world through a game played for none, which is what keeps
+   a way back for somebody who has bet themselves down to nothing. */
 const COIN_WIN = 2, COIN_RESPIN = 10, COIN_FREEZE = 10;
 var allRespins = {}, allFreezes = {}, histCups = new Set();
 
@@ -2918,8 +2958,13 @@ function coins(rows, respins, played, liveCup, freezes, dead, honoured) {
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
     if (b === r) return; // a draw pays nothing — turning up is not an achievement
-    (b > r ? ['bf', 'bd'] : ['rf', 'rd']).forEach(seat =>
-      ev.push({ t: c.at || 0, name: c.slots[seat].name, win: 1 }));
+    const up = b > r ? ['bf', 'bd'] : ['rf', 'rd'];
+    const down = b > r ? ['rf', 'rd'] : ['bf', 'bd'];
+    const bet = chalBet(c), t = chalAt(c);
+    if (!bet) return up.forEach(s => ev.push({ t, name: c.slots[s].name, win: 1 }));
+    /* One event, not four: a bet is honoured or it is not, and that is a
+       question about the table rather than about any one player. */
+    ev.push({ t, bet, up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
   });
   Object.entries(respins || {}).forEach(([cup, byId]) =>
     Object.values(byId || {}).forEach(r => r && r.name &&
@@ -2932,6 +2977,23 @@ function coins(rows, respins, played, liveCup, freezes, dead, honoured) {
 
   const spent = new Set(), frozen = new Set();
   ev.forEach(e => {
+    if (e.bet) {
+      /* The two who lost are the two who pay, so they are the two who have to
+         cover it. A seat is refused at the table to anybody who cannot — see
+         `chalShort` — so reaching here means a result was corrected, or somebody
+         went round the page; either way the bet is not honoured and the game
+         falls back to paying the winners the usual two. Nobody is charged for a
+         bet that did not move, which is the rule a re-spin already follows. */
+      const on = e.up.concat(e.down).every(n => bal[n] !== undefined);
+      const paid = on && e.down.every(n => bal[n] >= e.bet);
+      if (paid) {
+        e.up.forEach(n => { bal[n] += e.bet; });
+        e.down.forEach(n => { bal[n] -= e.bet; });
+      } else {
+        e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += COIN_WIN; });
+      }
+      return;
+    }
     if (bal[e.name] === undefined) return; // not on the player list any more
     if (e.win) { bal[e.name] += COIN_WIN; return; }
     /* Only a cup that reached history charges — an abandoned one refunds
@@ -3019,6 +3081,35 @@ const myCoins = () => {
 };
 window.myCoins = myCoins;
 
+/* Coins already on a table do not count. A seat in a game nobody has agreed yet
+   is spent until it settles, so three ten-coin seats need thirty — otherwise one
+   ten could be bet at three tables at once and only the first of them could ever
+   be paid. Held here rather than in the rules for the same reason the balance is:
+   a rule can read a stored number, but it cannot walk every row to derive one. */
+const chalHeld = name => !name ? 0 : Object.values(allChal || {})
+  .filter(c => c && c.at && chalBet(c) && !chalDone(c) && chalLive(c)
+    && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].name === name))
+  .reduce((n, c) => n + chalBet(c), 0);
+
+/* What the reader could bet right now. Worked out once a render rather than per
+   seat: the balance is the whole ledger walked, and one card would ask for it
+   four times. Null when nobody on the player list is reading. */
+var chalFree = null;
+/* Why this lobby's seats are not theirs to take, or null when they are. It
+   carries the reason rather than going quiet, the way the freeze button does. */
+function chalShort(c) {
+  const bet = chalBet(c);
+  if (!bet || chalFree === null || chalSat(c) || chalDone(c) || chalFree >= bet) return null;
+  /* Two ways to be short, and they want different sentences: not enough coins
+     at all, or enough but already riding on another table. Told apart by the
+     balance rather than by whether anything is held, because a row filed before
+     this gate existed can leave somebody holding more than they have. */
+  const held = chalHeld(myName()), bal = chalFree + held;
+  return bal < bet
+    ? `${bet} coins to bet here \u2014 you have ${bal}.`
+    : `${bet} coins to bet here \u2014 ${held} of your ${bal} is on other tables.`;
+}
+
 // how many more wins reaches the next spend, or nothing left to say. Both sinks
 // cost ten, so there is one number to quote and no table to read
 const coinGap = n => {
@@ -3050,7 +3141,6 @@ function renderCoins() {
 }
 window.renderCoins = renderCoins;
 
-const chalPct = e => Math.round((e.w + e.d / 2) / e.p * 100);
 const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
 const chalTeamLine = c => pairName(c, 'bf', 'bd') + ' vs ' + pairName(c, 'rf', 'rd');
 
@@ -3077,7 +3167,9 @@ function seatBtn(c, seat, team, role) {
   const settled = chalDone(c) || chalPending(c);
   const live = !!name && !settled;
   const invite = !acctEmail && !held && !settled;
-  const free = invite || (live && !held && !chalSat(c));
+  /* A seat at a table you cannot cover is not a seat you may take: the bet is
+     only a bet if everybody sitting at it can pay. */
+  const free = invite || (live && !held && !chalSat(c) && !chalShort(c));
   const tag = free || (live && held && mine && !chalFull(c)) ? 'button' : 'div';
   const el = document.createElement(tag);
   el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '')
@@ -3183,6 +3275,25 @@ function pendBar(c, pend) {
   return bar;
 }
 
+/* What the game is worth, read before anybody decides to sit at it. A bet gets
+   the gold strip; a game played for nothing gets a line, because a banner saying
+   "no bet" is a banner about an absence. Both say what the loser does, since
+   "winners get two" read as "and the rest of you pay" to everybody we asked. */
+function betRow(c) {
+  const bet = chalBet(c);
+  if (!bet) {
+    const el = part('ch-nobet');
+    el.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing');
+    return el;
+  }
+  const el = part('ch-bet');
+  el.append(part('coin-disc', '', 'span'), part('', bet + '-coin game', 'b'));
+  const i = document.createElement('i');
+  i.append('Winners +' + bet, document.createElement('br'), 'losers \u2212' + bet);
+  el.append(i);
+  return el;
+}
+
 function chalCard(c) {
   const el = document.createElement('div');
   el.className = 'ch-card' + (chalLit === c.id ? ' lit' : '');
@@ -3191,9 +3302,12 @@ function chalCard(c) {
   const when = part('ch-when');
   when.append(part('', 'Opened ' + fmtWhen(c.at), 'b'),
     part('', chalDone(c) ? 'Played' : left ? left + (left === 1 ? ' seat left' : ' seats left') : 'All four in', 'i'));
+  el.append(when, betRow(c));
   const grid = part('ch-grid');
   SEATS.forEach(([seat, team, role]) => grid.append(seatBtn(c, seat, team, role)));
-  el.append(when, grid);
+  el.append(grid);
+  const why = chalShort(c);
+  if (why) el.append(part('ch-shy', why));
 
   const pend = chalPending(c);
   if (chalFull(c)) {
@@ -3273,35 +3387,6 @@ function flipBtn(c, blueWon) {
   return b;
 }
 
-function ladderEl(rows) {
-  const board = chalLadder(rows);
-  if (!board.length) return part('hall-empty', 'No challenge has been played yet.');
-  const scroll = document.createElement('div');
-  scroll.className = 'ch-scroll';
-  const head = document.createElement('div');
-  head.className = 'ch-lrow hd';
-  ['', 'Player', 'P', 'W', 'L', 'Win %'].forEach((t, i) => {
-    const s = document.createElement('span');
-    s.className = i === 0 ? 'ch-ln' : i === 1 ? 'ch-lname' : '';
-    s.textContent = t;
-    head.append(s);
-  });
-  scroll.append(head);
-  board.forEach((e, i) => {
-    const r = document.createElement('div');
-    r.className = 'ch-lrow';
-    [[String(i + 1), 'ch-ln'], [e.name, 'ch-lname'], [e.p], [e.w], [e.l],
-     [chalPct(e) + '%', 'ch-lpc']].forEach(([t, cls]) => {
-      const s = document.createElement('span');
-      if (cls) s.className = cls;
-      s.textContent = t;
-      r.append(s);
-    });
-    scroll.append(r);
-  });
-  return scroll;
-}
-
 function renderChal() {
   const rows = Object.entries(allChal || {}).map(([id, c]) => Object.assign({ id }, c))
     .filter(c => c && c.at);
@@ -3334,15 +3419,14 @@ function renderChal() {
   if (acctEmail && !name) closeChalForm();
 
   renderCoins(); // same inputs: the lobbies, and who is signed in
+  /* Worked out here and read by every card below: the balance is the whole
+     ledger walked, and four seats would otherwise ask for it four times. */
+  chalFree = name ? (coinBal()[name] || 0) - chalHeld(name) : null;
 
   const list = $('chalOpen');
   list.innerHTML = '';
   if (!open.length) list.append(part('hall-empty', 'Nothing open yet.'));
   else open.forEach(c => list.append(chalCard(c)));
-
-  const lad = $('chalLadder');
-  lad.innerHTML = '';
-  lad.append(ladderEl(rows));
 
   if (chalLit && !chalFound) {
     const card = $('ch-' + chalLit);
@@ -3365,6 +3449,13 @@ function renderChal() {
     teams.append(pair('b', 'bf', 'bd'), part('', ' v ', 'b'), pair('r', 'rf', 'rd'));
     // for the four who played, the way to put a wrong winner right
     row.append(teams);
+    // what it was played for, for the games that were played for something
+    const bet = chalBet(c);
+    if (bet) {
+      const tag = part('ch-rbet');
+      tag.append(part('coin-disc', '', 'span'), part('', String(bet), 'span'));
+      row.append(tag);
+    }
     if (chalSat(c)) row.append(flipBtn(c, w === 'b'));
     const said = w ? (w === 'b' ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won' : 'Drawn';
     row.title = b + r > 1 ? `${said} ${b}\u2013${r}` : said; // an old row still has its score
@@ -3395,7 +3486,10 @@ function openChalForm() {
   $('chalBoard').hidden = true;
   $('chalForm').hidden = false;
   newSeat = newSeat || 'bf';
+  newBet = 0;
+  $('chalBetIn').value = '';
   paintNewSeats();
+  paintBet();
 }
 window.closeChalForm = closeChalForm;
 function paintNewSeats() {
@@ -3413,16 +3507,50 @@ function paintNewSeats() {
     box.append(b);
   });
 }
+/* Four quick picks and a box. The picks are what anybody actually bets, and the
+   box is there because the day somebody wants a seven-coin game is not a day
+   worth shipping for. Nought is a pick like the others rather than the absence
+   of one — it is still a game that pays. */
+function paintBet() {
+  const box = $('chalTiers');
+  box.innerHTML = '';
+  CH_BETS.forEach(n => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'ch-tier' + (newBet === n ? (n ? ' on' : ' on none') : '');
+    if (n) b.append(part('coin-disc', '', 'span'));
+    b.append(part('', n ? String(n) : 'None', 'span'));
+    b.onclick = () => { newBet = n; $('chalBetIn').value = ''; paintBet(); };
+    box.append(b);
+  });
+  /* Opening a lobby is taking a seat in it, so the gate that stops somebody
+     sitting at a table they cannot cover has to stop them building one too. */
+  const free = chalFree === null ? 0 : chalFree;
+  const over = newBet > free;
+  const note = $('chalBetNote');
+  note.className = 'ch-betnote' + (over ? ' no' : newBet ? ' bet' : '');
+  note.textContent = '';
+  if (over) note.textContent =
+    `You have ${free} to bet — ${chalHeld(myName()) ? 'the rest is on other tables.' : 'win a few more first.'}`;
+  else if (newBet) note.append(`A ${newBet}-coin game. Winners +${newBet}, losers \u2212${newBet}.`);
+  else note.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing.');
+  $('chalPost').disabled = over;
+}
+$('chalBetIn').oninput = e => {
+  const n = Math.round(+e.target.value);
+  newBet = e.target.value === '' || !(n > 0) ? 0 : Math.min(n, BET_MAX);
+  paintBet();
+};
 $('chalNew').onclick = openChalForm;
 $('chalDrop').onclick = closeChalForm;
 $('chalPost').onclick = () => {
   const name = myName();
   if (!name) return;
   const id = String(Date.now());
-  window.chalCreate(id, {
-    by: acctEmail, at: Date.now(),
-    slots: { [newSeat]: { name, email: acctEmail } },
-  });
+  // absent is nought: a game played for nothing carries no field at all
+  const row = { by: acctEmail, at: Date.now(), slots: { [newSeat]: { name, email: acctEmail } } };
+  if (newBet) row.stake = newBet;
+  window.chalCreate(id, row);
   chalLit = id; // back on the board with the lobby just opened outlined
   chalFound = false;
   closeChalForm();
@@ -3449,10 +3577,12 @@ window.setAccount = email => {
   paintAlerts();
 };
 
-/* Three panes rather than three stacked sections: on a laptop the card is 80vh
-   and the ladder sat below the fold behind however many lobbies were open. Same
-   strip the Hall uses, scoped to this card so neither steals the other's tabs. */
-const CHAL_PANES = { open: 'chalOpen', ladder: 'chalLadder', recent: 'chalRecent' };
+/* Two panes rather than two stacked sections: on a laptop the card is 80vh and
+   the results sat below the fold behind however many lobbies were open. Same
+   strip the Hall uses, scoped to this card so neither steals the other's tabs.
+   There were three until the ladder went: P W L Win % measured form, and the
+   wallet measures it better — it is the same wins, priced. */
+const CHAL_PANES = { open: 'chalOpen', recent: 'chalRecent' };
 function showChalTab(name) {
   document.querySelectorAll('#chalTabs .hall-tab')
     .forEach(t => t.classList.toggle('active', t.dataset.tab === name));
@@ -6091,7 +6221,9 @@ window.chalSeat = (id, seat, row) => {
 
    Confirming is one update, not a write and a delete: the claim and the score
    it becomes must never both be on the row, or a repaint between them would
-   show the game as settled and still pending. */
+   show the game as settled and still pending. It stamps the score as it writes
+   it: a bet moves when the two sides agree, so that is the moment the walk has
+   to order on, and the lobby's own `at` is only when somebody opened it. */
 window.chalFile = (id, claim) => set(ref(db, `challenges/${id}/pending`), claim)
   .catch(err => {
     console.error('[chal] claim rejected:', err);
@@ -6099,7 +6231,8 @@ window.chalFile = (id, claim) => set(ref(db, `challenges/${id}/pending`), claim)
   });
 
 window.chalConfirm = (id, pend) =>
-  update(ref(db, 'challenges/' + id), { score: { b: +pend.b, r: +pend.r }, pending: null })
+  update(ref(db, 'challenges/' + id),
+    { score: { b: +pend.b, r: +pend.r, at: Date.now() }, pending: null })
     .catch(err => {
       console.error('[chal] confirm rejected:', err);
       alert('Could not confirm that score: ' + err.message);

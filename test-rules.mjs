@@ -58,7 +58,10 @@ const lobby = async extra => {
   return id;
 };
 const claim = (by, side, b, r) => ({ b, r, by, side, at: 3 });
-const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, r }, pending: null });
+/* The score carries when the two sides agreed it, because that is when a bet
+   moves and the walk has to order on it. */
+const confirm = (id, who, b, r, at = 7) =>
+  patch('challenges/' + id, who, { score: { b, r, at }, pending: null });
 
 // ---- filing a claim ----
 {
@@ -95,10 +98,35 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
   // an opponent confirming something other than what was filed is not confirming
   assert.ok(!await confirm(id, R1, 5, 4), 'a confirmation changed the score');
   assert.ok(!await put(`challenges/${id}/score`, R1, { b: 5, r: 4 }), 'a score landed past the claim');
+  // a result with no time on it cannot be ordered, so a bet could not settle against it
+  assert.ok(!await put(`challenges/${id}/score`, R1, { b: 5, r: 3 }), 'a result with no time stood');
   // and this is the one that works
   assert.ok(await confirm(id, R1, 5, 3), 'the opponent could not confirm');
-  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 3 });
+  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 3, at: 7 });
   assert.equal(await read(`challenges/${id}/pending`), null, 'the claim outlived its confirmation');
+}
+
+// ---- what the game is played for ----
+/* The rules cannot count coins — a balance is every row walked, and there is no
+   expression that walks them — so who may sit at a ten-coin table is the page's
+   gate and the replay's. What they can hold is the number itself: three people
+   take a seat on the strength of it, so it may not move afterwards. */
+{
+  const id = 'bet1';
+  const base = { by: B1, at: 1, slots: { bf: { name: 'Rifat', email: B1 } } };
+  assert.ok(!await put('challenges/' + id, B1, { ...base, stake: -1 }), 'a negative bet stood');
+  assert.ok(!await put('challenges/' + id, B1, { ...base, stake: 2.5 }), 'half a coin stood');
+  assert.ok(!await put('challenges/' + id, B1, { ...base, stake: 51 }), 'a bet past the ceiling stood');
+  assert.ok(!await put('challenges/' + id, B1, { ...base, stake: '10' }), 'a bet that is not a number stood');
+  assert.ok(await put('challenges/' + id, B1, { ...base, stake: 10 }), 'a ten-coin game could not be opened');
+  // it is what it was opened at, for its creator and for the admin alike
+  assert.ok(!await put(`challenges/${id}/stake`, B1, 2), 'the creator moved the bet after opening it');
+  assert.ok(!await put(`challenges/${id}/stake`, ADMIN, 2), 'the admin moved the bet after opening it');
+  assert.ok(!await del(`challenges/${id}/stake`, B1), 'the creator took the bet off after opening it');
+  assert.equal(await read(`challenges/${id}/stake`), 10, 'the bet did not survive');
+  // a game played for nothing carries no field at all, which is every row already filed
+  assert.ok(await put('challenges/bet2', B1, base), 'a game for nothing could not be opened');
+  assert.equal(await read('challenges/bet2/stake'), null, 'a game for nothing grew a bet');
 }
 
 // ---- the admin ----
@@ -157,10 +185,13 @@ const confirm = (id, who, b, r) => patch('challenges/' + id, who, { score: { b, 
   await confirm(id, R1, 5, 3);
   // the same path a first score takes, and the old figure stands until it lands
   assert.ok(await put(`challenges/${id}/pending`, R2, claim(R2, 'r', 5, 4)), 'a correction could not be filed');
-  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 3 }, 'a claim moved the ladder on its own');
+  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 3, at: 7 },
+    'a claim moved the record on its own');
   assert.ok(!await confirm(id, R1, 5, 4), 'a teammate confirmed the correction');
-  assert.ok(await confirm(id, B1, 5, 4), 'the other side could not confirm the correction');
-  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 4 });
+  assert.ok(await confirm(id, B1, 5, 4, 9), 'the other side could not confirm the correction');
+  /* The correction carries its own time: a put-right result moves the coins when
+     the two sides agreed the new one, not when they agreed the wrong one. */
+  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 4, at: 9 });
 }
 
 // ---- a lobby is never born with a result ----
