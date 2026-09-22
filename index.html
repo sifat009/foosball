@@ -1153,7 +1153,9 @@
   }
   /* Challenges reads as a tool, not a poster: tabs as an underline, one flat
      button. Scoped to #chal — the Hall keeps its own look. */
-  #chalBoard .hall-title { font-size: 1.05rem; margin: 0 0 2px; }
+  /* the floated X shortens the title's line on the right; the same inset on
+     the left puts it back on the card's centre, in line with the subtitle */
+  #chalBoard .hall-title { font-size: 1.05rem; margin: 0 0 2px; padding-left: 32px; }
   #chalBoard .hall-title .ico { display: none; }
   #chalWho { font-size: 0.8rem; font-weight: 500; color: #7d8a9c; min-height: 1.2em; text-align: center; }
   #chalWho b { color: #172b4d; font-weight: 700; }
