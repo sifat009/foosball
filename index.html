@@ -1314,6 +1314,7 @@
     font-size: 0.88rem; font-weight: 800; color: #172b4d; padding: 2px 0;
   }
   .ch-custom input:focus { outline: none; }
+  .ch-custom input::placeholder { color: #b3bfd0; font-weight: 700; }
   .ch-custom i { font-style: normal; font-size: 0.66rem; font-weight: 700; color: #b3bfd0; }
   .ch-betnote {
     margin-top: 10px; border-radius: 12px; padding: 11px 12px;
@@ -1585,7 +1586,7 @@
         <label for="chalBetIn">or</label>
         <span class="coin-disc"></span>
         <input id="chalBetIn" type="number" min="0" max="50" step="1" placeholder="type an amount">
-        <i>max 50</i>
+        <i id="chalBetMax">max 50</i>
       </div>
       <div class="ch-betnote" id="chalBetNote"></div>
       <button id="chalPost" class="btn btn-green ch-new">Post it</button>
@@ -3298,10 +3299,15 @@ function paintBet() {
   else if (newBet) note.append(`A ${newBet}-coin game. Winners +${newBet}, losers \u2212${newBet}.`);
   else note.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing.');
   $('chalPost').disabled = over;
+  $('chalBetIn').max = betCap();
+  $('chalBetMax').textContent = 'max ' + betCap();
 }
+// the box takes no more than the cap, and no more than is free to bet
+const betCap = () => Math.max(0, Math.min(BET_MAX, chalFree || 0));
 $('chalBetIn').oninput = e => {
   const n = Math.round(+e.target.value);
-  newBet = e.target.value === '' || !(n > 0) ? 0 : Math.min(n, BET_MAX);
+  newBet = e.target.value === '' || !(n > 0) ? 0 : Math.min(n, betCap());
+  if (e.target.value !== '' && +e.target.value !== newBet) e.target.value = newBet || '';
   paintBet();
 };
 $('chalNew').onclick = openChalForm;
