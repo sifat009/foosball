@@ -1151,15 +1151,32 @@
     border-radius: 999px; background: #2563eb; color: #fff;
     font-size: 0.64rem; font-weight: 800; vertical-align: 0.05em;
   }
-  #chalTabs { margin: 16px auto 16px; }
-  #chalWho {
-    font-size: 0.8rem; font-weight: 600; color: #7d8a9c; text-align: center; margin: -10px 0 14px;
+  /* Challenges reads as a tool, not a poster: header on the left, tabs as an
+     underline, one flat button. Scoped to #chal — the Hall keeps its own look. */
+  #chalBoard .hall-title { text-align: left; font-size: 1.05rem; margin: 0 0 2px; }
+  #chalBoard .hall-title .ico { display: none; }
+  #chalWho { font-size: 0.8rem; font-weight: 500; color: #7d8a9c; min-height: 1.2em; }
+  #chalWho b { color: #172b4d; font-weight: 700; }
+  #chalTabs {
+    background: none; border-radius: 0; padding: 0; gap: 20px; width: auto;
+    margin: 18px 0 4px; border-bottom: 1px solid #e7ecf3;
   }
-  #chalWho b { color: #172b4d; }
-  .ch-new { width: 100%; padding: 12px 0; font-size: 0.92rem; }
+  #chalTabs .hall-tab {
+    border-radius: 0; padding: 8px 0; margin-bottom: -1px; font-weight: 600; color: #8fa0b8;
+    border-bottom: 2px solid transparent;
+  }
+  #chalTabs .hall-tab.active { background: none; box-shadow: none; color: #172b4d; border-bottom-color: #172b4d; }
+  #chal .hall-empty { padding: 36px 0; font-size: 0.82rem; }
+  #chal .btn {
+    border-radius: 10px; letter-spacing: 0; box-shadow: none; background: #17854a;
+    font-weight: 700; transition: background 0.15s;
+  }
+  #chal .btn:hover:not(:disabled) { transform: none; filter: none; background: #136e3d; }
+  .ch-new { width: 100%; padding: 11px 0; font-size: 0.88rem; }
+  #chalNew { margin-top: 14px; }
   /* the way onto the second screen. Quiet while the board has seats to take —
      they are the act, and two green controls would compete. renderChal swaps
-     this for .btn.btn-green.ch-new when there is nothing open to sit in. */
+     this for .btn.btn-green.ch-new when there is no empty seat to sit in. */
   .ch-newlink {
     display: block; width: 100%; margin-top: 14px; padding: 12px 0;
     background: none; border: 1.5px dashed #dbe3ee; border-radius: 14px;
@@ -3177,7 +3194,8 @@ function renderChal() {
      quiet while the board has seats to take, green when it has none. */
   const mk = $('chalNew');
   mk.style.display = acctEmail && !name ? 'none' : '';
-  mk.className = open.length ? 'ch-newlink' : 'btn btn-green ch-new';
+  // a full lobby waiting on its result has no seat to compete with
+  mk.className = open.some(c => !chalFull(c)) ? 'ch-newlink' : 'btn btn-green ch-new';
   mk.textContent = open.length ? '+ New challenge'
     : name ? 'Start the first one' : 'Sign in to start one';
   if (acctEmail && !name) closeChalForm();
