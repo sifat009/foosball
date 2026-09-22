@@ -241,9 +241,13 @@ everything.
 So a challenge win pays. **Two coins** to each player on the winning side of a
 settled score; a draw, a loss and an unconfirmed claim pay nothing.
 
+Coins stay on the challenge board. They buy nothing in the Cup — not a draw, not
+a match, not a title. A re-spin at the draft and a freeze on a match card were
+both built and taken out again: the draw lands a team the moment the wheels stop.
+
 ### Betting them back
 
-Two coins for a win and nowhere to spend them but the draft is half a loop: the
+Two coins for a win and nowhere to spend them is half a loop: the
 people playing pickup games earn the coin and never see it do anything, and the
 board that mints it is the one board it buys nothing on. So a lobby is opened
 **for** an amount — nothing, 2, 5, 10, or anything up to fifty typed in — and
@@ -263,8 +267,8 @@ and no `.write` rule grants it after the row exists.
 
 ### Who may sit at a ten-coin table
 
-The rules cannot count coins. A balance is every row in `challenges`, `respins`
-and `freezes` walked in order, and rules have no loop and no sum — they can read
+The rules cannot count coins. A balance is every row in `challenges` walked in
+order, and rules have no loop and no sum — they can read
 a number somebody stored, and nothing here stores one. So the gate is the page's,
 the way *nobody holds two seats in one lobby* already is, and the replay is what
 makes it safe to leave it there: **sitting at a table you cannot cover does not
@@ -283,7 +287,7 @@ ledger walked and four seats on a card would otherwise ask for it four times.
 A bet the losers cannot cover is still not honoured, because a corrected result
 can move somebody onto the losing side of a game they have since spent the coins
 from. It falls back to paying the winners the usual two — written, ignored,
-charged nothing, the same rule a re-spin nobody could afford already follows.
+charged nothing.
 
 **The coins move when both sides agree the result**, not when anybody sits down,
 which is why `score` carries an `at` of its own. It is the only honest moment:
@@ -292,70 +296,13 @@ agreed on Tuesday was not paid for on Monday. `chalConfirm` stamps it in the sam
 update that writes the result and clears the claim, and a correction re-stamps —
 a result put right moves the coins when the new one was agreed, not the wrong one.
 
-**Ten coins buys one re-spin a cup.** The wheels land, and for fifteen seconds
-the pair is not yet a team: either of the two named may spend to reject the
-other and turn the wheels again. The rejected pair is blocked for the rest of
-that draft and no longer. The partner is not consulted — the draw has never
-asked either.
-
-### The rotation comes first
-
-`canRespin` asks `planDraw` whether a legal arrangement still exists with that
-pair blocked, and asks it in **strict** mode. This is the whole safety of the
-feature. The walk's own relaxation (`if (!seen && cool > 0)`) exists so a roster
-change cannot wedge the draw; borrowed by the availability check it would answer
-"yes, there is somewhere to go" by forgetting the oldest cup of the cycle —
-one player's ten coins dissolving the rotation for all ten, including the
-guarantee it was built to give the two who never win.
-
-So the legal draws collapse 120 → 44 → 13 → 2 → 1 across a cycle, and the coin
-collapses with them. On the fourth night at most one re-spin is possible all
-evening, and on the **last night of a cycle there is no button at all** and
-nothing is charged. Coins are worth most at the top of a cycle and nothing at
-its end. That is the price of the guarantee, and it is a rule players can hold
-in their heads.
-
-### The hold
-
-`finishSpin` waits `HOLD_MS` before `formTeam` instead of committing after a
-beat. That is one delay on one client: **viewers never form a team from a spin**
-— they animate when `spin.n` changes and read `teams` out of the snapshot — so
-they are already waiting on the admin's `save()`, and there is nothing to
-synchronise. `spin.at` is when the wheels *stop*, and it rides on the published
-record only so every screen counts the same fifteen seconds down; it decides
-what the countdown says, never what is committed. A re-spin is then an ordinary
-`n + 1` spin, and since no team was formed there is nothing to undo.
-
-A hold is on when `spin.n > teams.length` — spins counted against teams, with
-exactly one unformed pair between them. Pure published state, so the admin and
-every viewer answer it identically with nothing passed between them.
-
-### What the rules can't do
-
-They cannot count coins, any more than they can tell who the four people at the
-table were. So `respins/<cupId>/<pushId>` is **append-only** — a verified
-account, a row carrying its own `auth.token.email`, writable only when the row
-does not exist. No overwrite, no delete, not even by the admin. A filed row is
-the record; what it *costs* is decided by the replay.
-
-Every client walks the rows in `at` order and honours one only when the payer
-has ten coins at that instant and has had none honoured in that cup already.
-The walk is deterministic, so the admin's draft and every reader's ledger reach
-the same answer, and the once-a-cup limit needs no storage of its own. A row
-nobody could afford is written, ignored, and never charged.
-
 ### Balances
 
 Derived at render, never stored, the way `career()` already
-works: `2 x wins at nothing + bets won - bets lost - 10 x honoured re-spins`.
-Only cups that reached `history`
-charge, so an abandoned cup refunds everyone — the same rule the pair ledger
-follows. The running cup charges anyway, which is what stops a second re-spin
-inside the draft happening right now. Flipping a wrongly filed challenge winner
+works: `2 x wins at nothing + bets won - bets lost`. Flipping a wrongly filed challenge winner
 corrects every wallet in the building at once, with nothing to migrate.
 
-The walk is chronological rather than two sums: a spend can only be honoured out
-of coins already earned, and a bet can only be paid out of coins its losers hold
+The walk is chronological rather than two sums: a bet can only be paid out of coins its losers hold
 at the moment they agreed to have lost. A game lands at `chalAt` — its `score.at`
 where it has one, and its lobby's `at` for every row filed before the bet
 existed, which is the whole of the migration.
@@ -365,8 +312,7 @@ existed, which is the whole of the migration.
 A **pill in the eyebrow**, beside the federation badge: a coin, a number, and a
 green plus that means "get more" — which here is the challenge board. It rides in
 the chrome above every screen rather than inside one, because the wallet belongs
-to whoever is reading, not to whatever the cup is doing, and the draft is exactly
-when somebody wants to know what they can afford.
+to whoever is reading, not to whatever the cup is doing.
 
 It replaced a full-width card that listed every player and their balance. Two
 things were wrong with it. It said far more than a balance ever needs to — a
@@ -385,89 +331,6 @@ The coin is drawn, not an icon: the sheet has no coin in it, and a disc with a
 rim and a highlight is three gradients. Note that `.eyebrow > span` is scoped to
 the direct child on purpose — the badge's padding and letter-spacing would
 otherwise land on the pill's own spans and flatten it.
-
-## Freezing a pair
-
-The other thing ten coins buys, and the only one that reaches a trophy.
-
-A goal box is keyed by the seat, not the person. `matchBox` draws two inputs per
-team — `fwd` and `def` — and `credit` hands each one to the name drafted into it:
-
-```js
-add(team.fwd, won, gf, ga, (p && p.fwd) || 0, nil);
-add(team.def, won, gf, ga, (p && p.def) || 0, nil);
-```
-
-`t.fwd` is fixed for the whole cup; it is the wheel a player came off. So the
-forward box belongs to the drafted forward all night, whoever was standing there
-when the ball went in. Pairs do swap places mid-match, and when they do the
-goals scored from the other end are filed under the partner's name — invisibly,
-because `credit` cannot see who is standing where. A pair splitting six goals
-three and three wins no Golden Boot; the same pair keeping one man in the
-forward position all evening files six under one name and takes it.
-
-**Ten coins names both positions of the opposing pair for one match**, and they
-hold them for all of it. Only the two players in that fixture may buy it,
-against the other pair, from the moment the fixture exists until a score is
-filed. Once a cup, on its own budget.
-
-There are two names and two positions, so there are exactly two arrangements,
-and both are worth buying. Naming them **as drafted** is a lock — they cannot
-swap mid-match to pile a Boot run onto one name. Naming the **swap** puts their
-scorer in the position that is not his, and every goal he scores that match
-lands on his partner. It runs in both directions, because defenders are in the Boot race
-too: `boot` is `lead(ns, bootKey(P))` over every player in the rollup with no
-pool filter, and only the Glove is gated by `keepers`. The goals are not
-destroyed either — they are donated — so the same ten coins tank one Boot run
-and inflate another.
-
-### It changes nothing that is counted
-
-That is the argument for building it this way. `credit` and `rollupPlayers` read
-the boxes they always read; the boxes stay welded to `t.fwd` and `t.def`, and
-that weld *is* the feature. `pairLedger` is keyed on the names sorted, never the
-roles, so the rotation never notices. The Glove cannot notice: `ga` is a team
-total shared by both partners and the defence pool is cup-wide. `groupScores`
-and `koScores` keep their shape, so every cup already in the Hall replays
-identically. There is no `canRespin` equivalent to write, because a freeze
-cannot wedge a draw.
-
-The alternative — a per-match fwd/def override, relabelled boxes, `credit`
-reading the override — makes the record honest and closes the laundering hole.
-It also touches the archive and the replay path for every cup in the Hall, and
-it costs far more code to make the spend matter less. The credit consequence is
-the reason ten coins is worth spending.
-
-### What the rules can't do here either
-
-They cannot see who stood where. Whether the pair kept to it is
-decided by the room; the freeze is printed on the match card and the four people
-present hold each other to it — the same contract a score claim already runs on,
-and the same one that makes the existing laundering possible. This is not a gap
-to be closed later.
-
-`freezes/<cupId>/<matchId>/<pushId>` is append-only, exactly as `respins` is: a
-row carrying its own `auth.token.email`, writable only when the row does not
-exist. `matchId` is the key the suggestions already use — `gi_mi` in the group,
-`kr_i` in the bracket — so one namespace names a match everywhere.
-
-The replay honours a row on the same two conditions a re-spin gets, plus one
-more: the live cup's fixtures must still support it. The bracket is redrawn from
-the group table every time, and re-running an earlier knockout round can move a
-pair out from under a row already filed. `freezeFits` asks the question
-`sugFits` asks of a suggestion in flight — both slots filled, one team is the
-pair it was bought against, the payer on the other — and a row that fails it is
-ignored and **charged nothing**. Only the live cup is asked; a cup already in
-the Hall settled the question on its way in.
-
-Two partners can both afford one and could name opposite arrangements, so the
-earlier `at` stands and the second is charged nothing. Both *sides* may spend:
-freezing one pair does not stop them freezing yours.
-
-Balances become `2 x wins - 10 x (honoured re-spins + honoured freezes)`, one
-more row type in the walk that already existed. Which rows it charged for is
-asked of the walk rather than derived again — `coins()` takes an out-parameter
-for them — so the card can never offer a lock the ledger did not pay for.
 
 ## Before it works
 
@@ -753,9 +616,7 @@ correction, and a claim keeping a stale lobby on the board.
 
 Coins are checked the same way, and for the same reason: nothing is stored, so
 the derivation is driven directly. Two wins pay four, a draw and an unconfirmed
-claim pay nothing, a spend filed before the coins were earned is not honoured
-out of later winnings, a second re-spin in one cup is ignored, and a cup that
-never reached `history` charges nobody.
+claim pay nothing.
 
 The bet gets the same treatment on both halves. The walk: a bet moves four coins
 across the table and creates none, a bet the losers cannot cover falls back to
@@ -774,35 +635,13 @@ must not do — hide itself from somebody with nothing, and show one reader
 another player's balance — along with its place above every screen and the
 sheet's button actually opening the board.
 
-The re-spin's own check is the availability rule, because it is the only change
-here that can quietly damage something people rely on. A blocked pair never
-returns in the same draft; and on a night pinned to one legal draw, **strict**
-refuses while the relaxing path would have found an answer — the second half of
-that pair matters, since without it the first proves nothing. The hold is checked
-as the pure state it is: counting down while a landing has no team, closed once
-the team forms, and closed again once the fifteen seconds are up.
-
-The freeze is checked in the two places it lives. The replay: a row nobody could
-afford, a second in one cup, the limit resetting at the next, a spend filed
-before the coins were earned, an abandoned cup refunding and the running one
-charging, a re-spin and a freeze in one cup spending twenty, and the walk
-reporting which rows it charged for without that changing what it charged. Then
-`freezeFits`, which is the whole of whether a filed row still means anything —
-the pair it names must be in that match, the payer on the other side of it, and
-a half-filled knockout tie is nobody's to freeze. The card is driven from a real
-group: the button reaches the two players in the fixture and nobody else, carries
-its reason rather than going silent when it cannot be offered, the sheet offers
-exactly the two arrangements, and a filed row replaces the button with a record
-both sides can read.
+The draft is checked for what it no longer does: a landing becomes a team a beat
+after the wheels stop even when the pair holds coins, and neither the Cup rules
+nor the coins sheet offers a way to spend them there.
 
 `test-rules.mjs` is the only check that evaluates a rule: `test.mjs` stubs the
 database out, so nothing there ever reaches one, and the rules are what
-actually stop a challenge result being whatever the last person tapped, and the
-one place a re-spin or a freeze row is made permanent — filed rows are
-append-only, so the suite tries to overwrite, edit and delete one of each as its
-author and as the admin, and tries to file one carrying somebody else's address.
-A freeze naming one player in both positions is refused there too, since it is not
-arrangement. A lobby's bet is held there as well: a whole number of coins inside
+actually stop a challenge result being whatever the last person tapped. A lobby's bet is held there as well: a whole number of coins inside
 the ceiling, and the suite tries to move it and to take it off after the fact, as
 the creator and as the admin, since three people sat down on the strength of it.
 A result carrying no time is refused, because a bet cannot be settled against one.

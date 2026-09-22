@@ -204,12 +204,6 @@
   }
   .double-round-toggle input { cursor: pointer; }
   #status { text-align: center; margin-top: 20px; font-size: 1.08rem; color: #5b6a7d; min-height: 1.6em; font-weight: 600; }
-  /* the fifteen seconds between the wheels landing and the team forming */
-  #hold { text-align: center; margin-top: 10px; }
-  .hold-t { font-size: 0.82rem; font-weight: 700; color: #97a3b3; }
-  .hold-t b { color: #96660a; }
-  .hold-why { margin-top: 8px; font-size: 0.78rem; font-weight: 600; color: #97a3b3; }
-  #holdBtn { margin-top: 10px; }
   #status b { color: #96660a; }
   #status .last-pick { color: #17854a; font-weight: 800; }
   /* team cards */
@@ -333,62 +327,6 @@
   .score.fwd { color: #2563eb; }
   .score.def { color: #dc5a1e; }
   .score.fwd:disabled, .score.def:disabled { color: #8a96a8; }
-  /* ---- the freeze: a coin spend that rides on the match card ---- */
-  /* dashed, like the forfeit select: both are things you may do to this fixture
-     rather than a number it is waiting for */
-  .frz-btn {
-    width: 100%; margin: 4px 0 2px; display: flex; align-items: center;
-    justify-content: center; gap: 7px; padding: 9px 12px;
-    font-family: inherit; font-size: 0.76rem; font-weight: 700; line-height: 1.35;
-    color: #8a6d1f; background: #fff8e6;
-    border: 1.5px dashed #f0dca0; border-radius: 10px; cursor: pointer;
-    transition: filter 0.2s;
-  }
-  .frz-btn:hover:not(:disabled) { filter: brightness(0.98); }
-  .frz-btn:disabled { cursor: default; color: #9aa6b6; background: #f6f8fb; border-color: #e3e9f1; }
-  .frz-disc {
-    width: 16px; height: 16px; border-radius: 50%; flex: none;
-    background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10);
-    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.45), 0 1px 3px rgba(0,0,0,0.3);
-  }
-  .frz-tag {
-    display: flex; align-items: flex-start; gap: 8px; margin: 4px 0 2px;
-    padding: 9px 11px; border-radius: 10px;
-    background: #fff8e6; border: 1px solid #f0dca0;
-    font-size: 0.74rem; font-weight: 600; line-height: 1.45; color: #8a6d1f;
-  }
-  .frz-tag b { color: #6f5610; font-weight: 800; }
-  .frz-lock { flex: none; font-size: 0.85rem; line-height: 1.5; }
-  /* ---- the sheet ---- */
-  .frz-q { font-size: 0.95rem; font-weight: 800; color: #172b4d; margin-bottom: 4px; }
-  .frz-sub { color: #6b7a8d; }
-  #freezeOpts { display: flex; flex-direction: column; gap: 10px; margin: 12px 0 14px; }
-  .frz-opt {
-    width: 100%; text-align: left; font-family: inherit; cursor: pointer;
-    display: flex; flex-direction: column; gap: 7px;
-    padding: 11px 12px; border-radius: 12px;
-    background: #fff; border: 1.5px solid #dfe6ef;
-    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-  }
-  .frz-opt.on { border-color: #ecc45c; background: #fff8e6; box-shadow: 0 0 0 3px rgba(240,180,41,0.18); }
-  .frz-opt-h {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    font-size: 0.64rem; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase;
-    color: #a4aebc;
-  }
-  .frz-opt.on .frz-opt-h { color: #96660a; }
-  .frz-seat { display: flex; align-items: center; gap: 8px; }
-  .frz-nm { flex: 1; min-width: 0; font-size: 0.86rem; font-weight: 700; color: #1c2733; overflow-wrap: break-word; }
-  .frz-role {
-    flex: none; font-size: 0.6rem; font-weight: 900; letter-spacing: 0.1em;
-    text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
-  }
-  /* the two colours the draft panels already give the roles */
-  .frz-role.f { color: #2563eb; background: rgba(37,99,235,0.10); }
-  .frz-role.d { color: #dc5a1e; background: rgba(220,90,30,0.10); }
-  .frz-why { font-size: 0.72rem; line-height: 1.45; font-weight: 600; color: #6b7a8d; }
-  .frz-opt.on .frz-why { color: #8a6d1f; }
-  #freezeGo { width: 100%; }
   /* forfeits are deliberately not a score box — nobody scored, so there is no
      player to attribute a goal to */
   .ff {
@@ -740,16 +678,14 @@
   }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who, #freeze {
+  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
   #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open, #chal.open,
-  #coinInfo.open, #who.open, #freeze.open { display: flex; }
-  /* it is opened off a match card, and the card can sit inside the Hall's replay */
-  #freeze { z-index: 46; }
+  #coinInfo.open, #who.open { display: flex; }
   /* it opens off a row of the Hall, so it has to sit over the Hall */
   #profile { z-index: 45; }
   /* the seats that ask you to sign in live inside the Challenges overlay, so
@@ -1351,7 +1287,7 @@
   .ch-nobet { font-size: 0.76rem; font-weight: 800; color: #5b6a7d; padding: 2px 0 9px; }
   .ch-nobet b { color: #17854a; }
   /* why the seats are not yours to take. It carries the reason rather than
-     going quiet, the way the freeze button does when it cannot be offered. */
+     going quiet. */
   .ch-shy {
     margin-top: 10px; border: 1px solid #f0dfb4; border-radius: 12px; padding: 10px 11px;
     background: #fdf6e6; font-size: 0.76rem; font-weight: 800; color: #96660a; line-height: 1.45;
@@ -1787,7 +1723,6 @@ Nur</textarea>
     <input type="checkbox" id="doubleRoundChk"> Double round-robin — every pairing on both sides of the table
   </label>
   <div id="status"></div>
-  <div id="hold" style="display:none"></div>
   <div id="teamList" class="team-grid"></div>
 </div>
 
@@ -1830,21 +1765,6 @@ Nur</textarea>
   </div>
 </div>
 
-<!-- Ten coins names both seats of the opposing pair for one match. Two names and
-     two positions make exactly two arrangements, so this is a choice between them
-     not a picker — and both of them are worth buying. -->
-<div id="freeze">
-  <div class="hall-card">
-    <div class="hall-title"><svg class="ico"><use href="#i-coin"/></svg> Freeze their positions</div>
-    <div class="sheet-body">
-      <p id="freezeWho" class="frz-q"></p>
-      <p class="frz-sub">Two arrangements. Both are worth buying &mdash; they buy different things.</p>
-      <div id="freezeOpts"></div>
-      <button id="freezeGo" class="btn btn-gold" type="button"></button>
-    </div>
-  </div>
-</div>
-
 <div id="rules">
   <div class="hall-card">
     <div class="hall-title"><svg class="ico"><use href="#i-list"/></svg> How the Cup works</div>
@@ -1856,39 +1776,6 @@ Nur</textarea>
       <p>The draw rotates: inside a cycle no pair plays twice, so <b>every forward
       meets every defender</b> before anyone gets a repeat. It costs the last night
       of each cycle, where only one draw is left and the wheels are ceremony.</p>
-
-      <div class="rules-h">Coins</div>
-      <p>Winning a <b>challenge</b> — a casual 2v2 between cups — pays <b>2 coins</b>
-      to each player on the winning side. A loss pays nothing.</p>
-      <ul>
-        <li><b>10 coins buys a re-spin.</b> When the wheels land on you, you have
-        fifteen seconds to spend it and reject your partner. So does the other one
-        of you. <b>Once a cup.</b></li>
-        <li>Whoever you rejected can't be drawn with you again that night, and the
-        wheels turn again for whoever is left.</li>
-        <li><b>Paying frees you from the rotation.</b> For the rest of that draft the
-        five-cup rule stops applying to you, so the wheels may land you on anyone —
-        even the partner you had last cup.</li>
-        <li>That is <b>the one thing coins can break</b>. Five cups hold exactly 25
-        pairings and there are exactly 25 pairs to make, so a bought repeat means some
-        pairing that cycle never happens — and it will not always be yours.</li>
-        <li>The <b>last pair can't re-spin</b>. When one forward and one defender are
-        left they are drawn together automatically — there is nobody else to be
-        drawn with, so there is nothing to buy.</li>
-        <li><b>10 coins freezes the other pair's positions</b> for one match you are
-        in. You name which of them plays forward and which plays defender, and they
-        stay there all match. <b>Once a cup, and only in the group stage.</b></li>
-        <li>A goal belongs to the <b>seat</b>, not the person — the forward box is the
-        drafted forward's all match. So putting their scorer in the other position
-        files his goals under his partner's name.</li>
-        <li>Freezing them <b>as drafted</b> is worth buying too: it stops them swapping
-        places mid-match to pile a Boot run onto one name.</li>
-        <li>Nothing here can see who is standing where. A freeze is printed on the match
-        card and the four of you hold each other to it.</li>
-        <li>Coins never touch a title or a badge. The freeze is the one that reaches a
-        trophy: it decides whose column a goal lands in, and so the <b>Golden Boot</b>.
-        The Glove is out of reach — goals conceded are the pair's, not one player's.</li>
-      </ul>
 
       <div class="rules-h">Scoring a match</div>
       <ul>
@@ -2011,8 +1898,8 @@ Nur</textarea>
     <div class="hall-title"><svg class="ico"><use href="#i-coin"/></svg> Coins</div>
     <div class="sheet-body">
       <p>Coins come from the <b>Challenges</b> board — the casual 2v2 pickup games
-      between cups. They don't touch a title or a badge, and only one of the two
-      things they buy can reach a trophy.</p>
+      between cups, and they are spent there too. They never reach the Cup: not the
+      draft, not a match, not a title or a badge.</p>
       <div class="rules-h">Earning</div>
       <ul>
         <li><b>+2 coins</b> to each player on the winning side of a challenge, once
@@ -2020,36 +1907,14 @@ Nur</textarea>
         <li>A loss pays nothing, and a result still waiting to be confirmed pays
         nothing until it is.</li>
       </ul>
-      <div class="rules-h">Spending &mdash; the draft</div>
+      <div class="rules-h">Betting</div>
       <ul>
-        <li><b>10 coins</b> buys one <b>re-spin</b> at the draft: when the wheels land
-        on you, you can pay to reject your partner and turn them again.</li>
-        <li><b>Once a cup.</b> Whoever you rejected can't come back to you for the rest of that cup.</li>
-        <li><b>Paying frees you from the rotation.</b> The five-cup rule stops applying
-        to you for the rest of that draft — the wheels may land you on anyone, even the
-        partner you had last cup.</li>
-        <li>It is the one thing coins can break: five cups hold exactly 25 pairings and
-        there are exactly 25 pairs to make, so a bought repeat costs the cycle a pairing
-        somewhere — not necessarily yours.</li>
-        <li><b>The last pair can't.</b> With one forward and one defender left they are
-        drawn together automatically — there is nobody else to be drawn with.</li>
-      </ul>
-      <div class="rules-h">Spending &mdash; the table</div>
-      <ul>
-        <li><b>10 coins</b> <b>freezes the other pair's positions</b> for one match you
-        are playing in: you name which of them plays forward and which plays defender,
-        and they stay there all match.</li>
-        <li><b>Once a cup</b>, and only against the pair you are actually facing.</li>
-        <li><b>Group stage only.</b> The knockouts &mdash; the final with them &mdash;
-        are played as drafted.</li>
-        <li><b>A goal belongs to the seat, not the person.</b> The forward box is the
-        drafted forward's all match. Put their scorer in the other position and the
-        goals he scores are filed under his partner's name — which is what the ten
-        coins are really buying.</li>
-        <li>Naming them <b>as drafted</b> is worth buying too: it stops them swapping
-        places mid-match to pile a Golden Boot run onto one name.</li>
-        <li>Nothing in the app can see who is standing where. The freeze is on the card
-        and the four of you hold each other to it.</li>
+        <li>A lobby can be opened <b>for</b> coins &mdash; 2, 5, 10, or anything up to
+        50 &mdash; and taking a seat agrees to it. The bet can't change once it is set.</li>
+        <li>Each winner <b>takes</b> the bet and each loser <b>pays</b> it, instead of the
+        usual +2. A game played for nothing still pays the +2.</li>
+        <li>You need the bet to sit down, and coins already riding on another open
+        table don't count.</li>
       </ul>
       <div id="coinYou" class="coin-you"></div>
     </div>
@@ -2307,13 +2172,6 @@ window.setSignedIn = u => {
   updateSub();
   if (curScreen !== 'tourney') return;
   renderGroups(); // signing in unlocks the boxes in both stages
-  if (koStarted && !holdRender()) renderBracket();
-};
-/* A freeze changes no score, so only the cards redraw — the same two calls a
-   suggestion makes, and for the same reason: renderAll() would have a viewer save(). */
-window.renderFreezes = () => {
-  if (curScreen !== 'tourney') return;
-  renderGroups();
   if (koStarted && !holdRender()) renderBracket();
 };
 window.renderSuggestions = all => {
@@ -2811,7 +2669,6 @@ var hallEntries = [];
 function renderHall(entries) {
   hallEntries = entries;
   renderPlayers(entries);
-  renderCoins(); // a cup reaching history is what turns a re-spin into a charge
   const list = $('hallList');
   if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
   list.innerHTML = '';
@@ -2929,29 +2786,23 @@ const chalBet = c => {
 const chalAt = c => (c && c.score && c.score.at != null ? +c.score.at : (c && c.at) || 0);
 
 /* ================= COINS =================
-   A challenge win is worth two coins; ten buys one re-spin at the draft. Derived
-   at render from the same finished lobbies the board reads and the rows in
-   `respins` — no rollup node, no stored totals, so flipping a wrongly filed
+   A challenge win is worth two coins, and coins are what a challenge is bet in.
+   They never reach the Cup. Derived at render from the same finished lobbies the
+   board reads — no rollup node, no stored totals, so flipping a wrongly filed
    winner corrects every wallet in the building at once.
 
-   Chronological rather than two sums. A spend can only be honoured out of coins
-   already earned, so earnings, bets and spends go into one list ordered by time
-   and are walked once. A game lands at `chalAt` — when the two sides agreed it,
+   Chronological rather than two sums. A bet can only be honoured out of coins
+   already earned, so earnings and bets go into one list ordered by time and are
+   walked once. A game lands at `chalAt` — when the two sides agreed it,
    which is when the coins move.
 
    A game played for a bet pays the bet INSTEAD of the two, not on top of it:
    winners take it, losers pay it, and the four of them net to nothing. So coins
    only ever enter the world through a game played for none, which is what keeps
    a way back for somebody who has bet themselves down to nothing. */
-const COIN_WIN = 2, COIN_RESPIN = 10, COIN_FREEZE = 10;
-var allRespins = {}, allFreezes = {}, histCups = new Set();
+const COIN_WIN = 2;
 
-/* `freezes` is one level deeper than `respins` — cup, then the match key, then the
-   push id — because a match is the thing a freeze is bought against and two of them
-   can stand in one cup. `dead` names the rows the live cup's fixtures no longer
-   support, and `honoured` is an out-parameter: the walk is the only thing that knows
-   which rows it charged for, so the card asks it rather than deciding again. */
-function coins(rows, respins, played, liveCup, freezes, dead, honoured) {
+function coins(rows) {
   const bal = {};
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
@@ -2966,16 +2817,8 @@ function coins(rows, respins, played, liveCup, freezes, dead, honoured) {
        question about the table rather than about any one player. */
     ev.push({ t, bet, up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
   });
-  Object.entries(respins || {}).forEach(([cup, byId]) =>
-    Object.values(byId || {}).forEach(r => r && r.name &&
-      ev.push({ t: r.at || 0, name: r.name, cup })));
-  Object.entries(freezes || {}).forEach(([cup, byMatch]) =>
-    Object.values(byMatch || {}).forEach(byId =>
-      Object.entries(byId || {}).forEach(([id, r]) => r && r.name &&
-        ev.push({ t: r.at || 0, name: r.name, cup, id, freeze: 1 }))));
   ev.sort((a, b) => a.t - b.t);
 
-  const spent = new Set(), frozen = new Set();
   ev.forEach(e => {
     if (e.bet) {
       /* The two who lost are the two who pay, so they are the two who have to
@@ -2983,7 +2826,7 @@ function coins(rows, respins, played, liveCup, freezes, dead, honoured) {
          `chalShort` — so reaching here means a result was corrected, or somebody
          went round the page; either way the bet is not honoured and the game
          falls back to paying the winners the usual two. Nobody is charged for a
-         bet that did not move, which is the rule a re-spin already follows. */
+         bet that did not move. */
       const on = e.up.concat(e.down).every(n => bal[n] !== undefined);
       const paid = on && e.down.every(n => bal[n] >= e.bet);
       if (paid) {
@@ -2994,32 +2837,7 @@ function coins(rows, respins, played, liveCup, freezes, dead, honoured) {
       }
       return;
     }
-    if (bal[e.name] === undefined) return; // not on the player list any more
-    if (e.win) { bal[e.name] += COIN_WIN; return; }
-    /* Only a cup that reached history charges — an abandoned one refunds
-       everyone, the same rule the pair ledger follows. The running cup is not in
-       history yet and charges anyway, which is what stops a second re-spin inside
-       the draft that is happening right now. */
-    if (!played.has(e.cup) && e.cup !== liveCup) return;
-    const key = e.cup + '|' + e.name;
-    if (e.freeze) {
-      /* A freeze the live cup's fixtures no longer support charges nothing: the
-         admin re-running an earlier knockout round can move a pair out from under a
-         row that is already filed, and nobody should pay for a match that is not
-         there any more. Only the live cup can be checked — an archived one settled
-         the question when it was archived. */
-      if (dead && dead.has(e.cup + '|' + e.id)) return;
-      if (frozen.has(key)) return;                // one freeze a cup, per player
-      if (bal[e.name] < COIN_FREEZE) return;      // could not afford it: ignored, not owed
-      frozen.add(key);
-      bal[e.name] -= COIN_FREEZE;
-      if (honoured) honoured.add(e.cup + '|' + e.id);
-      return;
-    }
-    if (spent.has(key)) return;                   // one re-spin a cup, per player
-    if (bal[e.name] < COIN_RESPIN) return;        // could not afford it: ignored, not owed
-    spent.add(key);
-    bal[e.name] -= COIN_RESPIN;
+    if (bal[e.name] !== undefined) bal[e.name] += COIN_WIN; // else: not on the player list any more
   });
   return bal;
 }
@@ -3030,51 +2848,7 @@ window.coins = coins;
    what makes a coin worth having. It also tells the room what everyone can
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
-/* ---- freezes: ten coins pins the other pair to their positions for one match ----
-   A goal box is keyed by the seat and `credit` hands it to the name drafted into
-   it, so where a player stands decides whose column his goals land in. A pair that
-   swaps places mid-match files them under one name; this prices that and hands it to
-   the other side of the table. Nothing derived moves — the boxes stay welded to
-   `t.fwd` and `t.def`, which is the whole point. */
-const inTeam = (t, n) => !!t && (t.fwd === n || t.def === n);
-/* A row names the two people and which of them plays forward. The pair is
-   unordered here on purpose: the row is matched to a team by who is in it, never by
-   the arrangement it is asking for. */
-const sameTwo = (t, r) => !!t && !!r
-  && ((t.fwd === r.fwd && t.def === r.def) || (t.fwd === r.def && t.def === r.fwd));
-/* The row still names a real fixture: both slots filled, one team is the pair it
-   was bought against, and the payer is sitting on the other one. The bracket is
-   redrawn from the group table every time, so this is the same question `sugFits`
-   asks of a suggestion in flight. */
-const freezeFits = (r, m) => !!(m && m.a && m.b && r)
-  && ((sameTwo(m.b, r) && inTeam(m.a, r.name)) || (sameTwo(m.a, r) && inTeam(m.b, r.name)));
-window.freezeFits = freezeFits;
-/* The group stage and nowhere else. A coin buys a nudge in a match that costs a
-   place in the table; it does not get to arrange the people playing for the title,
-   or the round that puts them there — the room said so by refusing to honour one.
-   The mid carries the stage: 'k<round>_<i>' is the bracket, 'g_m' is the group. */
-const koMid = mid => !!mid && String(mid)[0] === 'k';
-window.koMid = koMid;
-/* Which filed rows the running cup can no longer support. Only the live cup is
-   asked: `sugTarget` reads `groups` and `koRounds`, which describe this cup and no
-   other, and a cup already in the Hall settled the question on its way in. Before
-   the fixtures exist there is nothing to contradict, so nothing is dead. */
-function freezeDead() {
-  const dead = new Set(), cup = cupId ? String(cupId) : null;
-  if (!cup || (!groups.length && !koRounds.length)) return dead;
-  Object.entries((allFreezes || {})[cup] || {}).forEach(([mid, byId]) => {
-    const t = sugTarget(mid);
-    Object.entries(byId || {}).forEach(([id, r]) => {
-      if (koMid(mid) || !freezeFits(r, t && t.m)) dead.add(cup + '|' + id);
-    });
-  });
-  return dead;
-}
-const coinBal = (honoured) => coins(Object.values(allChal || {}).filter(c => c && c.at),
-  allRespins, histCups, cupId ? String(cupId) : null, allFreezes, freezeDead(), honoured);
-/* Which freezes the replay actually charged for. Asked of the walk rather than
-   re-derived, so the card can never offer a lock the ledger did not pay for. */
-const freezeIds = () => { const s = new Set(); coinBal(s); return s; };
+const coinBal = () => coins(Object.values(allChal || {}).filter(c => c && c.at));
 const myCoins = () => {
   const me = myName();
   return me ? (coinBal()[me] || 0) : null;
@@ -3096,7 +2870,7 @@ const chalHeld = name => !name ? 0 : Object.values(allChal || {})
    four times. Null when nobody on the player list is reading. */
 var chalFree = null;
 /* Why this lobby's seats are not theirs to take, or null when they are. It
-   carries the reason rather than going quiet, the way the freeze button does. */
+   carries the reason rather than going quiet. */
 function chalShort(c) {
   const bet = chalBet(c);
   if (!bet || chalFree === null || chalSat(c) || chalDone(c) || chalFree >= bet) return null;
@@ -3110,21 +2884,12 @@ function chalShort(c) {
     : `${bet} coins to bet here \u2014 ${held} of your ${bal} is on other tables.`;
 }
 
-// how many more wins reaches the next spend, or nothing left to say. Both sinks
-// cost ten, so there is one number to quote and no table to read
-const coinGap = n => {
-  const w = Math.ceil((COIN_RESPIN - n) / COIN_WIN);
-  return `${w} more challenge win${w === 1 ? '' : 's'} buys a re-spin or a freeze.`;
-};
-
 function renderCoins() {
   const n = myCoins(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
   $('coinN').textContent = n === null ? '\u2013' : n;
   $('coinWho').textContent = myName() || ''; // textContent: EMAIL_NAMES is edited by hand
-  pill.title = n === null ? 'Sign in to see your coins'
-    : n >= COIN_RESPIN ? 'Enough for a re-spin, or to freeze a pair\u2019s positions'
-    : coinGap(n);
+  pill.title = n === null ? 'Sign in to see your coins' : 'Coins to bet on challenges';
 
   // the pill is a number; the sheet is where a number gets a meaning
   const you = $('coinYou');
@@ -3135,9 +2900,7 @@ function renderCoins() {
       : 'Sign in as a player to start earning.';
     return;
   }
-  you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'),
-    n >= COIN_RESPIN ? ' — enough for a re-spin at the next draft, or to freeze a pair’s positions.'
-      : ' — ' + coinGap(n));
+  you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), '.');
 }
 window.renderCoins = renderCoins;
 
@@ -3634,7 +3397,7 @@ $('profileClose').onclick = () => $('profile').classList.remove('open');
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 /* Every overlay card carries the same X in its corner — built here rather than
    in five copies of the markup, and it dismisses whichever card it sits in. */
-document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who, #freeze').forEach(p => {
+document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who').forEach(p => {
   const x = document.createElement('button');
   x.className = 'card-x';
   x.type = 'button';
@@ -3716,10 +3479,8 @@ $('startBtn').onclick = () => {
   session++;
   teams = []; groups = []; koRounds = []; koStarted = false; doubleRound = false;
   spin = null; lastSpinN = null; drawPlan = []; // a new draft restarts the spin count
-  /* The id is minted here rather than at kick-off, because the draft is already
-     part of this cup: a re-spin is filed under `respins/<cupId>` while the wheels
-     are still turning, and there is no cup to hang it on otherwise. save() below
-     publishes it, so every viewer has it before the first spin. */
+  /* The id is minted here rather than at kick-off: the draft is already part of
+     this cup. save() below publishes it, so every viewer has it before the first spin. */
   cupId = String(Date.now());
   $('champion').innerHTML = '';
   $('teamList').innerHTML = '';
@@ -3960,47 +3721,28 @@ function pairLedger(entries) {
    is 720 arrangements and the cycle prunes most of them, so this is a walk, not a
    search. Reservoir sampling rather than an array of every candidate: the count
    is factorial and only one of them is ever used. */
-function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null, wild = null) {
-  /* `wild` is whoever paid ten coins tonight. The rotation is what their coins
-     bought their way out of, so any pair with one of them in it is fresh by
-     definition — including the partner they had last cup. A name check rather than
-     a lower `cool`, so the lift itself reaches nobody else.
-
-     The consequence does, and it was measured before it was accepted: five cups
-     hold exactly 25 pairings and there are exactly 25 combinations, so a bought
-     repeat means one pairing never happens. Later nights then find no legal plan
-     and fall into the relaxation below, which loosens the rotation for the whole
-     table. Simulated over 2000 cycles: intact every time with nobody paying, broken
-     in 18% of cycles when somebody pays on night two and 52% on night four, and the
-     lost pairings land on players who paid nothing about twice as often as on the
-     payer. Coins were chosen over the guarantee knowing that. */
+function planDraw(fwdNames, defNames, ledger, cool = ledger.cool) {
   const fresh = (f, d) => {
-    if (wild && (wild.has(f) || wild.has(d))) return true;
     const at = ledger.last.get(pairKey(f, d));
     return at === undefined || ledger.n - at > cool;
   };
-  // a pair somebody has paid to get out of, for tonight only — see canRespin
-  const free = (f, d) => !blocked || !blocked.has(pairKey(f, d));
   let seen = 0, keep = null;
   const used = [], acc = [];
   (function walk(i) {
     if (i === fwdNames.length) { if (Math.random() * ++seen < 1) keep = acc.slice(); return; }
     for (let j = 0; j < defNames.length; j++) {
-      if (used[j] || !fresh(fwdNames[i], defNames[j]) || !free(fwdNames[i], defNames[j])) continue;
+      if (used[j] || !fresh(fwdNames[i], defNames[j])) continue;
       used[j] = 1; acc.push(defNames[j]);
       walk(i + 1);
       acc.pop(); used[j] = 0;
     }
   })(0);
   /* A single survivor is the rotation working — the last cup of a cycle has one
-     legal draw by construction. Zero survivors is the roster having changed
-     underneath a half-finished cycle, or a paid re-spin leaving the others with no
-     arrangement between them, and neither may wedge the draw: forget the oldest cup
-     of the cycle and try again, down to a free roll. */
-  /* Coins do not come through here — `wild` already freed the payer above. This
-     is only the roster-change escape, and it stays because freeing one player can
-     still leave the other eight with no legal arrangement between them. */
-  if (!seen && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1, blocked, wild);
+     legal draw by construction, and relaxing there would give back the guarantee
+     the whole thing was built for. Zero survivors is the roster having changed
+     underneath a half-finished cycle, and that must never wedge the draw: forget
+     the oldest cup of the cycle and try again, down to a free roll. */
+  if (!seen && cool > 0) return planDraw(fwdNames, defNames, ledger, cool - 1);
   if (!keep) return [];
   const plan = fwdNames.map((f, i) => ({ fwd: f, def: keep[i] }));
   // the reveal would otherwise run straight down the forward list
@@ -4011,39 +3753,6 @@ function planDraw(fwdNames, defNames, ledger, cool = ledger.cool, blocked = null
   return plan;
 }
 
-/* Ten coins buys one re-spin a cup: the wheels land, and either of the two named
-   may pay to reject the other. The rejected pair is blocked for the rest of this
-   draft and no longer — read back out of `respins/<cupId>` rather than held in
-   memory, so an admin reload mid-draft restores it exactly as it already restores
-   the plan. */
-const respinRows = () => Object.values((allRespins || {})[String(cupId)] || {}).filter(r => r && r.name);
-const respinBlocked = () => new Set(respinRows().map(r => pairKey(r.name, r.rejected)));
-/* Whoever has spent tonight, and so is out from under the rotation for the rest of
-   this draft — the same rows respinBlocked reads, asked the other question. */
-const respinPaid = () => new Set(respinRows().map(r => r.name));
-
-/* Whether `payer` could be drawn with somebody other than the name the wheels
-   just landed on. Block that pair and ask for a whole legal plan: if one exists,
-   the re-spin has somewhere to go.
-
-   Asked with the payer already wild, because that is what paying does: the five-cup
-   rule is exactly what the ten coins buy their way out of, so the partner they had
-   last cup is back on the table for them and for nobody else. The answer is
-   therefore no only when there is genuinely nobody else to be drawn with — one
-   forward and one defender left — or when freeing them leaves the rest of the room
-   with no arrangement at all. */
-function canRespin(payer, partner) {
-  const af = availIdx(fwds), ad = availIdx(defs);
-  const blocked = respinBlocked();
-  blocked.add(pairKey(payer, partner));
-  const wild = respinPaid();
-  wild.add(payer);
-  const led = pairLedger(hallEntries);
-  return planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name),
-    led, led.cool, blocked, wild).length > 0;
-}
-window.canRespin = canRespin;
-
 /* The plan is never published and never stored: a viewer who could read it would
    know the teams before the wheels turned. It is built from whoever is still
    undrafted, so an admin reload mid-draft simply rebuilds it for the rest. */
@@ -4051,8 +3760,7 @@ var drawPlan = [];
 function nextPair() {
   const af = availIdx(fwds), ad = availIdx(defs);
   if (!drawPlan.length)
-    drawPlan = planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name),
-      pairLedger(hallEntries), undefined, respinBlocked(), respinPaid());
+    drawPlan = planDraw(af.map(i => fwds[i].name), ad.map(i => defs[i].name), pairLedger(hallEntries));
   const t = drawPlan.shift();
   return [fwds.findIndex(f => f.name === t.fwd), defs.findIndex(d => d.name === t.def)];
 }
@@ -4086,70 +3794,23 @@ function animateSpin(fi, di, startF, startD, done) {
   })(t0);
 }
 
-/* A landing is held before it becomes a team, so the two named have a moment to
-   pay their way out of it. `at` is when the wheels stop, not when they start, and
-   it rides on the published record only so every screen counts the same fifteen
-   seconds down — it decides what the countdown says, never what is committed.
-
-   The commit stays where it always was: the admin's formTeam, and the save() it
-   already calls. Viewers never form a team from a spin — they animate on `n`
-   changing and read `teams` out of the snapshot — so they are already waiting on
-   that write and there is nothing to synchronise. */
-const HOLD_MS = 15000;
-var holdT = null;
-
-/* Why `p` cannot pay their way out of the landing beside `partner`, or null if
-   they can. Asked of the payer by renderHold and of both named by holdMs, so the
-   button and the countdown can never disagree about who the hold is for. */
-function respinWhy(p, partner, bal) {
-  if (!cupId) return 'This draft has no cup id — reopen it to spend coins.';
-  if (respinRows().some(r => r.name === p)) return 'You have already used your re-spin this cup.';
-  const n = bal[p] || 0;
-  if (n < COIN_RESPIN) return `${COIN_RESPIN} coins for a re-spin — you have ${n}.`;
-  if (!canRespin(p, partner)) return 'Nobody left to swap with — this is the last pair.';
-  return null;
-}
-
-/* The hold exists for one thing: the two named paying their way out of the
-   landing. If neither of them can — no coins, already spent, nobody left to swap
-   with — it is fifteen seconds of watching a countdown that nothing can happen in, so
-   there is no hold at all and finishSpin's floor gives the pair its beat instead.
-
-   Pure state, like renderHold: every screen reads the same coins, the same filed
-   rows and the same remaining players, so the admin's timer and the viewers'
-   countdown agree with nothing passed between them. */
-function holdMs() {
-  if (!spin) return 0;
-  const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
-  if (!f || !d) return 0;
-  /* A draft with no cup id is broken, not settled: skipping the hold would hide
-     it the same way silence hid it once already. Hold, and let the reason speak. */
-  if (!cupId) return HOLD_MS;
-  const bal = coinBal();
-  return (!respinWhy(f, d, bal) || !respinWhy(d, f, bal)) ? HOLD_MS : 0;
-}
-window.holdMs = holdMs;
-
-function spinOnce() {
+$('spinBtn').onclick = () => {
+  if (spinning) return;
   spinning = true;
   $('spinBtn').disabled = true;
   const [fi, di] = nextPair();
   const sess = session;
   // publish before animating, so viewers turn the same wheels at the same time
-  spin = { n: (spin ? spin.n : 0) + 1, fi, di, sf: fwdAngle, sd: defAngle, at: Date.now() + SPIN_MS };
+  spin = { n: (spin ? spin.n : 0) + 1, fi, di, sf: fwdAngle, sd: defAngle };
   save();
   animateSpin(fi, di, spin.sf, spin.sd, () => finishSpin(fi, di, sess));
-}
-$('spinBtn').onclick = () => { if (!spinning) spinOnce(); };
+};
 
 function finishSpin(fi, di, sess) {
   ding();
   $('status').innerHTML = `${svg('sparkles')} <b>${fwds[fi].name}</b> + <b>${defs[di].name}</b>`;
-  renderHold();
-  clearTimeout(holdT);
-  holdT = setTimeout(() => {
+  setTimeout(() => {
     if (sess !== session) return;
-    renderHold();
     formTeam(fi, di);
     const af = availIdx(fwds), ad = availIdx(defs);
     if (af.length === 1 && ad.length === 1) {
@@ -4157,10 +3818,7 @@ function finishSpin(fi, di, sess) {
       setTimeout(() => {
         if (sess !== session) return;
         formTeam(af[0], ad[0]);
-        /* One of each left is one legal pairing, so a re-spin has nothing to
-           reach and no button appears. Said out loud: somebody holding ten coins
-           is looking for one, and silence reads as a bug rather than a rule. */
-        $('status').innerHTML = `<span class="last-pick">Last pair auto-assigned!</span> Nobody left to swap with, so no re-spin here. All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
+        $('status').innerHTML = `<span class="last-pick">Last pair auto-assigned!</span> All players drafted — <b>${teams.length} teams</b> ready for the Cup.`;
         finishDraft();
       }, 700);
     } else if (af.length === 0) {
@@ -4170,92 +3828,7 @@ function finishSpin(fi, di, sess) {
       spinning = false;
       $('spinBtn').disabled = false;
     }
-  }, Math.max(1100, (spin && spin.at || Date.now()) + holdMs() - Date.now()));
-}
-
-/* Whether a filed row is one the draw will act on and the ledger will charge —
-   the same two questions in both places, so the button never offers something the
-   draft would ignore. One a cup, and affordable out of coins banked before
-   tonight: a challenge cannot be played during a draft, so nothing can be earned
-   between the rows of one. */
-function respinHonoured(row) {
-  if (respinRows().some(r => r.name === row.name && (r.at || 0) < (row.at || 0))) return false;
-  const others = Object.assign({}, allRespins);
-  delete others[String(cupId)];
-  const bal = coins(Object.values(allChal || {}).filter(c => c && c.at), others, histCups, null);
-  return (bal[row.name] || 0) >= COIN_RESPIN;
-}
-
-/* A hold is on when a landing has not become a team yet — `spin.n` counts spins,
-   `teams.length` counts teams, and between the two is exactly one unformed pair.
-   Pure state, so the admin and every viewer answer it identically with nothing
-   passed between them.
-
-   Repainted from one interval rather than a timer per spin: two ticks a second
-   costs nothing and there is no lifecycle to get wrong. */
-function renderHold() {
-  const el = $('hold');
-  if (!el) return;
-  const ms = spin && spin.n > teams.length ? holdMs() : 0;
-  const on = ms > 0 && Date.now() < (spin.at || 0) + ms;
-  el.style.display = on ? '' : 'none';
-  if (!on) { el.innerHTML = ''; return; }
-  const left = Math.ceil(((spin.at || 0) + ms - Date.now()) / 1000);
-  const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
-  const me = myName();
-  const partner = me === f ? d : me === d ? f : null;
-  el.innerHTML = '';
-  const t = part('hold-t', '', 'div');
-  t.append('Locking in ', part('', left + 's', 'b'));
-  el.append(t);
-  if (!partner) return;
-  /* Every one of these used to be silence, and silence reads as a bug rather than
-     as a rule — which is exactly how a dead cupId hid for a whole release. If the
-     button is not there, the reason is. */
-  /* One landing, one re-spin. Whoever filed first has already bought this spin,
-     and the other's button is ten coins for something that is already happening —
-     the ledger charges per player, so both would pay and only one would be acted
-     on. The row lands here before the new spin does, which is the window this
-     closes; two clicks inside one round trip still both stand. */
-  if (respinRows().some(r => r.n === spin.n)) {
-    el.append(part('hold-why', 'Re-spin already paid for — here it comes.'));
-    return;
-  }
-  const why = respinWhy(me, partner, coinBal());
-  if (why) { el.append(part('hold-why', why)); return; }
-  const btn = document.createElement('button');
-  btn.id = 'holdBtn';
-  btn.className = 'btn btn-gold';
-  btn.textContent = `Spend ${COIN_RESPIN} coins — not ${partner}`;
-  btn.onclick = () => {
-    btn.disabled = true;
-    window.respinFile(String(cupId),
-      { name: me, email: acctEmail, rejected: partner, n: spin.n, at: Date.now() });
-  };
-  el.append(btn);
-}
-window.renderHold = renderHold;
-setInterval(renderHold, 500);
-
-/* The re-spin fires by itself when a row lands, rather than waiting for the admin
-   to notice: the payer drove it, and making the room watch the admin turns a
-   ten-second moment into an awkward one. It is an ordinary next spin — no
-   team was formed for the landing it replaces, so there is nothing to undo. */
-/* No `window.maybeRespin = () => maybeRespin()` wrapper here: a top-level function
-   declaration is already a property of window, so the wrapper overwrote it and
-   then called itself. The subscription's every call blew the stack. */
-function maybeRespin() {
-  if (!isAdmin || !spinning || !spin) return;
-  const row = respinRows().filter(r => r.n === spin.n)
-    .sort((a, b) => (a.at || 0) - (b.at || 0))[0];
-  if (!row) return;
-  const f = (fwds[spin.fi] || {}).name, d = (defs[spin.di] || {}).name;
-  if (row.name !== f && row.name !== d) return;      // not their landing to reject
-  if (row.rejected !== (row.name === f ? d : f)) return;
-  if (!respinHonoured(row)) return;                  // unaffordable, or their second
-  clearTimeout(holdT);
-  drawPlan = [];                                     // rebuilt with the pair blocked
-  spinOnce();
+  }, 1100);
 }
 
 function addTeamCard(t, n) {
@@ -4331,7 +3904,7 @@ function startCup() {
   // further out, and the renders below would key suggestions to an id no other
   // client has ever seen
   // the draft already minted it; only a cup that somehow arrives without one
-  // needs a fresh id, and taking a new one here would orphan the draft's re-spins
+  // needs a fresh id
   if (!restoring) {
     if (!cupId) cupId = String(Date.now());
     deadlineFrom = Date.now(); deadlineAt = workDaysFrom(deadlineFrom, WORK_DAYS);
@@ -4607,14 +4180,7 @@ function applyState(s) {
   if (s.screen !== 'setup' && s.fwds && s.fwds.length) {
     stopCountdown();
     fwds = s.fwds; defs = s.defs; teams = s.teams || [];
-    /* The landing itself, not just its animation. The replay below reads s.spin
-       to turn the wheels and used to drop it on the floor, so on every viewer the
-       module's `spin` stayed null for the whole draft — and renderHold, which
-       decides a hold is on by comparing spin.n against teams.length, saw nothing
-       to hold. The countdown, the button and the reason line were admin-only.
-       It round-trips the admin's own write, so assigning it here is a no-op for
-       them and the whole feature for everybody else. */
-    spin = s.spin || null;
+    spin = s.spin || null; // an admin reload carries on counting from the last spin
     doubleRound = !!s.doubleRound; // old cups predate the field — default single round-robin
     $('doubleRoundChk').checked = doubleRound;
     $('teamList').innerHTML = '';
@@ -4803,115 +4369,6 @@ document.addEventListener('focusout', e => {
    o: { ko, edit, pa, pb, sa, sb, onGoals, onTotal, onForfeit } — the four are
    what to show, which is not always the match's own (a pending suggestion
    overlays them). */
-/* The standing freeze against one team in one match: honoured by the replay, still
-   fitting the fixture, earliest `at` if two were filed against the same pair. Both
-   partners can afford one and could name opposite arrangements, so the tie is broken
-   the same way two re-spins against one spin index are. */
-/* ponytail: walks the whole ledger per team per match — fifteen matches and ten
-   players is nothing. Cache it against the listeners if a roster ever makes it one. */
-function freezeOn(mid, m, t) {
-  const cup = cupId ? String(cupId) : null;
-  if (!cup || !t || !mid) return null;
-  const hon = freezeIds();
-  return Object.entries(((allFreezes || {})[cup] || {})[mid] || {})
-    .filter(([id, r]) => hon.has(cup + '|' + id) && sameTwo(t, r) && freezeFits(r, m))
-    .sort((a, b) => (a[1].at || 0) - (b[1].at || 0))
-    .map(([, r]) => r)[0] || null;
-}
-
-/* What a filed row says, on the card where the four of them will be standing when
-   they set up. It is the record and nothing undoes it, so it reads as a fact. */
-function freezeTag(r) {
-  const el = document.createElement('div');
-  el.className = 'frz-tag';
-  el.append(part('frz-lock', '\u2744'));
-  const t = part('', '', 'span');
-  t.append('Frozen by ', part('', r.name, 'b'), ' \u2014 ',
-    part('', r.fwd, 'b'), ' forward, ', part('', r.def, 'b'), ' defender. Holds all match.');
-  el.append(t);
-  return el;
-}
-
-/* Ten coins, once a cup, and only ever against the pair on the other side of a match
-   you are playing in. Silence would read as a bug — the same lesson the draft's hold
-   learned — so when the button cannot be offered, the reason is. */
-function freezeBtn(mid, m, theirs, me) {
-  const n = coinBal()[me] || 0;
-  const used = Object.values((allFreezes || {})[String(cupId)] || {})
-    .some(byId => Object.entries(byId || {})
-      .some(([id, r]) => r && r.name === me && freezeIds().has(String(cupId) + '|' + id)));
-  const el = document.createElement('button');
-  el.type = 'button';
-  el.className = 'frz-btn';
-  if (koMid(mid)) {
-    el.disabled = true;
-    el.textContent = 'Knockout matches cannot be frozen \u2014 only the group stage.';
-    return el;
-  }
-  if (used) {
-    el.disabled = true;
-    el.textContent = 'You have already used your freeze this cup.';
-    return el;
-  }
-  if (n < COIN_FREEZE) {
-    el.disabled = true;
-    el.textContent = `${COIN_FREEZE} coins to freeze their positions \u2014 you have ${n}.`;
-    return el;
-  }
-  el.append(part('frz-disc', ''), `Freeze their positions \u00b7 ${COIN_FREEZE}`);
-  el.onclick = () => openFreeze(mid, m, theirs, me);
-  return el;
-}
-
-/* Two names and two positions, so there are exactly two arrangements and the sheet
-   choice between them rather than a picker. Both are worth buying: as drafted is a
-   lock against a mid-match swap, the other files their scorer's goals under his
-   partner. */
-var freezePick = null;
-function openFreeze(mid, m, theirs, me) {
-  const opts = [
-    { fwd: theirs.fwd, def: theirs.def, head: 'As drafted', why:
-      'They cannot swap mid-match to pile goals onto one name.' },
-    { fwd: theirs.def, def: theirs.fwd, head: 'Swapped', why:
-      `${theirs.def} scores as forward \u2014 and the forward box is ${theirs.fwd}'s.` },
-  ];
-  freezePick = 1;
-  const wrap = $('freezeOpts');
-  const go = $('freezeGo');
-  const paint = () => {
-    wrap.textContent = '';
-    opts.forEach((o, i) => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'frz-opt' + (i === freezePick ? ' on' : '');
-      b.setAttribute('aria-pressed', i === freezePick);
-      const h = part('frz-opt-h', '');
-      h.append(part('', o.head, 'span'), part('', i === freezePick ? 'Selected' : '', 'span'));
-      b.append(h, seatLine(o.fwd, 'f', 'Forward'), seatLine(o.def, 'd', 'Defender'),
-        part('frz-why', o.why));
-      b.onclick = () => { freezePick = i; paint(); };
-      wrap.appendChild(b);
-    });
-  };
-  paint();
-  $('freezeWho').textContent = `Where do ${theirs.fwd} and ${theirs.def} stand?`;
-  go.disabled = false;
-  go.textContent = `Spend ${COIN_FREEZE} coins`;
-  go.onclick = () => {
-    go.disabled = true;
-    const o = opts[freezePick];
-    window.freezeFile(String(cupId), mid,
-      { name: me, email: acctEmail, fwd: o.fwd, def: o.def, at: Date.now() });
-    $('freeze').classList.remove('open');
-  };
-  $('freeze').classList.add('open');
-}
-const seatLine = (name, cls, role) => {
-  const el = part('frz-seat', '');
-  el.append(part('frz-nm', name), part('frz-role ' + cls, role));
-  return el;
-};
-
 function matchBox(m, o) {
   const box = document.createElement('div');
   const bad = badScore(m, o.ko);
@@ -4961,21 +4418,6 @@ function matchBox(m, o) {
     });
     box.appendChild(row);
   });
-  /* Both tags show, not just the one you bought: being frozen is something you find
-     out on the card rather than at the table. The button only ever points the other
-     way, and only while the match has no result on it. */
-  if (o.mid && m.a && m.b) {
-    const me = myName();
-    [m.a, m.b].forEach(t => {
-      const r = freezeOn(o.mid, m, t);
-      if (r) box.appendChild(freezeTag(r));
-    });
-    const mine = inTeam(m.a, me) ? m.a : inTeam(m.b, me) ? m.b : null;
-    const theirs = mine ? (mine === m.a ? m.b : m.a) : null;
-    if (theirs && !settled(m) && m.sa == null && m.sb == null && !freezeOn(o.mid, m, theirs)) {
-      box.appendChild(freezeBtn(o.mid, m, theirs, me));
-    }
-  }
   if (o.onForfeit && m.a && m.b) {
     const sel = document.createElement('select');
     const cur = forfeitOf(m);
@@ -5063,7 +4505,6 @@ function renderGroups() {
       const sug = open ? curSug()[key] : null;
       const suggesting = open && canSuggest();
       const div = matchBox(m, {
-        mid: key,
         edit: (isAdmin || suggesting) && !koStarted, suggesting,
         pa: suggesting && sug ? sug.pa : m.pa,
         pb: suggesting && sug ? sug.pb : m.pb,
@@ -5228,7 +4669,6 @@ function renderBracket() {
       const sug = held && sugFits(held, m) ? held : null;
       const suggesting = open && canSuggest();
       const box = matchBox(m, {
-        mid: key,
         ko: true, edit: (isAdmin || suggesting) && both, suggesting,
         pa: suggesting && sug ? sug.pa : m.pa,
         pb: suggesting && sug ? sug.pb : m.pb,
@@ -6137,7 +5577,7 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, update, remove, push, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
+import { getDatabase, ref, onValue, set, update, remove, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -6182,7 +5622,6 @@ window.clearChampion = id => remove(ref(db, 'history/' + id))
 
 onValue(historyRef, snap => {
   const v = snap.val() || {};
-  histCups = new Set(Object.keys(v));
   window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
 }, err => console.error('[history] read failed:', err));
 
@@ -6250,39 +5689,6 @@ window.chalRemove = id => remove(ref(db, 'challenges/' + id))
 
 onValue(ref(db, 'challenges'), snap => window.renderChallenges(snap.val() || {}),
   err => console.error('[chal] read failed:', err));
-
-/* Append-only, and the id is a push key rather than a name: a player may reject
-   somebody in one cup and somebody else in the next, and no row ever needs to be
-   found again by who wrote it. The rules refuse an overwrite, so a filed row is
-   the record — what it costs is decided by the replay, not by the row. */
-window.respinFile = (cup, row) => set(push(ref(db, 'respins/' + cup)), row)
-  .catch(err => {
-    console.error('[respins] write rejected:', err);
-    alert('Could not spend those coins: ' + err.message);
-  });
-
-onValue(ref(db, 'respins'), snap => {
-  allRespins = snap.val() || {};
-  window.renderCoins();
-  window.maybeRespin();
-}, err => console.error('[respins] read failed:', err));
-
-/* Append-only, and one level deeper than a re-spin: the cup, then the match it was
-   bought against, then a push key. A player may freeze one pair in the group and
-   another in a later cup, and no row is ever found again by who wrote it. The rules
-   refuse an overwrite, so a filed row is the record — what it costs, and whether it
-   stands at all, is decided by the replay. */
-window.freezeFile = (cup, mid, row) => set(push(ref(db, `freezes/${cup}/${mid}`)), row)
-  .catch(err => {
-    console.error('[freezes] write rejected:', err);
-    alert('Could not spend those coins: ' + err.message);
-  });
-
-onValue(ref(db, 'freezes'), snap => {
-  allFreezes = snap.val() || {};
-  window.renderCoins();
-  window.renderFreezes();
-}, err => console.error('[freezes] read failed:', err));
 
 window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
   set(ref(db, `suggestions/${cup}/${key}`),

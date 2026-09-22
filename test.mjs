@@ -2498,7 +2498,7 @@ await page.evaluate(() => { $('chal').classList.remove('open'); window.setAccoun
 console.log('challenges OK');
 
 // ---------- coins ----------
-/* A challenge win is worth two coins, ten buys a re-spin at the draft. The
+/* A challenge win is worth two coins. The
    derivation is pure and the page never stores a balance, so drive it directly
    the way the rotation check drives planDraw. */
 const seat4 = (bf, bd, rf, rd) => ({
@@ -2511,27 +2511,12 @@ const coinCheck = await page.evaluate(s4 => {
   const none = new Set();
   return {
     // two wins for Sifat and Ofi, two losses for Nur and Rashed
-    twoWins: window.coins([g(1, 5, 3), g(2, 5, 1)], {}, none, null),
+    twoWins: window.coins([g(1, 5, 3), g(2, 5, 1)]),
     // a draw pays nobody
-    draw: window.coins([g(1, 4, 4)], {}, none, null),
+    draw: window.coins([g(1, 4, 4)]),
     // a claim nobody has confirmed is not a result
     pendingOnly: window.coins(
-      [{ at: 1, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), pending: { b: 5, r: 3 } }], {}, none, null),
-    // five wins = 10 coins, then a re-spin on a cup that finished
-    spend: window.coins([g(1, 5, 0), g(2, 5, 0), g(3, 5, 0), g(4, 5, 0), g(5, 5, 0)],
-      { c1: { a: { name: 'Sifat', at: 6 } } }, new Set(['c1']), null),
-    // the same re-spin, but the cup never reached history and is not the live one
-    abandoned: window.coins([g(1, 5, 0), g(2, 5, 0), g(3, 5, 0), g(4, 5, 0), g(5, 5, 0)],
-      { c1: { a: { name: 'Sifat', at: 6 } } }, none, null),
-    // filed before the coins were earned: a spend cannot come out of later winnings
-    tooEarly: window.coins([g(9, 5, 0), g(10, 5, 0), g(11, 5, 0), g(12, 5, 0), g(13, 5, 0)],
-      { c1: { a: { name: 'Sifat', at: 1 } } }, new Set(['c1']), null),
-    // two rows, one cup: the second is ignored and costs nothing
-    twice: window.coins(Array.from({ length: 10 }, (_, i) => g(i + 1, 5, 0)),
-      { c1: { a: { name: 'Sifat', at: 90 }, b: { name: 'Sifat', at: 91 } } }, new Set(['c1']), null),
-    // the running cup charges even though it has not reached history yet
-    live: window.coins([g(1, 5, 0), g(2, 5, 0), g(3, 5, 0), g(4, 5, 0), g(5, 5, 0)],
-      { c9: { a: { name: 'Sifat', at: 6 } } }, none, 'c9'),
+      [{ at: 1, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), pending: { b: 5, r: 3 } }]),
   };
 }, String(seat4));
 
@@ -2540,16 +2525,9 @@ assert.equal(coinCheck.twoWins.Ofi, 4, 'the winning defender earns the same as t
 assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
 assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
 assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
-assert.equal(coinCheck.spend.Sifat, 0, 'five wins then a re-spin should leave nothing');
-assert.equal(coinCheck.spend.Ofi, 10, 'the partner who did not spend was charged');
-assert.equal(coinCheck.abandoned.Sifat, 10, 'a cup that never reached history charged for a re-spin');
-assert.equal(coinCheck.tooEarly.Sifat, 10, 'a re-spin was honoured out of coins earned after it');
-assert.equal(coinCheck.twice.Sifat, 10, 'a second re-spin in one cup was charged — the limit is one');
-assert.equal(coinCheck.live.Sifat, 0, 'the running cup did not charge, so a second re-spin would be free');
 
 // the pill is in the chrome, on every screen, and it shows one balance: yours
 const coinCard = await page.evaluate(() => {
-  window.allRespins = {};
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
   const g = (at, b, r) => ({ at,
     slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
@@ -2569,7 +2547,6 @@ const coinCard = await page.evaluate(() => {
   window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
   window.setAccount('sifat@x.com');
   out.mine = $('coinN').textContent;
-  out.mineTip = pill.title;
   out.sheetMine = $('coinYou').textContent;
   window.setAccount('nur@x.com');
   out.theirs = $('coinN').textContent;
@@ -2590,7 +2567,6 @@ assert.equal(await page.evaluate(() => {
   window.setAccount(null);
   return w;
 }), 'Nur', 'the coin pill never says which player the balance belongs to');
-assert.match(coinCard.mineTip, /Enough for a re-spin/, 'ten coins was not reported as enough');
 assert.match(coinCard.sheetMine, /You have 10 coins/, 'the sheet does not spell the balance out');
 /* A wallet is the reader's own business. Nobody else's balance may reach the
    pill or the sheet — this is the whole point of it not being a leaderboard. */
@@ -2601,7 +2577,7 @@ assert.ok(!/10/.test(coinCard.sheetTheirs), "the sheet leaked another player's b
 await page.click('#coins');
 assert.ok(await page.isVisible('#coinInfo'), 'tapping the coins card opened nothing');
 assert.match(await page.textContent('#coinInfo'), /\+2 coins/, 'the sheet never says what a win pays');
-assert.match(await page.textContent('#coinInfo'), /10 coins/, 'the sheet never says what a re-spin costs');
+assert.match(await page.textContent('#coinInfo'), /Betting/, 'the sheet never says coins are bet on challenges');
 // the X in the corner and the green button are the two ways out; no third
 assert.equal(await page.evaluate(() => !!document.getElementById('coinInfoClose')), false,
   'the coins sheet still has a Close under its primary action');
@@ -2641,19 +2617,19 @@ const betCheck = await page.evaluate(s4 => {
   const seed = [w(1, true), w(2, false)];
   return {
     // the winners take the bet and the losers pay it; nothing is created
-    paid: window.coins([...seed, bet(3, 2, true)], {}, none, null),
+    paid: window.coins([...seed, bet(3, 2, true)]),
     // the losers cannot cover ten, so the bet does not move and the win pays two
-    short: window.coins([...seed, bet(3, 10, true)], {}, none, null),
+    short: window.coins([...seed, bet(3, 10, true)]),
     // level is level, bet or no bet
     draw: window.coins([...seed, { at: 3, stake: 2,
-      slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 1, at: 3 } }], {}, none, null),
+      slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 1, at: 3 } }]),
     // no stake at all is a game played for nothing, which is every row already filed
     legacy: window.coins([{ at: 3, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'),
-      score: { b: 5, r: 3 } }], {}, none, null),
+      score: { b: 5, r: 3 } }]),
     /* Opened before anybody could cover it, agreed long after they could. The
        settle time is what orders it: on the lobby's own `at` the losers would
        still be broke and the bet would fall back to paying two. */
-    late: window.coins([w(50, false), bet(99, 2, true, 1)], {}, none, null),
+    late: window.coins([w(50, false), bet(99, 2, true, 1)]),
     /* What a row is worth is decided here, not by whoever wrote it: the rules
        bound it too, but a number reaching the walk decides what other people
        are paid. */
@@ -2823,105 +2799,8 @@ assert.deepEqual(drawCheck.empty, [], 'planDraw wedged on a clean ledger');
 assert.deepEqual(drawCheck.wedged, [], 'planDraw wedged when the roster changed mid-cycle');
 console.log('draw rotation OK — four cycles, every pair once each');
 
-// ---------- the re-spin ----------
-/* Ten coins buys one a cup: the wheels land and either of the two named can pay
-   to reject the other. Paying lifts the five-cup rule off the payer and nobody
-   else, so the two halves to hold are that it lifts at all and that it lifts only
-   for them. */
-const respinCheck = await page.evaluate(() => {
-  const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
-  const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
-  const key = (a, b) => a < b ? a + '|' + b : b + '|' + a;
-  // a cycle's worth of cups, so cup n is a known depth into the rotation
-  const cups = [];
-  for (let c = 0; c < 24; c++)
-    cups.push({ teams: F.map((f, i) => ({ fwd: f, def: D[(i + c) % 5] })) });
-
-  const out = {};
-  // a blocked pair never comes back in the same draft
-  const blocked = new Set([key('Nur', 'Sifat')]);
-  out.blockedHeld = Array.from({ length: 40 }, () =>
-    planDraw(F, D, pairLedger(cups.slice(0, 20)), undefined, blocked)
-      .some(t => key(t.fwd, t.def) === key('Nur', 'Sifat'))).every(v => v === false);
-
-  /* Paying lifts the rotation off the payer. Nur and Sifat were drawn together in
-     the cup that just finished, so the ordinary rule blocks them — and a wild Nur
-     must be able to land right back on Sifat, on a night where the rule is
-     otherwise biting and there are plenty of legal draws to hide behind.
-
-     `cool` is 1 here by construction: 23 cups puts us on the second night of a
-     cycle, where only the previous cup is blocked. */
-  const led1 = pairLedger(cups.slice(0, 23));
-  out.cool1 = led1.cool;
-  const wasPaired = key(cups[22].teams[0].fwd, cups[22].teams[0].def);  // Nur|<last partner>
-  const pairedIn = (plans, k) => plans.some(pl => pl.some(t => key(t.fwd, t.def) === k));
-  const runs = w => Array.from({ length: 60 }, () => planDraw(F, D, led1, led1.cool, null, w));
-  out.ruleBitesWithoutCoins = !pairedIn(runs(null), wasPaired);
-  out.paidGetsThemBack = pairedIn(runs(new Set(['Nur'])), wasPaired);
-  /* ...and only them. Sazedul paid nothing, so Sazedul's own pair from last cup
-     must stay blocked in those same wild draws. */
-  const sazedulWas = key(cups[22].teams[2].fwd, cups[22].teams[2].def);
-  out.othersStillBound = !pairedIn(runs(new Set(['Nur'])), sazedulWas);
-
-  /* On the last night of a cycle there is one legal draw, so blocking any pair in
-     it leaves nothing — and the walk must forget a cup rather than wedge.
-
-     Found rather than counted: the cycle is anchored at CYCLE_ANCHOR, so which
-     slice lands on the last night moves whenever that does. */
-  let last = null;
-  for (let n = 6; n <= cups.length && !last; n++) {
-    const l = pairLedger(cups.slice(0, n));
-    if (l.cool === 4) last = l;
-  }
-  const only = planDraw(F, D, last);
-  const b2 = new Set([key(only[0].fwd, only[0].def)]);
-  out.lastNightCool = last.cool;
-  out.lastNightVariants = new Set(Array.from({ length: 40 }, () =>
-    JSON.stringify(planDraw(F, D, last).map(t => t.fwd + '|' + t.def).sort()))).size;
-  const paid = planDraw(F, D, last, last.cool, b2);
-  out.paidFindsAPlan = paid.length > 0;
-  out.paidDropsThePair = !paid.some(t => key(t.fwd, t.def) === [...b2][0]);
-  return out;
-});
-assert.equal(respinCheck.blockedHeld, true, 'a rejected pair came back later in the same draft');
-assert.equal(respinCheck.lastNightCool, 4, 'the fixture is not sitting on the last night of a cycle');
-assert.equal(respinCheck.lastNightVariants, 1, 'the last night of a cycle was not forced to one draw');
-assert.equal(respinCheck.cool1, 1, 'the fixture is not sitting on the second night of a cycle');
-assert.equal(respinCheck.ruleBitesWithoutCoins, true,
-  'last cup\'s pair came back without anybody paying — the rotation is not biting, so the test below proves nothing');
-assert.equal(respinCheck.paidGetsThemBack, true,
-  'ten coins did not lift the five-cup rule off the payer — they still cannot be drawn with last cup\'s partner');
-assert.equal(respinCheck.othersStillBound, true,
-  'one player paying lifted the rotation off somebody who paid nothing');
-assert.equal(respinCheck.paidFindsAPlan, true,
-  'a paid re-spin was refused on the last night of a cycle — coins are meant to beat the rotation');
-assert.equal(respinCheck.paidDropsThePair, true,
-  'the relaxed plan handed the payer back the pair they paid to reject');
-
-// one a cup, and only out of coins already banked
-const honour = await page.evaluate(() => {
-  const seat = n => ({ name: n, email: n + '@x.com' });
-  const g = (at, b, r) => ({ at,
-    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
-  window.cupId = '999';
-  window.allChal = {};                              // five wins for Nur and Ofi = 10 coins
-  [1, 2, 3, 4, 5].forEach(i => { window.allChal['w' + i] = g(i, 5, 0); });
-  window.histCups = new Set();
-  window.allRespins = {};
-  const rich = window.respinHonoured({ name: 'Nur', at: 100 });
-  const poor = window.respinHonoured({ name: 'Rifat', at: 100 });     // lost all five
-  window.allRespins = { 999: { a: { name: 'Nur', rejected: 'Sifat', n: 1, at: 50 } } };
-  const second = window.respinHonoured({ name: 'Nur', at: 100 });     // already spent tonight
-  return { rich, poor, second };
-});
-assert.equal(honour.rich, true, 'ten banked coins did not buy a re-spin');
-assert.equal(honour.poor, false, 'a re-spin was honoured for somebody who never won a challenge');
-assert.equal(honour.second, false, 'a second re-spin in one cup was honoured — the limit is one');
-
-/* The cup has an id from the moment the draft opens. Everything the re-spin does
-   is keyed on it — the blocked pairs, the rows, the once-a-cup limit — and it used
-   to arrive only at kick-off, which is after the wheels have stopped mattering.
-   renderHold bails without one, so the button could never appear. */
+// ---------- the draft holds no coins ----------
+// the cup has an id from the moment the draft opens, and viewers get it with the first save
 const idAtDraft = await page.evaluate(() => {
   window.isAdmin = true; window.gotRemote = true; window.restoring = false;
   window.cupId = null;
@@ -2932,443 +2811,40 @@ const idAtDraft = await page.evaluate(() => {
   const last = window.writes[window.writes.length - 1];
   return { atDraft: cupId, seen: last && JSON.parse(last).cupId };
 });
-assert.ok(idAtDraft.atDraft, 'the draft opened without a cup id — no re-spin can be filed');
+assert.ok(idAtDraft.atDraft, 'the draft opened without a cup id');
 assert.equal(idAtDraft.seen, idAtDraft.atDraft, 'the draft kept its cup id to itself; viewers never see it');
 
-// the button reaches the player the wheels landed on, in a real draft state
-const btnReal = await page.evaluate(() => {
-  const F = ['Nur', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq'];
-  const D = ['Sifat', 'Ofi', 'Rashed', 'Toufiq', 'Shewa'];
-  const cups = [];
-  for (let c = 0; c < 20; c++) cups.push({ date: c, teams: F.map((f, i) => ({ fwd: f, def: D[(i + c) % 5] })) });
-  window.renderHall(cups);
-  window.fwds = F.map(n => ({ name: n })); window.defs = D.map(n => ({ name: n }));
-  window.teams = []; window.histCups = new Set(); window.allRespins = {};
+/* A landing becomes a team a beat after the wheels stop, whoever is holding coins.
+   Nur banks ten first — enough for what used to hold the draw open. */
+const instant = await page.evaluate(async () => {
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
   const g = (at, b, r) => ({ at,
-    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
+    slots: { bf: seat('Nur'), bd: seat('Sifat'), rf: seat('Rifat'), rd: seat('Ofi') }, score: { b, r } });
   window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
-  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };   // Nur + Sifat
-  window.setAccount('nur@x.com');                                       // Nur: 10 coins
-  window.renderHold();
-  const offered = !!document.getElementById('holdBtn');
-  window.setAccount('ofi@x.com');                                       // Ofi: 10 coins, not in the pair
-  window.renderHold();
-  const bystander = !!document.getElementById('holdBtn');
-  window.setAccount('rifat@x.com');                                     // in no pair, and broke
-  window.renderHold();
-  return { offered, bystander, broke: !!document.getElementById('holdBtn') };
-});
-assert.equal(btnReal.offered, true, 'the player the wheels landed on was offered no re-spin');
-assert.equal(btnReal.bystander, false, 'somebody outside the landed pair was offered a re-spin');
-
-/* A missing button must always carry its reason. Silence is how a dead cupId hid
-   for a whole release: a real bug and an ordinary rule looked identical. */
-const holdWhy = await page.evaluate(() => {
-  const read = () => (document.querySelector('.hold-why') || {}).textContent || '';
-  const out = {};
-  window.spin = { n: 1, fi: 0, di: 2, sf: 0, sd: 0, at: Date.now() };  // Nur + Rashed
-  window.setAccount('toufiq@x.com');                           // in no pair: nothing to say
-  window.renderHold();
-  out.bystander = read();
-  window.setAccount('rashed@x.com');                           // in the pair, lost all five
-  window.renderHold();
-  out.broke = read();
-  /* Ofi is the partner here, not Rashed: the hold only stands while somebody in
-     the pair can still pay, and Ofi's ten coins are what keeps it open long enough
-     for Nur to be told they already spent theirs. */
-  window.spin = { n: 1, fi: 0, di: 1, sf: 0, sd: 0, at: Date.now() };  // Nur + Ofi
-  window.setAccount('nur@x.com');                              // in the pair, ten coins
-  window.allRespins = { [String(cupId)]: { a: { name: 'Nur', rejected: 'Sazedul', n: 0, at: 1 } } };
-  window.renderHold();
-  out.spent = read();
-  window.allRespins = {};
-  /* Neither of them can pay: there is nothing the ten seconds could be used for,
-     so there is no hold at all and the wheels move on. */
-  window.spin = { n: 1, fi: 1, di: 2, sf: 0, sd: 0, at: Date.now() };  // Rifat + Rashed, both broke
-  window.setAccount('rashed@x.com');
-  window.renderHold();
-  out.noneCanPay = $('hold').style.display;
-  out.noneMs = window.holdMs();
-  window.spin = { n: 1, fi: 0, di: 2, sf: 0, sd: 0, at: Date.now() };
-  const keep = window.cupId; window.cupId = null;
-  window.renderHold();
-  out.noId = read();
-  window.cupId = keep;
-  return out;
-});
-assert.equal(holdWhy.bystander, '', 'somebody not in the landed pair was told why they cannot re-spin');
-assert.match(holdWhy.broke, /10 coins for a re-spin — you have 0/, 'a player short of coins is not told so');
-assert.match(holdWhy.spent, /already used your re-spin/, 'a second re-spin is refused without saying why');
-assert.match(holdWhy.noId, /no cup id/, 'a draft with no cup id fails silently — the exact bug that hid');
-assert.equal(holdWhy.noneCanPay, 'none', 'the draw held ten seconds open for a pair that cannot re-spin');
-assert.equal(holdWhy.noneMs, 0, 'holdMs kept a hold nobody in the pair could use');
-
-/* Both named can see the button at once, and the ledger charges per player, so two
-   clicks on one landing bill twenty coins for one spin. The first row to land takes
-   the button off the other's screen. */
-const holdTaken = await page.evaluate(() => {
-  window.spin = { n: 1, fi: 0, di: 1, sf: 0, sd: 0, at: Date.now() };  // Nur + Ofi
-  window.setAccount('nur@x.com');                              // ten coins, in the pair
-  window.allRespins = { [String(cupId)]: { a: { name: 'Ofi', rejected: 'Nur', n: 1, at: 1 } } };
-  window.renderHold();
-  const out = { btn: !!document.getElementById('holdBtn'),
-    why: (document.querySelector('.hold-why') || {}).textContent || '' };
-  window.allRespins = {};
-  return out;
-});
-assert.equal(holdTaken.btn, false, 'a landing somebody already paid to re-spin still offered the other a button');
-assert.match(holdTaken.why, /already paid for/, 'the taken-over landing said nothing about why the button went');
-window: {
-  const nameLbl = await page.evaluate(() => {
-    window.setAccount('nur@x.com');
-    return { lbl: window.playerName(), tab: $('authBtn').dataset.lbl };
-  });
-  assert.equal(nameLbl.lbl, 'Nur', 'the page cannot say which player is signed in');
-}
-assert.equal(btnReal.broke, false, 'a re-spin was offered to somebody who is not in the pair');
-
-/* A viewer is where this lives: the two named players are almost never the admin.
-   applyState is their only source of state, so drive it the way the database does
-   rather than setting the globals by hand — which is how `spin` never being
-   assigned there survived every check above. */
-const viewerHold = await page.evaluate(async () => {
-  const F = ['Nur', 'Rifat'], D = ['Sifat', 'Ofi'];
-  window.isAdmin = false;
-  document.body.classList.add('view');
-  window.lastSpinN = null;
-  window.SPIN_MS = 10;
-  const state = {
-    screen: 'draw', cupId: '4242',
-    fwds: F.map(n => ({ name: n, picked: false })), defs: D.map(n => ({ name: n, picked: false })),
-    teams: [], spin: null,
-  };
-  window.applyState(state);
-  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at,
-    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
-  window.allRespins = {}; window.histCups = new Set(); window.renderHall([]);
-  window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
-  window.setAccount('nur@x.com');                       // Nur: 10 coins, on the forward wheel
-  // the admin spins: the snapshot carries the landing, not just its number
-  window.applyState(Object.assign({}, state,
-    { spin: { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() } }));
-  await new Promise(r => setTimeout(r, 60));
-  window.renderHold();
-  const out = {
-    gotSpin: !!window.spin,
-    counting: /Locking in/.test($('hold').textContent),
-    offered: !!document.getElementById('holdBtn'),
-  };
-  window.SPIN_MS = 4000;
-  document.body.classList.remove('view');
-  window.isAdmin = true; window.lastSpinN = null;
-  return out;
-});
-assert.equal(viewerHold.gotSpin, true, 'a viewer never learns what the wheels landed on');
-assert.equal(viewerHold.counting, true, 'a viewer sees no countdown — the hold is admin-only');
-assert.equal(viewerHold.offered, true, 'a viewer in the landed pair was offered no re-spin');
-
-/* The whole loop, end to end: a row lands in `respins` and the admin's page turns
-   the wheels again with that pair blocked. Everything above tests one half. */
-const loop = await page.evaluate(async () => {
-  const F = ['Nur', 'Rifat', 'Sazedul'], D = ['Sifat', 'Ofi', 'Rashed'];
+  window.setAccount('nur@x.com');
   window.isAdmin = true; window.gotRemote = true; window.restoring = false;
   window.session++;
   window.SPIN_MS = 10;
   window.writes = []; window.saveToDb = j => window.writes.push(j);
-  window.fwds = F.map(n => ({ name: n, picked: false }));
-  window.defs = D.map(n => ({ name: n, picked: false }));
-  window.teams = []; window.cupId = '4242'; window.drawPlan = [];
-  window.allRespins = {}; window.histCups = new Set(); window.renderHall([]);
-  window.spinning = true;
-  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };   // Nur + Sifat
-  const before = window.spin.n;
-  // Nur pays: the row arrives the way the subscription delivers it
-  window.allRespins = { 4242: { r1: { name: 'Nur', email: 'nur@x.com', rejected: 'Sifat', n: 1, at: Date.now() } } };
-  window.maybeRespin();
-  await new Promise(r => setTimeout(r, 120));
-  return {
-    before, after: window.spin.n,
-    blocked: [...respinBlocked()],
-    landedPair: [(window.fwds[window.spin.fi] || {}).name, (window.defs[window.spin.di] || {}).name],
-    formedNone: window.teams.length,
-  };
+  window.fwds = ['Nur', 'Rifat', 'Sazedul'].map(n => ({ name: n, picked: false }));
+  window.defs = ['Sifat', 'Ofi', 'Rashed'].map(n => ({ name: n, picked: false }));
+  window.teams = []; window.drawPlan = []; window.spin = null; window.spinning = false;
+  $('spinBtn').click();
+  await new Promise(r => setTimeout(r, 1600));
+  return { teams: window.teams.length, again: !$('spinBtn').disabled };
 });
-assert.equal(loop.after, loop.before + 1, 'a filed re-spin did not turn the wheels again');
-assert.deepEqual(loop.blocked, ['Nur|Sifat'], 'the rejected pair was not blocked for the rest of the draft');
-assert.notDeepEqual(loop.landedPair, ['Nur', 'Sifat'], 'the wheels landed on the pair that was just rejected');
-assert.equal(loop.formedNone, 0, 'a team was formed for the landing that was rejected');
-await page.evaluate(() => {
-  window.SPIN_MS = 4000; window.spinning = false; window.spin = null;
-  window.teams = []; window.allRespins = {}; window.drawPlan = []; window.session++;
-});
-
-// the hold: a landing that has not become a team yet, counting down on every screen
-const hold = await page.evaluate(() => {
-  window.allRespins = {}; window.cupId = '4242'; window.histCups = new Set();
-  window.renderHall([]);
-  // Nur banks ten coins, so the landing below is one somebody could pay out of
-  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at,
-    slots: { bf: seat('Nur'), bd: seat('Ofi'), rf: seat('Rifat'), rd: seat('Sifat') }, score: { b, r } });
-  window.renderChallenges({ a: g(1, 5, 0), b: g(2, 5, 0), c: g(3, 5, 0), d: g(4, 5, 0), e: g(5, 5, 0) });
-  window.fwds = [{ name: 'Nur' }, { name: 'Rifat' }];
-  window.defs = [{ name: 'Sifat' }, { name: 'Ofi' }];
-  window.teams = [];
-  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() };
-  window.setAccount(null);
-  window.renderHold();
-  const counting = $('hold').style.display !== 'none' && /Locking in \d+s/.test($('hold').textContent);
-  const noBtn = !document.getElementById('holdBtn');
-  // the landing became a team: the hold is over
-  window.teams = [{ fwd: 'Nur', def: 'Sifat' }];
-  window.renderHold();
-  const closed = $('hold').style.display === 'none';
-  // and it is over once the ten seconds are up, team or no team
-  window.teams = [];
-  window.spin = { n: 1, fi: 0, di: 0, sf: 0, sd: 0, at: Date.now() - 20000 };
-  window.renderHold();
-  return { counting, noBtn, closed, expired: $('hold').style.display === 'none' };
-});
-assert.equal(hold.counting, true, 'the wheels landed and nothing counted down');
-assert.equal(hold.noBtn, true, 'a signed-out reader was offered a re-spin');
-assert.equal(hold.closed, true, 'the hold stayed up after the team formed');
-assert.equal(hold.expired, true, 'the hold never expired');
-// the last pair has no alternative partner by construction; say so rather than
-// leaving somebody with ten coins hunting for a button that cannot exist
-assert.match(await page.textContent('#rules'), /last pair.{0,80}can't re-spin/is,
-  "the rules sheet never says the last pair can't re-spin");
-assert.match(await page.textContent('#coinInfo'), /last pair can't/i,
-  "the coins sheet never says the last pair can't re-spin");
+assert.equal(instant.teams, 1, 'the landing did not become a team straight after the wheels stopped');
+assert.equal(instant.again, true, 'the spin button stayed locked after the team formed');
+assert.ok(!(await page.$('#hold')) && !(await page.$('#freeze')), 'a coin spend is still on the page');
+assert.ok(!/coin/i.test(await page.textContent('#rules')), 'the Cup rules still talk about coins');
+assert.ok(!/re-spin|freeze/i.test(await page.textContent('#coinInfo')), 'the coins sheet still sells a Cup spend');
 
 await page.evaluate(() => {
-  window.spin = null; window.teams = []; window.cupId = null;
-  window.allRespins = {}; window.allChal = {}; window.renderHold();
+  window.SPIN_MS = 4000; window.spinning = false; window.spin = null; window.cupId = null;
+  window.teams = []; window.drawPlan = []; window.session++;
+  window.allChal = {}; window.setAccount(null);
 });
-console.log('re-spin OK');
-
-// ---------- freeze ----------
-/* Ten coins names both seats of the opposing pair for one match. The replay decides
-   what it costs and whether it stands; the card only reads the answer back. Driven
-   directly, the same way the coins walk and planDraw are. */
-const frz = await page.evaluate(() => {
-  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at,
-    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
-  const wins = n => Array.from({ length: n }, (_, i) => g(i + 1, 5, 0));
-  const F = (at, name) => ({ name, fwd: 'Toufiq', def: 'Siddiq', at });
-  const at = (cup, mid, id, r) => ({ [cup]: { [mid]: { [id]: r } } });
-  const none = new Set();
-  const done = new Set(['c1']);
-  const hon = new Set();
-  const withIds = window.coins(wins(5), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none, hon);
-  return {
-    // five challenge wins is ten coins, and one freeze on a cup that finished spends them
-    spend: window.coins(wins(5), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none),
-    // eight coins is not ten: ignored, and not owed either
-    poor: window.coins(wins(4), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none),
-    // filed before the coins were earned — a spend comes out of what is already banked
-    tooEarly: window.coins(wins(5).map(c => ({ ...c, at: c.at + 90 })), {}, done, null,
-      at('c1', '0_0', 'x', F(1, 'Sifat')), none),
-    // two freezes in one cup: the second is ignored and costs nothing
-    twice: window.coins(wins(10), {}, done, null,
-      { c1: { '0_0': { x: F(90, 'Sifat') }, '0_1': { y: F(91, 'Sifat') } } }, none),
-    // ...and the limit resets at the next cup
-    nextCup: window.coins(wins(10), {}, new Set(['c1', 'c2']), null,
-      { ...at('c1', '0_0', 'x', F(90, 'Sifat')), ...at('c2', '0_0', 'y', F(91, 'Sifat')) }, none),
-    // a cup that never reached history refunds everyone
-    abandoned: window.coins(wins(5), {}, none, null, at('c1', '0_0', 'x', F(6, 'Sifat')), none),
-    // the running cup charges anyway — which is what stops a second freeze tonight
-    live: window.coins(wins(5), {}, none, 'c9', at('c9', '0_0', 'x', F(6, 'Sifat')), none),
-    // a row the fixtures no longer support is ignored and charged nothing
-    dead: window.coins(wins(5), {}, done, null, at('c1', '0_0', 'x', F(6, 'Sifat')),
-      new Set(['c1|x'])),
-    // separate budgets: a re-spin and a freeze in one cup both charge
-    both: window.coins(wins(10), { c1: { r: { name: 'Sifat', at: 50 } } }, done, null,
-      at('c1', '0_0', 'x', F(51, 'Sifat')), none),
-    honoured: [...hon],
-    honouredBal: withIds.Sifat,
-  };
-});
-
-assert.equal(frz.spend.Sifat, 0, 'five wins then a freeze should leave nothing');
-assert.equal(frz.spend.Ofi, 10, 'the partner who did not spend was charged for the freeze');
-assert.equal(frz.poor.Sifat, 8, 'a freeze nobody could afford was charged anyway');
-assert.equal(frz.tooEarly.Sifat, 10, 'a freeze was honoured out of coins earned after it');
-assert.equal(frz.twice.Sifat, 10, 'a second freeze in one cup was charged — the limit is one');
-assert.equal(frz.nextCup.Sifat, 0, 'the once-a-cup freeze limit did not reset at the next cup');
-assert.equal(frz.abandoned.Sifat, 10, 'a cup that never reached history charged for a freeze');
-assert.equal(frz.live.Sifat, 0, 'the running cup did not charge, so a second freeze would be free');
-assert.equal(frz.dead.Sifat, 10, 'a freeze the fixtures no longer support was charged');
-assert.equal(frz.both.Sifat, 0, 'a re-spin and a freeze in one cup should spend twenty coins');
-assert.deepEqual(frz.honoured, ['c1|x'], 'the walk did not report which freeze it charged for');
-assert.equal(frz.honouredBal, 0, 'reporting the honoured rows changed what the walk charged');
-
-/* Which fixture a row still names. The bracket is redrawn from the group table every
-   time, so a slot can change hands under a row that is already filed — the same
-   question sugFits asks of a suggestion in flight, and the reason a voided knockout
-   round costs the payer nothing. */
-const fits = await page.evaluate(() => {
-  const T = (f, d) => ({ fwd: f, def: d });
-  const m = { a: T('Sifat', 'Rifat'), b: T('Toufiq', 'Siddiq') };
-  const r = (name, fwd, def) => ({ name, fwd, def, at: 1 });
-  return {
-    ok: window.freezeFits(r('Sifat', 'Siddiq', 'Toufiq'), m),
-    asDrafted: window.freezeFits(r('Sifat', 'Toufiq', 'Siddiq'), m),
-    bystander: window.freezeFits(r('Ofi', 'Siddiq', 'Toufiq'), m),
-    ownPair: window.freezeFits(r('Sifat', 'Rifat', 'Sifat'), m),
-    goneAway: window.freezeFits(r('Sifat', 'Siddiq', 'Nur'), m),
-    halfEmpty: window.freezeFits(r('Sifat', 'Siddiq', 'Toufiq'), { a: T('Sifat', 'Rifat'), b: null }),
-  };
-});
-assert.equal(fits.ok, true, 'a freeze against the other pair in your own match did not fit it');
-assert.equal(fits.asDrafted, true, 'freezing them as drafted was refused — it is a lock, not a no-op');
-assert.equal(fits.bystander, false, 'somebody outside the match froze a pair in it');
-assert.equal(fits.ownPair, false, 'a player froze their own pair');
-assert.equal(fits.goneAway, false, 'a freeze stood against a pair that is not in that match');
-assert.equal(fits.halfEmpty, false, 'a freeze stood against a knockout tie only half filled');
-
-/* The card. The button reaches the two players in the fixture and nobody else, it
-   carries its reason when it cannot be offered, and a filed row replaces it with the
-   record — shown to both sides, because being frozen is something you find out on
-   the card rather than at the table. */
-const frzCard = await page.evaluate(() => {
-  Object.assign(EMAIL_NAMES, { 'siddiq@x.com': 'Siddiq', 'rifat@x.com': 'Rifat' });
-  const T = (f, d) => ({ fwd: f, def: d });
-  const A = T('Sifat', 'Rifat'), B = T('Toufiq', 'Siddiq');
-  window.isAdmin = false; window.koStarted = false; window.koRounds = [];
-  window.cupId = 'cFrz'; window.allFreezes = {}; window.allRespins = {};
-  window.teams = [A, B];
-  window.groups = [{ name: 'Group A', teams: [A, B], matches: [
-    { a: A, b: B, sa: null, sb: null, pa: null, pb: null, winner: null }] }];
-  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const g = (at, b, r) => ({ at,
-    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b, r } });
-  const five = {}; for (let i = 0; i < 5; i++) five['w' + i] = g(i + 1, 5, 0);
-  window.renderChallenges(five);                       // Sifat and Ofi: ten coins each
-  const read = () => {
-    window.renderGroups();
-    const b = document.querySelector('#groups .frz-btn');
-    return {
-      btn: !!b, off: !!(b && b.disabled), why: (b && b.textContent) || '',
-      tags: [...document.querySelectorAll('#groups .frz-tag')].map(t => t.textContent),
-    };
-  };
-  const out = {};
-  window.setAccount('sifat@x.com'); out.player = read();      // in the match, ten coins
-  window.setAccount('nur@x.com');   out.bystander = read();   // not in the match at all
-  window.setAccount('rashed@x.com');out.notHere = read();     // a player, lost all five
-  window.setAccount('rifat@x.com'); out.broke = read();       // in the match, no coins
-  window.setAccount('sifat@x.com'); read();   // repaint as the payer before tapping it
-  // the sheet offers the two arrangements and nothing else
-  document.querySelector('#groups .frz-btn').click();
-  out.sheetOpen = $('freeze').classList.contains('open');
-  out.opts = [...document.querySelectorAll('#freezeOpts .frz-opt')]
-    .map(o => [...o.querySelectorAll('.frz-nm')].map(n => n.textContent).join('/'));
-  out.who = $('freezeWho').textContent;
-  $('freeze').classList.remove('open');
-  // a filed row: the button goes, the record stands, and both sides can read it
-  window.allFreezes = { cFrz: { '0_0': { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };
-  out.filed = read();
-  window.setAccount('toufiq@x.com'); out.frozenSide = read();
-  /* `.match` clips what overflows it, and the record is the one thing on the card
-     that runs to a second line on a phone. A tag taller than the card it sits in
-     loses the half that says which position each of them plays. */
-  const card = document.querySelector('#groups .match');
-  const tag = document.querySelector('#groups .frz-tag');
-  out.tagFits = tag.getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom + 0.5;
-  out.tagWhole = tag.scrollHeight <= tag.clientHeight + 0.5;
-  // a score on the match closes the window
-  window.allFreezes = {};
-  window.groups[0].matches[0].sa = 10; window.groups[0].matches[0].sb = 8;
-  window.setAccount('sifat@x.com'); out.scored = read();
-  window.groups[0].matches[0].sa = null; window.groups[0].matches[0].sb = null;
-  return out;
-});
-
-assert.equal(frzCard.player.btn, true, 'a player in the match was offered no freeze');
-assert.equal(frzCard.player.off, false, 'a player with ten coins had the freeze disabled');
-assert.equal(frzCard.bystander.btn, false, 'somebody outside the match was offered a freeze');
-assert.equal(frzCard.notHere.btn, false, 'a player in no team was offered a freeze');
-assert.equal(frzCard.broke.btn, true, 'a player who cannot afford it got silence, not a reason');
-assert.equal(frzCard.broke.off, true, 'a player with no coins could still spend them');
-assert.ok(/you have 0/.test(frzCard.broke.why), 'the reason did not say what they actually have');
-assert.equal(frzCard.sheetOpen, true, 'the freeze button opened no sheet');
-assert.deepEqual(frzCard.opts, ['Toufiq/Siddiq', 'Siddiq/Toufiq'],
-  'the sheet did not offer exactly the two arrangements, drafted first');
-assert.ok(/Toufiq and Siddiq/.test(frzCard.who), 'the sheet did not name the pair it acts on');
-assert.equal(frzCard.filed.btn, false, 'a second freeze was offered against a pair already frozen');
-assert.equal(frzCard.filed.tags.length, 1, 'a filed freeze left no record on the card');
-assert.ok(/Siddiq forward, Toufiq defender/.test(frzCard.filed.tags[0]),
-  'the record did not say which position each of them plays');
-assert.ok(/Frozen by Sifat/.test(frzCard.filed.tags[0]), 'the record did not say who paid');
-assert.equal(frzCard.frozenSide.tags.length, 1, 'the frozen pair could not see it on their own card');
-assert.equal(frzCard.tagFits, true, 'the record overflowed the match card, which clips it');
-assert.equal(frzCard.tagWhole, true, 'the record was cut off inside its own box');
-assert.equal(frzCard.scored.btn, false, 'a match with a score on it could still be frozen');
-
-/* The bracket is out of reach, the final with it, and the ledger agrees: a row
-   filed against a knockout is dead, so nobody pays for a lock nobody will honour. */
-const frzKo = await page.evaluate(() => {
-  const T = (f, d) => ({ fwd: f, def: d });
-  const A = T('Sifat', 'Rifat'), B = T('Toufiq', 'Siddiq');
-  const m = () => ({ a: A, b: B, sa: null, sb: null, pa: null, pb: null, winner: null });
-  window.isAdmin = false; window.koStarted = true; window.groups = [];
-  window.cupId = 'cFrz'; window.allFreezes = {}; window.allRespins = {};
-  window.teams = [A, B];
-  window.koRounds = [[m(), m()], [m()]];               // semis, then the final
-  window.setAccount('sifat@x.com');
-  window.renderBracket();
-  const out = {
-    stage: ['k0_0', 'k1_0', '0_0'].map(window.koMid),
-    btns: [...document.querySelectorAll('#bracket .frz-btn')]
-      .map(b => ({ off: b.disabled, why: b.textContent })),
-  };
-  // ten coins in hand and a row filed against the final: the walk must not charge
-  window.allFreezes = { cFrz: { k1_0: { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };
-  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
-  const five = {}; for (let i = 0; i < 5; i++) five['w' + i] = { at: i + 1,
-    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b: 5, r: 0 } };
-  window.renderChallenges(five);
-  out.bal = window.myCoins();
-  // hand the group fixture back: the phone check below reads a tag off it
-  window.koStarted = false; window.koRounds = []; window.allFreezes = {};
-  window.groups = [{ name: 'Group A', teams: [A, B], matches: [m()] }];
-  return out;
-});
-assert.deepEqual(frzKo.stage, [true, true, false], 'the bracket and the group were not told apart');
-assert.equal(frzKo.btns.length, 3, 'the bracket did not paint a freeze line on every match');
-assert.equal(frzKo.btns.filter(b => b.off).length, 3, 'a knockout match could still be frozen');
-assert.ok(/only the group stage/.test(frzKo.btns[0].why), 'the knockout got silence instead of a reason');
-assert.equal(frzKo.bal, 10, 'a freeze filed against a knockout was charged for');
-
-/* The record runs to two or three lines on a phone, and `.match` clips what
-   overflows it — the one width where the half naming the positions could go missing. */
-await page.setViewportSize({ width: 360, height: 780 });
-const frzPhone = await page.evaluate(() => {
-  window.allFreezes = { cFrz: { '0_0': { z: { name: 'Sifat', fwd: 'Siddiq', def: 'Toufiq', at: 99 } } } };
-  window.setAccount('sifat@x.com');
-  window.renderGroups();
-  const card = document.querySelector('#groups .match');
-  const tag = document.querySelector('#groups .frz-tag');
-  return {
-    fits: tag.getBoundingClientRect().bottom <= card.getBoundingClientRect().bottom + 0.5,
-    whole: tag.scrollHeight <= tag.clientHeight + 0.5,
-    lines: Math.round(tag.getBoundingClientRect().height),
-    page: document.documentElement.scrollWidth,
-  };
-});
-assert.equal(frzPhone.fits, true, 'on a phone the record overflowed the card, which clips it');
-assert.equal(frzPhone.whole, true, 'on a phone the record was cut off inside its own box');
-assert.equal(frzPhone.page, 360, 'the freeze pushed the page sideways on a phone');
-await page.setViewportSize({ width: 1280, height: 900 });
-
-await page.evaluate(() => {
-  window.allFreezes = {}; window.allChal = {}; window.groups = []; window.teams = [];
-  window.cupId = null; window.setAccount(null);
-});
-console.log('freeze OK');
+console.log('draft OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
