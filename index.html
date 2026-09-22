@@ -1603,7 +1603,7 @@
         <label for="chalBetIn">or</label>
         <span class="coin-disc"></span>
         <input id="chalBetIn" type="number" min="0" max="50" step="1" placeholder="type an amount">
-        <i id="chalBetMax">max 50</i>
+        <i>max 50</i>
       </div>
       <div class="ch-betnote" id="chalBetNote"></div>
       <button id="chalPost" class="btn btn-green ch-new">Post it</button>
@@ -2768,7 +2768,7 @@ const SEATS = [['bf', 'Blue', 'Forward'], ['rf', 'Red', 'Forward'],
                ['bd', 'Blue', 'Defender'], ['rd', 'Red', 'Defender']];
 const CH_STALE = 24 * 3600e3; // an unplayed lobby this long after it opened is over
 
-var acctEmail = null, allChal = {}, chalLit = null, newSeat = null, newBet = 0;
+var acctEmail = null, allChal = {}, chalLit = null, newSeat = null, newBet = 0, betWarn = '';
 const myName = () => EMAIL_NAMES[acctEmail] || null;
 // the module script signs you in; this is how it asks the page who that turned out
 // to be, since an address is not a player until EMAIL_NAMES says so
@@ -3269,6 +3269,7 @@ function openChalForm() {
   $('chalForm').hidden = false;
   newSeat = newSeat || 'bf';
   newBet = 0;
+  betWarn = '';
   $('chalBetIn').value = '';
   paintNewSeats();
   paintBet();
@@ -3302,7 +3303,7 @@ function paintBet() {
     b.className = 'ch-tier' + (newBet === n ? (n ? ' on' : ' on none') : '');
     if (n) b.append(part('coin-disc', '', 'span'));
     b.append(part('', n ? String(n) : 'None', 'span'));
-    b.onclick = () => { newBet = n; $('chalBetIn').value = ''; paintBet(); };
+    b.onclick = () => { newBet = n; betWarn = ''; $('chalBetIn').value = ''; paintBet(); };
     box.append(b);
   });
   /* Opening a lobby is taking a seat in it, so the gate that stops somebody
@@ -3310,21 +3311,26 @@ function paintBet() {
   const free = chalFree === null ? 0 : chalFree;
   const over = newBet > free;
   const note = $('chalBetNote');
-  note.className = 'ch-betnote' + (over ? ' no' : newBet ? ' bet' : '');
+  note.className = 'ch-betnote' + (over || betWarn ? ' no' : newBet ? ' bet' : '');
   note.textContent = '';
-  if (over) note.textContent =
+  if (betWarn) note.textContent = betWarn;
+  else if (over) note.textContent =
     `You have ${free} to bet — ${chalHeld(myName()) ? 'the rest is on other tables.' : 'win a few more first.'}`;
   else if (newBet) note.append(`A ${newBet}-coin game. Winners +${newBet}, losers \u2212${newBet}.`);
   else note.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing.');
   $('chalPost').disabled = over;
   $('chalBetIn').max = betCap();
-  $('chalBetMax').textContent = 'max ' + betCap();
 }
 // the box takes no more than the cap, and no more than is free to bet
 const betCap = () => Math.max(0, Math.min(BET_MAX, chalFree || 0));
 $('chalBetIn').oninput = e => {
   const n = Math.round(+e.target.value);
-  newBet = e.target.value === '' || !(n > 0) ? 0 : Math.min(n, betCap());
+  const want = e.target.value === '' || !(n > 0) ? 0 : n, cap = betCap();
+  newBet = Math.min(want, cap);
+  // held at the cap rather than refused, and the note says why it stopped
+  betWarn = want <= cap ? ''
+    : cap < BET_MAX ? `You only have ${cap} coin${cap === 1 ? '' : 's'} to bet.`
+    : `The most one game can be played for is ${BET_MAX}.`;
   if (e.target.value !== '' && +e.target.value !== newBet) e.target.value = newBet || '';
   paintBet();
 };
