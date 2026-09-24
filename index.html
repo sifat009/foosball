@@ -2805,6 +2805,23 @@ const chalBet = c => {
    the walk used for everything. */
 const chalAt = c => (c && c.score && c.score.at != null ? +c.score.at : (c && c.at) || 0);
 
+/* Five games a day each, free or bet, so the table turns over and nobody waits
+   all lunch behind the same four. A game counts on the day it was agreed, a claim
+   on the day it was filed, and a lobby you are sitting in counts while it is open
+   whenever it was opened — or yesterday's leftovers are a way round. Leaving a
+   seat gives the slot back. The page's rule, not the database's: the rules see
+   one row and cannot count across them. */
+const CH_DAILY = 5;
+const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(rows || {})
+  .filter(c => c && c.at && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].email === email)
+    && (chalDone(c) ? sameDay(chalAt(c), now)
+      : chalPending(c) ? sameDay(+chalPending(c).at || 0, now)
+      : chalLive(c)))
+  .length;
+const CAP_MSG = `You’ve played ${CH_DAILY} challenges today — seats open again tomorrow.`;
+var chalUsed = 0; // worked out once a render, like chalFree
+
 /* ================= COINS =================
    A challenge win is worth two coins, and coins are what a challenge is bet in.
    They never reach the Cup. Derived at render from the same finished lobbies the
@@ -2892,6 +2909,7 @@ var chalFree = null;
 /* Why this lobby's seats are not theirs to take, or null when they are. It
    carries the reason rather than going quiet. */
 function chalShort(c) {
+  if (chalUsed >= CH_DAILY && !chalSat(c) && !chalDone(c) && !chalPending(c)) return CAP_MSG;
   const bet = chalBet(c);
   if (!bet || chalFree === null || chalSat(c) || chalDone(c) || chalFree >= bet) return null;
   /* Two ways to be short, and they want different sentences: not enough coins
@@ -3206,6 +3224,7 @@ function renderChal() {
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
   chalFree = name ? (coinBal()[name] || 0) - chalHeld(name) : null;
+  chalUsed = name ? chalToday(allChal, acctEmail) : 0;
 
   const list = $('chalOpen');
   list.innerHTML = '';
@@ -3311,16 +3330,18 @@ function paintBet() {
   /* Opening a lobby is taking a seat in it, so the gate that stops somebody
      sitting at a table they cannot cover has to stop them building one too. */
   const free = chalFree === null ? 0 : chalFree;
-  const over = newBet > free;
+  const over = newBet > free, capped = chalUsed >= CH_DAILY;
   const note = $('chalBetNote');
-  note.className = 'ch-betnote' + (over || betWarn ? ' no' : newBet ? ' bet' : '');
+  note.className = 'ch-betnote' + (capped || over || betWarn ? ' no' : newBet ? ' bet' : '');
   note.textContent = '';
-  if (betWarn) note.textContent = betWarn;
+  // opening a lobby is taking a seat in it, so the day's cap stops this too
+  if (capped) note.textContent = CAP_MSG;
+  else if (betWarn) note.textContent = betWarn;
   else if (over) note.textContent =
     `You have ${free} to bet — ${chalHeld(myName()) ? 'the rest is on other tables.' : 'win a few more first.'}`;
   else if (newBet) note.append(`A ${newBet}-coin game. Winners +${newBet}, losers \u2212${newBet}.`);
   else note.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing.');
-  $('chalPost').disabled = over;
+  $('chalPost').disabled = over || capped;
   $('chalBetIn').max = betCap();
 }
 // the box takes no more than the cap, and no more than is free to bet
@@ -3340,7 +3361,7 @@ $('chalNew').onclick = openChalForm;
 $('chalDrop').onclick = closeChalForm;
 $('chalPost').onclick = () => {
   const name = myName();
-  if (!name) return;
+  if (!name || chalUsed >= CH_DAILY) return;
   const id = String(Date.now());
   // absent is nought: a game played for nothing carries no field at all
   const row = { by: acctEmail, at: Date.now(), slots: { [newSeat]: { name, email: acctEmail } } };
@@ -3365,7 +3386,8 @@ window.setAccount = email => {
     if (want.seat) {
       chalLit = want.id; // the lobby it came from, outlined on the way back
       chalFound = false;
-      window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
+      // the render below still shows the card, and it says why they weren't seated
+      if (chalToday(allChal, acctEmail) < CH_DAILY) window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
     } else openChalForm();
   }
   renderChal();

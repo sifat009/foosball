@@ -2731,6 +2731,55 @@ await page.evaluate(() => { window.setAccount(null); window.renderChallenges({})
 
 console.log('coins OK');
 
+// ---------- five challenges a day, so the table turns over ----------
+/* Four agreed today, one open lobby he's sitting in: five. Yesterday's game and
+   a claim nobody confirmed last week don't count. */
+const CAP = await page.evaluate(() => {
+  const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const four = { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') };
+  const now = Date.now(), DAY = 864e5, f = {};
+  for (let i = 1; i <= 4; i++) f['t' + i] = { by: 'sifat@x.com', at: now - i, slots: four, score: { b: 1, r: 0, at: now - i } };
+  f.old = { by: 'sifat@x.com', at: now - DAY, slots: four, score: { b: 1, r: 0, at: now - DAY } };
+  f.stuck = { by: 'sifat@x.com', at: now - 7 * DAY, slots: four,
+              pending: { b: 1, r: 0, by: 'sifat@x.com', side: 'b', at: now - 7 * DAY } };
+  f.mine = { by: 'sifat@x.com', at: now, slots: { bf: seat('Sifat') } };
+  f.other = { by: 'nur@x.com', at: now, slots: { bf: seat('Nur') } };
+  return f;
+});
+const capBoard = f => page.evaluate(fx => {
+  window.setAccount('sifat@x.com'); window.renderChallenges(fx);
+  const el = $('ch-other');
+  const out = {
+    used: chalToday(fx, 'sifat@x.com'),
+    why: el.querySelector('.ch-shy') && el.querySelector('.ch-shy').textContent,
+    takeable: [...el.querySelectorAll('.ch-seat')].filter(s => s.tagName === 'BUTTON').length,
+    leave: fx.mine ? $('ch-mine').querySelector('.ch-seat.mine').tagName : null,
+  };
+  $('chalNew').click();
+  out.post = $('chalPost').disabled;
+  out.note = $('chalBetNote').textContent;
+  window.closeChalForm();
+  return out;
+}, f);
+
+let cap = await capBoard(CAP);
+assert.equal(cap.used, 5, 'the day count is off: ' + cap.used);
+assert.equal(cap.takeable, 0, 'a sixth seat was offered on a full day');
+assert.match(cap.why || '', /played 5 challenges today/, 'the card did not say why the seats were refused: ' + cap.why);
+assert.equal(cap.leave, 'BUTTON', 'a capped player lost the way out of a seat they already hold');
+assert.equal(cap.post, true, 'a sixth lobby could be opened on a full day');
+assert.match(cap.note, /played 5 challenges today/, 'the create form did not say why it was shut');
+
+// leaving the open lobby gives the slot back
+const { mine: _gone, ...left } = CAP;
+cap = await capBoard(left);
+assert.equal(cap.used, 4, 'a seat given up still counted');
+assert.equal(cap.why, null, 'the cap stayed on after a slot came back');
+assert.ok(cap.takeable > 0 && !cap.post, 'four games today locked the board');
+
+await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); });
+console.log('daily cap OK');
+
 // ---------- the draw rotates: everyone meets everyone before a repeat ----------
 /* Sixteen cups of memoryless draws left Sajeeb+Toufiq together seven times, and
    Rashed and Siddiq never got round the roster. planDraw is pure, so drive it
