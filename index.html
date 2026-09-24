@@ -486,6 +486,11 @@
     font-size: 0.6rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
   }
   #champion b { color: #96660a; }
+  /* admin only: whether the server holds this cup's Hall of Fame entry */
+  #champSave { text-align: center; font-size: 0.78rem; font-weight: 700; color: #8fa0b8; margin-top: 8px; }
+  #champSave.saved { color: #1f8a4c; }
+  #champSave.missing { color: #c0392b; }
+  #champSave button { margin-left: 6px; font: inherit; color: #fff; background: #c0392b; border: 0; border-radius: 6px; padding: 3px 10px; cursor: pointer; }
   /* champion celebration.
      The overlay and the share PNG are one design. The cup, boot, glove and
      laurel are bitmaps rather than SVG — the artwork is rendered metal that
@@ -1753,6 +1758,7 @@ Nur</textarea>
   <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
+  <div id="champSave"></div>
   <details id="groupSection" open>
     <summary class="section-title">Group Stage <span class="fold"></span></summary>
     <div id="groups" class="groups"></div>
@@ -2686,8 +2692,11 @@ function renderBadgeGuide() {
 // the archive, kept so a profile can re-derive without another read
 var hallEntries = [];
 
-function renderHall(entries) {
+var histIds = new Set(), champSaving = false;
+function renderHall(entries, ids) {
   hallEntries = entries;
+  histIds = new Set(ids || []);
+  renderChampSave();
   renderPlayers(entries);
   const list = $('hallList');
   if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
@@ -4207,7 +4216,7 @@ function save() {
   // gotRemote: never write before we know what is already in the database,
   // or signing in on a blank page would push it over a live cup
   if (restoring || !isAdmin || !gotRemote || !window.saveToDb) return;
-  window.saveToDb(JSON.stringify({
+  const json = JSON.stringify({
     screen: curScreen,
     fwdText: $('fwdInput').value,
     defText: $('defInput').value,
@@ -4217,7 +4226,14 @@ function save() {
     // safe here only because the whole thing travels as one JSON string.
     groupScores: groups.map(g => g.matches.map(m => [m.sa ?? null, m.sb ?? null, m.pa || null, m.pb || null])),
     koScores: koRounds.map(r => r.map(m => [m.sa ?? null, m.sb ?? null, m.pa || null, m.pb || null])),
-  }));
+  });
+  window.saveToDb(json);
+  /* A copy per cup that nothing ever wipes: Start Over and the next draft both
+     overwrite `cup`, and a champion whose history write went missing would take
+     every score with it. Only a cup in play — after a reset the screen is setup
+     and the id is still the old cup's, which must not be written over. To bring
+     one back, copy archive/<cupId> into `cup`. */
+  if (curScreen === 'tourney' && cupId && window.archiveCup) window.archiveCup(cupId, json);
 }
 
 function applyState(s) {
@@ -4765,6 +4781,7 @@ function renderBracket() {
   }
   if (final.winner !== lastChamp) syncChampion(final.winner);
   lastChamp = final.winner;
+  renderChampSave();
 }
 
 /* The final decides the record, so it has to survive being changed: clicking
@@ -4918,8 +4935,36 @@ function renderGolden() {
 
 function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
-  if (w) { const P = rollupPlayers(); window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null, teams); }
+  if (w) {
+    const P = rollupPlayers();
+    champSaving = true;
+    renderChampSave();
+    Promise.resolve(window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null, teams))
+      .finally(() => { champSaving = false; renderChampSave(); });
+  }
   else window.clearChampion(cupId);
+}
+
+/* The history list is the truth: a write the server refuses is rolled back out
+   of it, so once the write settles, "is the key there" answers "was it saved".
+   While it is in flight the key is already there locally, hence champSaving. */
+function renderChampSave() {
+  const el = $('champSave');
+  const f = koStarted && koRounds.length ? koRounds[koRounds.length - 1][0] : null;
+  el.innerHTML = ''; el.className = '';
+  if (!isAdmin || !f || !f.winner || !cupId) return;
+  if (champSaving) { el.textContent = 'Saving to the Hall of Fame…'; return; }
+  if (histIds.has(cupId)) {
+    el.className = 'saved';
+    el.innerHTML = svg('check') + ' Saved to the Hall of Fame';
+    return;
+  }
+  el.className = 'missing';
+  el.innerHTML = svg('x') + ' Not in the Hall of Fame';
+  const b = document.createElement('button');
+  b.textContent = 'Save now';
+  b.onclick = () => syncChampion(f.winner);
+  el.appendChild(b);
 }
 
 // --- champion celebration ---
@@ -5671,12 +5716,15 @@ window.recordChampion = (id, champion, players, awards, teams) => set(ref(db, 'h
     alert('Could not record the champion: ' + err.message);
   });
 
+window.archiveCup = (id, json) => set(ref(db, 'archive/' + id), json)
+  .catch(err => console.error('[archive] write rejected:', err));
+
 window.clearChampion = id => remove(ref(db, 'history/' + id))
   .catch(err => console.error('[history] undo failed:', err));
 
 onValue(historyRef, snap => {
   const v = snap.val() || {};
-  window.renderHall(Object.values(v).sort((a, b) => a.date - b.date));
+  window.renderHall(Object.values(v).sort((a, b) => a.date - b.date), Object.keys(v));
 }, err => console.error('[history] read failed:', err));
 
 /* ================= CHALLENGES =================

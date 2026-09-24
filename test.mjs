@@ -311,6 +311,23 @@ assert.deepEqual(log, [
   ['clear', '1785700000001'],
 ], 'the final should drive the record: no write until decided, corrections overwrite the same entry, undo removes it');
 
+// the admin sees whether the entry actually reached history, and can retry
+const saveLine = await page.evaluate(async () => {
+  const out = [];
+  let settle;
+  window.recordChampion = () => new Promise(r => { settle = r; });
+  setKoGoals(0, 0, { fwd: 6, def: 4 }, { fwd: 3, def: 2 });
+  out.push($('champSave').textContent);
+  settle(); await new Promise(r => setTimeout(r));
+  out.push($('champSave').textContent);                  // settled, but history never got it
+  renderHall([], ['1785700000001']);
+  out.push($('champSave').textContent);
+  return out;
+});
+assert.ok(saveLine[0].includes('Saving'), 'no in-flight state: ' + saveLine[0]);
+assert.ok(saveLine[1].includes('Not in the Hall of Fame') && saveLine[1].includes('Save now'), 'a missing entry must say so: ' + saveLine[1]);
+assert.ok(saveLine[2].includes('Saved to the Hall of Fame'), 'the entry arriving must read as saved: ' + saveLine[2]);
+
 // the crown is the shortcut for the cup in progress, and a viewer — who never
 // gets the automatic celebration — must be able to trigger it
 await page.locator('#celebrate').dispatchEvent('click'); // the block above decided a final
