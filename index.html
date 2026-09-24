@@ -3231,7 +3231,9 @@ function renderChal() {
   const who = $('chalWho');
   const name = myName();
   who.textContent = '';
-  if (name) { who.append('Playing as ', part('', name, 'b')); } // textContent: names are user input
+  chalUsed = name ? chalToday(allChal, acctEmail) : 0;
+  // the day's cap, where they'll see it before a seat refuses them
+  if (name) who.append('Playing as ', part('', name, 'b'), ` · ${chalUsed} of ${CH_DAILY} today`); // textContent: names are user input
   /* Signed out there is nothing to say: the seats and the button below are
      the invitation, and a line telling somebody to sign in is a line they have
      to read before a tap that would have signed them in anyway. */
@@ -3251,7 +3253,6 @@ function renderChal() {
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
   chalFree = name ? (coinBal()[name] || 0) - chalHeld(name) : null;
-  chalUsed = name ? chalToday(allChal, acctEmail) : 0;
 
   const list = $('chalOpen');
   list.innerHTML = '';

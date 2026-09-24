@@ -2816,6 +2816,7 @@ const capBoard = f => page.evaluate(fx => {
     why: el.querySelector('.ch-shy') && el.querySelector('.ch-shy').textContent,
     takeable: [...el.querySelectorAll('.ch-seat')].filter(s => s.tagName === 'BUTTON').length,
     leave: fx.mine ? $('ch-mine').querySelector('.ch-seat.mine').tagName : null,
+    who: $('chalWho').textContent,
   };
   $('chalNew').click();
   out.post = $('chalPost').disabled;
@@ -2826,6 +2827,7 @@ const capBoard = f => page.evaluate(fx => {
 
 let cap = await capBoard(CAP);
 assert.equal(cap.used, 5, 'the day count is off: ' + cap.used);
+assert.match(cap.who, /5 of 5 today/, 'the board did not show the day\'s count: ' + cap.who);
 assert.equal(cap.takeable, 0, 'a sixth seat was offered on a full day');
 assert.match(cap.why || '', /played 5 challenges today/, 'the card did not say why the seats were refused: ' + cap.why);
 assert.equal(cap.leave, 'BUTTON', 'a capped player lost the way out of a seat they already hold');
@@ -2836,6 +2838,7 @@ assert.match(cap.note, /played 5 challenges today/, 'the create form did not say
 const { mine: _gone, ...left } = CAP;
 cap = await capBoard(left);
 assert.equal(cap.used, 4, 'a seat given up still counted');
+assert.match(cap.who, /4 of 5 today/, 'the count on the board did not drop: ' + cap.who);
 assert.equal(cap.why, null, 'the cap stayed on after a slot came back');
 assert.ok(cap.takeable > 0 && !cap.post, 'four games today locked the board');
 
