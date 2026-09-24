@@ -2245,6 +2245,21 @@ await page.click('#ch-open2 .ch-wbtn:nth-child(1)');   // Toufiq sits in Red, an
 assert.deepEqual(await claims(),
   [['chalFile', 'open2', { b: 1, r: 0, by: 'toufiq@x.com', side: 'r', at: 'number' }]],
   'a tapped winner did not reach the database as a claim from the filer’s own side');
+// the To nil box goes with the claim, and the other side reads it before confirming
+await page.evaluate(f => { window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
+await page.check('#ch-open2 .ch-nil input');
+await page.click('#ch-open2 .ch-wbtn:nth-child(1)');
+assert.deepEqual(await claims(),
+  [['chalFile', 'open2', { b: 1, r: 0, nil: true, by: 'toufiq@x.com', side: 'r', at: 'number' }]],
+  'a ticked To nil did not travel with the claim');
+await page.evaluate(f => {
+  window.setAccount('toufiq@x.com');
+  window.renderChallenges({ ...f, open2: { ...f.open2, pending: { b: 1, r: 0, nil: true, by: 'nur@x.com', side: 'b', at: 1 } } });
+}, CH.fixture);
+assert.ok((await page.textContent('#ch-open2 .sug-bar .who')).includes('won to nil'),
+  'the side confirming was not told the claim is a nil');
+assert.ok(await page.isChecked('#ch-open2 .ch-nil input'), 'a nil claim did not show its box ticked');
+await page.evaluate(f => { window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
 
 // ---- a claim waits on the other side ----
 /* The claim is not the score. It lives in its own node, the ladder never sees
@@ -2543,26 +2558,27 @@ assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
 assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
 assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
 
-/* A nil pays double and costs double, free or bet, never below zero, and only
-   for games agreed from NIL_FROM on. Stamps are NIL_FROM + n so they order. */
+/* A nil pays double and costs double, free or bet, never below zero — and only
+   when the claim carried the To nil box. Results are filed 1-0, so the score
+   alone must never make one. */
 const nilCheck = await page.evaluate(s4 => {
   const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
-  const T = NIL_FROM;
-  const g = (at, b, r, stake) => ({ at, stake, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b, r, at } });
+  const g = (at, b, r, stake, nil) => ({ at, stake, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'),
+    score: { b, r, at, ...(nil ? { nil: true } : {}) } });
   // Nur and Rashed earn 12 on free wins first, so they have something to lose
-  const seed = [1, 2, 3, 4, 5, 6].map(i => g(T + i, 3, 5));
-  const base = window.coins(seed);
+  const seed = [1, 2, 3, 4, 5, 6].map(i => g(i, 0, 1));
   return {
-    base,
-    freeNil: window.coins([...seed, g(T + 10, 5, 0)]),
-    brokeNil: window.coins([g(T + 10, 5, 0)]),         // losers on 0 stay on 0
-    betNil: window.coins([...seed, g(T + 10, 5, 0, 5)]),  // 12 each covers 10
-    shortNil: window.coins([...seed, g(T + 10, 5, 0, 7)]), // 12 covers 7, not 14
-    zeroDraw: window.coins([...seed, g(T + 10, 0, 0, 5)]),
-    oldNil: window.coins([g(T - 10, 5, 0)]),            // before it shipped: a plain win
+    base: window.coins(seed),
+    plain: window.coins([...seed, g(10, 1, 0)]),              // a 1-0 is just a win
+    freeNil: window.coins([...seed, g(10, 1, 0, 0, true)]),
+    brokeNil: window.coins([g(10, 1, 0, 0, true)]),         // losers on 0 stay on 0
+    betNil: window.coins([...seed, g(10, 1, 0, 5, true)]),  // 12 each covers 10
+    shortNil: window.coins([...seed, g(10, 1, 0, 7, true)]), // 12 covers 7, not 14
   };
 }, String(seat4));
 assert.equal(nilCheck.base.Nur, 12, 'the seed should leave the losing pair on twelve');
+assert.equal(nilCheck.plain.Sifat, 2, 'a plain 1-0 paid as a nil — every result is filed 1-0');
+assert.equal(nilCheck.plain.Nur, 12, 'a plain 1-0 charged the losers');
 assert.equal(nilCheck.freeNil.Sifat, 4, 'a free nil should pay each winner four');
 assert.equal(nilCheck.freeNil.Nur, 10, 'a free nil should cost each loser two');
 assert.equal(nilCheck.brokeNil.Nur, 0, 'a nil took a balance below zero');
@@ -2571,9 +2587,6 @@ assert.equal(nilCheck.betNil.Sifat, 10, 'a 5-coin nil should pay each winner ten
 assert.equal(nilCheck.betNil.Nur, 2, 'a 5-coin nil should cost each loser ten');
 assert.equal(nilCheck.shortNil.Nur, 0, 'a loser who cannot cover the double should end on zero');
 assert.equal(nilCheck.shortNil.Sifat, 14, 'the winners get the full double even when a loser is short');
-assert.equal(nilCheck.zeroDraw.Nur, 12, 'a 0-0 draw is a draw, not a nil');
-assert.equal(nilCheck.oldNil.Sifat, 2, 'a nil agreed before NIL_FROM was re-paid');
-assert.equal(nilCheck.oldNil.Nur, 0, 'a nil agreed before NIL_FROM charged the losers');
 
 // the pill is in the chrome, on every screen, and it shows one balance: yours
 const coinCard = await page.evaluate(() => {

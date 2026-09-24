@@ -1278,6 +1278,7 @@
      targets the width of the card, because the gesture files straight through
      to the other side and a thumb should not be able to miss. */
   .ch-win { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .ch-nil { grid-column: 1 / -1; display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 0.8rem; font-weight: 600; color: #5e6c84; cursor: pointer; }
   .ch-wbtn {
     border: 1.5px solid #dbe3ee; border-radius: 12px; padding: 11px 8px;
     background: #fbfcfe; font-family: inherit; font-size: 0.84rem; font-weight: 800;
@@ -1939,7 +1940,8 @@ Nur</textarea>
         50 &mdash; and taking a seat agrees to it. The bet can't change once it is set.</li>
         <li>Each winner <b>takes</b> the bet and each loser <b>pays</b> it, instead of the
         usual +2. A game played for nothing still pays the +2.</li>
-        <li><b>Win to nil and it pays double:</b> the winners take twice and the losers
+        <li><b>Win to nil and it pays double:</b> tick <b>To nil</b> when you file who
+        won, and once the other side confirms, the winners take twice and the losers
         pay twice. In a game played for nothing that is +4 to each winner and 2 from
         each loser. Nobody goes below zero.</li>
         <li>You need the bet to sit down, and coins already riding on another open
@@ -2852,8 +2854,9 @@ var chalUsed = 0; // worked out once a render, like chalFree
 const COIN_WIN = 2;
 /* A game won to nil pays double and costs double, free or bet, and nobody goes
    below zero — the winners are paid in full even when a loser can't cover it.
-   Only from the day it shipped: games agreed before it keep what they paid. */
-const NIL_FROM = 1790243645532; // 24 Sep 2026
+   Nil is a box ticked on the claim, not read off the score: a result is filed as
+   1-0, so the loser is always on nought. Rows filed before the box never carry
+   it, so no old game is re-paid. */
 
 function coins(rows) {
   const bal = {};
@@ -2867,7 +2870,7 @@ function coins(rows) {
     const bet = chalBet(c), t = chalAt(c);
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, nil: Math.min(b, r) === 0 && t >= NIL_FROM,
+    ev.push({ t, bet, nil: c.score.nil === true,
       up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
   });
   ev.sort((a, b) => a.t - b.t);
@@ -3026,12 +3029,24 @@ function winRow(c, pend) {
     el.textContent = name + ' won';
     el.disabled = on;
     el.title = on ? 'Filed' : 'File ' + name + ' as the winner';
-    el.onclick = () => window.chalFile(c.id,
-      { b: k === 'b' ? 1 : 0, r: k === 'r' ? 1 : 0, by: acctEmail, side, at: Date.now() });
+    el.onclick = () => window.chalFile(c.id, claimOf(k, nil.checked, side));
     wrap.append(el);
   });
+  /* Ticked before the tap, it goes with the claim. Ticked or cleared after, it
+     re-files the side already standing — the winner button for that side is
+     not a button any more, and this is the only way left to say it. */
+  const lab = part('ch-nil', '', 'label');
+  const nil = document.createElement('input');
+  nil.type = 'checkbox';
+  nil.checked = !!(pend || c.score || {}).nil;
+  nil.onchange = () => { if (now) window.chalFile(c.id, claimOf(now, nil.checked, side)); };
+  lab.append(nil, ' To nil — pays double');
+  wrap.append(lab);
   return wrap;
 }
+// `nil` only when ticked, so a plain claim is the same row it always was
+const claimOf = (k, nil, side) => ({ b: k === 'b' ? 1 : 0, r: k === 'r' ? 1 : 0,
+  ...(nil ? { nil: true } : {}), by: acctEmail, side, at: Date.now() });
 
 // the seat an address is sitting in, for putting a name to a claim
 const seatOf = (c, email) => SEATS.map(([id]) => id)
@@ -3058,7 +3073,7 @@ function pendBar(c, pend) {
   who.innerHTML = svg(ours ? 'check' : 'bulb'); // icon is static markup...
   // the claim in the only terms it has left: the pair it says won
   const w = wonSide(pend);
-  const won = w ? pairName(c, w + 'f', w + 'd') + ' won' : 'a draw';
+  const won = w ? pairName(c, w + 'f', w + 'd') + ' won' + (pend.nil ? ' to nil' : '') : 'a draw';
   const seat = seatOf(c, pend.by);
   // ...names are user input and stay text nodes
   const by = (seat && c.slots[seat].name) || EMAIL_NAMES[pend.by] || 'Someone';
@@ -3272,7 +3287,7 @@ function renderChal() {
       row.append(tag);
     }
     if (chalSat(c)) row.append(flipBtn(c, w === 'b'));
-    const said = w ? (w === 'b' ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won' : 'Drawn';
+    const said = w ? (w === 'b' ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won' + (c.score.nil ? ' to nil' : '') : 'Drawn';
     row.title = b + r > 1 ? `${said} ${b}\u2013${r}` : said; // an old row still has its score
     rec.append(row);
   });
@@ -5776,7 +5791,7 @@ window.chalFile = (id, claim) => set(ref(db, `challenges/${id}/pending`), claim)
 
 window.chalConfirm = (id, pend) =>
   update(ref(db, 'challenges/' + id),
-    { score: { b: +pend.b, r: +pend.r, at: Date.now() }, pending: null })
+    { score: { b: +pend.b, r: +pend.r, ...(pend.nil ? { nil: true } : {}), at: Date.now() }, pending: null })
     .catch(err => {
       console.error('[chal] confirm rejected:', err);
       alert('Could not confirm that score: ' + err.message);

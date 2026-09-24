@@ -265,8 +265,11 @@ loser −2. For a bet of N: each winner +2N, each loser −2N. No balance goes b
 zero, and the winners are paid in full even when a loser can't cover it — the
 shortfall is minted, so a nil always pays what it says. A bet the losers can't
 cover even once still falls back to paying as a free game, nil rules included.
-It counts only from `NIL_FROM`, the moment it shipped: every game agreed before
-keeps what it paid, so no balance moved on release.
+A result is filed as 1-0, so the loser is always on nought and the score cannot
+say it. Nil is a **To nil** box ticked on the claim instead: it travels as
+`nil: true` in `pending`, the rules only let the confirm copy it across to
+`score` unchanged, and the other side is agreeing to it when they confirm. No
+row filed before the box carries it, so no old game is re-paid.
 
 The bet is fixed when the lobby is opened and never moves: three people sit down
 on the strength of the number, so it may not change under them. That much the

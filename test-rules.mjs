@@ -106,6 +106,23 @@ const confirm = (id, who, b, r, at = 7) =>
   assert.equal(await read(`challenges/${id}/pending`), null, 'the claim outlived its confirmation');
 }
 
+// ---- a nil travels from the claim to the score unchanged ----
+{
+  const id = await lobby();
+  assert.ok(!await put(`challenges/${id}/pending`, B1, { ...claim(B1, 'b', 1, 0), nil: false }),
+    'a nil that is not true stood');
+  assert.ok(await put(`challenges/${id}/pending`, B1, { ...claim(B1, 'b', 1, 0), nil: true }),
+    'a claim to nil could not be filed');
+  // the confirm can neither drop it nor, on a plain claim, add one
+  assert.ok(!await confirm(id, R1, 1, 0), 'a confirm dropped the nil');
+  assert.ok(await patch('challenges/' + id, R1, { score: { b: 1, r: 0, nil: true, at: 7 }, pending: null }),
+    'a nil claim could not be confirmed as one');
+  const plain = await lobby();
+  await put(`challenges/${plain}/pending`, B1, claim(B1, 'b', 1, 0));
+  assert.ok(!await patch('challenges/' + plain, R1, { score: { b: 1, r: 0, nil: true, at: 7 }, pending: null }),
+    'a confirm turned a plain win into a nil');
+}
+
 // ---- what the game is played for ----
 /* The rules cannot count coins — a balance is every row walked, and there is no
    expression that walks them — so who may sit at a ten-coin table is the page's

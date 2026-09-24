@@ -42,12 +42,14 @@
           "by": { ".validate": "newData.isString()" },
           "side": { ".validate": "newData.val() === 'b' || newData.val() === 'r'" },
           "at": { ".validate": "newData.isNumber()" },
+          "nil": { ".validate": "newData.val() === true" },
           "$other": { ".validate": false }
         },
         "score": {
           ".write": "auth != null && auth.token.email_verified === true && data.parent().child('pending').exists() && data.parent().child('pending/by').val() !== auth.token.email && (auth.token.email === 'bhacker150@gmail.com' || (data.parent().child('pending/side').val() === 'b' ? (data.parent().child('slots/rf/email').val() === auth.token.email || data.parent().child('slots/rd/email').val() === auth.token.email) : (data.parent().child('slots/bf/email').val() === auth.token.email || data.parent().child('slots/bd/email').val() === auth.token.email)))",
-          ".validate": "newData.hasChildren(['b', 'r', 'at']) && newData.child('b').val() === data.parent().child('pending/b').val() && newData.child('r').val() === data.parent().child('pending/r').val()",
+          ".validate": "newData.hasChildren(['b', 'r', 'at']) && newData.child('b').val() === data.parent().child('pending/b').val() && newData.child('r').val() === data.parent().child('pending/r').val() && (newData.child('nil').val() === true) === (data.parent().child('pending/nil').val() === true)",
           "at": { ".validate": "newData.isNumber()" },
+          "nil": { ".validate": "newData.val() === true" },
           "$side": { ".validate": "newData.isNumber() && newData.val() >= 0" }
         },
         "$other": { ".validate": false }
