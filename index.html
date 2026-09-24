@@ -2702,6 +2702,7 @@ function renderHall(entries, ids) {
   hallEntries = entries;
   histIds = new Set(ids || []);
   renderChampSave();
+  renderChal(); // a cup pays coins, so the wallet moves with the Hall
   renderPlayers(entries);
   const list = $('hallList');
   if (!entries.length) { list.innerHTML = '<div class="hall-empty">No cups completed yet.</div>'; return; }
@@ -2857,8 +2858,13 @@ const COIN_WIN = 2;
    Nil is a box ticked on the claim, not read off the score: a result is filed as
    1-0, so the loser is always on nought. Rows filed before the box never carry
    it, so no old game is re-paid. */
+/* A cup pays too: the champions ten each, the runners-up five, landing when the
+   cup was saved. Only a history entry carrying `runnerUp` pays — that field is
+   written from the first cup after this shipped, so no old cup is back-paid. An
+   undone final deletes the entry and its coins with it. */
+const CUP_WIN = 10, CUP_RUNNER = 5;
 
-function coins(rows) {
+function coins(rows, cups) {
   const bal = {};
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
@@ -2873,9 +2879,15 @@ function coins(rows) {
     ev.push({ t, bet, nil: c.score.nil === true,
       up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
   });
+  (cups || []).filter(e => e && e.runnerUp).forEach(e => {
+    const pay = (team, n) => ev.push({ t: e.date || 0, cup: n, up: team.split(' + ').filter(Boolean), down: [] });
+    pay(e.champion || '', CUP_WIN);
+    pay(e.runnerUp, CUP_RUNNER);
+  });
   ev.sort((a, b) => a.t - b.t);
 
   ev.forEach(e => {
+    if (e.cup) return e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += e.cup; });
     /* The two who lost are the two who pay, so they are the two who have to
        cover it. A seat is refused at the table to anybody who cannot — see
        `chalShort` — so reaching here means a result was corrected, or somebody
@@ -2900,7 +2912,7 @@ window.coins = coins;
    what makes a coin worth having. It also tells the room what everyone can
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
-const coinBal = () => coins(Object.values(allChal || {}).filter(c => c && c.at));
+const coinBal = () => coins(Object.values(allChal || {}).filter(c => c && c.at), hallEntries);
 const myCoins = () => {
   const me = myName();
   return me ? (coinBal()[me] || 0) : null;
@@ -4956,9 +4968,12 @@ function syncChampion(w) {
   if (restoring || !isAdmin || !gotRemote || !cupId || !window.recordChampion) return;
   if (w) {
     const P = rollupPlayers();
+    // the final's other side; its presence on the entry is what makes a cup pay coins
+    const f = (koRounds[koRounds.length - 1] || [])[0] || {}, lost = f.a === w ? f.b : f.a;
     champSaving = true;
     renderChampSave();
-    Promise.resolve(window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null, teams))
+    Promise.resolve(window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null, teams,
+      lost ? teamName(lost) : null))
       .finally(() => { champSaving = false; renderChampSave(); });
   }
   else window.clearChampion(cupId);
@@ -5728,8 +5743,9 @@ const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
 
-window.recordChampion = (id, champion, players, awards, teams) => set(ref(db, 'history/' + id),
-  { champion, date: Date.now(), players: players || null, awards: awards || null, teams: teams || null })
+window.recordChampion = (id, champion, players, awards, teams, runnerUp) => set(ref(db, 'history/' + id),
+  { champion, date: Date.now(), players: players || null, awards: awards || null, teams: teams || null,
+    runnerUp: runnerUp || null })
   .catch(err => {
     console.error('[history] write rejected:', err);
     alert('Could not record the champion: ' + err.message);

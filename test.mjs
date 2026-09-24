@@ -1788,6 +1788,11 @@ const teamMode = await page.evaluate(() => {
   out.recorded = [];
   window.recordChampion = (id, c, P, aw) => out.recorded.push(aw);
   syncChampion(T[0]);                                  // nothing is awarded
+  // the final's losers go on the entry as runners-up — that is what pays them
+  koRounds = [[{ a: T[0], b: T[1], winner: T[0] }]];
+  window.recordChampion = (id, c, P, aw, t, ru) => { out.runnerUp = ru; };
+  syncChampion(T[0]);
+  koRounds = [];
   // and the next cup goes back to per-player boxes
   setGroupScore(0, 0, null, null, null, null);         // an unplayed match on a new cup
   cupId = String(Date.now());
@@ -1804,6 +1809,7 @@ assert.ok(!teamMode.sub.includes('player'), 'the admin is still told to enter ea
 assert.equal(teamMode.rules.indiv, 'none', 'the rules still describe per-player boxes and a Golden Boot');
 assert.notEqual(teamMode.rules.team, 'none', 'the rules never explain the team-total box that is actually on screen');
 assert.deepEqual(teamMode.recorded, [null], 'a cup that counts no individual goals still handed out awards');
+assert.equal(teamMode.runnerUp, 'B + b', 'the final\'s losers were not saved as runners-up');
 assert.equal(teamMode.nextCupBoxes, 4, 'the next cup did not get its per-player boxes back');
 console.log('team-total cup OK');
 
@@ -2557,6 +2563,16 @@ assert.equal(coinCheck.twoWins.Ofi, 4, 'the winning defender earns the same as t
 assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
 assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
 assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
+
+// a cup pays its finalists: ten to each champion, five to each runner-up — but
+// only a cup saved with its runner-up, so the cups before this pay nothing
+const cupCoins = await page.evaluate(() => ({
+  paid: window.coins([], [{ champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed', date: 1 }]),
+  old: window.coins([], [{ champion: 'Sifat + Ofi', date: 1 }]),
+}));
+assert.deepEqual([cupCoins.paid.Sifat, cupCoins.paid.Ofi], [10, 10], 'a champion was not paid ten');
+assert.deepEqual([cupCoins.paid.Nur, cupCoins.paid.Rashed], [5, 5], 'a runner-up was not paid five');
+assert.equal(cupCoins.old.Sifat, 0, 'a cup saved before runners-up were recorded was back-paid');
 
 /* A nil pays double and costs double, free or bet, never below zero — and only
    when the claim carried the To nil box. Results are filed 1-0, so the score
