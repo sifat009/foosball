@@ -260,6 +260,14 @@ and that is the point of keeping those — somebody who has bet themselves down 
 nothing can still play, still win, and still climb back to where they can bet
 again. A board where the broke have nothing to do is a board they stop opening.
 
+**A game won to nil pays double**, and costs double. Free: each winner +4, each
+loser −2. For a bet of N: each winner +2N, each loser −2N. No balance goes below
+zero, and the winners are paid in full even when a loser can't cover it — the
+shortfall is minted, so a nil always pays what it says. A bet the losers can't
+cover even once still falls back to paying as a free game, nil rules included.
+It counts only from `NIL_FROM`, the moment it shipped: every game agreed before
+keeps what it paid, so no balance moved on release.
+
 The bet is fixed when the lobby is opened and never moves: three people sit down
 on the strength of the number, so it may not change under them. That much the
 rules can hold, and do — `stake` is a whole number of coins inside the ceiling,

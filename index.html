@@ -1939,6 +1939,9 @@ Nur</textarea>
         50 &mdash; and taking a seat agrees to it. The bet can't change once it is set.</li>
         <li>Each winner <b>takes</b> the bet and each loser <b>pays</b> it, instead of the
         usual +2. A game played for nothing still pays the +2.</li>
+        <li><b>Win to nil and it pays double:</b> the winners take twice and the losers
+        pay twice. In a game played for nothing that is +4 to each winner and 2 from
+        each loser. Nobody goes below zero.</li>
         <li>You need the bet to sit down, and coins already riding on another open
         table don't count.</li>
       </ul>
@@ -2847,6 +2850,10 @@ var chalUsed = 0; // worked out once a render, like chalFree
    only ever enter the world through a game played for none, which is what keeps
    a way back for somebody who has bet themselves down to nothing. */
 const COIN_WIN = 2;
+/* A game won to nil pays double and costs double, free or bet, and nobody goes
+   below zero — the winners are paid in full even when a loser can't cover it.
+   Only from the day it shipped: games agreed before it keep what they paid. */
+const NIL_FROM = 1790243645532; // 24 Sep 2026
 
 function coins(rows) {
   const bal = {};
@@ -2858,32 +2865,28 @@ function coins(rows) {
     const up = b > r ? ['bf', 'bd'] : ['rf', 'rd'];
     const down = b > r ? ['rf', 'rd'] : ['bf', 'bd'];
     const bet = chalBet(c), t = chalAt(c);
-    if (!bet) return up.forEach(s => ev.push({ t, name: c.slots[s].name, win: 1 }));
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
+    ev.push({ t, bet, nil: Math.min(b, r) === 0 && t >= NIL_FROM,
+      up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
   });
   ev.sort((a, b) => a.t - b.t);
 
   ev.forEach(e => {
-    if (e.bet) {
-      /* The two who lost are the two who pay, so they are the two who have to
-         cover it. A seat is refused at the table to anybody who cannot — see
-         `chalShort` — so reaching here means a result was corrected, or somebody
-         went round the page; either way the bet is not honoured and the game
-         falls back to paying the winners the usual two. Nobody is charged for a
-         bet that did not move. */
-      const on = e.up.concat(e.down).every(n => bal[n] !== undefined);
-      const paid = on && e.down.every(n => bal[n] >= e.bet);
-      if (paid) {
-        e.up.forEach(n => { bal[n] += e.bet; });
-        e.down.forEach(n => { bal[n] -= e.bet; });
-      } else {
-        e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += COIN_WIN; });
-      }
-      return;
-    }
-    if (bal[e.name] !== undefined) bal[e.name] += COIN_WIN; // else: not on the player list any more
+    /* The two who lost are the two who pay, so they are the two who have to
+       cover it. A seat is refused at the table to anybody who cannot — see
+       `chalShort` — so reaching here means a result was corrected, or somebody
+       went round the page; either way the bet is not honoured and the game
+       falls back to paying as one played for nothing. Nobody is charged for a
+       bet that did not move. */
+    const on = e.up.concat(e.down).every(n => bal[n] !== undefined);
+    const paid = e.bet && on && e.down.every(n => bal[n] >= e.bet);
+    const x = e.nil ? 2 : 1;
+    // a name missing from bal is not on the player list any more
+    e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += (paid ? e.bet : COIN_WIN) * x; });
+    // a free loss costs nothing, unless it was to nil — then the two a win pays
+    const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
+    e.down.forEach(n => { if (bal[n] !== undefined) bal[n] = Math.max(0, bal[n] - cost); });
   });
   return bal;
 }
@@ -3093,7 +3096,7 @@ function betRow(c) {
   const bet = chalBet(c);
   if (!bet) {
     const el = part('ch-nobet');
-    el.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing');
+    el.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing. To nil: +' + COIN_WIN * 2 + ' / \u2212' + COIN_WIN);
     return el;
   }
   const el = part('ch-bet');
@@ -3349,7 +3352,7 @@ function paintBet() {
   else if (over) note.textContent =
     `You have ${free} to bet — ${chalHeld(myName()) ? 'the rest is on other tables.' : 'win a few more first.'}`;
   else if (newBet) note.append(`A ${newBet}-coin game. Winners +${newBet}, losers \u2212${newBet}.`);
-  else note.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing.');
+  else note.append('Winners get ', part('', '+' + COIN_WIN, 'b'), ', losers lose nothing. To nil: +' + COIN_WIN * 2 + ' / \u2212' + COIN_WIN + '.');
   $('chalPost').disabled = over || capped;
   $('chalBetIn').max = betCap();
 }

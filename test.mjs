@@ -2543,6 +2543,38 @@ assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
 assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
 assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
 
+/* A nil pays double and costs double, free or bet, never below zero, and only
+   for games agreed from NIL_FROM on. Stamps are NIL_FROM + n so they order. */
+const nilCheck = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const T = NIL_FROM;
+  const g = (at, b, r, stake) => ({ at, stake, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b, r, at } });
+  // Nur and Rashed earn 12 on free wins first, so they have something to lose
+  const seed = [1, 2, 3, 4, 5, 6].map(i => g(T + i, 3, 5));
+  const base = window.coins(seed);
+  return {
+    base,
+    freeNil: window.coins([...seed, g(T + 10, 5, 0)]),
+    brokeNil: window.coins([g(T + 10, 5, 0)]),         // losers on 0 stay on 0
+    betNil: window.coins([...seed, g(T + 10, 5, 0, 5)]),  // 12 each covers 10
+    shortNil: window.coins([...seed, g(T + 10, 5, 0, 7)]), // 12 covers 7, not 14
+    zeroDraw: window.coins([...seed, g(T + 10, 0, 0, 5)]),
+    oldNil: window.coins([g(T - 10, 5, 0)]),            // before it shipped: a plain win
+  };
+}, String(seat4));
+assert.equal(nilCheck.base.Nur, 12, 'the seed should leave the losing pair on twelve');
+assert.equal(nilCheck.freeNil.Sifat, 4, 'a free nil should pay each winner four');
+assert.equal(nilCheck.freeNil.Nur, 10, 'a free nil should cost each loser two');
+assert.equal(nilCheck.brokeNil.Nur, 0, 'a nil took a balance below zero');
+assert.equal(nilCheck.brokeNil.Sifat, 4, 'winners must be paid in full whatever the losers hold');
+assert.equal(nilCheck.betNil.Sifat, 10, 'a 5-coin nil should pay each winner ten');
+assert.equal(nilCheck.betNil.Nur, 2, 'a 5-coin nil should cost each loser ten');
+assert.equal(nilCheck.shortNil.Nur, 0, 'a loser who cannot cover the double should end on zero');
+assert.equal(nilCheck.shortNil.Sifat, 14, 'the winners get the full double even when a loser is short');
+assert.equal(nilCheck.zeroDraw.Nur, 12, 'a 0-0 draw is a draw, not a nil');
+assert.equal(nilCheck.oldNil.Sifat, 2, 'a nil agreed before NIL_FROM was re-paid');
+assert.equal(nilCheck.oldNil.Nur, 0, 'a nil agreed before NIL_FROM charged the losers');
+
 // the pill is in the chrome, on every screen, and it shows one balance: yours
 const coinCard = await page.evaluate(() => {
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
