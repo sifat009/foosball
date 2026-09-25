@@ -2539,17 +2539,22 @@ console.log('challenges OK');
 /* A challenge win is worth two coins. The
    derivation is pure and the page never stores a balance, so drive it directly
    the way the rotation check drives planDraw. */
-const seat4 = (bf, bd, rf, rd) => ({
-  bf: { name: bf, email: bf + '@x.com' }, bd: { name: bd, email: bd + '@x.com' },
-  rf: { name: rf, email: rf + '@x.com' }, rd: { name: rd, email: rd + '@x.com' },
-});
+// real addresses off the player list: a seat is paid by its email, not its name
+const seat4 = (bf, bd, rf, rd) => {
+  const at = n => ({ name: n, email: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n) });
+  return { bf: at(bf), bd: at(bd), rf: at(rf), rd: at(rd) };
+};
 const coinCheck = await page.evaluate(s4 => {
   const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
   const g = (at, b, r) => ({ at, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b, r } });
   const none = new Set();
+  const forged = S('Sifat', 'Ofi', 'Nur', 'Rashed');
+  forged.bd = { name: 'Ofi', email: 'stranger@x.com' };
   return {
     // two wins for Sifat and Ofi, two losses for Nur and Rashed
     twoWins: window.coins([g(1, 5, 3), g(2, 5, 1)]),
+    // a seat is paid by its email: a stranger typing a player's name earns nobody anything
+    forged: window.coins([{ at: 1, slots: forged, score: { b: 5, r: 3 } }]),
     // a draw pays nobody
     draw: window.coins([g(1, 4, 4)]),
     // a claim nobody has confirmed is not a result
@@ -2561,6 +2566,8 @@ const coinCheck = await page.evaluate(s4 => {
 assert.equal(coinCheck.twoWins.Sifat, 4, 'two challenge wins should pay four coins');
 assert.equal(coinCheck.twoWins.Ofi, 4, 'the winning defender earns the same as the forward');
 assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
+assert.equal(coinCheck.forged.Ofi, 0, 'a seat was paid by the name typed into it rather than its email');
+assert.equal(coinCheck.forged.Sifat, 2, 'the real player beside a forged seat lost their win');
 assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
 assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
 

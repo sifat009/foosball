@@ -2853,6 +2853,10 @@ var chalUsed = 0; // worked out once a render, like chalFree
    only ever enter the world through a game played for none, which is what keeps
    a way back for somebody who has bet themselves down to nothing. */
 const COIN_WIN = 2;
+/* Who a seat pays is its email read through the player list, never the name
+   stored beside it: the rules bind the email to whoever signed in, but the name
+   is whatever they typed. Undefined for an address not on the list. */
+const seatName = s => s ? EMAIL_NAMES[s.email] : undefined;
 /* A game won to nil pays double and costs double, free or bet, and nobody goes
    below zero — the winners are paid in full even when a loser can't cover it.
    Nil is a box ticked on the claim, not read off the score: a result is filed as
@@ -2877,7 +2881,7 @@ function coins(rows, cups) {
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
     ev.push({ t, bet, nil: c.score.nil === true,
-      up: up.map(s => c.slots[s].name), down: down.map(s => c.slots[s].name) });
+      up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
   (cups || []).filter(e => e && e.runnerUp).forEach(e => {
     const pay = (team, n) => ev.push({ t: e.date || 0, cup: n, up: team.split(' + ').filter(Boolean), down: [] });
@@ -2926,7 +2930,7 @@ window.myCoins = myCoins;
    a rule can read a stored number, but it cannot walk every row to derive one. */
 const chalHeld = name => !name ? 0 : Object.values(allChal || {})
   .filter(c => c && c.at && chalBet(c) && !chalDone(c) && chalLive(c)
-    && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].name === name))
+    && SEATS.some(([s]) => c.slots && seatName(c.slots[s]) === name))
   .reduce((n, c) => n + chalBet(c), 0);
 
 /* What the reader could bet right now. Worked out once a render rather than per
