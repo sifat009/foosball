@@ -223,8 +223,8 @@ emptied in between takes the lobby back under four and the score boxes away with
 it. If the four are wrong, the creator or the admin cancels the lobby — and the
 admin can free a single seat, the one exception the rules keep. A filed score
 can be corrected by the four or by the admin, because mistyping 5-3 as 53 must
-not need a database console. A lobby still unfilled a day after it was opened
-drops off the board, and the admin's page is what actually deletes those rows —
+not need a database console. A lobby still unplayed at midnight on the day it
+was opened drops off the board, and the admin's page is what actually deletes those rows —
 it holds the only account allowed to.
 
 ## Coins

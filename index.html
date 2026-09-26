@@ -2757,8 +2757,8 @@ window.renderHall = renderHall;
    Casual 2v2 pickup games between cups: one player opens a lobby by taking a
    position, three others take the remaining seats, any of the four files the
    score. No kick-off time: people played in their own time and the clock on
-   the card was only ever a guess, so a lobby is an open invitation that ages
-   out a day after it was opened. Its own node and its own board — nothing here ever reaches
+   the card was only ever a guess, so a lobby is an open invitation that closes
+   at midnight on the day it was opened. Its own node and its own board — nothing here ever reaches
    `history`, so no title, badge or Golden Boot moves because of a lunch-break
    game.
 
@@ -2783,7 +2783,6 @@ const EMAIL_NAMES = {
    so the same four entries lay out the card and the create form. */
 const SEATS = [['bf', 'Blue', 'Forward'], ['rf', 'Red', 'Forward'],
                ['bd', 'Blue', 'Defender'], ['rd', 'Red', 'Defender']];
-const CH_STALE = 24 * 3600e3; // an unplayed lobby this long after it opened is over
 
 var acctEmail = null, allChal = {}, chalLit = null, newSeat = null, newBet = 0, betWarn = '';
 const myName = () => EMAIL_NAMES[acctEmail] || null;
@@ -2796,11 +2795,12 @@ const chalDone = c => !!(c.score && c.score.b != null && c.score.r != null);
    somebody from the other side. The ladder never sees it — everything derived
    reads `score`, which stays the agreed figure and nothing else. */
 const chalPending = c => c.pending && c.pending.b != null && c.pending.r != null ? c.pending : null;
-/* An unfinished lobby drops off the board once it is stale; a played one keeps.
-   So does one with a claim on it: nothing ratifies a claim by silence, so a
+/* An unfinished lobby drops off the board at midnight — the day's five reset
+   then, so a lobby from yesterday is not still holding a seat. A played one
+   keeps. So does one with a claim on it: nothing ratifies a claim by silence, so a
    score filed at the table must not fall off the board that evening while it
    waits for the opponent to open the app. */
-const chalLive = c => chalDone(c) || !!chalPending(c) || (c.at || 0) + CH_STALE > Date.now();
+const chalLive = c => chalDone(c) || !!chalPending(c) || sameDay(c.at || 0, Date.now());
 const chalSat = c => !!acctEmail && SEATS.some(([id]) => c.slots && c.slots[id] && c.slots[id].email === acctEmail);
 // which half of the table you are sitting at, or null if you are watching
 const chalSide = c => !acctEmail ? null
@@ -2822,8 +2822,8 @@ const chalAt = c => (c && c.score && c.score.at != null ? +c.score.at : (c && c.
 
 /* Five games a day each, free or bet, so the table turns over and nobody waits
    all lunch behind the same four. A game counts on the day it was agreed, a claim
-   on the day it was filed, and a lobby you are sitting in counts while it is open
-   whenever it was opened — or yesterday's leftovers are a way round. Leaving a
+   on the day it was filed, and a lobby you are sitting in counts today, which is
+   the only day it is open. Leaving a
    seat gives the slot back. The page's rule, not the database's: the rules see
    one row and cannot count across them. */
 const CH_DAILY = 5;
@@ -2832,7 +2832,7 @@ const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(
   .filter(c => c && c.at && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].email === email)
     && (chalDone(c) ? sameDay(chalAt(c), now)
       : chalPending(c) ? sameDay(+chalPending(c).at || 0, now)
-      : chalLive(c)))
+      : sameDay(c.at, now)))
   .length;
 const CAP_MSG = `You’ve played ${CH_DAILY} challenges today — seats open again tomorrow.`;
 var chalUsed = 0; // worked out once a render, like chalFree

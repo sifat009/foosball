@@ -2865,6 +2865,18 @@ assert.match(cap.who, /4 of 5 today/, 'the count on the board did not drop: ' + 
 assert.equal(cap.why, null, 'the cap stayed on after a slot came back');
 assert.ok(cap.takeable > 0 && !cap.post, 'four games today locked the board');
 
+// a lobby closes at midnight, not a day after it opened: one opened a minute
+// before midnight is over and holds no slot, one opened a minute after is open
+const midnight = await page.evaluate(() => {
+  const m = new Date().setHours(0, 0, 0, 0), seat = { name: 'Sifat', email: 'sifat@x.com' };
+  const late = { by: 'sifat@x.com', at: m - 6e4, slots: { bf: seat } };
+  const early = { by: 'sifat@x.com', at: m + 6e4, slots: { bf: seat } };
+  return { late: chalLive(late), early: chalLive(early), used: chalToday({ late, early }, 'sifat@x.com') };
+});
+assert.equal(midnight.late, false, 'a lobby from last night was still open after midnight');
+assert.equal(midnight.early, true, 'a lobby opened this morning was closed');
+assert.equal(midnight.used, 1, 'last night\'s lobby still took one of today\'s five');
+
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); });
 console.log('daily cap OK');
 
