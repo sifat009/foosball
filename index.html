@@ -2865,8 +2865,10 @@ const seatName = s => s ? EMAIL_NAMES[s.email] : undefined;
 /* A cup pays too: the champions ten each, the runners-up five, landing when the
    cup was saved. Only a history entry carrying `runnerUp` pays — that field is
    written from the first cup after this shipped, so no old cup is back-paid. An
-   undone final deletes the entry and its coins with it. */
-const CUP_WIN = 10, CUP_RUNNER = 5;
+   undone final deletes the entry and its coins with it. The Golden Boot and
+   Golden Glove pay five to each holder, a shared award paying every one of them
+   in full, and only on those same entries. */
+const CUP_WIN = 10, CUP_RUNNER = 5, CUP_AWARD = 5;
 
 function coins(rows, cups) {
   const bal = {};
@@ -2887,6 +2889,8 @@ function coins(rows, cups) {
     const pay = (team, n) => ev.push({ t: e.date || 0, cup: n, up: team.split(' + ').filter(Boolean), down: [] });
     pay(e.champion || '', CUP_WIN);
     pay(e.runnerUp, CUP_RUNNER);
+    const aw = e.awards || {};
+    [...(aw.boot || []), ...(aw.glove || [])].forEach(n => pay(n, CUP_AWARD));
   });
   ev.sort((a, b) => a.t - b.t);
 

@@ -2576,7 +2576,13 @@ assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
 const cupCoins = await page.evaluate(() => ({
   paid: window.coins([], [{ champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed', date: 1 }]),
   old: window.coins([], [{ champion: 'Sifat + Ofi', date: 1 }]),
+  awards: window.coins([], [{ champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed', date: 1,
+    awards: { boot: ['Sifat', 'Nur'], glove: ['Rashed'] } }]),
+  oldAwards: window.coins([], [{ champion: 'Sifat + Ofi', date: 1, awards: { boot: ['Nur'] } }]),
 }));
+assert.deepEqual([cupCoins.awards.Sifat, cupCoins.awards.Nur, cupCoins.awards.Rashed, cupCoins.awards.Ofi],
+  [15, 10, 10, 10], 'the Golden Boot and Glove did not pay five to each holder');
+assert.equal(cupCoins.oldAwards.Nur, 0, 'an award on a cup saved before prizes was back-paid');
 assert.deepEqual([cupCoins.paid.Sifat, cupCoins.paid.Ofi], [10, 10], 'a champion was not paid ten');
 assert.deepEqual([cupCoins.paid.Nur, cupCoins.paid.Rashed], [5, 5], 'a runner-up was not paid five');
 assert.equal(cupCoins.old.Sifat, 0, 'a cup saved before runners-up were recorded was back-paid');
