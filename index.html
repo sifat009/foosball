@@ -4168,7 +4168,9 @@ var heldRow = null; // 'gi_mi'
 var legTab = {};
 
 function setGroupScore(gi, mi, sa, sb, pa, pb) {
-  if (!restoring) heldRow = gi + '_' + mi;
+  // only a goal box pins its row: a forfeit or an accepted suggestion has no box
+  // to tear out from under a finger, so it sinks to Played straight away
+  if (!restoring) heldRow = typingScore ? gi + '_' + mi : null;
   const m = groups[gi].matches[mi];
   const was = m.winner;
   m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);

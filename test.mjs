@@ -999,6 +999,10 @@ const ff = await page.evaluate(h => {
   setGroupScore(0, 0, 1, 0);                       // b didn't turn up
   const g = groups[0].matches[0];
   out.groupForfeit = [g.sa, g.sb, g.pa, g.pb, g.winner === g.a, forfeitOf(g)];
+  // nothing was typed into a box, so nothing holds the row up: it sinks under Played
+  const div = document.querySelector('#groups .played-div');
+  out.sunk = !!div && [...document.querySelectorAll('#groups .ff')].some(s =>
+    s.value === 'b' && (div.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING));
   setGroupScore(0, 2, 0, 0);                       // nobody turned up
   out.void = [groups[0].matches[2].winner, settled(groups[0].matches[2]), picked('#groups').sort()];
   // a forfeit has no breakdown, so nobody's Golden Boot moves
@@ -1015,6 +1019,7 @@ assert.deepEqual(ff.koForfeit, [0, 1, null, null, 'D', 'a'],
 assert.deepEqual(ff.koPicked, ['a'], 'the knockout picker does not show the forfeit it recorded');
 assert.deepEqual(ff.groupForfeit, [1, 0, null, null, true, 'b'],
   'a group forfeit should be a bare 1-0 with nobody credited: ' + JSON.stringify(ff.groupForfeit));
+assert.ok(ff.sunk, 'a forfeited match stayed up among the unplayed ones until another match was edited');
 assert.deepEqual(ff.void, [null, true, ['b', 'void']], 'a group void is not settled, or the picker forgot it');
 assert.equal(ff.goals, 0, 'a forfeited match handed somebody a goal they never scored');
 assert.deepEqual(ff.retyped, [10, '', ['void']], 'entering real goals did not clear the forfeit');
@@ -1427,7 +1432,8 @@ const sunk = await page.evaluate(h => {
   const dom = () => [...document.querySelectorAll('#groups .match')]
     .map(d => [...d.querySelectorAll('.m-team')].map(t => t.textContent).join('|'));
   const before = dom();
-  setGroupScore(0, 4, 0, 0);                           // a no-show is settled too
+  // typed into a box, the way a goal box commits, then the focusout flush
+  typingScore = true; setGroupScore(0, 4, 0, 0); typingScore = false; renderAll();
   // the row just recorded holds its slot rather than jumping out from under you
   const heldAt = [before.indexOf(key(groups[0].matches[4])), dom().indexOf(key(groups[0].matches[4]))];
   heldRow = null; renderAll();                         // ...until the next render says otherwise
