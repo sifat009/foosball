@@ -441,10 +441,17 @@
   .coin-you b { color: #96660a; }
   /* the card is the scroll container, so the way in pins to its bottom edge
      rather than sitting under however much of the sheet a phone can't show */
-  .spend { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+  .spend { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 4px; }
+  .coin-tabs { margin: 12px 0 14px; }
+  .coin-tabs .leg-tab { color: #172b4d; }
   .spend[hidden] { display: none; }
   .spend select, .spend input { font: inherit; padding: 8px; border: 1px solid #d5dde8; border-radius: 10px; background: #fff; min-width: 0; }
-  .spend #spKind, .spend #spNote, .spend #spGo { grid-column: 1 / -1; }
+  .spend #spKind, .spend #spNote, .spend #spGo, .sp-prev { grid-column: 1 / -1; }
+  /* what the name will look like, drawn the way a taken seat draws it */
+  .sp-prev { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px;
+    border: 1px dashed #d5dde8; border-radius: 10px; font-weight: 700; }
+  .sp-prev[hidden] { display: none; }
+  .sp-prev small { font-weight: 500; color: #5b6b82; }
   #coinGo { width: 100%; margin-top: 4px; position: sticky; bottom: 0; }
 
   .gb-race + .gb-race { margin-top: 20px; }
@@ -1949,6 +1956,13 @@ Nur</textarea>
       <p>Coins come from the <b>Challenges</b> board — the casual 2v2 pickup games
       between cups, and they are spent there too. They never reach the Cup: not the
       draft, not a match, not a title or a badge.</p>
+      <div id="coinYou" class="coin-you"></div>
+      <!-- two tabs so a buyer isn't scrolled past the betting rules to reach the form -->
+      <div class="leg-tabs coin-tabs">
+        <button type="button" class="leg-tab on" data-pane="coinEarn" aria-pressed="true">Earn &amp; bet</button>
+        <button type="button" class="leg-tab" data-pane="coinSpend" aria-pressed="false">Spend</button>
+      </div>
+      <div id="coinEarn">
       <div class="rules-h">Earning</div>
       <ul>
         <li><b>+2 coins</b> to each player on the winning side of a challenge, once
@@ -1969,6 +1983,22 @@ Nur</textarea>
         <li>You need the bet to sit down, and coins already riding on another open
         table don't count.</li>
       </ul>
+      </div>
+      <div id="coinSpend" hidden>
+      <div id="spend" class="spend" hidden>
+        <select id="spKind" aria-label="What to buy">
+          <option value="flair">Name colour &mdash; 20</option>
+          <option value="icon">Name icon &mdash; 15</option>
+          <option value="slot">Extra game today &mdash; 5</option>
+          <option value="gift">Gift to a player</option>
+          <option value="bounty">Bounty on a player</option>
+        </select>
+        <select id="spItem" aria-label="Colour or player"></select>
+        <input id="spAmt" type="number" min="1" max="50" step="1" placeholder="coins" aria-label="How many coins">
+        <div id="spPrev" class="sp-prev" aria-live="polite"></div>
+        <div id="spNote" class="ch-betnote"></div>
+        <button id="spGo" type="button" class="btn">Spend</button>
+      </div>
       <div class="rules-h">Spending</div>
       <ul>
         <li><b>Name colour &mdash; 20 coins.</b> Your name shows in that colour on
@@ -1986,19 +2016,6 @@ Nur</textarea>
         <li>You can only spend what isn't riding on an open table, and a spend
         can't be undone.</li>
       </ul>
-      <div id="coinYou" class="coin-you"></div>
-      <div id="spend" class="spend" hidden>
-        <select id="spKind" aria-label="What to buy">
-          <option value="flair">Name colour &mdash; 20</option>
-          <option value="icon">Name icon &mdash; 15</option>
-          <option value="slot">Extra game today &mdash; 5</option>
-          <option value="gift">Gift to a player</option>
-          <option value="bounty">Bounty on a player</option>
-        </select>
-        <select id="spItem" aria-label="Colour or player"></select>
-        <input id="spAmt" type="number" min="1" max="50" step="1" placeholder="coins" aria-label="How many coins">
-        <div id="spNote" class="ch-betnote"></div>
-        <button id="spGo" type="button" class="btn">Spend</button>
       </div>
     </div>
     <!-- no Close: every card already carries an X in its corner, and this one has
@@ -3074,8 +3091,8 @@ const flairMap = ok => ok.filter(x => x.kind === 'flair').reduce((m, x) => {
 const iconSvg = key => `<svg class="nm-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[key]}"/></svg>`;
 /* A name with its flair: the icon in front, the colour on both, the pair never
    split across a line. */
-const flairName = name => {
-  const f = chalFlair[name] || {}, el = part('nm', name, 'span');
+const flairName = (name, f = chalFlair[name] || {}) => {
+  const el = part('nm', name, 'span');
   if (f.color) el.style.color = f.color;
   if (f.icon) el.insertAdjacentHTML('afterbegin', iconSvg(f.icon));
   return el;
@@ -3111,6 +3128,13 @@ const busyIn = email => !email ? null : (Object.entries(allChal || {}).find(([, 
   c && c.at && chalLive(c) && !chalDone(c) && !chalPending(c)
   && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].email === email)) || [null])[0];
 const BUSY_MSG = 'You’re already in a challenge — file its result or leave your seat first.';
+/* One lobby open at a time, too. Opening one sits you in it, so the rule above
+   covers most of it — but a creator can leave their own seat and the lobby stays
+   up under their name. Until it is played, filed or cancelled, no second one. */
+var chalOwn = null;
+const ownIn = email => !email ? null : (Object.entries(allChal || {}).find(([, c]) =>
+  c && c.at && c.by === email && chalLive(c) && !chalDone(c) && !chalPending(c)) || [null])[0];
+const OWN_MSG = 'You already have a challenge open — play it or cancel it first.';
 
 /* The bounties still open, worked out once a render. A seat facing a target is
    a shot at the bounty, and a shot costs a coin if it misses — so it needs one
@@ -3215,6 +3239,12 @@ function paintSpend() {
   sel.hidden = !opts.length;
   $('spAmt').hidden = kind !== 'gift' && kind !== 'bounty';
   $('spAmt').step = kind === 'bounty' ? 2 : 1;
+  // try it on before paying: the pick over whatever else you already wear
+  const prev = $('spPrev'), look = kind === 'flair' || kind === 'icon';
+  prev.hidden = !look;
+  prev.textContent = '';
+  if (look) prev.append(flairName(me, kind === 'flair' ? { ...mine, color: FLAIR[sel.value] } : { ...mine, icon: sel.value }),
+    part('', 'Preview', 'small'));
   const { cost, why } = spendCheck();
   $('spNote').className = 'ch-betnote' + (why ? ' no' : ' bet');
   $('spNote').textContent = why || (kind === 'bounty'
@@ -3520,6 +3550,7 @@ function renderChal() {
   chalUsed = name ? chalToday(allChal, acctEmail) : 0;
   chalMax = dayCap(acctEmail);
   chalBusy = name ? busyIn(acctEmail) : null;
+  chalOwn = name ? ownIn(acctEmail) : null;
   // the day's cap, where they'll see it before a seat refuses them
   if (name) who.append('Playing as ', part('', name, 'b'), ` · ${chalUsed} of ${chalMax} today`); // textContent: names are user input
   /* Signed out there is nothing to say: the seats and the button below are
@@ -3666,13 +3697,14 @@ function paintBet() {
   /* Opening a lobby is taking a seat in it, so the gate that stops somebody
      sitting at a table they cannot cover has to stop them building one too. */
   const free = chalFree === null ? 0 : chalFree;
-  const over = newBet > free, capped = chalUsed >= chalMax || !!chalBusy;
+  const over = newBet > free, capped = chalUsed >= chalMax || !!chalBusy || !!chalOwn;
   const note = $('chalBetNote');
   note.className = 'ch-betnote' + (capped || over || betWarn ? ' no' : newBet ? ' bet' : '');
   note.textContent = '';
   // opening a lobby is taking a seat in it, so the day's cap stops this too
   if (chalUsed >= chalMax) note.textContent = capMsg();
   else if (chalBusy) note.textContent = BUSY_MSG;
+  else if (chalOwn) note.textContent = OWN_MSG;
   else if (betWarn) note.textContent = betWarn;
   else if (over) note.textContent =
     `You have ${free} to bet — ${chalHeld(myName()) ? 'the rest is on other tables.' : 'win a few more first.'}`;
@@ -3698,7 +3730,7 @@ $('chalNew').onclick = openChalForm;
 $('chalDrop').onclick = closeChalForm;
 $('chalPost').onclick = () => {
   const name = myName();
-  if (!name || chalUsed >= chalMax || chalBusy || newBet > (chalFree || 0)) return;
+  if (!name || chalUsed >= chalMax || chalBusy || chalOwn || newBet > (chalFree || 0)) return;
   const id = String(Date.now());
   // absent is nought: a game played for nothing carries no field at all
   const row = { by: acctEmail, at: Date.now(), slots: { [newSeat]: { name, email: acctEmail } } };
@@ -3787,6 +3819,13 @@ $('coins').onkeydown = e => {
 };
 $('coinInfo').onclick = e => { if (e.target === $('coinInfo')) $('coinInfo').classList.remove('open'); };
 // the conversion: reading about coins, one tap from the board that pays them
+document.querySelectorAll('.coin-tabs .leg-tab').forEach(b => b.onclick = () =>
+  document.querySelectorAll('.coin-tabs .leg-tab').forEach(t => {
+    const on = t === b;
+    t.classList.toggle('on', on);
+    t.setAttribute('aria-pressed', on);
+    $(t.dataset.pane).hidden = !on;
+  }));
 $('coinGo').onclick = () => { $('coinInfo').classList.remove('open'); $('chal').classList.add('open'); };
 
 // the profile has no toolbar button of its own — a row of the board opens it

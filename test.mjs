@@ -2175,6 +2175,21 @@ assert.equal(await page.evaluate(f => {
   return [...document.querySelectorAll('#ch-open1 .ch-seat')].filter(e => e.tagName === 'BUTTON').length;
 }, CH.fixture), 2, 'filing a result did not free the player for another game');
 
+/* One lobby open at a time. Sajeeb opened one and left his own seat: he sits in
+   nothing, but the lobby is still up under his name, so there is no second. */
+const own = await page.evaluate(f => {
+  const g = structuredClone(f);
+  g.mine = { by: 'sajeeb@x.com', at: Date.now(), slots: { bf: { name: 'Nur', email: 'nur@x.com' } } };
+  window.setAccount('sajeeb@x.com'); window.renderChallenges(g); openChalForm();
+  const out = [$('chalPost').disabled, $('chalBetNote').textContent];
+  delete g.mine; window.renderChallenges(g); openChalForm();
+  out.push($('chalPost').disabled);
+  closeChalForm();
+  return out;
+}, CH.fixture);
+assert.deepEqual(own, [true, 'You already have a challenge open — play it or cancel it first.', false],
+  'a player with a lobby up could open a second, or one without could not open any');
+
 // ---- and by an account nobody has added to the map ----
 await page.evaluate(f => { window.setAccount('stranger@x.com'); window.renderChallenges(f); }, CH.fixture);
 seen = await board();
@@ -2717,6 +2732,16 @@ const icons = await page.evaluate(() => {
   const out = { bal: w.bal.Sifat, ok: w.ok.length, flair: flairMap(w.ok).Sifat,
     first: seat.firstElementChild.firstElementChild && seat.firstElementChild.firstElementChild.tagName,
     colour: seat.querySelector('.nm').style.color, text: seat.textContent };
+  // the sheet tries a pick on before it is paid for, over what is already worn
+  window.setAccount(em('Sifat'));
+  $('spKind').value = 'icon'; paintSpend(); $('spItem').value = 'bolt'; paintSpend();
+  const pv = () => $('spPrev').querySelector('.nm');
+  out.prevIcon = [pv().querySelector('path').getAttribute('d') === ICONS.bolt, pv().style.color];
+  $('spKind').value = 'flair'; paintSpend(); $('spItem').value = 'teal'; paintSpend();
+  out.prevColour = [!!pv().querySelector('svg'), pv().style.color];
+  $('spKind').value = 'slot'; paintSpend();
+  out.prevSlot = $('spPrev').hidden;
+  $('spKind').value = 'flair';
   window.allChal = {}; window.allSpends = {}; window.setAccount(null);
   return out;
 });
@@ -2725,6 +2750,9 @@ assert.deepEqual(icons.flair, { color: '#db2777', icon: 'crown' }, 'the latest i
 assert.equal(icons.first, 'svg', 'the icon is not in front of the name on the seat');
 assert.equal(icons.colour, 'rgb(219, 39, 119)', 'the name on the seat lost its colour');
 assert.equal(icons.text, 'Sifat', 'the icon added text to the seat');
+assert.deepEqual(icons.prevIcon, [true, 'rgb(219, 39, 119)'], 'the icon preview did not show the pick in the colour already worn');
+assert.deepEqual(icons.prevColour, [true, 'rgb(14, 116, 144)'], 'the colour preview did not show the pick with the icon already worn');
+assert.equal(icons.prevSlot, true, 'an extra game showed a name preview');
 assert.equal(spendCheck.flairBroke.ok.length, 0, 'a player with nothing bought a colour');
 assert.equal(spendCheck.early.bal.Nur, 0, 'a gift dated before its coins were earned went through');
 assert.deepEqual([spendCheck.gift.bal.Sifat, spendCheck.gift.bal.Nur], [6, 4], 'a gift did not move four coins');
