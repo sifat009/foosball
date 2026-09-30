@@ -22,13 +22,13 @@
         ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (auth.token.email === 'bhacker150@gmail.com' || (data.child('by').val() === auth.token.email && !data.child('slots').hasChildren(['bf', 'bd', 'rf', 'rd'])))))",
         ".validate": "newData.hasChildren(['by', 'at']) && (data.exists() || (!newData.child('score').exists() && !newData.child('pending').exists()))",
         "by": { ".validate": "newData.val() === auth.token.email || data.val() === newData.val()" },
-        "at": { ".validate": "newData.isNumber()" },
+        "at": { ".validate": "newData.val() === now || newData.val() === data.val()" },
         "stake": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 50 && (!data.exists() || data.val() === newData.val())" },
         "playAt": { ".validate": "newData.isNumber()" },
         "slots": {
           "$seat": {
             ".write": "auth != null && auth.token.email_verified === true && !root.child('challenges').child($id).child('score').exists() && !root.child('challenges').child($id).child('pending').exists() && (!data.exists() || data.child('email').val() === auth.token.email || auth.token.email === 'bhacker150@gmail.com') && (newData.exists() || auth.token.email === 'bhacker150@gmail.com' || !root.child('challenges').child($id).child('slots').hasChildren(['bf', 'bd', 'rf', 'rd']))",
-            ".validate": "!newData.exists() || (newData.hasChildren(['name', 'email']) && newData.child('email').val() === auth.token.email)",
+            ".validate": "!newData.exists() || (newData.hasChildren(['name', 'email']) && newData.child('email').val() === auth.token.email && ($seat === 'bf' || newData.parent().child('bf/email').val() !== auth.token.email) && ($seat === 'bd' || newData.parent().child('bd/email').val() !== auth.token.email) && ($seat === 'rf' || newData.parent().child('rf/email').val() !== auth.token.email) && ($seat === 'rd' || newData.parent().child('rd/email').val() !== auth.token.email))",
             "name": { ".validate": "newData.isString() && newData.val().length > 0" },
             "email": { ".validate": "newData.isString()" },
             "$other": { ".validate": false }
@@ -48,7 +48,7 @@
         "score": {
           ".write": "auth != null && auth.token.email_verified === true && data.parent().child('pending').exists() && data.parent().child('pending/by').val() !== auth.token.email && (auth.token.email === 'bhacker150@gmail.com' || (data.parent().child('pending/side').val() === 'b' ? (data.parent().child('slots/rf/email').val() === auth.token.email || data.parent().child('slots/rd/email').val() === auth.token.email) : (data.parent().child('slots/bf/email').val() === auth.token.email || data.parent().child('slots/bd/email').val() === auth.token.email)))",
           ".validate": "newData.hasChildren(['b', 'r', 'at']) && newData.child('b').val() === data.parent().child('pending/b').val() && newData.child('r').val() === data.parent().child('pending/r').val() && (newData.child('nil').val() === true) === (data.parent().child('pending/nil').val() === true)",
-          "at": { ".validate": "newData.isNumber()" },
+          "at": { ".validate": "newData.val() === now" },
           "nil": { ".validate": "newData.val() === true" },
           "$side": { ".validate": "newData.isNumber() && newData.val() >= 0" }
         },

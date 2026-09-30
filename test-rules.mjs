@@ -60,7 +60,9 @@ const lobby = async extra => {
 const claim = (by, side, b, r) => ({ b, r, by, side, at: 3 });
 /* The score carries when the two sides agreed it, because that is when a bet
    moves and the walk has to order on it. */
-const confirm = (id, who, b, r, at = 7) =>
+// the server's clock: a time the client picks is refused, see below
+const NOW = { '.sv': 'timestamp' };
+const confirm = (id, who, b, r, at = NOW) =>
   patch('challenges/' + id, who, { score: { b, r, at }, pending: null });
 
 // ---- filing a claim ----
@@ -102,7 +104,8 @@ const confirm = (id, who, b, r, at = 7) =>
   assert.ok(!await put(`challenges/${id}/score`, R1, { b: 5, r: 3 }), 'a result with no time stood');
   // and this is the one that works
   assert.ok(await confirm(id, R1, 5, 3), 'the opponent could not confirm');
-  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 3, at: 7 });
+  const got = await read(`challenges/${id}/score`);
+  assert.ok(got.b === 5 && got.r === 3 && Math.abs(got.at - Date.now()) < 60e3, 'the score was not stamped by the server');
   assert.equal(await read(`challenges/${id}/pending`), null, 'the claim outlived its confirmation');
 }
 
@@ -115,11 +118,11 @@ const confirm = (id, who, b, r, at = 7) =>
     'a claim to nil could not be filed');
   // the confirm can neither drop it nor, on a plain claim, add one
   assert.ok(!await confirm(id, R1, 1, 0), 'a confirm dropped the nil');
-  assert.ok(await patch('challenges/' + id, R1, { score: { b: 1, r: 0, nil: true, at: 7 }, pending: null }),
+  assert.ok(await patch('challenges/' + id, R1, { score: { b: 1, r: 0, nil: true, at: NOW }, pending: null }),
     'a nil claim could not be confirmed as one');
   const plain = await lobby();
   await put(`challenges/${plain}/pending`, B1, claim(B1, 'b', 1, 0));
-  assert.ok(!await patch('challenges/' + plain, R1, { score: { b: 1, r: 0, nil: true, at: 7 }, pending: null }),
+  assert.ok(!await patch('challenges/' + plain, R1, { score: { b: 1, r: 0, nil: true, at: NOW }, pending: null }),
     'a confirm turned a plain win into a nil');
 }
 
@@ -130,7 +133,7 @@ const confirm = (id, who, b, r, at = 7) =>
    take a seat on the strength of it, so it may not move afterwards. */
 {
   const id = 'bet1';
-  const base = { by: B1, at: 1, slots: { bf: { name: 'Rifat', email: B1 } } };
+  const base = { by: B1, at: NOW, slots: { bf: { name: 'Rifat', email: B1 } } };
   assert.ok(!await put('challenges/' + id, B1, { ...base, stake: -1 }), 'a negative bet stood');
   assert.ok(!await put('challenges/' + id, B1, { ...base, stake: 2.5 }), 'half a coin stood');
   assert.ok(!await put('challenges/' + id, B1, { ...base, stake: 51 }), 'a bet past the ceiling stood');
@@ -202,13 +205,14 @@ const confirm = (id, who, b, r, at = 7) =>
   await confirm(id, R1, 5, 3);
   // the same path a first score takes, and the old figure stands until it lands
   assert.ok(await put(`challenges/${id}/pending`, R2, claim(R2, 'r', 5, 4)), 'a correction could not be filed');
-  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 3, at: 7 },
-    'a claim moved the record on its own');
+  const first = await read(`challenges/${id}/score`);
+  assert.deepEqual([first.b, first.r], [5, 3], 'a claim moved the record on its own');
   assert.ok(!await confirm(id, R1, 5, 4), 'a teammate confirmed the correction');
-  assert.ok(await confirm(id, B1, 5, 4, 9), 'the other side could not confirm the correction');
+  assert.ok(await confirm(id, B1, 5, 4), 'the other side could not confirm the correction');
   /* The correction carries its own time: a put-right result moves the coins when
      the two sides agreed the new one, not when they agreed the wrong one. */
-  assert.deepEqual(await read(`challenges/${id}/score`), { b: 5, r: 4, at: 9 });
+  const fixed = await read(`challenges/${id}/score`);
+  assert.ok(fixed.r === 4 && fixed.at >= first.at, 'the correction did not carry its own time');
 }
 
 // ---- a lobby is never born with a result ----
@@ -216,7 +220,7 @@ const confirm = (id, who, b, r, at = 7) =>
   // the create write grants everything under it, so without this one clause an
   // account could open a lobby holding four names it typed and a score to match
   assert.ok(!await put('challenges/forged', OUT, {
-    by: OUT, at: 1, score: { b: 10, r: 0 },
+    by: OUT, at: NOW, score: { b: 10, r: 0 },
     slots: { bf: { name: 'Rifat', email: OUT }, bd: { name: 'Rashed', email: OUT },
              rf: { name: 'Siddiq', email: OUT }, rd: { name: 'Shewa', email: OUT } },
   }), 'a lobby was created with a score on it');
@@ -226,7 +230,7 @@ const confirm = (id, who, b, r, at = 7) =>
   }), 'a lobby was created with a claim on it');
   // opening one the ordinary way still works
   assert.ok(await put('challenges/plain', OUT,
-    { by: OUT, at: 1, slots: { bf: { name: 'Stranger', email: OUT } } }),
+    { by: OUT, at: NOW, slots: { bf: { name: 'Stranger', email: OUT } } }),
     'an ordinary lobby could not be opened');
 }
 
@@ -253,5 +257,24 @@ const confirm = (id, who, b, r, at = 7) =>
   assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
   assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
   assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+}
+// ---- one seat each, on the server's clock ----
+/* The walk only pays four different players, but the rules turn the obvious way
+   of faking one away first: a second seat for the same account, in the opening
+   write or taken later, and a lobby or a result dated by whoever wrote it. */
+{
+  const two = { by: B1, at: NOW, slots: { bf: { name: 'Rifat', email: B1 }, bd: { name: 'Rifat', email: B1 } } };
+  assert.ok(!await put('challenges/dbl1', B1, two), 'a lobby opened holding one player in two seats');
+  assert.ok(await put('challenges/dbl2', B1, { by: B1, at: NOW, slots: { bf: { name: 'Rifat', email: B1 } } }),
+    'a lobby could not be opened');
+  assert.ok(!await put('challenges/dbl2/slots/bd', B1, { name: 'Rifat', email: B1 }), 'a player took a second seat');
+  assert.ok(!await put('challenges/dbl2/slots/rf', B1, { name: 'Rifat', email: B1 }), 'a player took a seat on both sides');
+  assert.ok(await put('challenges/dbl2/slots/rf', R1, { name: 'Siddiq', email: R1 }), 'a second player could not sit');
+  assert.ok(!await put('challenges/old1', B1, { by: B1, at: 1, slots: { bf: { name: 'Rifat', email: B1 } } }),
+    'a lobby was backdated');
+  const id = await lobby();
+  await put(`challenges/${id}/pending`, B1, claim(B1, 'b', 5, 3));
+  assert.ok(!await confirm(id, R1, 5, 3, 1), 'a result was backdated');
+  assert.ok(!await confirm(id, R1, 5, 3, Date.now() + 864e5), 'a result was dated tomorrow');
 }
 console.log('ok');

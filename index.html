@@ -3002,6 +3002,7 @@ const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_
    day's cap read: a spend nobody could pay for buys nothing. */
 function coinWalk(rows, cups, spends, now = Date.now()) {
   const bal = {}, ok = [], tags = {}; // tags: game id -> what a bounty did in it
+  const played = {}, bought = {}; // player + day -> games paid, extra games bought
   let bounties = [];
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
@@ -3013,12 +3014,18 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
     if (b === r) return; // a draw pays nothing — turning up is not an achievement
+    /* Four different players off the list, or the game pays nothing. The rules
+       bind each seat to whoever signed in, but not to a player or to one seat
+       each, so a second Gmail sitting across from you would otherwise be a loser
+       who never pays and a win that always does. */
+    const emails = SEATS.map(([s]) => c.slots[s].email);
+    if (new Set(emails).size !== 4 || emails.some(e => EMAIL_NAMES[e] === undefined)) return;
     const up = b > r ? ['bf', 'bd'] : ['rf', 'rd'];
     const down = b > r ? ['rf', 'rd'] : ['bf', 'bd'];
     const bet = chalBet(c), t = chalAt(c);
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, id: c.id, nil: c.score.nil === true,
+    ev.push({ t, bet, id: c.id, nil: c.score.nil === true, day: new Date(c.at || 0).toDateString(),
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
   (cups || []).filter(e => e && e.runnerUp).forEach(e => {
@@ -3043,6 +3050,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       bal[who] -= cost;
       if (s.kind === 'gift') bal[to] += cost;
       if (s.kind === 'bounty') bounties.push({ s, by: who, on: to, amt: cost, until: +s.at + BOUNTY_MS, got: 0 });
+      if (s.kind === 'slot') { const k = who + new Date(+s.at).toDateString(); bought[k] = (bought[k] || 0) + 1; }
       ok.push(s);
       return;
     }
@@ -3052,6 +3060,13 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       return;
     }
     if (e.cup) return e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += e.cup; });
+    /* The day's five, plus what was bought, are the page's rule — and the page
+       is the only thing that asks. A game written round it lands here, so this
+       is where it is held to it: past anybody's allowance for the day the lobby
+       opened, it pays nothing and takes nothing, and doesn't use up anyone's. */
+    const all = e.up.concat(e.down);
+    if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0))) return;
+    all.forEach(n => { played[n + e.day] = (played[n + e.day] || 0) + 1; });
     /* Which bounties this game touches, decided on what the hunters held going
        in: a bet lost in this same game can't be what shuts them out of it. */
     const hunts = bounties.map(h => {
@@ -3066,14 +3081,12 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
        went round the page; either way the bet is not honoured and the game
        falls back to paying as one played for nothing. Nobody is charged for a
        bet that did not move. */
-    const on = e.up.concat(e.down).every(n => bal[n] !== undefined);
-    const paid = e.bet && on && e.down.every(n => bal[n] >= e.bet);
+    const paid = e.bet && e.down.every(n => bal[n] >= e.bet);
     const x = e.nil ? 2 : 1;
-    // a name missing from bal is not on the player list any more
-    e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += (paid ? e.bet : COIN_WIN) * x; });
+    e.up.forEach(n => { bal[n] += (paid ? e.bet : COIN_WIN) * x; });
     // a free loss costs nothing, unless it was to nil — then the two a win pays
     const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
-    e.down.forEach(n => { if (bal[n] !== undefined) bal[n] = Math.max(0, bal[n] - cost); });
+    e.down.forEach(n => { bal[n] = Math.max(0, bal[n] - cost); });
     hunts.forEach(({ h, won }) => {
       let paid = 0;
       if (won) { // the target held: each loser pays the creator, what they can
@@ -6158,7 +6171,8 @@ onValue(historyRef, snap => {
    `cup` and `history` still take writes from the admin alone, so a pickup game
    can never touch a title. Ownership is enforced by the rules on the email
    each seat carries, not by this page: see database.rules.json. */
-window.chalCreate = (id, row) => set(ref(db, 'challenges/' + id), row)
+// the server's clock, not the opener's: the walk counts a player's day by it
+window.chalCreate = (id, row) => set(ref(db, 'challenges/' + id), { ...row, at: serverTimestamp() })
   .catch(err => {
     console.error('[chal] create rejected:', err);
     alert('Could not open the challenge: ' + err.message);
@@ -6199,7 +6213,7 @@ window.chalFile = (id, claim) => set(ref(db, `challenges/${id}/pending`), claim)
 
 window.chalConfirm = (id, pend) =>
   update(ref(db, 'challenges/' + id),
-    { score: { b: +pend.b, r: +pend.r, ...(pend.nil ? { nil: true } : {}), at: Date.now() }, pending: null })
+    { score: { b: +pend.b, r: +pend.r, ...(pend.nil ? { nil: true } : {}), at: serverTimestamp() }, pending: null })
     .catch(err => {
       console.error('[chal] confirm rejected:', err);
       alert('Could not confirm that score: ' + err.message);

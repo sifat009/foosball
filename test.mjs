@@ -2627,9 +2627,46 @@ assert.equal(coinCheck.twoWins.Sifat, 4, 'two challenge wins should pay four coi
 assert.equal(coinCheck.twoWins.Ofi, 4, 'the winning defender earns the same as the forward');
 assert.equal(coinCheck.twoWins.Nur, 0, 'a loss paid out');
 assert.equal(coinCheck.forged.Ofi, 0, 'a seat was paid by the name typed into it rather than its email');
-assert.equal(coinCheck.forged.Sifat, 2, 'the real player beside a forged seat lost their win');
+assert.equal(coinCheck.forged.Sifat, 0, 'a game with a seat off the player list still paid');
 assert.equal(coinCheck.draw.Sifat, 0, 'a draw paid coins — turning up is not an achievement');
 assert.equal(coinCheck.pendingOnly.Sifat, 0, 'an unconfirmed claim paid coins');
+
+/* Minting, the way it was found: written straight to the database round the
+   page. Only a game between four different players off the list pays, and only
+   within each one's allowance for the day the lobby opened. */
+const mint = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const alt = { name: 'x', email: 'my-second-gmail@gmail.com' };
+  const win = (at, slots, nil = true) => ({ at, slots, score: { b: 1, r: 0, at, ...(nil ? { nil } : {}) } });
+  const four = S('Sifat', 'Ofi', 'Nur', 'Rashed');
+  const slot = (by, at) => ({ at, by: em(by), kind: 'slot' });
+  // plain wins from 10 on, so the losers keep what a cup gave them to buy with
+  const day = n => Array.from({ length: n }, (_, i) => win(10 + i, four, false));
+  const cup = [{ champion: 'Nur + Rashed', runnerUp: 'Sifat + Ofi', date: 1 }];
+  return {
+    // one account in both Blue seats, a second Gmail in both Red: twenty of them
+    alt: window.coins(Array.from({ length: 20 }, (_, i) =>
+      win(i * 864e5, { bf: four.bf, bd: four.bf, rf: alt, rd: alt }))),
+    // one player in two seats against two real ones
+    double: window.coins([win(1, { ...four, bd: four.bf })]),
+    // seven in a day: the first five pay
+    seven: window.coins(day(7)),
+    // an extra game bought by all four makes it six
+    bought: window.coins(day(7), cup, ['Sifat', 'Ofi', 'Nur', 'Rashed'].map(n => slot(n, 14.5))),
+    // bought by one of them only: the other three were already on their five
+    boughtOne: window.coins(day(6), cup, [slot('Sifat', 14.5)]),
+    // the allowance goes by the day the lobby opened, and the next day is new
+    nextDay: window.coins([...day(5), win(864e5 + 10, four, false)]),
+  };
+}, String(seat4));
+assert.equal(mint.alt.Sifat, 0, 'a second Gmail across the table minted coins');
+assert.deepEqual([mint.double.Sifat, mint.double.Nur], [0, 0], 'one player in two seats was paid');
+assert.equal(mint.seven.Sifat, 10, 'games past the five a day paid');
+// 5 runner-up + 10 for five wins - 5 for the extra game + 2 for the sixth
+assert.deepEqual([mint.bought.Sifat, mint.bought.Nur], [12, 5], 'an extra game bought by all four did not pay');
+assert.equal(mint.boughtOne.Sifat, 10, 'an extra game bought by one player paid a game the others had no room for');
+assert.equal(mint.nextDay.Sifat, 12, 'the allowance did not reset the next day');
 
 // a cup pays its finalists: ten to each champion, five to each runner-up — but
 // only a cup saved with its runner-up, so the cups before this pay nothing
@@ -2652,7 +2689,8 @@ assert.equal(cupCoins.old.Sifat, 0, 'a cup saved before runners-up were recorded
    alone must never make one. */
 const nilCheck = await page.evaluate(s4 => {
   const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
-  const g = (at, b, r, stake, nil) => ({ at, stake, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'),
+  // a day per game, so the seed stays inside the five a day; the score orders them
+  const g = (at, b, r, stake, nil) => ({ at: at * 864e5, stake, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'),
     score: { b, r, at, ...(nil ? { nil: true } : {}) } });
   // Nur and Rashed earn 12 on free wins first, so they have something to lose
   const seed = [1, 2, 3, 4, 5, 6].map(i => g(i, 0, 1));
@@ -2685,6 +2723,7 @@ const spendCheck = await page.evaluate(s4 => {
   // Sifat & Ofi beat Nur & Rashed five times: ten each
   const seed = [1, 2, 3, 4, 5].map(i => ({ at: i, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: i } }));
   const sp = (at, by, extra) => ({ at, by: em(by), ...extra });
+  // the sixth game of the day, played on the next one
   const w = (...spends) => window.coinWalk(seed, [], spends);
   return {
     flair: w(sp(9, 'Sifat', { kind: 'flair', item: 'gold' })),
@@ -2697,7 +2736,7 @@ const spendCheck = await page.evaluate(s4 => {
     selfGift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Sifat'), amt: 4 })),
     slot: w(sp(9, 'Ofi', { kind: 'slot' })),
     // Sifat puts 6 on Nur, then Ofi & Sifat beat Nur & Rashed again
-    bounty: window.coinWalk([...seed, { at: 12, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 12 } }], [],
+    bounty: window.coinWalk([...seed, { at: 864e5, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 12 } }], [],
       [sp(9, 'Sifat', { kind: 'bounty', to: em('Nur'), amt: 6 })]),
     unclaimed: w(sp(9, 'Sifat', { kind: 'bounty', to: em('Nur'), amt: 6 })),
     capSlots: (() => {
@@ -2721,7 +2760,7 @@ assert.equal(await page.evaluate(ok => flairMap(ok).Sifat.color, spendCheck.flai
    icons leave ten, and an icon that isn't on the list buys nothing. */
 const icons = await page.evaluate(() => {
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), S = n => ({ name: n, email: em(n) });
-  const g = at => ({ at, slots: { bf: S('Sifat'), bd: S('Ofi'), rf: S('Nur'), rd: S('Rashed') }, score: { b: 1, r: 0, at } });
+  const g = at => ({ at: at * 864e5, slots: { bf: S('Sifat'), bd: S('Ofi'), rf: S('Nur'), rd: S('Rashed') }, score: { b: 1, r: 0, at } });
   const rows = Array.from({ length: 30 }, (_, i) => g(i + 1)); // 60 each
   const sp = (at, item) => ({ at: at + 20, by: em('Sifat'), kind: 'flair', item });
   const w = window.coinWalk(rows, [], [sp(20, 'pink'), sp(21, 'icon:star'), sp(22, 'icon:crown'), sp(23, 'icon:nope')]);
@@ -2775,7 +2814,8 @@ assert.deepEqual([spendCheck.unclaimed.bal.Sifat, spendCheck.unclaimed.bounties.
 const hunt = await page.evaluate(() => {
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
   const S = n => ({ name: n, email: em(n) });
-  const g = (at, b1, b2, r1, r2, blue) => ({ id: 'g' + at, at, slots: { bf: S(b1), bd: S(b2), rf: S(r1), rd: S(r2) },
+  // each lobby on its own day, inside the five a day; the score's time orders them
+  const g = (at, b1, b2, r1, r2, blue) => ({ id: 'g' + at, at: at * 864e5, slots: { bf: S(b1), bd: S(b2), rf: S(r1), rd: S(r2) },
     score: { b: blue ? 1 : 0, r: blue ? 0 : 1, at } });
   const seed = [g(1, 'Nur', 'Rashed', 'Sajeeb', 'Siddiq', true), g(2, 'Nur', 'Rashed', 'Sajeeb', 'Siddiq', true),
     ...[3, 4, 5, 6, 7].map(t => g(t, 'Sifat', 'Ofi', 'Sajeeb', 'Siddiq', true))];
