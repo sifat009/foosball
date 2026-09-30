@@ -2923,6 +2923,9 @@ const chalAt = c => (c && c.score && c.score.at != null ? +c.score.at : (c && c.
    seat gives the slot back. The page's rule, not the database's: the rules see
    one row and cannot count across them. */
 const CH_DAILY = 5;
+/* When the five arrived (2026-09-24 14:34, Dhaka). The walk holds a game to it
+   only from then: a day played before there was a limit was played fairly. */
+const CH_DAILY_FROM = 1790238881000;
 const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
 const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(rows || {})
   .filter(c => c && c.at && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].email === email)
@@ -3025,7 +3028,8 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
     const bet = chalBet(c), t = chalAt(c);
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, id: c.id, nil: c.score.nil === true, day: new Date(c.at || 0).toDateString(),
+    ev.push({ t, bet, id: c.id, nil: c.score.nil === true,
+      day: (c.at || 0) >= CH_DAILY_FROM ? new Date(c.at).toDateString() : null,
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
   (cups || []).filter(e => e && e.runnerUp).forEach(e => {
@@ -3065,8 +3069,10 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
        is where it is held to it: past anybody's allowance for the day the lobby
        opened, it pays nothing and takes nothing, and doesn't use up anyone's. */
     const all = e.up.concat(e.down);
-    if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0))) return;
-    all.forEach(n => { played[n + e.day] = (played[n + e.day] || 0) + 1; });
+    if (e.day) {
+      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0))) return;
+      all.forEach(n => { played[n + e.day] = (played[n + e.day] || 0) + 1; });
+    }
     /* Which bounties this game touches, decided on what the hunters held going
        in: a bet lost in this same game can't be what shuts them out of it. */
     const hunts = bounties.map(h => {

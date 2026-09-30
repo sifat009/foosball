@@ -2641,8 +2641,9 @@ const mint = await page.evaluate(s4 => {
   const win = (at, slots, nil = true) => ({ at, slots, score: { b: 1, r: 0, at, ...(nil ? { nil } : {}) } });
   const four = S('Sifat', 'Ofi', 'Nur', 'Rashed');
   const slot = (by, at) => ({ at, by: em(by), kind: 'slot' });
-  // plain wins from 10 on, so the losers keep what a cup gave them to buy with
-  const day = n => Array.from({ length: n }, (_, i) => win(10 + i, four, false));
+  // plain wins a day after the five arrived, so the losers keep what a cup gave them to buy with
+  const T = CH_DAILY_FROM + 864e5;
+  const day = (n, from = T) => Array.from({ length: n }, (_, i) => win(from + i, four, false));
   const cup = [{ champion: 'Nur + Rashed', runnerUp: 'Sifat + Ofi', date: 1 }];
   return {
     // one account in both Blue seats, a second Gmail in both Red: twenty of them
@@ -2653,11 +2654,13 @@ const mint = await page.evaluate(s4 => {
     // seven in a day: the first five pay
     seven: window.coins(day(7)),
     // an extra game bought by all four makes it six
-    bought: window.coins(day(7), cup, ['Sifat', 'Ofi', 'Nur', 'Rashed'].map(n => slot(n, 14.5))),
+    bought: window.coins(day(7), cup, ['Sifat', 'Ofi', 'Nur', 'Rashed'].map(n => slot(n, T + 4.5))),
     // bought by one of them only: the other three were already on their five
-    boughtOne: window.coins(day(6), cup, [slot('Sifat', 14.5)]),
+    boughtOne: window.coins(day(6), cup, [slot('Sifat', T + 4.5)]),
     // the allowance goes by the day the lobby opened, and the next day is new
-    nextDay: window.coins([...day(5), win(864e5 + 10, four, false)]),
+    nextDay: window.coins([...day(5), win(T + 864e5, four, false)]),
+    // a day played before there was a five keeps every game it had
+    before: window.coins(day(7, CH_DAILY_FROM - 7200e3)),
   };
 }, String(seat4));
 assert.equal(mint.alt.Sifat, 0, 'a second Gmail across the table minted coins');
@@ -2667,6 +2670,7 @@ assert.equal(mint.seven.Sifat, 10, 'games past the five a day paid');
 assert.deepEqual([mint.bought.Sifat, mint.bought.Nur], [12, 5], 'an extra game bought by all four did not pay');
 assert.equal(mint.boughtOne.Sifat, 10, 'an extra game bought by one player paid a game the others had no room for');
 assert.equal(mint.nextDay.Sifat, 12, 'the allowance did not reset the next day');
+assert.equal(mint.before.Sifat, 14, 'a day from before the five a day lost games to it');
 
 // a cup pays its finalists: ten to each champion, five to each runner-up — but
 // only a cup saved with its runner-up, so the cups before this pay nothing
