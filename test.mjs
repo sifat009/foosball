@@ -2718,7 +2718,7 @@ assert.deepEqual([spendCheck.unclaimed.bal.Sifat, spendCheck.unclaimed.bounties.
 const hunt = await page.evaluate(() => {
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
   const S = n => ({ name: n, email: em(n) });
-  const g = (at, b1, b2, r1, r2, blue) => ({ at, slots: { bf: S(b1), bd: S(b2), rf: S(r1), rd: S(r2) },
+  const g = (at, b1, b2, r1, r2, blue) => ({ id: 'g' + at, at, slots: { bf: S(b1), bd: S(b2), rf: S(r1), rd: S(r2) },
     score: { b: blue ? 1 : 0, r: blue ? 0 : 1, at } });
   const seed = [g(1, 'Nur', 'Rashed', 'Sajeeb', 'Siddiq', true), g(2, 'Nur', 'Rashed', 'Sajeeb', 'Siddiq', true),
     ...[3, 4, 5, 6, 7].map(t => g(t, 'Sifat', 'Ofi', 'Sajeeb', 'Siddiq', true))];
@@ -2727,7 +2727,15 @@ const hunt = await page.evaluate(() => {
   const beaten = g(12, 'Ofi', 'Toufiq', 'Nur', 'Rashed', false);
   const second = { at: 9.5, by: em('Nur'), kind: 'bounty', to: em('Ofi'), amt: 2 };
   const DAY = 864e5;
+  // the Recent list, drawn from the same games: tags on 10 and 12, none on 11
+  window.allChal = Object.fromEntries([...seed, ...held, beaten].map(({ id, ...c }) => [id, c]));
+  window.allSpends = { p: post };
+  window.renderChal();
+  const recent = Object.fromEntries([...document.querySelectorAll('#chalRecent .ch-rrow')]
+    .map(r => [r.textContent.slice(0, 40), [...r.querySelectorAll('.ch-rhunt')].map(t => t.textContent)]));
+  window.allChal = {}; window.allSpends = {}; window.renderChal();
   return {
+    recent: Object.values(recent).filter(t => t.length),
     open: window.coinWalk([...seed, ...held], [], [post], 100),
     expired: window.coinWalk([...seed, ...held], [], [post], 9 + 4 * DAY),
     beaten: window.coinWalk([...seed, ...held, beaten], [], [post], 9 + 4 * DAY),
@@ -2744,6 +2752,12 @@ assert.equal(hunt.beaten.bal.Sifat, 6, 'the creator lost what was collected when
 assert.deepEqual([hunt.beaten.bal.Nur, hunt.beaten.bal.Rashed], [8, 8], 'the pair who beat the target were not paid 2 + 3 each');
 assert.equal(hunt.beaten.bounties.length, 0, 'a claimed bounty stayed open');
 assert.deepEqual([hunt.twice.bal.Nur, hunt.twice.ok.length], [4, 1], 'a second bounty on the same player went through');
+// Recent says what the bounty did, and says nothing about the game it ignored
+assert.deepEqual(hunt.open.tags.g10, [{ on: 'Ofi', by: 'Sifat', won: true, paid: 2 }], 'the survived game was not tagged');
+assert.equal(hunt.open.tags.g11, undefined, 'a game the bounty ignored was tagged');
+assert.deepEqual(hunt.recent.flat().sort(),
+  ['Bounty on Ofi claimed \u00b7 +3 each', 'Ofi survived the bounty \u00b7 2 to Sifat'],
+  'the Recent list did not tag the two bounty games: ' + JSON.stringify(hunt.recent));
 
 /* At the table: a seat facing the target needs a free coin; the target's
    partner needs nothing. Rashed has none. */

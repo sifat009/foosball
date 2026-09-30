@@ -1367,8 +1367,10 @@
     font-size: 0.72rem; font-weight: 900; color: #96660a; white-space: nowrap;
   }
   .ch-rbet .coin-disc { width: 13px; height: 13px; }
-  .ch-rrow { display: flex; align-items: baseline; gap: 10px; padding: 9px 4px; border-bottom: 1px solid #eef1f6; }
+  .ch-rrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 9px 4px; border-bottom: 1px solid #eef1f6; }
   .ch-rrow:last-child { border-bottom: 0; }
+  .ch-rhunt { flex-basis: 100%; order: 9; font-size: 0.72rem; font-weight: 800; color: #96660a; }
+  .ch-rhunt.claimed { color: #17854a; }
   .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
   .ch-rt b { color: #172b4d; }
   .ch-rs { font-size: 0.86rem; font-weight: 900; color: #172b4d; white-space: nowrap; }
@@ -2933,7 +2935,7 @@ const spendCost = s => s.kind === 'flair' ? FLAIR_COST : s.kind === 'slot' ? SLO
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
 function coinWalk(rows, cups, spends, now = Date.now()) {
-  const bal = {}, ok = [];
+  const bal = {}, ok = [], tags = {}; // tags: game id -> what a bounty did in it
   let bounties = [];
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
@@ -2950,7 +2952,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
     const bet = chalBet(c), t = chalAt(c);
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, nil: c.score.nil === true,
+    ev.push({ t, bet, id: c.id, nil: c.score.nil === true,
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
   (cups || []).filter(e => e && e.runnerUp).forEach(e => {
@@ -3007,18 +3009,21 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
     const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
     e.down.forEach(n => { if (bal[n] !== undefined) bal[n] = Math.max(0, bal[n] - cost); });
     hunts.forEach(({ h, won }) => {
+      let paid = 0;
       if (won) { // the target held: each loser pays the creator, what they can
         e.down.forEach(n => {
           const p = Math.min(BOUNTY_FEE, bal[n]);
-          bal[n] -= p; bal[h.by] += p; h.got += p;
+          bal[n] -= p; bal[h.by] += p; h.got += p; paid += p;
         });
       } else { // beaten: the two who did it split what was posted
-        e.up.forEach(n => { bal[n] += Math.floor(h.amt / 2); });
+        paid = Math.floor(h.amt / 2);
+        e.up.forEach(n => { bal[n] += paid; });
         bounties = bounties.filter(x => x !== h);
       }
+      if (e.id) (tags[e.id] = tags[e.id] || []).push({ on: h.on, by: h.by, won, paid });
     });
   });
-  return { bal, ok, bounties };
+  return { bal, ok, bounties, tags };
 }
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
@@ -3030,7 +3035,8 @@ window.coinWalk = coinWalk;
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
 var allSpends = {};
-const walkNow = () => coinWalk(Object.values(allChal || {}).filter(c => c && c.at), hallEntries,
+const walkNow = () => coinWalk(Object.entries(allChal || {}).filter(([, c]) => c && c.at)
+  .map(([id, c]) => Object.assign({ id }, c)), hallEntries,
   Object.values(allSpends || {}));
 const coinBal = () => walkNow().bal;
 /* email -> the colour that player last paid for. Built once a render, like
@@ -3073,7 +3079,7 @@ const BUSY_MSG = 'You’re already in a challenge — file its result or leave y
 /* The bounties still open, worked out once a render. A seat facing a target is
    a shot at the bounty, and a shot costs a coin if it misses — so it needs one
    free. The target's partner risks nothing and needs nothing. */
-var chalHunts = [];
+var chalHunts = [], chalTags = {};
 const huntFacing = (c, seat) => {
   const o = seat[0] === 'b' ? 'r' : 'b';
   return chalHunts.find(h => [o + 'f', o + 'd'].some(x => c.slots && seatName(c.slots[x]) === h.on));
@@ -3492,6 +3498,7 @@ function renderChal() {
   const walk = walkNow();
   chalFlair = flairMap(walk.ok); // before the sheet, which says whose colour is whose
   chalHunts = walk.bounties;
+  chalTags = walk.tags;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
@@ -3541,6 +3548,10 @@ function renderChal() {
       row.append(tag);
     }
     if (chalSat(c)) row.append(flipBtn(c, w === 'b'));
+    // what a bounty did here, on a line of its own under the pairs
+    (chalTags[c.id] || []).forEach(g => row.append(part('ch-rhunt' + (g.won ? '' : ' claimed'),
+      g.won ? `${g.on} survived the bounty \u00b7 ${g.paid} to ${g.by}`
+        : `Bounty on ${g.on} claimed \u00b7 +${g.paid} each`)));
     const said = w ? (w === 'b' ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won' + (c.score.nil ? ' to nil' : '') : 'Drawn';
     row.title = b + r > 1 ? `${said} ${b}\u2013${r}` : said; // an old row still has its score
     rec.append(row);
