@@ -2785,6 +2785,12 @@ const icons = await page.evaluate(() => {
   out.prevIcon = [pv().querySelector('path').getAttribute('d') === ICONS.bolt, pv().style.color];
   tap('spKind', 'kind', 'flair'); tap('spPick', 'pick', 'teal');
   out.prevColour = [!!pv().querySelector('svg'), pv().style.color];
+  // any colour, from the browser's picker: tried on the same way, refused if too pale
+  const any = v => { const i = $('spAny'); i.value = v; i.dispatchEvent(new Event('change')); };
+  any('#2f855a');
+  out.anyDark = [pv().style.color, $('spGo').textContent, $('spNote').textContent.startsWith('Too light')];
+  any('#fff5b1');
+  out.anyLight = [$('spNote').textContent.startsWith('Too light'), $('spGo').disabled];
   tap('spKind', 'kind', 'slot');
   out.prevSlot = [$('spPrev').hidden, $('spPick').childElementCount];
   tap('spKind', 'kind', 'flair');
@@ -2799,6 +2805,23 @@ assert.equal(icons.text, 'Sifat', 'the icon added text to the seat');
 assert.deepEqual(icons.prevIcon, [true, 'rgb(219, 39, 119)'], 'the icon preview did not show the pick in the colour already worn');
 assert.deepEqual(icons.prevColour, [true, 'rgb(14, 116, 144)'], 'the colour preview did not show the pick with the icon already worn');
 assert.deepEqual(icons.prevSlot, [true, 0], 'an extra game showed a name preview or a picker');
+assert.deepEqual(icons.anyDark, ['rgb(47, 133, 90)', 'Spend 20 coins', false], 'a custom colour was not tried on at twenty');
+assert.deepEqual(icons.anyLight, [true, true], 'a colour too pale to read could be bought');
+
+/* Any colour is a flair row carrying `hex:#rrggbb`. The walk is what decides, so
+   a pale or malformed one written round the page buys nothing and costs nothing. */
+const anyColour = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const cups = [1, 2].map(date => ({ champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed', date }));
+  const buy = item => {
+    const w = coinWalk([], cups, [{ at: 5, by: em('Sifat'), kind: 'flair', item }]);
+    return [w.bal.Sifat, (flairMap(w.ok).Sifat || {}).color || null];
+  };
+  return { dark: buy('hex:#2f855a'), light: buy('hex:#fff5b1'), junk: buy('hex:red'), upper: buy('hex:#2F855A') };
+});
+assert.deepEqual(anyColour.dark, [0, '#2f855a'], 'a readable custom colour did not cost twenty and stick');
+assert.deepEqual(anyColour.light, [20, null], 'a colour too pale to read went through');
+assert.deepEqual([anyColour.junk, anyColour.upper], [[20, null], [20, null]], 'a malformed colour went through');
 assert.equal(icons.ownedOff, true, 'the icon already worn could be bought again');
 assert.equal(spendCheck.flairBroke.ok.length, 0, 'a player with nothing bought a colour');
 assert.equal(spendCheck.early.bal.Nur, 0, 'a gift dated before its coins were earned went through');

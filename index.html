@@ -461,15 +461,20 @@
   /* everything spans the drawer but the player and the amount, which share a row */
   .sp-drawer > :not(select, input) { grid-column: 1 / -1; }
   .sp-drawer select, .sp-drawer input { font: inherit; padding: 8px; border: 1px solid #d5dde8; border-radius: 10px; background: #fff; min-width: 0; }
-  .sp-pick { display: flex; flex-wrap: wrap; gap: 9px; }
+  .sp-pick { display: flex; flex-wrap: wrap; gap: 8px; }
   .sp-pick:has(.sp-ic) { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
   .sp-pick:empty { display: none; }
-  .sp-sw { width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; background: var(--c); }
+  .sp-sw { width: 34px; height: 34px; border-radius: 50%; border: 0; cursor: pointer; background: var(--c); }
   .sp-sw[aria-pressed="true"] { box-shadow: 0 0 0 3px #f4f7fb, 0 0 0 5px var(--c); }
   .sp-ic { aspect-ratio: 1; max-height: 48px; border-radius: 12px; border: 0; cursor: pointer; background: #fff;
     display: grid; place-items: center; color: #7d8a9c; }
   .sp-ic svg { width: 22px; height: 22px; fill: currentColor; }
   .sp-ic[aria-pressed="true"] { color: var(--c, #16233a); box-shadow: inset 0 0 0 2px #16233a; }
+  .sp-any { position: relative; overflow: hidden;
+    background: conic-gradient(#e53e3e, #d69e2e, #38a169, #3182ce, #805ad5, #d53f8c, #e53e3e); }
+  .sp-any.on { background: var(--c); box-shadow: 0 0 0 3px #f4f7fb, 0 0 0 5px var(--c); }
+  .sp-any:focus-within { outline: 3px solid #d99a06; outline-offset: 3px; }
+  .sp-any input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
   .sp-sw:disabled, .sp-ic:disabled { opacity: 0.35; cursor: default; }
   /* what the name will look like, drawn the way a taken seat draws it */
   .sp-prev { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px;
@@ -2028,8 +2033,8 @@ Nur</textarea>
       </div>
       <div class="rules-h">Spending</div>
       <ul>
-        <li><b>Name colour &mdash; 20 coins.</b> Your name shows in that colour on
-        the board's seats, until you buy another.</li>
+        <li><b>Name colour &mdash; 20 coins.</b> One of the five, or any colour dark
+        enough to read. Your name shows in it on the board's seats, until you buy another.</li>
         <li><b>Name icon &mdash; 15 coins.</b> A crown, flame, star, bolt, shield or
         target in front of your name on the board, in your colour if you have one,
         until you buy another.</li>
@@ -2997,6 +3002,17 @@ const ICONS = {
   target: 'M12 2a10 10 0 110 20 10 10 0 010-20zm0 4a6 6 0 100 12 6 6 0 000-12zm0 3a3 3 0 110 6 3 3 0 010-6z',
 };
 const iconOf = item => typeof item === 'string' && item.startsWith('icon:') && ICONS[item.slice(5)] ? item.slice(5) : null;
+/* Any colour, stored as `hex:#rrggbb`, so long as a name in it can still be read
+   on a white seat: 3:1 against white, the floor for bold text. A paler one buys
+   nothing, the same as an unknown name. */
+const hexOf = item => {
+  const m = typeof item === 'string' && /^hex:(#[0-9a-f]{6})$/.exec(item);
+  if (!m) return null;
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(m[1].slice(i, i + 2), 16) / 255)
+    .map(c => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05) >= 3 ? m[1] : null;
+};
+const colourOf = item => FLAIR[item] || hexOf(item);
 const FLAIR_COST = 20, ICON_COST = 15, SLOT_COST = 5, SLOT_MAX = 3;
 const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
@@ -3048,7 +3064,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       // a gift or bounty needs somebody on the list at the other end, and not you
       if (who === undefined || !(cost > 0) || bal[who] < cost) return;
       if ((s.kind === 'gift' || s.kind === 'bounty') && (to === undefined || to === who)) return;
-      if (s.kind === 'flair' && !FLAIR[s.item] && !iconOf(s.item)) return;
+      if (s.kind === 'flair' && !colourOf(s.item) && !iconOf(s.item)) return;
       // one bounty on a player at a time; a second buys nothing
       if (s.kind === 'bounty' && bounties.some(h => h.on === to)) return;
       bal[who] -= cost;
@@ -3130,7 +3146,7 @@ const coinBal = () => walkNow().bal;
 var chalFlair = {};
 const flairMap = ok => ok.filter(x => x.kind === 'flair').reduce((m, x) => {
   const f = m[EMAIL_NAMES[x.by]] = m[EMAIL_NAMES[x.by]] || {};
-  if (iconOf(x.item)) f.icon = iconOf(x.item); else f.color = FLAIR[x.item];
+  if (iconOf(x.item)) f.icon = iconOf(x.item); else f.color = colourOf(x.item);
   return m;
 }, {});
 // the icon as markup: static paths from ICONS, never anything a player typed
@@ -3254,7 +3270,8 @@ function spendCheck() {
   if (kind === 'gift' || kind === 'bounty') { row.to = item; row.amt = amt; }
   const cost = spendCost(row);
   const mine = chalFlair[me] || {};
-  const why = kind === 'flair' && FLAIR[item] === mine.color ? 'That colour is already yours.'
+  const why = kind === 'flair' && !colourOf(item) ? 'Too light to read on a seat. Pick a darker one.'
+    : kind === 'flair' && colourOf(item) === mine.color ? 'That colour is already yours.'
     : kind === 'icon' && item === mine.icon ? 'That icon is already yours.'
     : kind === 'slot' && slotsToday(acctEmail) >= SLOT_MAX ? `That's the ${SLOT_MAX} extra games for today.`
     : (kind === 'gift' || kind === 'bounty') && !(amt >= 1 && amt <= BET_MAX) ? `Type an amount from 1 to ${BET_MAX}.`
@@ -3277,7 +3294,7 @@ function paintSpend() {
   const look = kind === 'flair' || kind === 'icon';
   $('spKind').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.kind === kind));
   // colours as swatches, icons as tiles in your colour; what you already wear can't be picked again
-  const pick = $('spPick'), owned = k => kind === 'flair' ? FLAIR[k] === mine.color : k === mine.icon;
+  const pick = $('spPick'), owned = k => kind === 'flair' ? colourOf(k) === mine.color : k === mine.icon;
   if (look && owned(spPick[kind])) spPick[kind] = Object.keys(kind === 'flair' ? FLAIR : ICONS).find(k => !owned(k));
   pick.textContent = '';
   pick.setAttribute('aria-label', kind === 'flair' ? 'Colour' : 'Icon');
@@ -3292,6 +3309,20 @@ function paintSpend() {
     else { b.innerHTML = iconSvg(k).replace('nm-ico', ''); if (mine.color) b.style.setProperty('--c', mine.color); }
     pick.append(b);
   });
+  // and any colour at all, from the browser's own picker
+  if (kind === 'flair') {
+    const any = spPick.flair.startsWith('hex:'), l = document.createElement('label'), inp = document.createElement('input');
+    l.className = 'sp-sw sp-any' + (any ? ' on' : '');
+    l.title = 'Any colour';
+    if (any) l.style.setProperty('--c', spPick.flair.slice(4));
+    inp.type = 'color'; inp.id = 'spAny';
+    inp.value = any ? spPick.flair.slice(4) : '#2b6cb0';
+    inp.setAttribute('aria-label', 'Any colour');
+    // change, not input: a repaint mid-drag would close the browser's picker
+    inp.onchange = () => { spPick.flair = 'hex:' + inp.value.toLowerCase(); paintSpend(); };
+    l.append(inp);
+    pick.append(l);
+  }
   const opts = look || kind === 'slot' ? [] : Object.entries(EMAIL_NAMES).filter(([e]) => e !== acctEmail);
   sel.textContent = '';
   opts.forEach(([v, label]) => {
@@ -3307,7 +3338,7 @@ function paintSpend() {
   const prev = $('spPrev');
   prev.hidden = !look;
   prev.textContent = '';
-  if (look) prev.append(flairName(me, kind === 'flair' ? { ...mine, color: FLAIR[spPick.flair] } : { ...mine, icon: spPick.icon }),
+  if (look) prev.append(flairName(me, kind === 'flair' ? { ...mine, color: colourOf(spPick.flair) } : { ...mine, icon: spPick.icon }),
     part('', 'Preview', 'small'));
   const { cost, why } = spendCheck();
   $('spNote').className = 'ch-betnote' + (why ? ' no' : ' bet');
