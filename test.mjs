@@ -2091,7 +2091,7 @@ console.log('knockout suggestions OK');
 const CH = await page.evaluate(() => {
   Object.assign(EMAIL_NAMES, {
     'sifat@x.com': 'Sifat', 'ofi@x.com': 'Ofi', 'nur@x.com': 'Nur',
-    'rashed@x.com': 'Rashed', 'toufiq@x.com': 'Toufiq',
+    'rashed@x.com': 'Rashed', 'toufiq@x.com': 'Toufiq', 'sajeeb@x.com': 'Sajeeb',
   });
   window.chalLog = [];
   ['chalCreate', 'chalSeat', 'chalFile', 'chalConfirm', 'chalReject', 'chalRemove'].forEach(fn => {
@@ -2152,13 +2152,28 @@ assert.deepEqual(seen.seats[0], ['button:Sifatyou', 'div:Nur', 'div:\u2014', 'di
 assert.equal(seen.boxes, 0, 'the winner buttons were offered to somebody outside the lobby');
 
 // ---- the same board, seen by somebody not in that game ----
-await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
+await page.evaluate(f => { window.setAccount('sajeeb@x.com'); window.renderChallenges(f); }, CH.fixture);
 seen = await board();
-// somebody not in this lobby yet: the two empty seats are the ones on offer
+// somebody in no lobby at all: the two empty seats are the ones on offer
 assert.deepEqual(seen.seats[0], ['div:Sifat', 'div:Nur', 'button:Join', 'button:Join'],
   'a bystander was offered somebody else’s seat, or refused an empty one');
+
+/* One game at a time. Toufiq sits in open2, full and with no result filed, so
+   open1's empty seats are not his — the card says why — until he files or leaves. */
+await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
+seen = await board();
+assert.deepEqual(seen.seats[0], ['div:Sifat', 'div:Nur', 'div:\u2014', 'div:\u2014'],
+  'a player with an unfiled game was offered a seat in another');
+assert.match(await page.textContent('#ch-open1'), /already in a challenge/, 'the card did not say why the seats were closed');
 // Toufiq is one of the four in that lobby, so the score is his to file
 assert.equal(seen.boxes, 1, 'a player in the full lobby was not offered its winner buttons');
+// once a result is filed the game has been played, and he is free again
+assert.equal(await page.evaluate(f => {
+  const g = structuredClone(f);
+  g.open2.pending = { b: 1, r: 0, by: 'nur@x.com', side: 'b', at: 1 };
+  window.renderChallenges(g);
+  return [...document.querySelectorAll('#ch-open1 .ch-seat')].filter(e => e.tagName === 'BUTTON').length;
+}, CH.fixture), 2, 'filing a result did not free the player for another game');
 
 // ---- and by an account nobody has added to the map ----
 await page.evaluate(f => { window.setAccount('stranger@x.com'); window.renderChallenges(f); }, CH.fixture);
@@ -2191,10 +2206,34 @@ assert.deepEqual(
   [[], 1, { id: 'open1', seat: 'bd' }],
   'tapping a seat while signed out did not file the intent and ask for a sign-in');
 // the intent is spent on the way back, and only for somebody the map knows
-await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
+await page.evaluate(f => { window.setAccount('sajeeb@x.com'); window.renderChallenges(f); }, CH.fixture);
 assert.deepEqual(await page.evaluate(() => [window.chalLog, window.chalIntent]),
-  [[['chalSeat', 'open1', 'bd', { name: 'Toufiq', email: 'toufiq@x.com' }]], null],
+  [[['chalSeat', 'open1', 'bd', { name: 'Sajeeb', email: 'sajeeb@x.com' }]], null],
   'signing in did not take the seat that was tapped, or left the intent behind');
+
+/* The seat a sign-in takes gets the same coin check as a tap. Toufiq has five,
+   and all five are on one 5-coin table: a second one, tapped signed out (or
+   before sign-in lands on page load), must not seat him. Without the first table
+   the same sign-in does. */
+const sneak = await page.evaluate(() => {
+  const me = { name: 'Toufiq', email: 'toufiq@x.com' }, now = Date.now();
+  const nur = { name: 'Nur', email: 'nur@x.com' };
+  const B = { by: nur.email, at: now, stake: 5, slots: { bf: nur } };
+  window.hallEntries = [{ champion: 'Sifat + Ofi', runnerUp: 'Toufiq + Nur', date: 1 }]; // five for Toufiq
+  const tryB = rows => {
+    window.setAccount(null);
+    window.renderChallenges(rows);
+    window.chalLog = [];
+    window.chalIntent = { id: 'B', seat: 'rf' };
+    window.setAccount(me.email);
+    return window.chalLog.length;
+  };
+  const out = { held: tryB({ A: { by: me.email, at: now, stake: 5, slots: { bf: me } }, B }), free: tryB({ B }) };
+  window.hallEntries = []; window.setAccount(null); window.chalLog = [];
+  return out;
+});
+assert.equal(sneak.held, 0, 'signing in seated a player at a bet their coins were already riding on elsewhere');
+assert.equal(sneak.free, 1, 'signing in no longer takes a bet seat the player can cover');
 
 /* ---- the picker asks for a name, not an address ----
    Most people have several Gmails, and Google's popup hands back whichever one
@@ -2225,12 +2264,12 @@ assert.deepEqual(await page.evaluate(() => [$('who').classList.contains('open'),
   'closing the picker left the tapped seat behind to fire on a later sign-in');
 
 // ---- taking and vacating a seat ----
-await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
+await page.evaluate(f => { window.setAccount('sajeeb@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);
 await page.click('#ch-open1 .ch-seat:nth-child(3)');   // blue defender, empty
 await page.evaluate(f => { window.setAccount('sifat@x.com'); window.renderChallenges(f); }, CH.fixture);
 await page.click('#ch-open1 .ch-seat:nth-child(1)');   // my own seat
 assert.deepEqual(await page.evaluate(() => window.chalLog), [
-  ['chalSeat', 'open1', 'bd', { name: 'Toufiq', email: 'toufiq@x.com' }],
+  ['chalSeat', 'open1', 'bd', { name: 'Sajeeb', email: 'sajeeb@x.com' }],
   ['chalSeat', 'open1', 'bf', null],
 ], 'taking an empty seat and vacating your own did not write what they claim to');
 
@@ -2623,6 +2662,56 @@ assert.equal(nilCheck.betNil.Nur, 2, 'a 5-coin nil should cost each loser ten');
 assert.equal(nilCheck.shortNil.Nur, 0, 'a loser who cannot cover the double should end on zero');
 assert.equal(nilCheck.shortNil.Sifat, 14, 'the winners get the full double even when a loser is short');
 
+/* Spends ride the same walk: honoured only if the buyer holds the price when it
+   lands, and a bounty is claimed by the next pair to beat its target. */
+const spendCheck = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  // Sifat & Ofi beat Nur & Rashed five times: ten each
+  const seed = [1, 2, 3, 4, 5].map(i => ({ at: i, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: i } }));
+  const sp = (at, by, extra) => ({ at, by: em(by), ...extra });
+  const w = (...spends) => window.coinWalk(seed, [], spends);
+  return {
+    flair: w(sp(9, 'Sifat', { kind: 'flair', item: 'gold' })),
+    // Ofi's ten tips Sifat over the twenty
+    flairPaid: w(sp(8, 'Ofi', { kind: 'gift', to: em('Sifat'), amt: 10 }), sp(9, 'Sifat', { kind: 'flair', item: 'gold' })),
+    flairBroke: w(sp(9, 'Nur', { kind: 'flair', item: 'gold' })),
+    // a spend dated before the coins were earned buys nothing
+    early: w(sp(0, 'Sifat', { kind: 'gift', to: em('Nur'), amt: 5 })),
+    gift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Nur'), amt: 4 })),
+    selfGift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Sifat'), amt: 4 })),
+    slot: w(sp(9, 'Ofi', { kind: 'slot' })),
+    // Sifat puts 6 on Nur, then Ofi & Sifat beat Nur & Rashed again
+    bounty: window.coinWalk([...seed, { at: 12, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 12 } }], [],
+      [sp(9, 'Sifat', { kind: 'bounty', to: em('Nur'), amt: 6 })]),
+    unclaimed: w(sp(9, 'Sifat', { kind: 'bounty', to: em('Nur'), amt: 6 })),
+    capSlots: (() => {
+      // two extra games bought today lift the cap from five to seven
+      const at = Date.now();
+      window.allChal = Object.fromEntries(seed.map((g, i) => ['g' + i, g]));
+      window.allSpends = { a: sp(at, 'Sifat', { kind: 'slot' }), b: sp(at, 'Sifat', { kind: 'slot' }) };
+      const cap = dayCap(em('Sifat'));
+      window.allSpends = {}; window.allChal = {};
+      return cap;
+    })(),
+  };
+}, String(seat4));
+assert.deepEqual([spendCheck.flair.bal.Sifat, spendCheck.flair.ok.length], [10, 0], 'a twenty-coin colour went through on ten coins');
+assert.equal(spendCheck.flairPaid.bal.Sifat, 0, 'a colour did not cost twenty');
+assert.equal(await page.evaluate(ok => flairMap(ok)[Object.keys(EMAIL_NAMES)[0]], spendCheck.flairPaid.ok), '#b7791f',
+  'a colour paid for is not the one shown');
+assert.equal(spendCheck.flairBroke.ok.length, 0, 'a player with nothing bought a colour');
+assert.equal(spendCheck.early.bal.Nur, 0, 'a gift dated before its coins were earned went through');
+assert.deepEqual([spendCheck.gift.bal.Sifat, spendCheck.gift.bal.Nur], [6, 4], 'a gift did not move four coins');
+assert.equal(spendCheck.selfGift.ok.length, 0, 'a player gifted themselves');
+assert.deepEqual([spendCheck.slot.bal.Ofi, spendCheck.slot.ok.length], [5, 1], 'an extra game did not cost five');
+// 10 - 6 bounty + 2 win + 3 half the bounty
+assert.equal(spendCheck.bounty.bal.Sifat, 9, 'the poster, winning, did not take half the bounty back');
+assert.equal(spendCheck.bounty.bal.Ofi, 15, 'the other winner did not take half the bounty');
+assert.equal(spendCheck.bounty.bounties.length, 0, 'a claimed bounty stayed open');
+assert.deepEqual([spendCheck.unclaimed.bal.Sifat, spendCheck.unclaimed.bounties.length], [4, 1], 'an open bounty was not held');
+assert.equal(spendCheck.capSlots, 7, 'two extra games bought today did not lift the cap to seven');
+
 // the pill is in the chrome, on every screen, and it shows one balance: yours
 const coinCard = await page.evaluate(() => {
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
@@ -2763,7 +2852,8 @@ const BET = await page.evaluate(() => {
   for (let i = 1; i <= 5; i++) f['won' + i] = { by: 'sifat@x.com', at: i, slots: four, score: { b: 1, r: 0, at: i } };
   f.free = { by: 'nur@x.com', at: Date.now(), slots: { bf: seat('Nur') } };
   f.ten = { by: 'nur@x.com', at: Date.now(), stake: 10, slots: { rf: seat('Nur') } };
-  f.tenB = { by: 'nur@x.com', at: Date.now(), stake: 10, slots: { rf: seat('Rashed') } };
+  // Toufiq, not Rashed: a seat in an unfiled game would make Rashed busy, not poor
+  f.tenB = { by: 'nur@x.com', at: Date.now(), stake: 10, slots: { rf: seat('Toufiq') } };
   return f;
 });
 const betBoard = who => page.evaluate(([w, f]) => {
@@ -2808,9 +2898,11 @@ assert.ok(poor.free.takeable > 0, 'somebody with nothing was locked out of a gam
 
 /* Coins already on a table do not count. Sitting at one ten-coin table spends
    the ten, so the second one is refused — otherwise one ten is bet at two
-   tables and only the first of them could ever be paid. */
+   tables and only the first of them could ever be paid. The first is played and
+   filed but not yet confirmed — filing frees the seat, but not the coins. */
 const held = await page.evaluate(f => {
-  const sat = { ...f, ten: { ...f.ten, slots: { ...f.ten.slots, bf: { name: 'Sifat', email: 'sifat@x.com' } } } };
+  const sat = { ...f, ten: { ...f.ten, slots: { ...f.ten.slots, bf: { name: 'Sifat', email: 'sifat@x.com' } },
+    pending: { b: 1, r: 0, by: 'sifat@x.com', side: 'b', at: 1 } } };
   window.setAccount('sifat@x.com'); window.renderChallenges(sat);
   const el = $('ch-tenB');
   return {

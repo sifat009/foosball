@@ -307,6 +307,24 @@ agreed on Tuesday was not paid for on Monday. `chalConfirm` stamps it in the sam
 update that writes the result and clears the claim, and a correction re-stamps —
 a result put right moves the coins when the new one was agreed, not the wrong one.
 
+### Spending them
+
+Betting only moves coins between players, so there was nothing to buy with them.
+The coins sheet now sells four things, all on the challenge board:
+
+- **Name colour, 20.** Your name shows in that colour on every seat you take, until you buy another.
+- **Extra game, 5.** One more challenge today past the five, at most three extra a day.
+- **Gift, 1–50.** Sent straight to another player.
+- **Bounty, an even 2–50.** Paid now; the next pair to beat that player split it. Never refunded.
+
+Each is a row in `spends`, and the walk decides it the way it decides a bet: a
+spend goes through only if the buyer holds the price at that moment, otherwise
+it buys nothing and costs nothing. The page also refuses coins riding on an open
+table. The rules keep `spends` append-only (only the admin can delete a row),
+check that `by` is whoever signed in, and require `at` to equal the server's
+`now`. The walk runs in time order, so a buyer who could set their own `at`
+could date a gift before the game where they lost those coins.
+
 ### Balances
 
 Derived at render, never stored, the way `career()` already

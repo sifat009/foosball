@@ -230,4 +230,28 @@ const confirm = (id, who, b, r, at = 7) =>
     'an ordinary lobby could not be opened');
 }
 
+// ---- spending coins ----
+{
+  const NOW = { '.sv': 'timestamp' };
+  const sp = (by, extra) => ({ by, at: NOW, ...extra });
+  assert.ok(await put('spends/s1', B1, sp(B1, { kind: 'flair', item: 'gold' })), 'a player could not buy a colour');
+  assert.ok(await put('spends/s2', B1, sp(B1, { kind: 'slot' })), 'a player could not buy an extra game');
+  assert.ok(await put('spends/s3', B1, sp(B1, { kind: 'gift', to: R1, amt: 5 })), 'a player could not send a gift');
+  assert.ok(await put('spends/s4', B1, sp(B1, { kind: 'bounty', to: R1, amt: 6 })), 'a player could not post a bounty');
+  // append-only: nobody rewrites or deletes a spend but the admin
+  assert.ok(!await put('spends/s3', B1, sp(B1, { kind: 'gift', to: R1, amt: 1 })), 'a spend was rewritten');
+  assert.ok(!await del('spends/s3', B1), 'a buyer deleted their own spend');
+  assert.ok(await del('spends/s3', ADMIN), 'the admin could not remove a spend');
+  // spending somebody else's coins, or backdating a spend
+  assert.ok(!await put('spends/x1', OUT, sp(B1, { kind: 'slot' })), 'a spend was filed in someone else’s name');
+  assert.ok(!await put('spends/x2', B1, { by: B1, at: 1, kind: 'slot' }), 'a spend was backdated');
+  // shapes the walk never has to guess at
+  assert.ok(!await put('spends/x3', B1, sp(B1, { kind: 'gift', to: B1, amt: 5 })), 'a gift to yourself');
+  assert.ok(!await put('spends/x4', B1, sp(B1, { kind: 'gift', to: R1, amt: 51 })), 'a gift over the ceiling');
+  assert.ok(!await put('spends/x5', B1, sp(B1, { kind: 'gift', to: R1, amt: 2.5 })), 'a fractional gift');
+  assert.ok(!await put('spends/x6', B1, sp(B1, { kind: 'bounty', to: R1, amt: 5 })), 'an odd bounty');
+  assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
+  assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
+  assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+}
 console.log('ok');

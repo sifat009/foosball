@@ -441,6 +441,10 @@
   .coin-you b { color: #96660a; }
   /* the card is the scroll container, so the way in pins to its bottom edge
      rather than sitting under however much of the sheet a phone can't show */
+  .spend { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 10px; }
+  .spend[hidden] { display: none; }
+  .spend select, .spend input { font: inherit; padding: 8px; border: 1px solid #d5dde8; border-radius: 10px; background: #fff; min-width: 0; }
+  .spend #spKind, .spend #spNote, .spend #spGo { grid-column: 1 / -1; }
   #coinGo { width: 100%; margin-top: 4px; position: sticky; bottom: 0; }
 
   .gb-race + .gb-race { margin-top: 20px; }
@@ -1947,7 +1951,31 @@ Nur</textarea>
         <li>You need the bet to sit down, and coins already riding on another open
         table don't count.</li>
       </ul>
+      <div class="rules-h">Spending</div>
+      <ul>
+        <li><b>Name colour &mdash; 20 coins.</b> Your name shows in that colour on
+        the board's seats, until you buy another.</li>
+        <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
+        five, up to three extra a day.</li>
+        <li><b>Gift.</b> Send up to 50 coins straight to another player.</li>
+        <li><b>Bounty.</b> Put an even number of coins on a player: the next pair to
+        beat them in a challenge split it. Paid now, never refunded.</li>
+        <li>You can only spend what isn't riding on an open table, and a spend
+        can't be undone.</li>
+      </ul>
       <div id="coinYou" class="coin-you"></div>
+      <div id="spend" class="spend" hidden>
+        <select id="spKind" aria-label="What to buy">
+          <option value="flair">Name colour &mdash; 20</option>
+          <option value="slot">Extra game today &mdash; 5</option>
+          <option value="gift">Gift to a player</option>
+          <option value="bounty">Bounty on a player</option>
+        </select>
+        <select id="spItem" aria-label="Colour or player"></select>
+        <input id="spAmt" type="number" min="1" max="50" step="1" placeholder="coins" aria-label="How many coins">
+        <div id="spNote" class="ch-betnote"></div>
+        <button id="spGo" type="button" class="btn">Spend</button>
+      </div>
     </div>
     <!-- no Close: every card already carries an X in its corner, and this one has
          a primary action under it. A grey Close beneath a green button is a second
@@ -2834,8 +2862,11 @@ const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(
       : chalPending(c) ? sameDay(+chalPending(c).at || 0, now)
       : sameDay(c.at, now)))
   .length;
-const CAP_MSG = `You’ve played ${CH_DAILY} challenges today — seats open again tomorrow.`;
-var chalUsed = 0; // worked out once a render, like chalFree
+const slotsToday = (email, now = Date.now()) => !email ? 0 : walkNow().ok
+  .filter(s => s.kind === 'slot' && s.by === email && sameDay(+s.at, now)).length;
+const dayCap = email => CH_DAILY + slotsToday(email);
+const capMsg = () => `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game from the coins sheet.`;
+var chalUsed = 0, chalMax = CH_DAILY; // worked out once a render, like chalFree
 
 /* ================= COINS =================
    A challenge win is worth two coins, and coins are what a challenge is bet in.
@@ -2870,10 +2901,27 @@ const seatName = s => s ? EMAIL_NAMES[s.email] : undefined;
    in full, and only on those same entries. */
 const CUP_WIN = 10, CUP_RUNNER = 5, CUP_AWARD = 5;
 
-function coins(rows, cups) {
-  const bal = {};
+/* What coins buy, all on the challenge board. A spend is a row in `spends` the
+   walk honours only if the buyer holds the price at that moment — the same test
+   a bet gets — so a row written round the page, or one a corrected result has
+   since made unaffordable, simply buys nothing and costs nothing.
+   - flair: a colour for your name on the board's seats, the latest one bought
+   - slot: one more challenge that day, past the five, at most SLOT_MAX a day
+   - gift: `amt` straight to `to`
+   - bounty: `amt` taken now and split between the next pair to beat `to`.
+     Never refunded: a player nobody beats keeps it on their head. */
+const FLAIR = { gold: '#b7791f', green: '#17854a', purple: '#7c3aed', pink: '#db2777', teal: '#0e7490' };
+const FLAIR_COST = 20, SLOT_COST = 5, SLOT_MAX = 3;
+const spendCost = s => s.kind === 'flair' ? FLAIR_COST : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
+
+/* The balances, and which spends went through. `ok` is what the flair and the
+   day's cap read: a spend nobody could pay for buys nothing. */
+function coinWalk(rows, cups, spends) {
+  const bal = {}, ok = [];
+  let bounties = [];
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
+  (spends || []).filter(s => s && s.at && s.kind).forEach(s => ev.push({ t: +s.at, spend: s }));
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
     if (b === r) return; // a draw pays nothing — turning up is not an achievement
@@ -2895,6 +2943,19 @@ function coins(rows, cups) {
   ev.sort((a, b) => a.t - b.t);
 
   ev.forEach(e => {
+    if (e.spend) {
+      const s = e.spend, who = EMAIL_NAMES[s.by], cost = spendCost(s);
+      const to = EMAIL_NAMES[s.to];
+      // a gift or bounty needs somebody on the list at the other end, and not you
+      if (who === undefined || !(cost > 0) || bal[who] < cost) return;
+      if ((s.kind === 'gift' || s.kind === 'bounty') && (to === undefined || to === who)) return;
+      if (s.kind === 'flair' && !FLAIR[s.item]) return;
+      bal[who] -= cost;
+      if (s.kind === 'gift') bal[to] += cost;
+      if (s.kind === 'bounty') bounties.push({ on: to, amt: cost });
+      ok.push(s);
+      return;
+    }
     if (e.cup) return e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += e.cup; });
     /* The two who lost are the two who pay, so they are the two who have to
        cover it. A seat is refused at the table to anybody who cannot — see
@@ -2910,17 +2971,33 @@ function coins(rows, cups) {
     // a free loss costs nothing, unless it was to nil — then the two a win pays
     const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
     e.down.forEach(n => { if (bal[n] !== undefined) bal[n] = Math.max(0, bal[n] - cost); });
+    // every bounty on a loser is claimed by the two who beat them, half each
+    bounties = bounties.filter(h => {
+      if (!e.down.includes(h.on)) return true;
+      e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += Math.floor(h.amt / 2); });
+      return false;
+    });
   });
-  return bal;
+  return { bal, ok, bounties };
 }
+const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
+window.coinWalk = coinWalk;
 
 /* Your balance and nobody else's. An earlier version put all ten on the card,
    which reads as a leaderboard and was meant to: seeing somebody else on ten is
    what makes a coin worth having. It also tells the room what everyone can
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
-const coinBal = () => coins(Object.values(allChal || {}).filter(c => c && c.at), hallEntries);
+var allSpends = {};
+const walkNow = () => coinWalk(Object.values(allChal || {}).filter(c => c && c.at), hallEntries,
+  Object.values(allSpends || {}));
+const coinBal = () => walkNow().bal;
+/* email -> the colour that player last paid for. Built once a render, like
+   chalFree: every seat on the board reads it. */
+var chalFlair = {};
+const flairMap = ok => ok.filter(x => x.kind === 'flair')
+  .reduce((m, x) => (m[x.by] = FLAIR[x.item], m), {});
 const myCoins = () => {
   const me = myName();
   return me ? (coinBal()[me] || 0) : null;
@@ -2943,8 +3020,19 @@ const chalHeld = name => !name ? 0 : Object.values(allChal || {})
 var chalFree = null;
 /* Why this lobby's seats are not theirs to take, or null when they are. It
    carries the reason rather than going quiet. */
+/* One game at a time: a seat in a lobby nobody has filed a result for yet is a
+   game you still owe the table. Filing frees you — the game has been played, and
+   waiting on the other side to confirm shouldn't keep four people off the board.
+   The id of that lobby, worked out once a render like chalFree. */
+var chalBusy = null;
+const busyIn = email => !email ? null : (Object.entries(allChal || {}).find(([, c]) =>
+  c && c.at && chalLive(c) && !chalDone(c) && !chalPending(c)
+  && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].email === email)) || [null])[0];
+const BUSY_MSG = 'You’re already in a challenge — file its result or leave your seat first.';
 function chalShort(c) {
-  if (chalUsed >= CH_DAILY && !chalSat(c) && !chalDone(c) && !chalPending(c)) return CAP_MSG;
+  // the day's cap first: "tomorrow" is the stronger of the two reasons
+  if (chalUsed >= chalMax && !chalSat(c) && !chalDone(c) && !chalPending(c)) return capMsg();
+  if (chalBusy && chalBusy !== c.id && !chalSat(c) && !chalDone(c) && !chalPending(c)) return BUSY_MSG;
   const bet = chalBet(c);
   if (!bet || chalFree === null || chalSat(c) || chalDone(c) || chalFree >= bet) return null;
   /* Two ways to be short, and they want different sentences: not enough coins
@@ -2974,8 +3062,68 @@ function renderCoins() {
     return;
   }
   you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), '.');
+  paintSpend();
 }
 window.renderCoins = renderCoins;
+
+/* The spend form. It checks what the walk would: the price out of what isn't on
+   a table. The walk is still what decides — a row this lets through that the
+   buyer can't cover by the time it lands just buys nothing. */
+function spendCheck() {
+  const me = myName(), kind = $('spKind').value, item = $('spItem').value;
+  const amt = Math.round(+$('spAmt').value);
+  const free = (coinBal()[me] || 0) - chalHeld(me);
+  const row = { kind };
+  if (kind === 'flair') row.item = item;
+  if (kind === 'gift' || kind === 'bounty') { row.to = item; row.amt = amt; }
+  const cost = spendCost(row);
+  const why = kind === 'flair' && FLAIR[item] === chalFlair[acctEmail] ? 'That colour is already yours.'
+    : kind === 'slot' && slotsToday(acctEmail) >= SLOT_MAX ? `That's the ${SLOT_MAX} extra games for today.`
+    : (kind === 'gift' || kind === 'bounty') && !(amt >= 1 && amt <= BET_MAX) ? `Type an amount from 1 to ${BET_MAX}.`
+    : kind === 'bounty' && amt % 2 ? 'A bounty is split between two, so make it even.'
+    : cost > free ? `You have ${free} to spend${chalHeld(me) ? ' — the rest is on open tables' : ''}.`
+    : '';
+  return { row, cost, why };
+}
+function paintSpend() {
+  const box = $('spend'), me = myName();
+  box.hidden = !me;
+  if (!me) return;
+  const kind = $('spKind').value, sel = $('spItem'), was = sel.value;
+  const opts = kind === 'flair' ? Object.keys(FLAIR).map(k => [k, k[0].toUpperCase() + k.slice(1)])
+    : kind === 'slot' ? []
+    : Object.entries(EMAIL_NAMES).filter(([e]) => e !== acctEmail);
+  sel.textContent = '';
+  opts.forEach(([v, label]) => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = label;
+    if (kind === 'flair') o.style.color = FLAIR[v];
+    sel.append(o);
+  });
+  if (opts.some(([v]) => v === was)) sel.value = was;
+  sel.hidden = !opts.length;
+  $('spAmt').hidden = kind !== 'gift' && kind !== 'bounty';
+  $('spAmt').step = kind === 'bounty' ? 2 : 1;
+  const { cost, why } = spendCheck();
+  $('spNote').className = 'ch-betnote' + (why ? ' no' : ' bet');
+  $('spNote').textContent = why || (kind === 'bounty'
+    ? `The next pair to beat ${EMAIL_NAMES[sel.value]} get ${Math.floor(cost / 2)} each.`
+    : kind === 'gift' ? `${EMAIL_NAMES[sel.value]} gets ${cost}.`
+    : kind === 'slot' ? `${chalMax - chalUsed} left today; this makes it ${chalMax - chalUsed + 1}.`
+    : 'Shown on every seat you take.');
+  $('spGo').disabled = !!why || !(cost > 0);
+  $('spGo').textContent = cost > 0 ? `Spend ${cost} coin${cost === 1 ? '' : 's'}` : 'Spend';
+}
+['spKind', 'spItem', 'spAmt'].forEach(id => { $(id).oninput = paintSpend; });
+$('spGo').onclick = () => {
+  const { row, cost, why } = spendCheck();
+  if (why || !myName() || !window.spendCoins) return;
+  // the one tap here that can't be taken back
+  if (!confirm(`Spend ${cost} coins? This can't be undone.`)) return;
+  window.spendCoins({ ...row, by: acctEmail });
+  $('spAmt').value = '';
+};
+window.renderSpends = v => { allSpends = v || {}; renderChal(); };
 
 const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
 const chalTeamLine = c => pairName(c, 'bf', 'bd') + ' vs ' + pairName(c, 'rf', 'rd');
@@ -3012,6 +3160,8 @@ function seatBtn(c, seat, team, role) {
     + (mine ? ' mine' : '') + (free ? ' free' : '');
   const who = part('', held ? held.name : !free ? '\u2014' : invite ? 'Open' : 'Join', 'b'); // textContent: names are user input
   if (mine) who.append(part('ch-you', 'you', 'span'));
+  const fl = held && chalFlair[held.email];
+  if (fl) who.style.color = fl; // bought on the coins sheet
   el.append(part('', team + ' ' + role, 'u'), who);
   if (tag === 'button') {
     el.type = 'button';
@@ -3252,8 +3402,10 @@ function renderChal() {
   const name = myName();
   who.textContent = '';
   chalUsed = name ? chalToday(allChal, acctEmail) : 0;
+  chalMax = dayCap(acctEmail);
+  chalBusy = name ? busyIn(acctEmail) : null;
   // the day's cap, where they'll see it before a seat refuses them
-  if (name) who.append('Playing as ', part('', name, 'b'), ` · ${chalUsed} of ${CH_DAILY} today`); // textContent: names are user input
+  if (name) who.append('Playing as ', part('', name, 'b'), ` · ${chalUsed} of ${chalMax} today`); // textContent: names are user input
   /* Signed out there is nothing to say: the seats and the button below are
      the invitation, and a line telling somebody to sign in is a line they have
      to read before a tap that would have signed them in anyway. */
@@ -3269,6 +3421,7 @@ function renderChal() {
     : name ? 'Start the first one' : 'Sign in to start one';
   if (acctEmail && !name) closeChalForm();
 
+  chalFlair = flairMap(walkNow().ok); // before the sheet, which says whose colour is whose
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
@@ -3378,12 +3531,13 @@ function paintBet() {
   /* Opening a lobby is taking a seat in it, so the gate that stops somebody
      sitting at a table they cannot cover has to stop them building one too. */
   const free = chalFree === null ? 0 : chalFree;
-  const over = newBet > free, capped = chalUsed >= CH_DAILY;
+  const over = newBet > free, capped = chalUsed >= chalMax || !!chalBusy;
   const note = $('chalBetNote');
   note.className = 'ch-betnote' + (capped || over || betWarn ? ' no' : newBet ? ' bet' : '');
   note.textContent = '';
   // opening a lobby is taking a seat in it, so the day's cap stops this too
-  if (capped) note.textContent = CAP_MSG;
+  if (chalUsed >= chalMax) note.textContent = capMsg();
+  else if (chalBusy) note.textContent = BUSY_MSG;
   else if (betWarn) note.textContent = betWarn;
   else if (over) note.textContent =
     `You have ${free} to bet — ${chalHeld(myName()) ? 'the rest is on other tables.' : 'win a few more first.'}`;
@@ -3409,7 +3563,7 @@ $('chalNew').onclick = openChalForm;
 $('chalDrop').onclick = closeChalForm;
 $('chalPost').onclick = () => {
   const name = myName();
-  if (!name || chalUsed >= CH_DAILY) return;
+  if (!name || chalUsed >= chalMax || chalBusy || newBet > (chalFree || 0)) return;
   const id = String(Date.now());
   // absent is nought: a game played for nothing carries no field at all
   const row = { by: acctEmail, at: Date.now(), slots: { [newSeat]: { name, email: acctEmail } } };
@@ -3430,12 +3584,18 @@ window.setAccount = email => {
      already tells it to ask the admin. Either way the intent is spent here. */
   const want = window.chalIntent;
   window.chalIntent = null;
+  /* Rendered first: what this account holds, has on other tables and has played
+     today is worked out there, and the seat below is checked against it. The
+     tap was made signed out — or before sign-in had landed on page load — when
+     the page had no wallet to check, so this is the only check it gets. */
+  renderChal();
   if (want && myName()) {
     if (want.seat) {
       chalLit = want.id; // the lobby it came from, outlined on the way back
       chalFound = false;
-      // the render below still shows the card, and it says why they weren't seated
-      if (chalToday(allChal, acctEmail) < CH_DAILY) window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
+      // the same test the seat button runs; if it fails, the card says why
+      const c = allChal[want.id] && Object.assign({ id: want.id }, allChal[want.id]);
+      if (c && !chalShort(c)) window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
     } else openChalForm();
   }
   renderChal();
@@ -5720,7 +5880,7 @@ window.addEventListener('appinstalled', () => { $('installBtn').style.display = 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.16.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, connectAuthEmulator }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-auth.js";
-import { getDatabase, ref, onValue, set, update, remove, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
+import { getDatabase, ref, onValue, set, update, remove, push, serverTimestamp, runTransaction, connectDatabaseEmulator, goOffline, goOnline }
   from "https://www.gstatic.com/firebasejs/12.16.0/firebase-database.js";
 
 const firebaseConfig = {
@@ -5836,6 +5996,17 @@ window.chalRemove = id => remove(ref(db, 'challenges/' + id))
 
 onValue(ref(db, 'challenges'), snap => window.renderChallenges(snap.val() || {}),
   err => console.error('[chal] read failed:', err));
+
+/* Spends are append-only and stamped by the server: the walk orders on `at`,
+   and a buyer who could set it could date a gift to before the game they lost
+   the coins in. The rules insist on `now`. */
+window.spendCoins = row => push(ref(db, 'spends'), { ...row, at: serverTimestamp() })
+  .catch(err => {
+    console.error('[spend] write rejected:', err);
+    alert('Could not spend those coins: ' + err.message);
+  });
+onValue(ref(db, 'spends'), snap => window.renderSpends(snap.val() || {}),
+  err => console.error('[spend] read failed:', err));
 
 window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
   set(ref(db, `suggestions/${cup}/${key}`),
