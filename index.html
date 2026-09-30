@@ -441,15 +441,39 @@
   .coin-you b { color: #96660a; }
   /* the card is the scroll container, so the way in pins to its bottom edge
      rather than sitting under however much of the sheet a phone can't show */
-  .spend { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 4px; }
+  /* the shop: a shelf of tiles, and under it a drawer holding the one you tapped */
+  .spend { display: grid; gap: 10px; margin-bottom: 4px; }
   .coin-tabs { margin: 12px 0 14px; }
   .coin-tabs .leg-tab { color: #172b4d; }
   .spend[hidden] { display: none; }
-  .spend select, .spend input { font: inherit; padding: 8px; border: 1px solid #d5dde8; border-radius: 10px; background: #fff; min-width: 0; }
-  .spend #spKind, .spend #spNote, .spend #spGo, .sp-prev { grid-column: 1 / -1; }
+  .sp-shelf { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .sp-shelf button { font: inherit; font-size: 0.74rem; font-weight: 700; line-height: 1.15; color: #172b4d; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 2px 8px; text-align: center; min-width: 0;
+    background: #f4f7fb; border: 0; border-radius: 14px; }
+  .sp-shelf button[aria-pressed="true"] { background: #fff; box-shadow: inset 0 0 0 2px #16233a; }
+  .sp-shelf .ico, .sp-shelf .sp-g { width: 1.35rem; height: 1.35rem; color: #7d8a9c; }
+  .sp-shelf [aria-pressed="true"] .ico, .sp-shelf [aria-pressed="true"] .sp-g { color: #16233a; }
+  .sp-g { fill: currentColor; }
+  .sp-dots { width: 1.35rem; height: 1.35rem; border-radius: 50%;
+    background: conic-gradient(#b7791f 0 20%, #17854a 0 40%, #7c3aed 0 60%, #db2777 0 80%, #0e7490 0); }
+  .sp-shelf small { font-size: 0.7rem; font-weight: 800; color: #96660a; }
+  .sp-drawer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f4f7fb; border-radius: 16px; padding: 14px; }
+  /* everything spans the drawer but the player and the amount, which share a row */
+  .sp-drawer > :not(select, input) { grid-column: 1 / -1; }
+  .sp-drawer select, .sp-drawer input { font: inherit; padding: 8px; border: 1px solid #d5dde8; border-radius: 10px; background: #fff; min-width: 0; }
+  .sp-pick { display: flex; flex-wrap: wrap; gap: 9px; }
+  .sp-pick:has(.sp-ic) { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
+  .sp-pick:empty { display: none; }
+  .sp-sw { width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer; background: var(--c); }
+  .sp-sw[aria-pressed="true"] { box-shadow: 0 0 0 3px #f4f7fb, 0 0 0 5px var(--c); }
+  .sp-ic { aspect-ratio: 1; max-height: 48px; border-radius: 12px; border: 0; cursor: pointer; background: #fff;
+    display: grid; place-items: center; color: #7d8a9c; }
+  .sp-ic svg { width: 22px; height: 22px; fill: currentColor; }
+  .sp-ic[aria-pressed="true"] { color: var(--c, #16233a); box-shadow: inset 0 0 0 2px #16233a; }
+  .sp-sw:disabled, .sp-ic:disabled { opacity: 0.35; cursor: default; }
   /* what the name will look like, drawn the way a taken seat draws it */
   .sp-prev { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px;
-    border: 1px dashed #d5dde8; border-radius: 10px; font-weight: 700; }
+    background: #fff; border-radius: 10px; font-weight: 700; }
   .sp-prev[hidden] { display: none; }
   .sp-prev small { font-weight: 500; color: #5b6b82; }
   #coinGo { width: 100%; margin-top: 4px; position: sticky; bottom: 0; }
@@ -1986,17 +2010,20 @@ Nur</textarea>
       </div>
       <div id="coinSpend" hidden>
       <div id="spend" class="spend" hidden>
-        <select id="spKind" aria-label="What to buy">
-          <option value="flair">Name colour &mdash; 20</option>
-          <option value="icon">Name icon &mdash; 15</option>
-          <option value="slot">Extra game today &mdash; 5</option>
-          <option value="gift">Gift to a player</option>
-          <option value="bounty">Bounty on a player</option>
-        </select>
-        <select id="spItem" aria-label="Colour or player"></select>
+        <div id="spKind" class="sp-shelf" role="group" aria-label="What to buy">
+          <button type="button" data-kind="flair" aria-pressed="true"><span class="sp-dots"></span>Colour<small>20</small></button>
+          <button type="button" data-kind="icon" aria-pressed="false"><svg class="sp-g" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z"/></svg>Icon<small>15</small></button>
+          <button type="button" data-kind="slot" aria-pressed="false"><svg class="ico"><use href="#i-ball"/></svg>Extra game<small>5</small></button>
+          <button type="button" data-kind="gift" aria-pressed="false"><svg class="ico"><use href="#i-coin"/></svg>Gift<small>any</small></button>
+          <button type="button" data-kind="bounty" aria-pressed="false"><svg class="sp-g" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm0 4a6 6 0 100 12 6 6 0 000-12zm0 3a3 3 0 110 6 3 3 0 010-6z"/></svg>Bounty<small>any</small></button>
+        </div>
+        <div class="sp-drawer">
+        <div id="spPick" class="sp-pick" role="group"></div>
+        <select id="spItem" aria-label="Player"></select>
         <input id="spAmt" type="number" min="1" max="50" step="1" placeholder="coins" aria-label="How many coins">
         <div id="spPrev" class="sp-prev" aria-live="polite"></div>
         <div id="spNote" class="ch-betnote"></div>
+        </div>
         <button id="spGo" type="button" class="btn">Spend</button>
       </div>
       <div class="rules-h">Spending</div>
@@ -3198,7 +3225,7 @@ window.renderCoins = renderCoins;
    a table. The walk is still what decides — a row this lets through that the
    buyer can't cover by the time it lands just buys nothing. */
 function spendCheck() {
-  const me = myName(), kind = $('spKind').value, item = $('spItem').value;
+  const me = myName(), kind = spKind, item = spItem();
   const amt = Math.round(+$('spAmt').value);
   const free = (coinBal()[me] || 0) - chalHeld(me);
   // an icon is a flair row; the form only splits them to price and list them
@@ -3219,20 +3246,38 @@ function spendCheck() {
     : '';
   return { row, cost, why };
 }
+/* the tile tapped on the shelf, and the last colour and icon tapped in the drawer */
+let spKind = 'flair';
+const spPick = { flair: 'gold', icon: 'crown' };
+const spItem = () => spKind === 'flair' || spKind === 'icon' ? spPick[spKind] : $('spItem').value;
 function paintSpend() {
   const box = $('spend'), me = myName();
   box.hidden = !me;
   if (!me) return;
-  const kind = $('spKind').value, sel = $('spItem'), was = sel.value, mine = chalFlair[me] || {};
-  const opts = kind === 'flair' ? Object.keys(FLAIR).map(k => [k, k[0].toUpperCase() + k.slice(1)])
-    : kind === 'icon' ? Object.keys(ICONS).map(k => [k, k[0].toUpperCase() + k.slice(1)])
-    : kind === 'slot' ? []
-    : Object.entries(EMAIL_NAMES).filter(([e]) => e !== acctEmail);
+  const kind = spKind, sel = $('spItem'), was = sel.value, mine = chalFlair[me] || {};
+  const look = kind === 'flair' || kind === 'icon';
+  $('spKind').querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b.dataset.kind === kind));
+  // colours as swatches, icons as tiles in your colour; what you already wear can't be picked again
+  const pick = $('spPick'), owned = k => kind === 'flair' ? FLAIR[k] === mine.color : k === mine.icon;
+  if (look && owned(spPick[kind])) spPick[kind] = Object.keys(kind === 'flair' ? FLAIR : ICONS).find(k => !owned(k));
+  pick.textContent = '';
+  pick.setAttribute('aria-label', kind === 'flair' ? 'Colour' : 'Icon');
+  if (look) Object.keys(kind === 'flair' ? FLAIR : ICONS).forEach(k => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.dataset.pick = k;
+    b.className = kind === 'flair' ? 'sp-sw' : 'sp-ic';
+    b.setAttribute('aria-label', k[0].toUpperCase() + k.slice(1));
+    b.setAttribute('aria-pressed', spPick[kind] === k);
+    b.disabled = owned(k);
+    if (kind === 'flair') b.style.setProperty('--c', FLAIR[k]);
+    else { b.innerHTML = iconSvg(k).replace('nm-ico', ''); if (mine.color) b.style.setProperty('--c', mine.color); }
+    pick.append(b);
+  });
+  const opts = look || kind === 'slot' ? [] : Object.entries(EMAIL_NAMES).filter(([e]) => e !== acctEmail);
   sel.textContent = '';
   opts.forEach(([v, label]) => {
     const o = document.createElement('option');
     o.value = v; o.textContent = label;
-    if (kind === 'flair') o.style.color = FLAIR[v];
     sel.append(o);
   });
   if (opts.some(([v]) => v === was)) sel.value = was;
@@ -3240,10 +3285,10 @@ function paintSpend() {
   $('spAmt').hidden = kind !== 'gift' && kind !== 'bounty';
   $('spAmt').step = kind === 'bounty' ? 2 : 1;
   // try it on before paying: the pick over whatever else you already wear
-  const prev = $('spPrev'), look = kind === 'flair' || kind === 'icon';
+  const prev = $('spPrev');
   prev.hidden = !look;
   prev.textContent = '';
-  if (look) prev.append(flairName(me, kind === 'flair' ? { ...mine, color: FLAIR[sel.value] } : { ...mine, icon: sel.value }),
+  if (look) prev.append(flairName(me, kind === 'flair' ? { ...mine, color: FLAIR[spPick.flair] } : { ...mine, icon: spPick.icon }),
     part('', 'Preview', 'small'));
   const { cost, why } = spendCheck();
   $('spNote').className = 'ch-betnote' + (why ? ' no' : ' bet');
@@ -3257,7 +3302,9 @@ function paintSpend() {
   $('spGo').disabled = !!why || !(cost > 0);
   $('spGo').textContent = cost > 0 ? `Spend ${cost} coin${cost === 1 ? '' : 's'}` : 'Spend';
 }
-['spKind', 'spItem', 'spAmt'].forEach(id => { $(id).oninput = paintSpend; });
+['spItem', 'spAmt'].forEach(id => { $(id).oninput = paintSpend; });
+$('spKind').onclick = e => { const b = e.target.closest('[data-kind]'); if (b) { spKind = b.dataset.kind; paintSpend(); } };
+$('spPick').onclick = e => { const b = e.target.closest('[data-pick]'); if (b) { spPick[spKind] = b.dataset.pick; paintSpend(); } };
 $('spGo').onclick = () => {
   const { row, cost, why } = spendCheck();
   if (why || !myName() || !window.spendCoins) return;

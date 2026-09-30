@@ -2734,14 +2734,17 @@ const icons = await page.evaluate(() => {
     colour: seat.querySelector('.nm').style.color, text: seat.textContent };
   // the sheet tries a pick on before it is paid for, over what is already worn
   window.setAccount(em('Sifat'));
-  $('spKind').value = 'icon'; paintSpend(); $('spItem').value = 'bolt'; paintSpend();
+  const tap = (box, attr, v) => $(box).querySelector(`[data-${attr}="${v}"]`).click();
+  tap('spKind', 'kind', 'icon'); tap('spPick', 'pick', 'bolt');
+  // what is already worn can't be picked again
+  out.ownedOff = $('spPick').querySelector('[data-pick="crown"]').disabled;
   const pv = () => $('spPrev').querySelector('.nm');
   out.prevIcon = [pv().querySelector('path').getAttribute('d') === ICONS.bolt, pv().style.color];
-  $('spKind').value = 'flair'; paintSpend(); $('spItem').value = 'teal'; paintSpend();
+  tap('spKind', 'kind', 'flair'); tap('spPick', 'pick', 'teal');
   out.prevColour = [!!pv().querySelector('svg'), pv().style.color];
-  $('spKind').value = 'slot'; paintSpend();
-  out.prevSlot = $('spPrev').hidden;
-  $('spKind').value = 'flair';
+  tap('spKind', 'kind', 'slot');
+  out.prevSlot = [$('spPrev').hidden, $('spPick').childElementCount];
+  tap('spKind', 'kind', 'flair');
   window.allChal = {}; window.allSpends = {}; window.setAccount(null);
   return out;
 });
@@ -2752,7 +2755,8 @@ assert.equal(icons.colour, 'rgb(219, 39, 119)', 'the name on the seat lost its c
 assert.equal(icons.text, 'Sifat', 'the icon added text to the seat');
 assert.deepEqual(icons.prevIcon, [true, 'rgb(219, 39, 119)'], 'the icon preview did not show the pick in the colour already worn');
 assert.deepEqual(icons.prevColour, [true, 'rgb(14, 116, 144)'], 'the colour preview did not show the pick with the icon already worn');
-assert.equal(icons.prevSlot, true, 'an extra game showed a name preview');
+assert.deepEqual(icons.prevSlot, [true, 0], 'an extra game showed a name preview or a picker');
+assert.equal(icons.ownedOff, true, 'the icon already worn could be bought again');
 assert.equal(spendCheck.flairBroke.ok.length, 0, 'a player with nothing bought a colour');
 assert.equal(spendCheck.early.bal.Nur, 0, 'a gift dated before its coins were earned went through');
 assert.deepEqual([spendCheck.gift.bal.Sifat, spendCheck.gift.bal.Nur], [6, 4], 'a gift did not move four coins');
