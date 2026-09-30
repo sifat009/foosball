@@ -2709,7 +2709,65 @@ assert.deepEqual([spendCheck.slot.bal.Ofi, spendCheck.slot.ok.length], [5, 1], '
 assert.equal(spendCheck.bounty.bal.Sifat, 9, 'the poster, winning, did not take half the bounty back');
 assert.equal(spendCheck.bounty.bal.Ofi, 15, 'the other winner did not take half the bounty');
 assert.equal(spendCheck.bounty.bounties.length, 0, 'a claimed bounty stayed open');
-assert.deepEqual([spendCheck.unclaimed.bal.Sifat, spendCheck.unclaimed.bounties.length], [4, 1], 'an open bounty was not held');
+// two days on and nobody beat Nur: the six comes back
+assert.deepEqual([spendCheck.unclaimed.bal.Sifat, spendCheck.unclaimed.bounties.length], [10, 0], 'an expired bounty did not come back');
+
+/* The growing bounty. Sifat posts 6 on Ofi. Nur & Rashed (4 each) lose to Ofi &
+   Toufiq and pay Sifat 1 each; Sajeeb & Siddiq, with nothing, lose too and the
+   bounty ignores it. Then either the two days run out, or Nur & Rashed win. */
+const hunt = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = n => ({ name: n, email: em(n) });
+  const g = (at, b1, b2, r1, r2, blue) => ({ at, slots: { bf: S(b1), bd: S(b2), rf: S(r1), rd: S(r2) },
+    score: { b: blue ? 1 : 0, r: blue ? 0 : 1, at } });
+  const seed = [g(1, 'Nur', 'Rashed', 'Sajeeb', 'Siddiq', true), g(2, 'Nur', 'Rashed', 'Sajeeb', 'Siddiq', true),
+    ...[3, 4, 5, 6, 7].map(t => g(t, 'Sifat', 'Ofi', 'Sajeeb', 'Siddiq', true))];
+  const post = { at: 9, by: em('Sifat'), kind: 'bounty', to: em('Ofi'), amt: 6 };
+  const held = [g(10, 'Ofi', 'Toufiq', 'Nur', 'Rashed', true), g(11, 'Ofi', 'Toufiq', 'Sajeeb', 'Siddiq', true)];
+  const beaten = g(12, 'Ofi', 'Toufiq', 'Nur', 'Rashed', false);
+  const second = { at: 9.5, by: em('Nur'), kind: 'bounty', to: em('Ofi'), amt: 2 };
+  const DAY = 864e5;
+  return {
+    open: window.coinWalk([...seed, ...held], [], [post], 100),
+    expired: window.coinWalk([...seed, ...held], [], [post], 9 + 4 * DAY),
+    beaten: window.coinWalk([...seed, ...held, beaten], [], [post], 9 + 4 * DAY),
+    twice: window.coinWalk(seed, [], [post, second], 100),
+  };
+});
+const [h] = hunt.open.bounties;
+assert.deepEqual([hunt.open.bal.Sifat, h.got], [6, 2], 'the two who lost to the target did not pay the creator 1 each');
+assert.deepEqual([hunt.open.bal.Nur, hunt.open.bal.Rashed], [3, 3], 'a loser to the target was not charged 1');
+assert.deepEqual([hunt.open.bal.Sajeeb, hunt.open.bal.Siddiq], [0, 0], 'a hunter with nothing went below zero');
+assert.equal(hunt.expired.bal.Sifat, 12, 'an unbeaten bounty did not return the six on top of the two collected');
+assert.equal(hunt.expired.bounties.length, 0, 'an expired bounty stayed open');
+assert.equal(hunt.beaten.bal.Sifat, 6, 'the creator lost what was collected when the target was beaten');
+assert.deepEqual([hunt.beaten.bal.Nur, hunt.beaten.bal.Rashed], [8, 8], 'the pair who beat the target were not paid 2 + 3 each');
+assert.equal(hunt.beaten.bounties.length, 0, 'a claimed bounty stayed open');
+assert.deepEqual([hunt.twice.bal.Nur, hunt.twice.ok.length], [4, 1], 'a second bounty on the same player went through');
+
+/* At the table: a seat facing the target needs a free coin; the target's
+   partner needs nothing. Rashed has none. */
+const huntBoard = await page.evaluate(() => {
+  const now = Date.now(), S = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  window.hallEntries = [{ champion: 'Sifat + Ofi', runnerUp: 'Nur + Toufiq', date: 1 }];
+  window.allSpends = { b: { at: now - 1000, by: 'sifat@x.com', kind: 'bounty', to: 'ofi@x.com', amt: 6 } };
+  window.setAccount('rashed@x.com');
+  window.renderChallenges({ L: { by: 'ofi@x.com', at: now, slots: { bf: S('Ofi') } } });
+  const card = $('ch-L');
+  const out = {
+    seats: [...card.querySelectorAll('.ch-seat')].map(e => e.tagName),
+    why: card.querySelector('.ch-shy') && card.querySelector('.ch-shy').textContent,
+    line: card.querySelector('.ch-hunt') && card.querySelector('.ch-hunt').textContent,
+    strip: $('chalHunts').textContent,
+  };
+  window.allSpends = {}; window.hallEntries = []; window.setAccount(null); window.renderChallenges({});
+  return out;
+});
+// SEATS order: Blue forward, Red forward, Blue defender, Red defender; Ofi is Blue forward
+assert.deepEqual(huntBoard.seats, ['DIV', 'DIV', 'BUTTON', 'DIV'], 'the seats facing a target were offered to a player with no coin, or the partner seat was not');
+assert.match(huntBoard.why || '', /need 1 coin to take on the bounty on Ofi/, 'the card did not say why the seats were closed');
+assert.match(huntBoard.line || '', /Beat Ofi: \+3 each\. Lose to Ofi: 1 each to Sifat/, 'a lobby with the target in it did not say what is at stake');
+assert.match(huntBoard.strip, /6 on Ofi/, 'the board did not list the open bounty');
 assert.equal(spendCheck.capSlots, 7, 'two extra games bought today did not lift the cap to seven');
 
 // the pill is in the chrome, on every screen, and it shows one balance: yours

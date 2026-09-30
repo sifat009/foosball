@@ -315,7 +315,12 @@ The coins sheet now sells four things, all on the challenge board:
 - **Name colour, 20.** Your name shows in that colour on every seat you take, until you buy another.
 - **Extra game, 5.** One more challenge today past the five, at most three extra a day.
 - **Gift, 1–50.** Sent straight to another player.
-- **Bounty, an even 2–50.** Paid now; the next pair to beat that player split it. Never refunded.
+- **Bounty, an even 2–50.** Paid now, and open on that player for two days, one
+  bounty per player at a time. The next pair to beat them split it. Each player who
+  loses to them in the meantime pays the creator 1 (what they can, never below
+  zero). Nobody beats them, and the creator gets the amount back on top of what
+  was collected. It takes a free coin to sit against a target. A target who sits
+  down against hunters with none plays an ordinary game, which the bounty ignores.
 
 Each is a row in `spends`, and the walk decides it the way it decides a bet: a
 spend goes through only if the buyer holds the price at that moment, otherwise

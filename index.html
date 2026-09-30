@@ -1309,6 +1309,14 @@
     border: 1px solid #f3e0b0; border-radius: 12px; padding: 10px 11px; background: #fff8e8;
   }
   .ch-bet b { font-size: 0.82rem; font-weight: 800; color: #96660a; }
+  /* a bounty: the board's strip, and the line on a lobby its target sits in */
+  .ch-hunt {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 8px; border: 1px solid #f3e0b0;
+    border-radius: 12px; padding: 8px 11px; background: #fff8e8; font-size: 0.76rem; font-weight: 700; color: #96660a;
+  }
+  .ch-hunt b { color: #172b4d; white-space: nowrap; }
+  .ch-hunt > span:last-child { min-width: 0; }
+  #chalHunts:empty { display: none; }
   .ch-bet i {
     margin-left: auto; font-style: normal; font-size: 0.64rem; font-weight: 800;
     color: #a8873a; text-align: right; line-height: 1.3;
@@ -1594,6 +1602,7 @@
     <div id="chalBoard">
       <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Challenges</div>
       <div id="chalWho"></div>
+      <div id="chalHunts"></div>
       <div class="hall-tabs" id="chalTabs">
         <button class="hall-tab active" data-tab="open">Open</button>
         <button class="hall-tab" data-tab="recent">Recent</button>
@@ -1958,8 +1967,10 @@ Nur</textarea>
         <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player.</li>
-        <li><b>Bounty.</b> Put an even number of coins on a player: the next pair to
-        beat them in a challenge split it. Paid now, never refunded.</li>
+        <li><b>Bounty.</b> Put an even number of coins on a player for two days.
+        The next pair to beat them split it. Every player who loses to them in the
+        meantime pays you 1. Nobody beats them, and it all comes back to you. One
+        bounty per player at a time, and you need a coin to sit against a target.</li>
         <li>You can only spend what isn't riding on an open table, and a spend
         can't be undone.</li>
       </ul>
@@ -2908,20 +2919,29 @@ const CUP_WIN = 10, CUP_RUNNER = 5, CUP_AWARD = 5;
    - flair: a colour for your name on the board's seats, the latest one bought
    - slot: one more challenge that day, past the five, at most SLOT_MAX a day
    - gift: `amt` straight to `to`
-   - bounty: `amt` taken now and split between the next pair to beat `to`.
-     Never refunded: a player nobody beats keeps it on their head. */
+   - bounty: `amt` taken now, open for two days on `to`, one at a time per
+     target. Every pair that loses to the target pays its creator 1 each; the
+     next pair to beat the target split `amt`; if nobody does, `amt` goes back
+     to the creator when the two days are up. Only a game where both hunters
+     held a coin going in counts — the page refuses the seat to anybody without
+     one, and this is the backstop for the target sitting down after them. */
 const FLAIR = { gold: '#b7791f', green: '#17854a', purple: '#7c3aed', pink: '#db2777', teal: '#0e7490' };
 const FLAIR_COST = 20, SLOT_COST = 5, SLOT_MAX = 3;
+const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 const spendCost = s => s.kind === 'flair' ? FLAIR_COST : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
-function coinWalk(rows, cups, spends) {
+function coinWalk(rows, cups, spends, now = Date.now()) {
   const bal = {}, ok = [];
   let bounties = [];
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
-  (spends || []).filter(s => s && s.at && s.kind).forEach(s => ev.push({ t: +s.at, spend: s }));
+  (spends || []).filter(s => s && s.at && s.kind).forEach(s => {
+    ev.push({ t: +s.at, spend: s });
+    // the end of a bounty is an event too, once it has come
+    if (s.kind === 'bounty' && +s.at + BOUNTY_MS <= now) ev.push({ t: +s.at + BOUNTY_MS, expire: s });
+  });
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
     if (b === r) return; // a draw pays nothing — turning up is not an achievement
@@ -2950,13 +2970,28 @@ function coinWalk(rows, cups, spends) {
       if (who === undefined || !(cost > 0) || bal[who] < cost) return;
       if ((s.kind === 'gift' || s.kind === 'bounty') && (to === undefined || to === who)) return;
       if (s.kind === 'flair' && !FLAIR[s.item]) return;
+      // one bounty on a player at a time; a second buys nothing
+      if (s.kind === 'bounty' && bounties.some(h => h.on === to)) return;
       bal[who] -= cost;
       if (s.kind === 'gift') bal[to] += cost;
-      if (s.kind === 'bounty') bounties.push({ on: to, amt: cost });
+      if (s.kind === 'bounty') bounties.push({ s, by: who, on: to, amt: cost, until: +s.at + BOUNTY_MS, got: 0 });
       ok.push(s);
       return;
     }
+    if (e.expire) { // nobody beat them: the creator has it back
+      const h = bounties.find(x => x.s === e.expire);
+      if (h) { bal[h.by] += h.amt; bounties = bounties.filter(x => x !== h); }
+      return;
+    }
     if (e.cup) return e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += e.cup; });
+    /* Which bounties this game touches, decided on what the hunters held going
+       in: a bet lost in this same game can't be what shuts them out of it. */
+    const hunts = bounties.map(h => {
+      const won = e.up.includes(h.on);
+      if (!won && !e.down.includes(h.on)) return null;
+      const hunters = won ? e.down : e.up;
+      return hunters.every(n => bal[n] >= BOUNTY_FEE) ? { h, won } : null;
+    }).filter(Boolean);
     /* The two who lost are the two who pay, so they are the two who have to
        cover it. A seat is refused at the table to anybody who cannot — see
        `chalShort` — so reaching here means a result was corrected, or somebody
@@ -2971,11 +3006,16 @@ function coinWalk(rows, cups, spends) {
     // a free loss costs nothing, unless it was to nil — then the two a win pays
     const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
     e.down.forEach(n => { if (bal[n] !== undefined) bal[n] = Math.max(0, bal[n] - cost); });
-    // every bounty on a loser is claimed by the two who beat them, half each
-    bounties = bounties.filter(h => {
-      if (!e.down.includes(h.on)) return true;
-      e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += Math.floor(h.amt / 2); });
-      return false;
+    hunts.forEach(({ h, won }) => {
+      if (won) { // the target held: each loser pays the creator, what they can
+        e.down.forEach(n => {
+          const p = Math.min(BOUNTY_FEE, bal[n]);
+          bal[n] -= p; bal[h.by] += p; h.got += p;
+        });
+      } else { // beaten: the two who did it split what was posted
+        e.up.forEach(n => { bal[n] += Math.floor(h.amt / 2); });
+        bounties = bounties.filter(x => x !== h);
+      }
     });
   });
   return { bal, ok, bounties };
@@ -3029,6 +3069,25 @@ const busyIn = email => !email ? null : (Object.entries(allChal || {}).find(([, 
   c && c.at && chalLive(c) && !chalDone(c) && !chalPending(c)
   && SEATS.some(([s]) => c.slots && c.slots[s] && c.slots[s].email === email)) || [null])[0];
 const BUSY_MSG = 'You’re already in a challenge — file its result or leave your seat first.';
+
+/* The bounties still open, worked out once a render. A seat facing a target is
+   a shot at the bounty, and a shot costs a coin if it misses — so it needs one
+   free. The target's partner risks nothing and needs nothing. */
+var chalHunts = [];
+const huntFacing = (c, seat) => {
+  const o = seat[0] === 'b' ? 'r' : 'b';
+  return chalHunts.find(h => [o + 'f', o + 'd'].some(x => c.slots && seatName(c.slots[x]) === h.on));
+};
+const huntShort = (c, seat) => {
+  const h = huntFacing(c, seat);
+  return h && chalFree !== null && chalFree < BOUNTY_FEE
+    ? `You need ${BOUNTY_FEE} coin to take on the bounty on ${h.on} \u2014 you have ${Math.max(0, chalFree)}.` : null;
+};
+const huntLine = h => `Beat ${h.on}: +${Math.floor(h.amt / 2)} each. Lose to ${h.on}: ${BOUNTY_FEE} each to ${h.by}.`;
+const leftIn = ms => {
+  const hrs = Math.max(1, Math.ceil(ms / 36e5));
+  return hrs >= 24 ? `${Math.floor(hrs / 24)}d ${hrs % 24}h` : `${hrs}h`;
+};
 function chalShort(c) {
   // the day's cap first: "tomorrow" is the stronger of the two reasons
   if (chalUsed >= chalMax && !chalSat(c) && !chalDone(c) && !chalPending(c)) return capMsg();
@@ -3062,6 +3121,9 @@ function renderCoins() {
     return;
   }
   you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), '.');
+  // your bounties still out, and what they have brought in so far
+  chalHunts.filter(h => h.by === myName()).forEach(h => you.append(document.createElement('br'),
+    `Bounty on ${h.on}: ${h.amt} \u00b7 ${h.got} collected \u00b7 ${leftIn(h.until - Date.now())} left`));
   paintSpend();
 }
 window.renderCoins = renderCoins;
@@ -3081,6 +3143,8 @@ function spendCheck() {
     : kind === 'slot' && slotsToday(acctEmail) >= SLOT_MAX ? `That's the ${SLOT_MAX} extra games for today.`
     : (kind === 'gift' || kind === 'bounty') && !(amt >= 1 && amt <= BET_MAX) ? `Type an amount from 1 to ${BET_MAX}.`
     : kind === 'bounty' && amt % 2 ? 'A bounty is split between two, so make it even.'
+    : kind === 'bounty' && chalHunts.some(h => h.on === EMAIL_NAMES[item])
+      ? `${EMAIL_NAMES[item]} already has a bounty on them.`
     : cost > free ? `You have ${free} to spend${chalHeld(me) ? ' — the rest is on open tables' : ''}.`
     : '';
   return { row, cost, why };
@@ -3107,7 +3171,8 @@ function paintSpend() {
   const { cost, why } = spendCheck();
   $('spNote').className = 'ch-betnote' + (why ? ' no' : ' bet');
   $('spNote').textContent = why || (kind === 'bounty'
-    ? `The next pair to beat ${EMAIL_NAMES[sel.value]} get ${Math.floor(cost / 2)} each.`
+    ? `Beat ${EMAIL_NAMES[sel.value]}: +${Math.floor(cost / 2)} each. Lose to them: ${BOUNTY_FEE} each to you. `
+      + `Nobody beats them in 2 days: the ${cost} comes back to you.`
     : kind === 'gift' ? `${EMAIL_NAMES[sel.value]} gets ${cost}.`
     : kind === 'slot' ? `${chalMax - chalUsed} left today; this makes it ${chalMax - chalUsed + 1}.`
     : 'Shown on every seat you take.');
@@ -3153,7 +3218,7 @@ function seatBtn(c, seat, team, role) {
   const invite = !acctEmail && !held && !settled;
   /* A seat at a table you cannot cover is not a seat you may take: the bet is
      only a bet if everybody sitting at it can pay. */
-  const free = invite || (live && !held && !chalSat(c) && !chalShort(c));
+  const free = invite || (live && !held && !chalSat(c) && !chalShort(c) && !huntShort(c, seat));
   const tag = free || (live && held && mine && !chalFull(c)) ? 'button' : 'div';
   const el = document.createElement(tag);
   el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '')
@@ -3301,10 +3366,13 @@ function chalCard(c) {
   when.append(part('', 'Opened ' + fmtWhen(c.at), 'b'),
     part('', chalDone(c) ? 'Played' : left ? left + (left === 1 ? ' seat left' : ' seats left') : 'All four in', 'i'));
   el.append(when, betRow(c));
+  const target = chalHunts.find(h => SEATS.some(([x]) => c.slots && seatName(c.slots[x]) === h.on));
+  if (target && !chalDone(c)) el.append(part('ch-hunt', huntLine(target)));
   const grid = part('ch-grid');
   SEATS.forEach(([seat, team, role]) => grid.append(seatBtn(c, seat, team, role)));
   el.append(grid);
-  const why = chalShort(c);
+  const why = chalShort(c) || (myName() && !chalSat(c) && !chalDone(c) && !chalPending(c)
+    && SEATS.filter(([x]) => !(c.slots && c.slots[x])).map(([x]) => huntShort(c, x)).find(Boolean));
   if (why) el.append(part('ch-shy', why));
 
   const pend = chalPending(c);
@@ -3421,11 +3489,23 @@ function renderChal() {
     : name ? 'Start the first one' : 'Sign in to start one';
   if (acctEmail && !name) closeChalForm();
 
-  chalFlair = flairMap(walkNow().ok); // before the sheet, which says whose colour is whose
+  const walk = walkNow();
+  chalFlair = flairMap(walk.ok); // before the sheet, which says whose colour is whose
+  chalHunts = walk.bounties;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
   chalFree = name ? (coinBal()[name] || 0) - chalHeld(name) : null;
+
+  const hunts = $('chalHunts');
+  hunts.textContent = '';
+  chalHunts.forEach(h => {
+    const row = part('ch-hunt');
+    // textContent throughout: names come from EMAIL_NAMES, edited by hand
+    row.append(part('coin-disc', '', 'span'), part('', h.amt + ' on ' + h.on, 'b'),
+      part('', ` \u00b7 beat them for +${Math.floor(h.amt / 2)} each \u00b7 ${leftIn(h.until - Date.now())} left`, 'span'));
+    hunts.append(row);
+  });
 
   const list = $('chalOpen');
   list.innerHTML = '';
@@ -3595,7 +3675,7 @@ window.setAccount = email => {
       chalFound = false;
       // the same test the seat button runs; if it fails, the card says why
       const c = allChal[want.id] && Object.assign({ id: want.id }, allChal[want.id]);
-      if (c && !chalShort(c)) window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
+      if (c && !chalShort(c) && !huntShort(c, want.seat)) window.chalSeat(want.id, want.seat, { name: myName(), email: acctEmail });
     } else openChalForm();
   }
   renderChal();
