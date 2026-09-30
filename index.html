@@ -1317,6 +1317,13 @@
   .ch-hunt b { color: #172b4d; white-space: nowrap; }
   .ch-hunt > span:last-child { min-width: 0; }
   #chalHunts:empty { display: none; }
+  /* a name and the icon bought for it: never split across a line */
+  .nm { white-space: nowrap; }
+  /* the "you" tag drops under the name rather than the icon dropping above it */
+  .ch-seat.taken b { display: flex; flex-wrap: wrap; align-items: center; column-gap: 5px; }
+  .ch-seat.taken b .ch-you { margin-left: 0; }
+  .nm-ico { width: 1em; height: 1em; vertical-align: -0.12em; margin-right: 3px; fill: currentColor; color: #b7791f; }
+  .nm[style*="color"] .nm-ico { color: inherit; }
   .ch-bet i {
     margin-left: auto; font-style: normal; font-size: 0.64rem; font-weight: 800;
     color: #a8873a; text-align: right; line-height: 1.3;
@@ -1966,6 +1973,9 @@ Nur</textarea>
       <ul>
         <li><b>Name colour &mdash; 20 coins.</b> Your name shows in that colour on
         the board's seats, until you buy another.</li>
+        <li><b>Name icon &mdash; 15 coins.</b> A crown, flame, star, bolt, shield or
+        target in front of your name on the board, in your colour if you have one,
+        until you buy another.</li>
         <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player.</li>
@@ -1980,6 +1990,7 @@ Nur</textarea>
       <div id="spend" class="spend" hidden>
         <select id="spKind" aria-label="What to buy">
           <option value="flair">Name colour &mdash; 20</option>
+          <option value="icon">Name icon &mdash; 15</option>
           <option value="slot">Extra game today &mdash; 5</option>
           <option value="gift">Gift to a player</option>
           <option value="bounty">Bounty on a player</option>
@@ -2928,9 +2939,20 @@ const CUP_WIN = 10, CUP_RUNNER = 5, CUP_AWARD = 5;
      held a coin going in counts — the page refuses the seat to anybody without
      one, and this is the backstop for the target sitting down after them. */
 const FLAIR = { gold: '#b7791f', green: '#17854a', purple: '#7c3aed', pink: '#db2777', teal: '#0e7490' };
-const FLAIR_COST = 20, SLOT_COST = 5, SLOT_MAX = 3;
+/* An icon in front of your name, in your colour if you have one. Stored as a
+   flair with an `icon:` item, so the rules and the walk already know the row. */
+const ICONS = {
+  crown: 'M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z',
+  flame: 'M12 2c1 4-3 5-3 9a3 3 0 006 0c0-1-.5-2-1-3 2 1 4 3.5 4 7a6 6 0 01-12 0c0-5 5-7 6-13z',
+  star: 'M12 2l3 6.5 7 .8-5.2 4.8 1.5 7L12 17.6 5.7 21l1.5-7L2 9.3l7-.8z',
+  bolt: 'M13 2L4 14h6l-1 8 9-12h-6z',
+  shield: 'M12 2l8 3v6c0 5-3.5 9-8 11-4.5-2-8-6-8-11V5z',
+  target: 'M12 2a10 10 0 110 20 10 10 0 010-20zm0 4a6 6 0 100 12 6 6 0 000-12zm0 3a3 3 0 110 6 3 3 0 010-6z',
+};
+const iconOf = item => typeof item === 'string' && item.startsWith('icon:') && ICONS[item.slice(5)] ? item.slice(5) : null;
+const FLAIR_COST = 20, ICON_COST = 15, SLOT_COST = 5, SLOT_MAX = 3;
 const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
-const spendCost = s => s.kind === 'flair' ? FLAIR_COST : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
+const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
@@ -2971,7 +2993,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       // a gift or bounty needs somebody on the list at the other end, and not you
       if (who === undefined || !(cost > 0) || bal[who] < cost) return;
       if ((s.kind === 'gift' || s.kind === 'bounty') && (to === undefined || to === who)) return;
-      if (s.kind === 'flair' && !FLAIR[s.item]) return;
+      if (s.kind === 'flair' && !FLAIR[s.item] && !iconOf(s.item)) return;
       // one bounty on a player at a time; a second buys nothing
       if (s.kind === 'bounty' && bounties.some(h => h.on === to)) return;
       bal[who] -= cost;
@@ -3039,11 +3061,25 @@ const walkNow = () => coinWalk(Object.entries(allChal || {}).filter(([, c]) => c
   .map(([id, c]) => Object.assign({ id }, c)), hallEntries,
   Object.values(allSpends || {}));
 const coinBal = () => walkNow().bal;
-/* email -> the colour that player last paid for. Built once a render, like
-   chalFree: every seat on the board reads it. */
+/* player -> { color, icon }, the last of each they paid for. Keyed by player
+   rather than address, so a second Gmail wears the same. Built once a render,
+   like chalFree: every seat on the board reads it. */
 var chalFlair = {};
-const flairMap = ok => ok.filter(x => x.kind === 'flair')
-  .reduce((m, x) => (m[x.by] = FLAIR[x.item], m), {});
+const flairMap = ok => ok.filter(x => x.kind === 'flair').reduce((m, x) => {
+  const f = m[EMAIL_NAMES[x.by]] = m[EMAIL_NAMES[x.by]] || {};
+  if (iconOf(x.item)) f.icon = iconOf(x.item); else f.color = FLAIR[x.item];
+  return m;
+}, {});
+// the icon as markup: static paths from ICONS, never anything a player typed
+const iconSvg = key => `<svg class="nm-ico" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="${ICONS[key]}"/></svg>`;
+/* A name with its flair: the icon in front, the colour on both, the pair never
+   split across a line. */
+const flairName = name => {
+  const f = chalFlair[name] || {}, el = part('nm', name, 'span');
+  if (f.color) el.style.color = f.color;
+  if (f.icon) el.insertAdjacentHTML('afterbegin', iconSvg(f.icon));
+  return el;
+};
 const myCoins = () => {
   const me = myName();
   return me ? (coinBal()[me] || 0) : null;
@@ -3141,11 +3177,15 @@ function spendCheck() {
   const me = myName(), kind = $('spKind').value, item = $('spItem').value;
   const amt = Math.round(+$('spAmt').value);
   const free = (coinBal()[me] || 0) - chalHeld(me);
-  const row = { kind };
+  // an icon is a flair row; the form only splits them to price and list them
+  const row = { kind: kind === 'icon' ? 'flair' : kind };
   if (kind === 'flair') row.item = item;
+  if (kind === 'icon') row.item = 'icon:' + item;
   if (kind === 'gift' || kind === 'bounty') { row.to = item; row.amt = amt; }
   const cost = spendCost(row);
-  const why = kind === 'flair' && FLAIR[item] === chalFlair[acctEmail] ? 'That colour is already yours.'
+  const mine = chalFlair[me] || {};
+  const why = kind === 'flair' && FLAIR[item] === mine.color ? 'That colour is already yours.'
+    : kind === 'icon' && item === mine.icon ? 'That icon is already yours.'
     : kind === 'slot' && slotsToday(acctEmail) >= SLOT_MAX ? `That's the ${SLOT_MAX} extra games for today.`
     : (kind === 'gift' || kind === 'bounty') && !(amt >= 1 && amt <= BET_MAX) ? `Type an amount from 1 to ${BET_MAX}.`
     : kind === 'bounty' && amt % 2 ? 'A bounty is split between two, so make it even.'
@@ -3159,8 +3199,9 @@ function paintSpend() {
   const box = $('spend'), me = myName();
   box.hidden = !me;
   if (!me) return;
-  const kind = $('spKind').value, sel = $('spItem'), was = sel.value;
+  const kind = $('spKind').value, sel = $('spItem'), was = sel.value, mine = chalFlair[me] || {};
   const opts = kind === 'flair' ? Object.keys(FLAIR).map(k => [k, k[0].toUpperCase() + k.slice(1)])
+    : kind === 'icon' ? Object.keys(ICONS).map(k => [k, k[0].toUpperCase() + k.slice(1)])
     : kind === 'slot' ? []
     : Object.entries(EMAIL_NAMES).filter(([e]) => e !== acctEmail);
   sel.textContent = '';
@@ -3181,6 +3222,7 @@ function paintSpend() {
       + `Nobody beats them in 2 days: the ${cost} comes back to you.`
     : kind === 'gift' ? `${EMAIL_NAMES[sel.value]} gets ${cost}.`
     : kind === 'slot' ? `${chalMax - chalUsed} left today; this makes it ${chalMax - chalUsed + 1}.`
+    : kind === 'icon' ? `Shown in front of your name on every seat you take${mine.color ? ', in your colour' : ''}.`
     : 'Shown on every seat you take.');
   $('spGo').disabled = !!why || !(cost > 0);
   $('spGo').textContent = cost > 0 ? `Spend ${cost} coin${cost === 1 ? '' : 's'}` : 'Spend';
@@ -3229,10 +3271,10 @@ function seatBtn(c, seat, team, role) {
   const el = document.createElement(tag);
   el.className = 'ch-seat ' + (team === 'Blue' ? 'blue' : 'red') + (held ? ' taken' : '')
     + (mine ? ' mine' : '') + (free ? ' free' : '');
-  const who = part('', held ? held.name : !free ? '\u2014' : invite ? 'Open' : 'Join', 'b'); // textContent: names are user input
+  const who = part('', held ? '' : !free ? '\u2014' : invite ? 'Open' : 'Join', 'b');
+  // the name the list gives the address, with whatever they bought; typed names are text
+  if (held) who.append(seatName(held) ? flairName(seatName(held)) : part('', held.name, 'span'));
   if (mine) who.append(part('ch-you', 'you', 'span'));
-  const fl = held && chalFlair[held.email];
-  if (fl) who.style.color = fl; // bought on the coins sheet
   el.append(part('', team + ' ' + role, 'u'), who);
   if (tag === 'button') {
     el.type = 'button';
@@ -3509,7 +3551,9 @@ function renderChal() {
   chalHunts.forEach(h => {
     const row = part('ch-hunt');
     // textContent throughout: names come from EMAIL_NAMES, edited by hand
-    row.append(part('coin-disc', '', 'span'), part('', h.amt + ' on ' + h.on, 'b'),
+    const t = part('', h.amt + ' on ', 'b');
+    t.append(flairName(h.on));
+    row.append(part('coin-disc', '', 'span'), t,
       part('', ` \u00b7 beat them for +${Math.floor(h.amt / 2)} each \u00b7 ${leftIn(h.until - Date.now())} left`, 'span'));
     hunts.append(row);
   });

@@ -2698,8 +2698,33 @@ const spendCheck = await page.evaluate(s4 => {
 }, String(seat4));
 assert.deepEqual([spendCheck.flair.bal.Sifat, spendCheck.flair.ok.length], [10, 0], 'a twenty-coin colour went through on ten coins');
 assert.equal(spendCheck.flairPaid.bal.Sifat, 0, 'a colour did not cost twenty');
-assert.equal(await page.evaluate(ok => flairMap(ok)[Object.keys(EMAIL_NAMES)[0]], spendCheck.flairPaid.ok), '#b7791f',
+assert.equal(await page.evaluate(ok => flairMap(ok).Sifat.color, spendCheck.flairPaid.ok), '#b7791f',
   'a colour paid for is not the one shown');
+
+/* An icon is fifteen, sits in front of the name in the player's colour, and
+   the latest one bought is the one shown. Thirty wins is sixty: a colour and two
+   icons leave ten, and an icon that isn't on the list buys nothing. */
+const icons = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), S = n => ({ name: n, email: em(n) });
+  const g = at => ({ at, slots: { bf: S('Sifat'), bd: S('Ofi'), rf: S('Nur'), rd: S('Rashed') }, score: { b: 1, r: 0, at } });
+  const rows = Array.from({ length: 30 }, (_, i) => g(i + 1)); // 60 each
+  const sp = (at, item) => ({ at: at + 20, by: em('Sifat'), kind: 'flair', item });
+  const w = window.coinWalk(rows, [], [sp(20, 'pink'), sp(21, 'icon:star'), sp(22, 'icon:crown'), sp(23, 'icon:nope')]);
+  window.allChal = Object.fromEntries(rows.map((r, i) => ['r' + i, r]).concat([['L', { by: em('Sifat'), at: Date.now(), slots: { bf: S('Sifat') } }]]));
+  window.allSpends = { a: sp(20, 'pink'), b: sp(21, 'icon:star'), c: sp(22, 'icon:crown') };
+  window.setAccount(em('Nur'));
+  const seat = $('ch-L').querySelector('.ch-seat b');
+  const out = { bal: w.bal.Sifat, ok: w.ok.length, flair: flairMap(w.ok).Sifat,
+    first: seat.firstElementChild.firstElementChild && seat.firstElementChild.firstElementChild.tagName,
+    colour: seat.querySelector('.nm').style.color, text: seat.textContent };
+  window.allChal = {}; window.allSpends = {}; window.setAccount(null);
+  return out;
+});
+assert.deepEqual([icons.bal, icons.ok], [60 - 20 - 15 - 15, 3], 'an icon did not cost fifteen, or an unknown one went through');
+assert.deepEqual(icons.flair, { color: '#db2777', icon: 'crown' }, 'the latest icon and the colour were not both kept');
+assert.equal(icons.first, 'svg', 'the icon is not in front of the name on the seat');
+assert.equal(icons.colour, 'rgb(219, 39, 119)', 'the name on the seat lost its colour');
+assert.equal(icons.text, 'Sifat', 'the icon added text to the seat');
 assert.equal(spendCheck.flairBroke.ok.length, 0, 'a player with nothing bought a colour');
 assert.equal(spendCheck.early.bal.Nur, 0, 'a gift dated before its coins were earned went through');
 assert.deepEqual([spendCheck.gift.bal.Sifat, spendCheck.gift.bal.Nur], [6, 4], 'a gift did not move four coins');
