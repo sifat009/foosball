@@ -2039,9 +2039,9 @@ Nur</textarea>
       <div class="rules-h">Spending</div>
       <ul>
         <li><b>Name colour &mdash; 20 coins.</b> One of the five, or any colour dark
-        enough to read. Your name shows in it on the board's seats and in the cup, until you buy another.</li>
+        enough to read. Your name shows in it on the board, in the cup and in the Hall, until you buy another.</li>
         <li><b>Name icon &mdash; 15 coins.</b> A crown, flame, star, bolt, shield or
-        target in front of your name on the board and in the cup, in your colour if you have one,
+        target in front of your name on the board, in the cup and in the Hall, in your colour if you have one,
         until you buy another.</li>
         <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
@@ -2483,7 +2483,7 @@ function renderPlayers(entries) {
     row.className = 'pl-row';
     row.onclick = () => openProfile(r.name);
     const name = cell('pl-name', '');
-    name.textContent = r.name; // textContent: names are user input
+    name.append(flairName(r.name));
     row.append(
       cell('pl-n', '#' + (i + 1)),
       name,
@@ -2704,7 +2704,7 @@ function badgeRow(b) {
    wheel, so there is nothing here to sign in to. */
 function openProfile(name) {
   const c = career(name, hallEntries);
-  $('prName').textContent = name; // textContent: player names are user input
+  $('prName').replaceChildren(flairName(name));
   $('prSub').textContent = BEST[c.best] + ' at best · '
     + c.cups + (c.cups === 1 ? ' cup' : ' cups');
   const stat = (v, l) => `<div class="pr-stat"><b>${v}</b><i>${l}</i></div>`;
@@ -2845,7 +2845,7 @@ function renderHall(entries, ids) {
     const n = document.createElement('div');
     n.className = 'hall-n'; n.textContent = '#' + num;
     const name = document.createElement('div');
-    name.className = 'hall-name'; name.textContent = e.champion; // textContent: player names are user input
+    name.className = 'hall-name'; name.append(...pairNodes(e.champion || ''));
     const d = document.createElement('div');
     d.className = 'hall-date';
     d.textContent = new Date(e.date).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
@@ -3691,8 +3691,8 @@ function renderChal() {
   const walk = walkNow();
   const wore = JSON.stringify(chalFlair);
   chalFlair = flairMap(walk.ok); // before the sheet, which says whose colour is whose
-  // the cup wears it too, and was drawn before the spends came in
-  if (JSON.stringify(chalFlair) !== wore) renderAll();
+  // the cup and the Hall wear it too, and were drawn before the spends came in
+  if (JSON.stringify(chalFlair) !== wore) { renderAll(); renderHall(hallEntries, [...histIds]); }
   chalHunts = walk.bounties;
   chalTags = walk.tags;
   renderCoins(); // same inputs: the lobbies, and who is signed in
@@ -4424,7 +4424,9 @@ function finishDraft() {
 
 function teamName(t) { return `${t.fwd} + ${t.def}`; }
 // the pair as nodes, each name in the flair it bought on the challenge board
-function teamNodes(t) { return [flairName(t.fwd), ' + ', flairName(t.def)]; }
+function teamNodes(t) { return pairNodes(teamName(t)); }
+// "A + B" as stored on a hall entry, split back into names that can wear flair
+function pairNodes(s) { return s.split(' + ').flatMap((n, i) => i ? [' + ', flairName(n)] : [flairName(n)]); }
 
 /* ================= OLLYO CUP: group stage -> knockout =================
    Matches are recorded as scores; winner = higher score (no draws in foosball).
