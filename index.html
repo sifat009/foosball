@@ -1355,6 +1355,7 @@
   }
   .ch-hunt b { color: #172b4d; white-space: nowrap; }
   .ch-hunt > span:last-child { min-width: 0; }
+  #chalHunts { margin: 10px 0 16px; }
   #chalHunts:empty { display: none; }
   /* a name and the icon bought for it: never split across a line */
   .nm { white-space: nowrap; }
@@ -3216,9 +3217,27 @@ const huntShort = (c, seat) => {
 };
 const huntLine = h => `Beat ${h.on}: +${Math.floor(h.amt / 2)} each. Lose to ${h.on}: ${BOUNTY_FEE} each to ${h.by}.`;
 const leftIn = ms => {
-  const hrs = Math.max(1, Math.ceil(ms / 36e5));
-  return hrs >= 24 ? `${Math.floor(hrs / 24)}d ${hrs % 24}h` : `${hrs}h`;
+  const t = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(t / 86400);
+  const hms = [Math.floor(t / 3600) % 24, Math.floor(t / 60) % 60, t % 60]
+    .map(n => String(n).padStart(2, '0')).join(':');
+  return d ? `${d}d ${hms}` : hms;
 };
+// a bounty's time left, kept ticking by the interval below
+const leftNode = until => {
+  const el = part('', leftIn(until - Date.now()), 'span');
+  el.dataset.until = until;
+  return el;
+};
+setInterval(() => {
+  let over = false;
+  document.querySelectorAll('[data-until]').forEach(el => {
+    const ms = +el.dataset.until - Date.now();
+    el.textContent = leftIn(ms);
+    if (ms <= 0) over = true;
+  });
+  // a bounty run out drops off the board and the coin panel
+  if (over) renderChal();
+}, 1000);
 function chalShort(c) {
   // the day's cap first: "tomorrow" is the stronger of the two reasons
   if (chalUsed >= chalMax && !chalSat(c) && !chalDone(c) && !chalPending(c)) return capMsg();
@@ -3254,7 +3273,7 @@ function renderCoins() {
   you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), '.');
   // your bounties still out, and what they have brought in so far
   chalHunts.filter(h => h.by === myName()).forEach(h => you.append(document.createElement('br'),
-    `Bounty on ${h.on}: ${h.amt} \u00b7 ${h.got} collected \u00b7 ${leftIn(h.until - Date.now())} left`));
+    `Bounty on ${h.on}: ${h.amt} \u00b7 ${h.got} collected \u00b7 `, leftNode(h.until), ' left'));
   paintSpend();
 }
 window.renderCoins = renderCoins;
@@ -3684,8 +3703,10 @@ function renderChal() {
     // textContent throughout: names come from EMAIL_NAMES, edited by hand
     const t = part('', h.amt + ' on ', 'b');
     t.append(flairName(h.on));
-    row.append(part('coin-disc', '', 'span'), t,
-      part('', ` \u00b7 beat them for +${Math.floor(h.amt / 2)} each \u00b7 ${leftIn(h.until - Date.now())} left`, 'span'));
+    // one inline line, so the row's flex gap sits only after the coin
+    const line = part('', '', 'span');
+    line.append(t, ` \u00b7 beat them for +${Math.floor(h.amt / 2)} each \u00b7 `, leftNode(h.until), ' left');
+    row.append(part('coin-disc', '', 'span'), line);
     hunts.append(row);
   });
 
