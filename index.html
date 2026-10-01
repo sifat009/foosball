@@ -5275,7 +5275,7 @@ function renderBracket() {
     crown.className = 'crown';
     crown.innerHTML = svg('trophy') + ' Ollyo Cup Champions: <b></b>' +
       '<span class="crown-replay">Tap to replay</span>';
-    crown.querySelector('b').textContent = won; // textContent: names are user input
+    crown.querySelector('b').append(...teamNodes(final.winner));
     crown.onclick = () => celebrate(won);
     $('champion').appendChild(crown);
   }
@@ -5410,7 +5410,7 @@ function renderGolden() {
       const n = document.createElement('div');
       n.className = 'gb-n'; n.textContent = '#' + (i + 1);
       const nm = document.createElement('div');
-      nm.className = 'gb-name'; nm.textContent = name; // textContent: names are user input
+      nm.className = 'gb-name'; nm.append(flairName(name));
       const g = document.createElement('div');
       g.className = 'gb-g'; g.textContent = val(name);
       // the tie-breaks the ordering actually used, next to the headline number
