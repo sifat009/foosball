@@ -1354,7 +1354,8 @@
     border-radius: 12px; padding: 8px 11px; background: #fff8e8; font-size: 0.76rem; font-weight: 700; color: #96660a;
   }
   .ch-hunt b { color: #172b4d; white-space: nowrap; }
-  .ch-hunt > span:last-child { min-width: 0; }
+  .ch-hunt > span:nth-child(2) { min-width: 0; }
+  .ch-hunt .ch-left { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #chalHunts { margin: 10px 0 16px; }
   #chalHunts:empty { display: none; }
   /* a name and the icon bought for it: never split across a line */
@@ -3705,8 +3706,10 @@ function renderChal() {
     t.append(flairName(h.on));
     // one inline line, so the row's flex gap sits only after the coin
     const line = part('', '', 'span');
-    line.append(t, ` \u00b7 beat them for +${Math.floor(h.amt / 2)} each \u00b7 `, leftNode(h.until), ' left');
-    row.append(part('coin-disc', '', 'span'), line);
+    line.append(t, ` \u00b7 beat them for +${Math.floor(h.amt / 2)} each`);
+    const left = part('ch-left', '', 'span');
+    left.append(leftNode(h.until), ' left');
+    row.append(part('coin-disc', '', 'span'), line, left);
     hunts.append(row);
   });
 
