@@ -2039,9 +2039,9 @@ Nur</textarea>
       <div class="rules-h">Spending</div>
       <ul>
         <li><b>Name colour &mdash; 20 coins.</b> One of the five, or any colour dark
-        enough to read. Your name shows in it on the board's seats, until you buy another.</li>
+        enough to read. Your name shows in it on the board's seats and in the cup, until you buy another.</li>
         <li><b>Name icon &mdash; 15 coins.</b> A crown, flame, star, bolt, shield or
-        target in front of your name on the board, in your colour if you have one,
+        target in front of your name on the board and in the cup, in your colour if you have one,
         until you buy another.</li>
         <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
@@ -3689,7 +3689,10 @@ function renderChal() {
   if (acctEmail && !name) closeChalForm();
 
   const walk = walkNow();
+  const wore = JSON.stringify(chalFlair);
   chalFlair = flairMap(walk.ok); // before the sheet, which says whose colour is whose
+  // the cup wears it too, and was drawn before the spends came in
+  if (JSON.stringify(chalFlair) !== wore) renderAll();
   chalHunts = walk.bounties;
   chalTags = walk.tags;
   renderCoins(); // same inputs: the lobbies, and who is signed in
@@ -4420,6 +4423,8 @@ function finishDraft() {
 }
 
 function teamName(t) { return `${t.fwd} + ${t.def}`; }
+// the pair as nodes, each name in the flair it bought on the challenge board
+function teamNodes(t) { return [flairName(t.fwd), ' + ', flairName(t.def)]; }
 
 /* ================= OLLYO CUP: group stage -> knockout =================
    Matches are recorded as scores; winner = higher score (no draws in foosball).
@@ -4952,7 +4957,7 @@ function matchBox(m, o) {
     row.className = 'm-side' + (t ? teamMark(m, t) : ' empty');
     const nm = document.createElement('div');
     nm.className = 'm-team';
-    nm.textContent = t ? teamName(t) : '—'; // textContent: names are user input
+    if (t) nm.append(...teamNodes(t)); else nm.textContent = '—';
     row.appendChild(nm);
     if (!t) { box.appendChild(row); return; }
     if (!indivGoals()) {
@@ -5035,8 +5040,9 @@ function renderGroups() {
       order.map((t, i) => {
         const s = stats.get(t);
         return `<tr${i < advance ? ' class="qualified"' : ''}>
-          <td>${teamName(t)}</td><td class="num">${s.p}</td><td class="num">${s.w}</td><td class="num">${fmt(s.gd)}</td><td class="num">${s.gf}</td></tr>`;
+          <td class="tn"></td><td class="num">${s.p}</td><td class="num">${s.w}</td><td class="num">${fmt(s.gd)}</td><td class="num">${s.gf}</td></tr>`;
       }).join('');
+    tbl.querySelectorAll('.tn').forEach((td, i) => td.append(...teamNodes(order[i])));
     box.appendChild(tbl);
     // settled matches sink to the bottom so what's still to play is the first
     // thing you see; the sort is stable, so fixture order survives inside each
