@@ -6819,7 +6819,8 @@ onAuthStateChanged(auth, user => {
 });
 
 $('authBtn').onclick = () => {
-  if (auth.currentUser) return signOut(auth);
+  // the tab bar shows only a name here, so a tap meant as "that's me" signed people out
+  if (auth.currentUser) return confirm('Sign out?') && signOut(auth);
   window.pickAccount(); // a name first; the picker is what calls signInAs
 };
 
