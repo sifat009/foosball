@@ -23,14 +23,18 @@ One tree per player.
   watering.
 - **Grow** costs the next stage's price. It needs a living tree that is not an
   oak and that has been watered today, so growing can't hide a neglected tree.
-- **Neglect:** every three whole calendar days in a row without water drops one
-  stage, and what was paid for that stage is lost. A sapling that drops dies,
+- **Neglect:** every three whole weekdays in a row without water drops one
+  stage (Saturday and Sunday are never counted as missed), and what was paid for that stage is lost. A sapling that drops dies,
   and the plot is empty until you plant again. Watering stops the fall at
   whatever stage the tree has reached.
 
 Example: watered Monday and then left alone. Tuesday, Wednesday and Thursday are
-missed, so on Friday it is one stage down. On the following Monday it is two
-stages down.
+missed, so on Friday it is one stage down. Friday, Monday and Tuesday are
+missed next, so on the following Wednesday it is two stages down. Watered on a
+Friday, the tree is safe until the next Thursday.
+
+Watering still works on a weekend, and it pays, but a weekend left alone costs
+nothing.
 
 ## How it's worked out
 
@@ -44,7 +48,7 @@ tree:
 `coinWalk` keeps `trees[player] = { stage, day }`, where `day` is the last day the
 tree was watered (or planted), in the same local-date days the daily five uses.
 The effective stage on any day `D` is `stage - floor(missed / 3)`, where
-`missed` is the number of whole days between `day` and `D`. Below the sapling,
+`missed` is the number of whole weekdays (Monday to Friday) between `day` and `D`. Below the sapling,
 the tree is dead. This is worked out before every plant, grow and water, and at
 `now` for display. Watering sets `stage` to the effective stage and `day` to
 today.
@@ -84,6 +88,7 @@ In `test.mjs`, `coinWalk`:
 - watering on nought pays out
 - a second water that day buys nothing
 - three missed days drop one stage, and nine drop three
+- a weekend is not missed: watered Friday, still the same stage on Wednesday
 - a neglected sapling dies, and you can plant again
 - planting over a living tree buys nothing
 - growing an unwatered tree buys nothing
