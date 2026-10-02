@@ -66,6 +66,7 @@
         "item": { ".validate": "newData.isString() && newData.val().length <= 20 && newData.parent().child('kind').val() === 'flair'" },
         "to": { ".validate": "newData.isString() && newData.val() !== auth.token.email && (newData.parent().child('kind').val() === 'gift' || newData.parent().child('kind').val() === 'bounty')" },
         "amt": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 50 && (newData.parent().child('kind').val() === 'gift' || (newData.parent().child('kind').val() === 'bounty' && newData.val() % 2 === 0))" },
+        "note": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60 && newData.parent().child('kind').val() === 'gift'" },
         "$other": { ".validate": false }
       }
     },

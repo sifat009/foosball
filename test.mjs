@@ -3173,6 +3173,29 @@ assert.equal(held.why, '10 coins to bet here — 10 of your 10 is on other table
   'a second ten-coin seat was offered on one ten: ' + held.why);
 assert.equal(held.takeable, 0, 'one ten was good for two ten-coin tables at once');
 
+/* A gift arrives as a sealed letter: the balance shown leaves it out, the card
+   names the sender and the note, and opening it counts it in and files it under
+   Gifts. Reduced motion, so the opening lands at once. */
+await page.emulateMedia({ reducedMotion: 'reduce' });
+const letter = await page.evaluate(f => {
+  window.setAccount('rashed@x.com'); localStorage.removeItem('giftSeen:Rashed');
+  window.renderSpends({ g: { by: 'sifat@x.com', at: Date.now(), kind: 'gift', to: 'rashed@x.com', amt: 3, note: 'Happy birthday!' } });
+  window.renderChallenges(f);
+  const card = $('coinYou').querySelector('.gift-card');
+  const before = [$('coinN').textContent, card && card.textContent, $('coins').classList.contains('coin-thirsty')];
+  card.querySelector('[data-gift]').click();
+  const log = $('coinYou').querySelector('.gift-log');
+  const after = [$('coinN').textContent, !!$('coinYou').querySelector('.gift-card'), log && log.textContent];
+  window.renderSpends({});
+  return { before, after };
+}, BET);
+assert.deepEqual(letter.before, ['0', 'Sifat sent you 3 coins“Happy birthday!”Open', true],
+  'a gift did not wait as a sealed letter: ' + JSON.stringify(letter.before));
+assert.equal(letter.after[0], '3', 'opening the letter did not count the gift in');
+assert.equal(letter.after[1], false, 'an opened letter stayed sealed');
+assert.ok(/Sifat · \+3 · “Happy birthday!”/.test(letter.after[2]), 'the opened gift is not under Gifts: ' + letter.after[2]);
+await page.emulateMedia({ reducedMotion: null });
+
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); });
 
 console.log('coins OK');

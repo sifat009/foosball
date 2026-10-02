@@ -257,6 +257,10 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
   assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
   assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+  // a gift may carry a short note, and nothing else may
+  assert.ok(await put('spends/n1', B1, sp(B1, { kind: 'gift', to: R1, amt: 1, note: 'Happy birthday!' })), 'a gift could not carry a note');
+  assert.ok(!await put('spends/n2', B1, sp(B1, { kind: 'gift', to: R1, amt: 1, note: 'x'.repeat(61) })), 'a note over 60 characters');
+  assert.ok(!await put('spends/n3', B1, sp(B1, { kind: 'bounty', to: R1, amt: 2, note: 'hi' })), 'a bounty carrying a note');
   // a tree's three rows carry nothing but who and when
   assert.ok(await put('spends/t1', B1, sp(B1, { kind: 'plant' })), 'a player could not plant a tree');
   assert.ok(await put('spends/t2', B1, sp(B1, { kind: 'grow' })), 'a player could not grow a tree');

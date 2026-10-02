@@ -489,6 +489,19 @@
   .coin-tree .tree-go { padding: 8px 14px; font-size: 0.8rem; white-space: nowrap; flex: none; box-shadow: none; }
   .tree-rest { font-size: 0.78rem; font-weight: 700; color: #5b6b85; text-align: right; flex: none; max-width: 96px; }
   .tree-note { font-size: 0.72rem; color: #7a879c; margin-top: 6px; }
+  /* a gift waiting to be opened: a letter with the coins still inside */
+  .gift-card { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px;
+    background: #fff8e6; border: 1px solid #f3dca0; border-radius: 12px; }
+  .gift-env { flex: none; width: 30px; height: 30px; fill: none; stroke: #b7791f; stroke-width: 1.8; stroke-linejoin: round; }
+  .gift-what { flex: 1; min-width: 0; }
+  .gift-what b { color: #172b4d; }
+  .gift-note { display: block; font-style: italic; color: #5b6b85; overflow-wrap: anywhere; }
+  .gift-more { display: block; font-size: 0.72rem; color: #7a879c; }
+  .gift-card .btn { padding: 8px 14px; font-size: 0.8rem; flex: none; box-shadow: none; }
+  /* the gifts already opened, newest first: where a coin came from */
+  .gift-log { margin-top: 12px; padding-top: 10px; border-top: 1px solid #dfe6f0; font-size: 0.76rem; color: #5b6b85; }
+  .gift-log > b { display: block; color: #172b4d; margin-bottom: 2px; }
+  .gift-log div { overflow-wrap: anywhere; }
   /* the card is the scroll container, so the way in pins to its bottom edge
      rather than sitting under however much of the sheet a phone can't show */
   /* the shop: a shelf of tiles, and under it a drawer holding the one you tapped */
@@ -512,6 +525,7 @@
   .sp-drawer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f4f7fb; border-radius: 16px; padding: 14px; }
   /* everything spans the drawer but the player and the amount, which share a row */
   .sp-drawer > :not(select, input) { grid-column: 1 / -1; }
+  #spMsg { grid-column: 1 / -1; }
   .sp-drawer select, .sp-drawer input { font: inherit; padding: 8px; border: 1px solid #d5dde8; border-radius: 10px; background: #fff; min-width: 0; }
   .sp-pick { display: flex; flex-wrap: wrap; gap: 8px; }
   .sp-pick:has(.sp-ic) { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; }
@@ -2080,6 +2094,7 @@ Nur</textarea>
         <div id="spPick" class="sp-pick" role="group"></div>
         <select id="spItem" aria-label="Player"></select>
         <input id="spAmt" type="number" min="1" max="50" step="1" placeholder="coins" aria-label="How many coins">
+        <input id="spMsg" type="text" maxlength="60" placeholder="Add a note — Happy birthday!" aria-label="A note with the gift">
         <div id="spPrev" class="sp-prev" aria-live="polite"></div>
         <div id="spNote" class="ch-betnote"></div>
         </div>
@@ -2094,7 +2109,9 @@ Nur</textarea>
         until you buy another.</li>
         <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
-        <li><b>Gift.</b> Send up to 50 coins straight to another player.</li>
+        <li><b>Gift.</b> Send up to 50 coins straight to another player, with a note
+        if you like. It waits for them as a letter on this sheet until they open it.
+        Anyone can read a note, so keep it to happy birthday.</li>
         <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 2
         each weekday and its coins ripen three hours later: collect them before midnight
         for 2, 3, 5 or 7 as it grows. Three weekdays without water and it drops a stage;
@@ -3383,6 +3400,25 @@ function chalShort(c) {
 
 /* player -> { stage, watered }, from the walk; set where the flair is. */
 var chalTrees = {};
+/* Every gift the walk honoured, oldest first; set where the flair is. */
+var chalGifts = [];
+/* Gifts to you arrive as letters: one still sealed waits on the sheet with its
+   coins inside, and the balance shown leaves them out until it is opened. Which
+   are opened is this device's to remember, and only the last week's can be
+   sealed, so a new phone doesn't open on a pile of old post. */
+const GIFT_SEALED_MS = 7 * 864e5;
+const giftsToMe = () => chalGifts.filter(g => EMAIL_NAMES[g.to] === myName());
+var giftSeenMem = 0; // for a browser that won't keep localStorage
+const giftSeen = () => {
+  let v = 0;
+  try { v = +localStorage.getItem('giftSeen:' + myName()) || 0; } catch {}
+  return Math.max(v, giftSeenMem);
+};
+const setGiftSeen = at => { giftSeenMem = at; try { localStorage.setItem('giftSeen:' + myName(), at); } catch {} };
+const sealedGifts = () => {
+  const seen = giftSeen(), from = Date.now() - GIFT_SEALED_MS;
+  return giftsToMe().filter(g => +g.at > seen && +g.at > from);
+};
 /* Your tree and the one thing it wants today: planting, water, or the next
    stage. The walk is still what decides — this only offers what it would take. */
 /* Where a day's coins hang on each stage's picture, as left/top percentages of
@@ -3441,7 +3477,8 @@ function treeRow(me, bal) {
 }
 
 function renderCoins() {
-  const n = myCoins(), pill = $('coins');
+  const sealed = myName() ? sealedGifts() : [];
+  const n = myCoins() === null ? null : myCoins() - sealed.reduce((t, g) => t + g.amt, 0), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
   // while picked coins are in the air, the balance counts them in as they land
   $('coinN').textContent = n === null ? '\u2013' : coinCount ? coinCount.shown : n;
@@ -3449,8 +3486,9 @@ function renderCoins() {
   const t = n === null ? null : chalTrees[myName()], now = Date.now();
   const busy = !!t && !weekend(new Date(now));
   const thirsty = busy && !t.watered, picking = busy && !!t.ripe && !t.got && now >= t.ripe;
-  pill.classList.toggle('coin-thirsty', thirsty || picking);
-  pill.title = n === null ? 'Sign in to see your coins' : thirsty ? 'Your tree wants water'
+  pill.classList.toggle('coin-thirsty', thirsty || picking || sealed.length > 0);
+  pill.title = n === null ? 'Sign in to see your coins' : sealed.length ? 'A gift is waiting for you'
+    : thirsty ? 'Your tree wants water'
     : picking ? 'Coins are ripe on your tree' : 'Coins to bet on challenges';
 
   // the pill is a number; the sheet is where a number gets a meaning
@@ -3467,7 +3505,30 @@ function renderCoins() {
   // your bounties still out, and what they have brought in so far
   chalHunts.filter(h => h.by === myName()).forEach(h => you.append(document.createElement('br'),
     `Bounty on ${h.on}: ${h.amt} \u00b7 ${h.got} collected \u00b7 `, leftNode(h.until), ' left'));
-  you.append(treeRow(myName(), n), part('tree-note', '3 weekdays without water drops a stage.'));
+  // the oldest letter first; the next one shows once it's opened
+  if (sealed.length) {
+    const g = sealed[0], card = part('gift-card'), what = part('gift-what');
+    card.insertAdjacentHTML('afterbegin', '<svg class="gift-env" viewBox="0 0 24 24" aria-hidden="true">'
+      + '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>');
+    // textContent throughout: the note is whatever the sender typed
+    what.append(flairName(EMAIL_NAMES[g.by]), ` sent you ${g.amt} coin${g.amt === 1 ? '' : 's'}`);
+    if (g.note) what.append(part('gift-note', '\u201c' + g.note + '\u201d', 'span'));
+    if (sealed.length > 1) what.append(part('gift-more', `${sealed.length - 1} more waiting`, 'span'));
+    const b = part('btn btn-gold', 'Open', 'button');
+    b.type = 'button'; b.dataset.gift = g.at;
+    card.append(what, b);
+    you.append(card);
+  }
+  you.append(treeRow(myName(), myCoins()), part('tree-note', '3 weekdays without water drops a stage.'));
+  const opened = giftsToMe().filter(g => !sealed.includes(g)).slice(-5).reverse();
+  if (opened.length) {
+    const log = part('gift-log');
+    log.append(part('', 'Gifts', 'b'));
+    opened.forEach(g => log.append(part('', `${EMAIL_NAMES[g.by]} \u00b7 +${g.amt}`
+      + (g.note ? ` \u00b7 \u201c${g.note}\u201d` : '')
+      + ` \u00b7 ${new Date(+g.at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`)));
+    you.append(log);
+  }
   paintSpend();
 }
 window.renderCoins = renderCoins;
@@ -3484,6 +3545,9 @@ function spendCheck() {
   if (kind === 'flair') row.item = item;
   if (kind === 'icon') row.item = 'icon:' + item;
   if (kind === 'gift' || kind === 'bounty') { row.to = item; row.amt = amt; }
+  // without one, a gift was just a balance that went up and nobody knew why
+  const note = $('spMsg').value.trim();
+  if (kind === 'gift' && note) row.note = note;
   const cost = spendCost(row);
   const mine = chalFlair[me] || {};
   const why = kind === 'flair' && !colourOf(item) ? 'Too light to read on a seat. Pick a darker one.'
@@ -3550,6 +3614,7 @@ function paintSpend() {
   sel.hidden = !opts.length;
   $('spAmt').hidden = kind !== 'gift' && kind !== 'bounty';
   $('spAmt').step = kind === 'bounty' ? 2 : 1;
+  $('spMsg').hidden = kind !== 'gift';
   // try it on before paying: the pick over whatever else you already wear
   const prev = $('spPrev');
   prev.hidden = !look;
@@ -3568,7 +3633,7 @@ function paintSpend() {
   $('spGo').disabled = !!why || !(cost > 0);
   $('spGo').textContent = cost > 0 ? `Spend ${cost} coin${cost === 1 ? '' : 's'}` : 'Spend';
 }
-['spItem', 'spAmt'].forEach(id => { $(id).oninput = paintSpend; });
+['spItem', 'spAmt', 'spMsg'].forEach(id => { $(id).oninput = paintSpend; });
 $('spKind').onclick = e => { const b = e.target.closest('[data-kind]'); if (b) { spKind = b.dataset.kind; paintSpend(); } };
 $('spPick').onclick = e => { const b = e.target.closest('[data-pick]'); if (b) { spPick[spKind] = b.dataset.pick; paintSpend(); } };
 $('spGo').onclick = () => {
@@ -3577,16 +3642,29 @@ $('spGo').onclick = () => {
   // the one tap here that can't be taken back
   if (!confirm(`Spend ${cost} coins? This can't be undone.`)) return;
   window.spendCoins({ ...row, by: acctEmail });
-  $('spAmt').value = '';
+  $('spAmt').value = $('spMsg').value = '';
 };
 $('coinYou').onclick = e => {
+  const g = e.target.closest('[data-gift]');
+  if (g) {
+    const shown = +$('coinN').textContent, gift = sealedGifts().find(x => +x.at === +g.dataset.gift);
+    if (!gift) return;
+    setGiftSeen(+gift.at);
+    g.disabled = true;
+    // up to ten coins out of the letter, the balance counting in the whole gift
+    if (!flyCoins(Array(Math.min(gift.amt, 10)).fill(g), gift.amt, shown)) renderCoins();
+    return;
+  }
   const b = e.target.closest('[data-tree]');
   if (!b || b.disabled || !myName() || !window.spendCoins) return;
   const kind = b.dataset.tree;
   // watering and picking are the daily taps, so only growing and planting ask
   if (kind !== 'water' && kind !== 'collect' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
   b.disabled = true; // the snapshot redraws the row; until then, one tap is one row
-  if (kind === 'collect') flyCoins(b);
+  if (kind === 'collect') {
+    const cs = [...b.closest('.coin-tree').querySelectorAll('.tree-coin')];
+    flyCoins(cs, cs.length, +$('coinN').textContent);
+  }
   window.spendCoins({ kind, by: acctEmail });
 };
 
@@ -3602,11 +3680,12 @@ function paintCount() {
   bal.textContent = n + (n === 1 ? ' coin' : ' coins');
   bal.classList.remove('bump'); void bal.offsetWidth; bal.classList.add('bump');
 }
-function flyCoins(btn) {
-  const coins = [...btn.closest('.coin-tree').querySelectorAll('.tree-coin')];
+/* `coins` are where each one takes off from, `total` what the balance counts in
+   over them, from `start`. False when nothing flew. */
+function flyCoins(coins, total, start) {
   const bal = document.querySelector('#coinYou .coin-bal');
-  if (!coins.length || !bal || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  coinCount = { shown: myCoins() };
+  if (!coins.length || !bal || matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  coinCount = { shown: start };
   const end = bal.getBoundingClientRect();
   let landed = 0;
   coins.forEach((c, i) => {
@@ -3622,10 +3701,11 @@ function flyCoins(btn) {
     ], { duration: 720, delay: i * 120, easing: 'cubic-bezier(.45, 0, .55, 1)', fill: 'backwards' })
       .finished.then(() => {
         f.remove();
-        coinCount.shown++; paintCount();
-        if (++landed === coins.length) { coinCount = null; renderCoins(); }
+        coinCount.shown = start + Math.round(++landed * total / coins.length); paintCount();
+        if (landed === coins.length) { coinCount = null; renderCoins(); }
       });
   });
+  return true;
 }
 window.renderSpends = v => { allSpends = v || {}; renderChal(); };
 
@@ -3937,6 +4017,7 @@ function renderChal() {
   chalHunts = walk.bounties;
   chalTags = walk.tags;
   chalTrees = walk.trees;
+  chalGifts = walk.ok.filter(x => x.kind === 'gift');
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
