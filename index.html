@@ -3766,6 +3766,13 @@ window.renderChallenges = all => {
      lobbies nobody ever filled. Everyone else just stops drawing them. */
   if (isAdmin && window.chalRemove)
     Object.entries(allChal).forEach(([id, c]) => { if (c && c.at && !chalLive(c)) window.chalRemove(id); });
+  /* A lobby the last player walked out of is nobody's game. The rules already
+     let its creator cancel an unfilled lobby, so their page clears it the moment
+     it empties — or the next time they open the app if a joiner left last. */
+  if (acctEmail && window.chalRemove)
+    Object.entries(allChal).forEach(([id, c]) => {
+      if (c && c.at && !c.slots && !c.score && !c.pending && (c.by === acctEmail || isAdmin)) window.chalRemove(id);
+    });
   renderChal();
 };
 
