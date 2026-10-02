@@ -9,7 +9,7 @@ keep alive.
 
 One tree per player.
 
-| Stage      | Cost to reach it | Paid on watering | Net per day |
+| Stage      | Cost to reach it | Collected a day  | Net per day |
 |------------|------------------|------------------|-------------|
 | Sapling    | 10 to plant      | 2                | 0           |
 | Young tree | 25               | 3                | +1          |
@@ -18,11 +18,16 @@ One tree per player.
 
 - **Weekends don't exist for a tree.** On Saturday and Sunday it can't be
   planted, watered or grown, it pays nothing, and it can't be missed.
-- **Water** costs 2, once per weekday. It pays the stage's yield in the same
-  moment, so a player on nought can still water: the pay lands before the 2 is
-  taken. A second water that day buys nothing.
+- **Water** costs 2, paid up front, once per weekday. A player who can't pay
+  the 2 can't water: they win a challenge first. A second water that day buys
+  nothing.
+- **Collect.** Watering grows the day's coins on the tree. They ripen 3 hours
+  after watering, but never later than 9pm, so an evening water still has a
+  window. Collect pays the yield of the stage the tree was at when it was
+  watered, once. Coins not collected by midnight drop off and are lost.
 - **Plant** costs 10 and needs no living tree. Planting counts as that day's
-  watering.
+  watering for neglect and for growing, but grows no coins: there is no harvest
+  on the day you plant.
 - **Grow** costs the next stage's price. It needs a living tree that is not an
   oak and that has been watered today, so growing can't hide a neglected tree.
 - **Neglect:** every three whole weekdays in a row without water drops one
@@ -37,15 +42,17 @@ Friday, the tree is safe until the next Thursday.
 
 ## How it's worked out
 
-These are three new kinds of row in `spends`, with no new node and no stored
+These are four new kinds of row in `spends`, with no new node and no stored
 tree:
 
-- `plant`, `grow` and `water` each carry only `by`, `at` and `kind`. The
+- `plant`, `grow`, `water` and `collect` each carry only `by`, `at` and `kind`. The
   stage that `grow` buys is the tree's next one, read from the walk rather than
   from the row.
 
-`coinWalk` keeps `trees[player] = { stage, day }`, where `day` is the last day the
-tree was watered (or planted), in the same local-date days the daily five uses.
+`coinWalk` keeps `trees[player] = { stage, day, ripe, pay, got }`, where `day` is
+the last day the tree was watered (or planted), `ripe` is when that day's coins
+ripen (none on a planting day), `pay` is what they are worth, and `got` says
+they've been collected, in the same local-date days the daily five uses.
 The effective stage on any day `D` is `stage - floor(missed / 3)`, where
 `missed` is the number of whole weekdays (Monday to Friday) between `day` and `D`. Below the sapling,
 the tree is dead. This is worked out before every plant, grow and water, and at
@@ -54,11 +61,13 @@ today.
 
 Like any spend, a row that can't be honoured buys nothing and costs nothing:
 planting over a living tree, growing an unwatered tree or an oak, watering a
-dead or missing tree, watering twice in a day, or growing without the price, or any of the three on a Saturday or Sunday.
+dead or missing tree, watering twice in a day or without the 2, growing
+without the price, collecting before the coins ripen, on another day, or twice,
+or any of the four on a Saturday or Sunday.
 `ok` carries the rows that went through, and the walk returns `trees` so the
 page can read them.
 
-The rules accept `plant`, `grow` and `water` in `kind`, with none of `item`,
+The rules accept `plant`, `grow`, `water` and `collect` in `kind`, with none of `item`,
 `to` or `amt`.
 
 ## Page
@@ -67,8 +76,11 @@ On the coins sheet, under "You have N coins", the tree shows its picture, its
 stage, whether it is watered today, and one button that follows its state:
 
 - **Plant · 10** when there is no tree
-- **Water · 2 (+yield)** when it is not watered today
-- **Grow · price** once it is watered today, if there is a next stage
+- **Water · 2** when it is not watered today, greyed out without 2 to spend
+- once watered, "Coins ripen at 13:20" until they do, then **Collect · +yield**,
+  with the coins hanging on the tree's picture
+- **Grow · price** once it is watered today and nothing is waiting to be
+  collected, if there is a next stage
 
 On a weekend there's no button, just "Resting till Monday", and no dot on the
 pill.
@@ -79,7 +91,8 @@ the other stages use their usual picture with a brown filter. The pictures grow
 with the stage, so the oak always reads as the biggest.
 
 A line under it says three weekdays without water drops a stage. The coins pill
-shows a dot while the day's watering is still waiting. There's no new item on
+shows a dot while the day's watering is still waiting, or while ripe coins are
+waiting to be collected. There's no new item on
 the Spend shelf, because the tree lives with the balance.
 
 ## Pictures
@@ -98,7 +111,6 @@ loads, and the service worker caches nothing, so there's nothing to register.
 ## Test
 
 In `test.mjs`, `coinWalk`:
-- watering on nought pays out
 - a second water that day buys nothing
 - three missed days drop one stage, and nine drop three
 - a weekend is not missed: watered Friday, still the same stage on Wednesday
@@ -107,5 +119,11 @@ In `test.mjs`, `coinWalk`:
 - planting over a living tree buys nothing
 - growing an unwatered tree buys nothing
 
-In `test-rules.mjs`: `plant`, `grow` and `water` are accepted, and an unknown
+- watering without 2 to spend buys nothing
+- collecting before the coins ripen, on the next day, or twice buys nothing;
+  collecting ripe coins pays the stage's yield
+- an evening water ripens by 9pm
+- a planting day has nothing to collect
+
+In `test-rules.mjs`: `plant`, `grow`, `water` and `collect` are accepted, and an unknown
 kind is still refused.

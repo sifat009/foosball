@@ -261,6 +261,7 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(await put('spends/t1', B1, sp(B1, { kind: 'plant' })), 'a player could not plant a tree');
   assert.ok(await put('spends/t2', B1, sp(B1, { kind: 'grow' })), 'a player could not grow a tree');
   assert.ok(await put('spends/t3', B1, sp(B1, { kind: 'water' })), 'a player could not water a tree');
+  assert.ok(await put('spends/t4', B1, sp(B1, { kind: 'collect' })), "a player could not collect a tree's coins");
   assert.ok(!await put('spends/x10', B1, sp(B1, { kind: 'water', amt: 5 })), 'a water carrying an amount');
 }
 // ---- one seat each, on the server's clock ----

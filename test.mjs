@@ -2883,10 +2883,10 @@ assert.deepEqual(hunt.recent.flat().sort(),
   ['Bounty on Ofi claimed \u00b7 +3 each', 'Ofi survived the bounty \u00b7 2 to Sifat'],
   'the Recent list did not tag the two bounty games: ' + JSON.stringify(hunt.recent));
 
-/* A tree is planted, grown and watered with spend rows. Sifat & Ofi beat Nur
-   & Rashed a hundred times, so Sifat holds 200: enough for an oak at 185. Days
-   are real local dates, since a tree counts weekdays — 5 October 2026 is a
-   Monday. */
+/* A tree is planted, grown and watered with spend rows, and its coins picked
+   with a collect row once they ripen. Sifat & Ofi beat Nur & Rashed a hundred
+   times, so Sifat holds 200: enough for an oak at 185. Days are real local
+   dates, since a tree counts weekdays — 5 October 2026 is a Monday. */
 const trees = await page.evaluate(s4 => {
   const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
@@ -2899,18 +2899,28 @@ const trees = await page.evaluate(s4 => {
   const friWater = sp(D(9), 'Sifat', 'water');
   const sat = sp(D(10), 'Sifat', 'water');
   const tue1 = sp(D(6, 9), 'Sifat', 'water'), tue2 = sp(D(6, 11), 'Sifat', 'water');
+  const pickEarly = sp(D(6, 11), 'Sifat', 'collect'), pick = sp(D(6, 12, 30), 'Sifat', 'collect'), pickAgain = sp(D(6, 13), 'Sifat', 'collect');
+  const pickTomorrow = sp(D(7, 9), 'Sifat', 'collect');
+  const lateWater = sp(D(6, 20, 30), 'Sifat', 'water'), latePick = sp(D(6, 21, 5), 'Sifat', 'collect');
+  const plantPick = sp(D(5, 14), 'Sifat', 'collect');
   const gift = sp(D(5, 9), 'Sifat', 'gift', { to: em('Nur'), amt: 10 });
   const nurPlant = sp(D(5), 'Nur', 'plant'), nurWater = sp(D(6), 'Nur', 'water');
   const plant = sp(D(5), 'Sifat', 'plant'), again = sp(D(6), 'Sifat', 'plant'), replant = sp(D(9), 'Sifat', 'plant');
   const early = sp(D(6), 'Sifat', 'grow');
   const stage = r => r.trees.Sifat ? r.trees.Sifat.stage : null;
   const has = (r, row) => r.ok.includes(row);
+  const day6 = w([...oak, tue1, pickEarly, pick, pickAgain, pickTomorrow], D(7, 12));
+  const waiting = w([...oak, tue1], D(6, 11)).trees.Sifat;
   return {
     built: [stage(w(oak, D(5, 12))), w(oak, D(5, 12)).bal.Sifat, w(oak, D(5, 12)).trees.Sifat.watered],
     fall: [stage(w(oak, D(9))), stage(w(oak, D(19))), stage(w(oak, D(22)))],
     weekend: [stage(w([...oak, friWater], D(14))), stage(w([...oak, friWater], D(15))), w([...oak, friWater], D(9, 12)).bal.Sifat],
     sat: has(w([...oak, sat], D(12)), sat),
     twice: [has(w([...oak, tue1, tue2], D(6, 12)), tue1), has(w([...oak, tue1, tue2], D(6, 12)), tue2), w([...oak, tue1, tue2], D(6, 12)).bal.Sifat],
+    waiting: [waiting.ripe === D(6, 12), waiting.pay, waiting.got],
+    picks: [has(day6, pickEarly), has(day6, pick), has(day6, pickAgain), has(day6, pickTomorrow), day6.bal.Sifat],
+    late: [has(w([...oak, lateWater, latePick], D(6, 22)), latePick), w([...oak, lateWater], D(6, 20, 31)).trees.Sifat.ripe === D(6, 21)],
+    plantDay: has(w([...oak, plantPick], D(5, 15)), plantPick),
     broke: [has(w([gift, nurPlant, nurWater], D(6, 12)), nurWater), w([gift, nurPlant, nurWater], D(6, 12)).bal.Nur],
     plantTwice: has(w([plant, again], D(6, 12)), again),
     replant: [has(w([plant, replant], D(9, 12)), replant), stage(w([plant, replant], D(9, 12)))],
@@ -2919,10 +2929,14 @@ const trees = await page.evaluate(s4 => {
 }, String(seat4));
 assert.deepEqual(trees.built, [3, 15, true], 'plant and three grows on one day did not make an oak for 185, watered');
 assert.deepEqual(trees.fall, [2, 0, null], 'three missed weekdays did not drop one stage, nine three, and twelve kill it');
-assert.deepEqual(trees.weekend, [2, 1, 18], 'a weekend counted against a tree, or the oak, three days dry, did not water as a Tree for 5 less 2');
+assert.deepEqual(trees.weekend, [2, 1, 13], 'a weekend counted against a tree, or the oak, three days dry, did not water as a Tree for 2');
 assert.equal(trees.sat, false, 'a tree was watered on a Saturday');
-assert.deepEqual(trees.twice, [true, false, 20], 'a second water on the same day went through');
-assert.deepEqual(trees.broke, [true, 0], 'a sapling on nought could not be watered, or did not keep itself');
+assert.deepEqual(trees.twice, [true, false, 13], 'a second water on the same day went through');
+assert.deepEqual(trees.waiting, [true, 7, false], "a 9am water did not grow the oak's 7 coins, ripe at noon");
+assert.deepEqual(trees.picks, [false, true, false, false, 20], 'coins were picked before they ripened, twice, or a day late — or ripe ones did not pay 7');
+assert.deepEqual(trees.late, [true, true], 'an evening water did not ripen by 9pm');
+assert.equal(trees.plantDay, false, 'a planting day had coins to collect');
+assert.deepEqual(trees.broke, [false, 0], 'a player on nought watered a tree');
 assert.equal(trees.plantTwice, false, 'a second tree was planted over a living one');
 assert.deepEqual(trees.replant, [true, 0], 'a dead sapling could not be planted over');
 assert.equal(trees.early, false, 'a tree grew without being watered that day');

@@ -459,6 +459,19 @@
   .tree-art.tree-2 { width: 66px; height: 70px; } .tree-art.tree-3 { width: 88px; height: 70px; }
   /* not watered today: the leaves go dry until it is */
   .tree-art.dry { filter: sepia(.75) saturate(1.1) hue-rotate(-12deg) brightness(.97); }
+  /* today's coins hanging on the tree: pale while they ripen, gold and bobbing
+     once they can be picked */
+  .tree-pic { position: relative; flex: none; }
+  .tree-coins { position: absolute; inset: 0 0 18% 0; pointer-events: none; }
+  .tree-coin { position: absolute; width: 11px; height: 11px; margin: -5px 0 0 -5px; border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10);
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.5), 0 1px 2px rgba(0,0,0,0.35);
+    opacity: 0.55; transform: scale(0.7); filter: saturate(0.4); transition: all 0.4s; }
+  .tree-coins.ripe .tree-coin { opacity: 1; transform: none; filter: none; animation: coin-bob 1.8s ease-in-out infinite; }
+  .tree-coins.ripe .tree-coin:nth-child(2n) { animation-delay: -0.9s; }
+  @keyframes coin-bob { 50% { transform: translateY(-2px); } }
+  @media (prefers-reduced-motion: reduce) { .tree-coins.ripe .tree-coin { animation: none; } }
+  .tree-state.gold { color: #96660a; font-weight: 800; }
   .tree-what { flex: 1; min-width: 0; }
   .tree-what b { display: block; color: #172b4d; }
   .tree-state { display: block; font-size: 0.76rem; color: #5b6b85; }
@@ -2074,8 +2087,9 @@ Nur</textarea>
         five, up to three extra a day.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player.</li>
         <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 2
-        each weekday and it pays 2, 3, 5 or 7 as it grows. Three weekdays without water
-        and it drops a stage; a sapling that drops dies. It rests on weekends.</li>
+        each weekday and its coins ripen three hours later: collect them before midnight
+        for 2, 3, 5 or 7 as it grows. Three weekdays without water and it drops a stage;
+        a sapling that drops dies. It rests on weekends.</li>
         <li><b>Bounty.</b> Put an even number of coins on a player for two days.
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
@@ -3053,15 +3067,21 @@ const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
 /* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
-   Stage i costs TREE[i].cost to reach and pays TREE[i].pay when watered, and a
-   water costs WATER_COST — so a sapling only keeps itself, and an oak nets 5.
+   Stage i costs TREE[i].cost to reach. A water costs WATER_COST up front and
+   grows the day's coins, TREE[i].pay of them, which ripen a few hours later and
+   are collected with a tap — so a sapling only keeps itself, and an oak nets 5.
    Weekends don't exist for a tree: nothing done to it then counts, and a
    weekend left alone is never missed. */
 const TREE = [{ name: 'Sapling', art: 'sapling', cost: 10, pay: 2 }, { name: 'Young tree', art: 'young', cost: 25, pay: 3 },
   { name: 'Tree', art: 'tree', cost: 50, pay: 5 }, { name: 'Old oak', art: 'oak', cost: 100, pay: 7 }];
-const WATER_COST = 2, TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water'];
+const WATER_COST = 2, TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water', 'collect'];
+/* Coins ripen three hours after the water, but never later than 9pm, so an
+   evening water still leaves a window before midnight takes what's left. */
+const RIPEN_MS = 3 * 36e5, RIPE_BY_HOUR = 21;
+
 const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d; };
 const weekend = d => d.getDay() === 0 || d.getDay() === 6;
+const ripeAt = t => Math.min(t + RIPEN_MS, +dayStart(t) + RIPE_BY_HOUR * 36e5);
 // ponytail: a day-by-day count, a few hundred steps for a tree left a year
 const weekdaysBetween = (a, b) => {
   let n = 0;
@@ -3127,16 +3147,24 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
         const day = dayStart(+s.at), cur = treeAt(trees[who], +s.at);
         if (who === undefined || weekend(day)) return;
         const today = cur && +cur.day === +day, next = cur && TREE[cur.stage + 1];
+        const tr = trees[who];
         if (s.kind === 'plant') {
+          // planting is the day's water, but grows no coins: no harvest on day one
           if (cur || bal[who] < TREE[0].cost) return;
-          bal[who] -= TREE[0].cost; trees[who] = { stage: 0, day };
+          bal[who] -= TREE[0].cost; trees[who] = { stage: 0, day, ripe: null };
         } else if (s.kind === 'water') {
-          if (!cur || today) return;
-          // the pay lands before the 2 is taken, so a tree waters on nought
-          bal[who] += TREE[cur.stage].pay - WATER_COST; trees[who] = { stage: cur.stage, day };
+          // paid up front: a player on nought wins a challenge before they water
+          if (!cur || today || bal[who] < WATER_COST) return;
+          bal[who] -= WATER_COST;
+          // worth what the tree was when watered, whatever it grows into after
+          trees[who] = { stage: cur.stage, day, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay, got: false };
+        } else if (s.kind === 'collect') {
+          // ripe, the same day, once: midnight takes what wasn't picked
+          if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return;
+          bal[who] += tr.pay; tr.got = true;
         } else {
           if (!today || !next || bal[who] < next.cost) return;
-          bal[who] -= next.cost; trees[who] = { stage: cur.stage + 1, day };
+          bal[who] -= next.cost; trees[who] = { ...tr, stage: cur.stage + 1 };
         }
         ok.push(s);
         return;
@@ -3205,11 +3233,14 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       if (e.id) (tags[e.id] = tags[e.id] || []).push({ on: h.on, by: h.by, won, paid });
     });
   });
-  // the trees as they stand now: stage, and whether today's water is in
+  /* The trees as they stand now: stage, whether today's water is in, and
+     today's coins — when they ripen, what they're worth, whether they're picked. */
   const treesNow = {};
   Object.entries(trees).forEach(([n, tr]) => {
     const t = treeAt(tr, now);
-    if (t) treesNow[n] = { stage: t.stage, watered: +t.day === +dayStart(now) };
+    if (!t) return;
+    const watered = +t.day === +dayStart(now), coins = watered && tr.ripe;
+    treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got) };
   });
   return { bal, ok, bounties, tags, trees: treesNow };
 }
@@ -3341,44 +3372,74 @@ function chalShort(c) {
 var chalTrees = {};
 /* Your tree and the one thing it wants today: planting, water, or the next
    stage. The walk is still what decides — this only offers what it would take. */
+/* Where a day's coins hang on each stage's picture, as left/top percentages of
+   its box: one per coin the stage grows, over the leaves. */
+const TREE_COINS = [[[28, 22], [60, 8]], [[22, 20], [62, 10], [44, 38]],
+  [[18, 30], [48, 10], [76, 26], [32, 48], [64, 44]],
+  [[12, 34], [32, 14], [54, 6], [78, 22], [22, 52], [48, 36], [86, 48]]];
+const clock = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 function treeRow(me, bal) {
-  const t = chalTrees[me], off = weekend(new Date()), st = t && TREE[t.stage];
+  const t = chalTrees[me], now = Date.now(), off = weekend(new Date(now)), st = t && TREE[t.stage];
   const free = bal - chalHeld(me), dry = !!t && !t.watered && !off;
-  const row = part('coin-tree');
+  const ripe = !!t && !!t.ripe && !t.got && now >= t.ripe;
+  const row = part('coin-tree'), pic = part('tree-pic');
   const img = document.createElement('img');
   img.alt = ''; // the name beside it says what it is
   img.className = 'tree-art tree-' + (t ? t.stage : 'none') + (dry && t.stage < 3 ? ' dry' : '');
   // the oak has its own autumn picture; the rest are dried with a filter
   img.src = 'icons/tree/' + (!t ? 'none' : dry && t.stage === 3 ? 'dry' : st.art) + '.png';
+  pic.append(img);
+  /* today's coins on the branches: pale while they ripen, gold once they can
+     be picked, gone once they are. Drawn for the stage they were watered at. */
+  if (t && t.ripe && !t.got && !off) {
+    const box = part('tree-coins' + (ripe ? ' ripe' : ''));
+    TREE_COINS[TREE.findIndex(x => x.pay === t.pay)].forEach(([x, y]) => {
+      const c = part('tree-coin', '', 'i'); c.style.left = x + '%'; c.style.top = y + '%'; box.append(c);
+    });
+    pic.className += ' tree-' + t.stage;
+    pic.append(box);
+  }
   const what = part('tree-what');
-  what.append(part('', st ? st.name : 'No tree', 'b'),
-    part('tree-state' + (off || !t ? '' : t.watered ? ' ok' : ' no'),
-      !t ? 'Plant one and water it each weekday.' : off ? 'The weekend'
-        : t.watered ? 'Watered today' : 'Not watered today', 'span'));
-  row.append(img, what);
+  const [cls, line] = !t ? ['', 'Plant one and water it each weekday.']
+    : off ? ['', 'The weekend']
+    : !t.watered ? ['no', 'Not watered today']
+    : !t.ripe ? ['ok', 'Planted today · water it next weekday']
+    : t.got ? ['ok', `Collected today · +${t.pay}`]
+    : ripe ? ['gold', 'Coins ripe · collect before midnight']
+    : ['ok', `Watered · coins ripen at ${clock(t.ripe)}`];
+  what.append(part('', st ? st.name : 'No tree', 'b'), part('tree-state' + (cls ? ' ' + cls : ''), line, 'span'));
+  row.append(pic, what);
   if (off) { row.append(part('tree-rest', 'Resting till Monday', 'span')); return row; }
   const next = t && t.watered && TREE[t.stage + 1];
-  const [kind, cost, label] = !t ? ['plant', TREE[0].cost, `Plant \u00b7 ${TREE[0].cost}`]
-    : !t.watered ? ['water', 0, `Water \u00b7 ${WATER_COST} (+${st.pay})`]
-    : next ? ['grow', next.cost, `Grow \u00b7 ${next.cost}`] : [];
-  if (!kind) return row; // a watered oak: nothing left to do today
+  const [kind, cost, label] = !t ? ['plant', TREE[0].cost, `Plant · ${TREE[0].cost}`]
+    : !t.watered ? ['water', WATER_COST, `Water · ${WATER_COST}`]
+    : ripe ? ['collect', 0, `Collect · +${t.pay}`]
+    : next ? ['grow', next.cost, `Grow · ${next.cost}`] : [];
+  if (!kind) return row; // nothing to do but wait: coins ripening, or a picked oak
   const b = part('btn ' + (kind === 'grow' ? 'btn-gold' : 'btn-green') + ' tree-go', label, 'button');
   b.type = 'button'; b.dataset.tree = kind; b.dataset.cost = cost;
   b.disabled = free < cost;
-  if (b.disabled) b.title = `You have ${free} to spend`;
+  if (b.disabled) b.title = kind === 'water' ? `You need ${WATER_COST} coins to water — win a challenge` : `You have ${free} to spend`;
   row.append(b);
   return row;
 }
+/* The sheet redraws itself the moment the coins ripen, so Collect turns up
+   without a reload. */
+var treeTimer = 0;
 
 function renderCoins() {
   const n = myCoins(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
   $('coinN').textContent = n === null ? '\u2013' : n;
   $('coinWho').textContent = myName() || ''; // textContent: EMAIL_NAMES is edited by hand
-  const t = n === null ? null : chalTrees[myName()];
-  const thirsty = !!t && !t.watered && !weekend(new Date());
-  pill.classList.toggle('coin-thirsty', thirsty);
-  pill.title = n === null ? 'Sign in to see your coins' : thirsty ? 'Your tree wants water' : 'Coins to bet on challenges';
+  const t = n === null ? null : chalTrees[myName()], now = Date.now();
+  const busy = !!t && !weekend(new Date(now));
+  const thirsty = busy && !t.watered, picking = busy && !!t.ripe && !t.got && now >= t.ripe;
+  pill.classList.toggle('coin-thirsty', thirsty || picking);
+  pill.title = n === null ? 'Sign in to see your coins' : thirsty ? 'Your tree wants water'
+    : picking ? 'Coins are ripe on your tree' : 'Coins to bet on challenges';
+  clearTimeout(treeTimer);
+  if (busy && t.ripe && !t.got && t.ripe > now) treeTimer = setTimeout(renderCoins, t.ripe - now + 250);
 
   // the pill is a number; the sheet is where a number gets a meaning
   const you = $('coinYou');
@@ -3509,8 +3570,8 @@ $('coinYou').onclick = e => {
   const b = e.target.closest('[data-tree]');
   if (!b || b.disabled || !myName() || !window.spendCoins) return;
   const kind = b.dataset.tree;
-  // watering is the daily tap and pays more than it costs, so only spending asks
-  if (kind !== 'water' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
+  // watering and picking are the daily taps, so only growing and planting ask
+  if (kind !== 'water' && kind !== 'collect' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
   b.disabled = true; // the snapshot redraws the row; until then, one tap is one row
   window.spendCoins({ kind, by: acctEmail });
 };
