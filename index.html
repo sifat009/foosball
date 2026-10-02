@@ -472,6 +472,14 @@
   @keyframes coin-bob { 50% { transform: translateY(-2px); } }
   @media (prefers-reduced-motion: reduce) { .tree-coins.ripe .tree-coin { animation: none; } }
   .tree-state.gold { color: #96660a; font-weight: 800; }
+  /* a picked coin on its way to the balance, above the sheet */
+  .coin-fly { position: fixed; z-index: 10000; width: 14px; height: 14px; margin: -2px 0 0 -2px; border-radius: 50%;
+    pointer-events: none; background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10);
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.55), 0 2px 6px rgba(150,102,10,0.45); }
+  /* the balance takes each coin with a little jump */
+  .coin-bal { display: inline-block; }
+  .coin-bal.bump { animation: coin-bump 0.28s ease-out; }
+  @keyframes coin-bump { 40% { transform: scale(1.18); color: #d99a12; } }
   .tree-what { flex: 1; min-width: 0; }
   .tree-what b { display: block; color: #172b4d; }
   .tree-state { display: block; font-size: 0.76rem; color: #5b6b85; }
@@ -3430,7 +3438,8 @@ var treeTimer = 0;
 function renderCoins() {
   const n = myCoins(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
-  $('coinN').textContent = n === null ? '\u2013' : n;
+  // while picked coins are in the air, the balance counts them in as they land
+  $('coinN').textContent = n === null ? '\u2013' : coinCount ? coinCount.shown : n;
   $('coinWho').textContent = myName() || ''; // textContent: EMAIL_NAMES is edited by hand
   const t = n === null ? null : chalTrees[myName()], now = Date.now();
   const busy = !!t && !weekend(new Date(now));
@@ -3450,7 +3459,8 @@ function renderCoins() {
       : 'Sign in as a player to start earning.';
     return;
   }
-  you.append('You have ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'), '.');
+  const shown = coinCount ? coinCount.shown : n;
+  you.append('You have ', part('coin-bal', shown + (shown === 1 ? ' coin' : ' coins'), 'b'), '.');
   // your bounties still out, and what they have brought in so far
   chalHunts.filter(h => h.by === myName()).forEach(h => you.append(document.createElement('br'),
     `Bounty on ${h.on}: ${h.amt} \u00b7 ${h.got} collected \u00b7 `, leftNode(h.until), ' left'));
@@ -3573,8 +3583,47 @@ $('coinYou').onclick = e => {
   // watering and picking are the daily taps, so only growing and planting ask
   if (kind !== 'water' && kind !== 'collect' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
   b.disabled = true; // the snapshot redraws the row; until then, one tap is one row
+  if (kind === 'collect') flyCoins(b);
   window.spendCoins({ kind, by: acctEmail });
 };
+
+/* Picking the coins: each one leaves its branch, arcs up and drops into the
+   balance, which counts it in as it lands — so +7 is seen arriving, one coin at
+   a time. The snapshot already knows the total; until the last coin lands the
+   balance shows what has landed instead. */
+var coinCount = null;
+function paintCount() {
+  const bal = document.querySelector('#coinYou .coin-bal'), n = coinCount.shown;
+  $('coinN').textContent = n;
+  if (!bal) return;
+  bal.textContent = n + (n === 1 ? ' coin' : ' coins');
+  bal.classList.remove('bump'); void bal.offsetWidth; bal.classList.add('bump');
+}
+function flyCoins(btn) {
+  const coins = [...btn.closest('.coin-tree').querySelectorAll('.tree-coin')];
+  const bal = document.querySelector('#coinYou .coin-bal');
+  if (!coins.length || !bal || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  coinCount = { shown: myCoins() };
+  const end = bal.getBoundingClientRect();
+  let landed = 0;
+  coins.forEach((c, i) => {
+    const from = c.getBoundingClientRect(), f = part('coin-fly', '', 'i');
+    f.style.left = from.left + 'px'; f.style.top = from.top + 'px';
+    document.body.append(f);
+    c.style.visibility = 'hidden';
+    const dx = end.left + 8 - from.left, dy = end.top + end.height / 2 - 7 - from.top;
+    f.animate([
+      { transform: 'translate(0, 0) scale(1)' },
+      { transform: `translate(${dx * 0.35}px, ${Math.min(dy, 0) * 0.35 - 46}px) scale(1.3)`, offset: 0.45 },
+      { transform: `translate(${dx}px, ${dy}px) scale(0.75)` },
+    ], { duration: 720, delay: i * 120, easing: 'cubic-bezier(.45, 0, .55, 1)', fill: 'backwards' })
+      .finished.then(() => {
+        f.remove();
+        coinCount.shown++; paintCount();
+        if (++landed === coins.length) { coinCount = null; renderCoins(); }
+      });
+  });
+}
 window.renderSpends = v => { allSpends = v || {}; renderChal(); };
 
 const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
