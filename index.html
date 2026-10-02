@@ -3085,10 +3085,14 @@ const TREE = [{ name: 'Sapling', art: 'sapling', cost: 10, pay: 2 }, { name: 'Yo
 const WATER_COST = 2, TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water', 'collect'];
 /* Coins ripen three hours after the water, but never later than 9pm, so an
    evening water still leaves a window before midnight takes what's left. */
-const RIPEN_MS = 3 * 36e5, RIPE_BY_HOUR = 21;
+/* Localhost only: ?play makes every day a weekday and ripens coins in twenty
+   seconds, so the whole round can be tried in a minute. The live site never
+   sees it, the same way it never sees the emulators. */
+const TREE_PLAY = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('play');
+const RIPEN_MS = TREE_PLAY ? 2e4 : 3 * 36e5, RIPE_BY_HOUR = 21;
 
 const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d; };
-const weekend = d => d.getDay() === 0 || d.getDay() === 6;
+const weekend = d => !TREE_PLAY && (d.getDay() === 0 || d.getDay() === 6);
 const ripeAt = t => Math.min(t + RIPEN_MS, +dayStart(t) + RIPE_BY_HOUR * 36e5);
 // ponytail: a day-by-day count, a few hundred steps for a tree left a year
 const weekdaysBetween = (a, b) => {
