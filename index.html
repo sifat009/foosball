@@ -3405,8 +3405,8 @@ function treeRow(me, bal) {
     : !t.watered ? ['no', 'Not watered today']
     : !t.ripe ? ['ok', 'Planted today · water it next weekday']
     : t.got ? ['ok', `Collected today · +${t.pay}`]
-    : ripe ? ['gold', 'Coins ripe · collect before midnight']
-    : ['ok', `Watered · coins ripen at ${clock(t.ripe)}`];
+    : ripe ? ['gold', 'Ripe · pick before midnight']
+    : ['ok', `Watered · ripe at ${clock(t.ripe)}`];
   what.append(part('', st ? st.name : 'No tree', 'b'), part('tree-state' + (cls ? ' ' + cls : ''), line, 'span'));
   row.append(pic, what);
   if (off) { row.append(part('tree-rest', 'Resting till Monday', 'span')); return row; }

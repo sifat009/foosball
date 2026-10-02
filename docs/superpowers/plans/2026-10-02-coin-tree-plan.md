@@ -153,6 +153,28 @@ Commit: *The coins sheet holds your tree, and one button for what it needs today
 
 Commit: *The wallet shows a dot while your tree waits for water*
 
+## 5. Water now, collect later
+
+Added after trying the first version: watering paid out in the same tap, so
+there was no moment of collecting. Now:
+
+- `water` costs `WATER_COST` up front and needs it; it stores
+  `ripe: ripeAt(at)` and `pay: TREE[stage].pay` on the tree, with `got: false`.
+  `ripeAt` is three hours on, capped at 9pm that day.
+- `collect` is a fourth row: honoured only on the day of the water, at or after
+  `ripe`, once. It adds `pay`. Midnight takes what wasn't picked, because the
+  next day isn't `today`.
+- `plant` sets `ripe: null`: no harvest on day one. `grow` keeps the day's
+  `ripe` and `pay`.
+- The walk's `trees` gains `ripe`, `pay` and `got` for today.
+- The row: **Water · 2** (greyed out without 2, "win a challenge"), then
+  "Watered · ripe at 12:00" with pale coins on the picture, then gold bobbing
+  coins and **Collect · +7**, then "Collected today · +7" and Grow. A timer
+  redraws the sheet the moment the coins ripen. The pill's dot shows for
+  water waiting or coins ripe.
+- Rules accept `collect`; tests cover ripening, picking twice or a day late,
+  the 9pm cap, the planting day, and watering on nought.
+
 ---
 
 ## Not in this plan
