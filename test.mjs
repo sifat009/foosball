@@ -2977,7 +2977,9 @@ const coinCard = await page.evaluate(() => {
   out.sheetMine = $('coinYou').textContent;
   window.setAccount('nur@x.com');
   out.theirs = $('coinN').textContent;
-  out.sheetTheirs = $('coinYou').textContent;
+  // the tree row prices things in coins, which is not anybody's balance
+  out.sheetTheirs = [...$('coinYou').childNodes].filter(n => !(n.classList && n.classList.contains('coin-tree')))
+    .map(n => n.textContent).join('');
   window.setAccount(null);
   return out;
 });

@@ -442,6 +442,24 @@
 
   .coin-you { background: #f4f7fb; border-radius: 14px; padding: 14px 16px; margin-top: 4px; font-size: 0.85rem; }
   .coin-you b { color: #96660a; }
+  /* YOUR TREE. It sits with the balance because watering it is a daily tap and
+     the sheet is where the balance already lives. The picture grows with the
+     stage — the oak is wider than tall, so each stage gets its own box — and
+     every one stands on the same line. */
+  .coin-tree { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #dfe6f0; }
+  .tree-art { flex: none; height: 64px; width: 56px; object-fit: contain; object-position: center bottom; }
+  .tree-art.tree-0 { width: 52px; } .tree-art.tree-1 { width: 56px; }
+  .tree-art.tree-2 { width: 66px; height: 70px; } .tree-art.tree-3 { width: 88px; height: 70px; }
+  /* not watered today: the leaves go dry until it is */
+  .tree-art.dry { filter: sepia(.75) saturate(1.1) hue-rotate(-12deg) brightness(.97); }
+  .tree-what { flex: 1; min-width: 0; }
+  .tree-what b { display: block; color: #172b4d; }
+  .tree-state { display: block; font-size: 0.76rem; color: #5b6b85; }
+  .tree-state.ok { color: #17854a; font-weight: 700; }
+  .tree-state.no { color: #b7791f; font-weight: 700; }
+  .coin-tree .tree-go { padding: 8px 14px; font-size: 0.8rem; white-space: nowrap; flex: none; box-shadow: none; }
+  .tree-rest { font-size: 0.78rem; font-weight: 700; color: #5b6b85; text-align: right; flex: none; max-width: 96px; }
+  .tree-note { font-size: 0.72rem; color: #7a879c; margin-top: 6px; }
   /* the card is the scroll container, so the way in pins to its bottom edge
      rather than sitting under however much of the sheet a phone can't show */
   /* the shop: a shelf of tiles, and under it a drawer holding the one you tapped */
@@ -2046,6 +2064,9 @@ Nur</textarea>
         <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player.</li>
+        <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 2
+        each weekday and it pays 2, 3, 5 or 7 as it grows. Three weekdays without water
+        and it drops a stage; a sapling that drops dies. It rests on weekends.</li>
         <li><b>Bounty.</b> Put an even number of coins on a player for two days.
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
@@ -3307,6 +3328,39 @@ function chalShort(c) {
     : `${bet} coins to bet here \u2014 ${held} of your ${bal} is on other tables.`;
 }
 
+/* player -> { stage, watered }, from the walk; set where the flair is. */
+var chalTrees = {};
+/* Your tree and the one thing it wants today: planting, water, or the next
+   stage. The walk is still what decides — this only offers what it would take. */
+function treeRow(me, bal) {
+  const t = chalTrees[me], off = weekend(new Date()), st = t && TREE[t.stage];
+  const free = bal - chalHeld(me), dry = !!t && !t.watered && !off;
+  const row = part('coin-tree');
+  const img = document.createElement('img');
+  img.alt = ''; // the name beside it says what it is
+  img.className = 'tree-art tree-' + (t ? t.stage : 'none') + (dry && t.stage < 3 ? ' dry' : '');
+  // the oak has its own autumn picture; the rest are dried with a filter
+  img.src = 'icons/tree/' + (!t ? 'none' : dry && t.stage === 3 ? 'dry' : st.art) + '.png';
+  const what = part('tree-what');
+  what.append(part('', st ? st.name : 'No tree', 'b'),
+    part('tree-state' + (off || !t ? '' : t.watered ? ' ok' : ' no'),
+      !t ? 'Plant one and water it each weekday.' : off ? 'The weekend'
+        : t.watered ? 'Watered today' : 'Not watered today', 'span'));
+  row.append(img, what);
+  if (off) { row.append(part('tree-rest', 'Resting till Monday', 'span')); return row; }
+  const next = t && t.watered && TREE[t.stage + 1];
+  const [kind, cost, label] = !t ? ['plant', TREE[0].cost, `Plant \u00b7 ${TREE[0].cost}`]
+    : !t.watered ? ['water', 0, `Water \u00b7 ${WATER_COST} (+${st.pay})`]
+    : next ? ['grow', next.cost, `Grow \u00b7 ${next.cost}`] : [];
+  if (!kind) return row; // a watered oak: nothing left to do today
+  const b = part('btn ' + (kind === 'grow' ? 'btn-gold' : 'btn-green') + ' tree-go', label, 'button');
+  b.type = 'button'; b.dataset.tree = kind; b.dataset.cost = cost;
+  b.disabled = free < cost;
+  if (b.disabled) b.title = `You have ${free} to spend`;
+  row.append(b);
+  return row;
+}
+
 function renderCoins() {
   const n = myCoins(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
@@ -3327,6 +3381,7 @@ function renderCoins() {
   // your bounties still out, and what they have brought in so far
   chalHunts.filter(h => h.by === myName()).forEach(h => you.append(document.createElement('br'),
     `Bounty on ${h.on}: ${h.amt} \u00b7 ${h.got} collected \u00b7 `, leftNode(h.until), ' left'));
+  you.append(treeRow(myName(), n), part('tree-note', '3 weekdays without water drops a stage.'));
   paintSpend();
 }
 window.renderCoins = renderCoins;
@@ -3437,6 +3492,15 @@ $('spGo').onclick = () => {
   if (!confirm(`Spend ${cost} coins? This can't be undone.`)) return;
   window.spendCoins({ ...row, by: acctEmail });
   $('spAmt').value = '';
+};
+$('coinYou').onclick = e => {
+  const b = e.target.closest('[data-tree]');
+  if (!b || b.disabled || !myName() || !window.spendCoins) return;
+  const kind = b.dataset.tree;
+  // watering is the daily tap and pays more than it costs, so only spending asks
+  if (kind !== 'water' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
+  b.disabled = true; // the snapshot redraws the row; until then, one tap is one row
+  window.spendCoins({ kind, by: acctEmail });
 };
 window.renderSpends = v => { allSpends = v || {}; renderChal(); };
 
@@ -3747,6 +3811,7 @@ function renderChal() {
   if (JSON.stringify(chalFlair) !== wore) { renderAll(); renderHall(hallEntries, [...histIds]); }
   chalHunts = walk.bounties;
   chalTags = walk.tags;
+  chalTrees = walk.trees;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
