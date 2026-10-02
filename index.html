@@ -472,6 +472,7 @@
   @keyframes coin-bob { 50% { transform: translateY(-2px); } }
   @media (prefers-reduced-motion: reduce) { .tree-coins.ripe .tree-coin { animation: none; } }
   .tree-state.gold { color: #96660a; font-weight: 800; }
+  .tree-state [data-until] { font-variant-numeric: tabular-nums; }
   /* a picked coin on its way to the balance, above the sheet */
   .coin-fly { position: fixed; z-index: 10000; width: 14px; height: 14px; margin: -2px 0 0 -2px; border-radius: 50%;
     pointer-events: none; background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10);
@@ -3389,7 +3390,6 @@ var chalTrees = {};
 const TREE_COINS = [[[28, 22], [60, 8]], [[22, 20], [62, 10], [44, 38]],
   [[18, 30], [48, 10], [76, 26], [32, 48], [64, 44]],
   [[12, 34], [32, 14], [54, 6], [78, 22], [22, 52], [48, 36], [86, 48]]];
-const clock = t => new Date(t).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 function treeRow(me, bal) {
   const t = chalTrees[me], now = Date.now(), off = weekend(new Date(now)), st = t && TREE[t.stage];
   const free = bal - chalHeld(me), dry = !!t && !t.watered && !off;
@@ -3417,9 +3417,13 @@ function treeRow(me, bal) {
     : !t.watered ? ['no', 'Not watered today']
     : !t.ripe ? ['ok', 'Planted today · water it next weekday']
     : t.got ? ['ok', `Collected today · +${t.pay}`]
-    : ripe ? ['gold', 'Ripe · pick before midnight']
-    : ['ok', `Watered · ripe at ${clock(t.ripe)}`];
-  what.append(part('', st ? st.name : 'No tree', 'b'), part('tree-state' + (cls ? ' ' + cls : ''), line, 'span'));
+    : ripe ? ['gold', 'Ripe · pick within ']
+    : ['ok', 'Watered · ripe in '];
+  const state = part('tree-state' + (cls ? ' ' + cls : ''), line, 'span');
+  /* a clock that ticks down to the second, the bounty's own: to ripe, then to
+     midnight, when what wasn't picked drops off. Reaching nought redraws. */
+  if (t && t.ripe && !t.got && !off) state.append(leftNode(ripe ? +dayStart(now) + 864e5 : t.ripe));
+  what.append(part('', st ? st.name : 'No tree', 'b'), state);
   row.append(pic, what);
   if (off) { row.append(part('tree-rest', 'Resting till Monday', 'span')); return row; }
   const next = t && t.watered && TREE[t.stage + 1];
@@ -3435,9 +3439,6 @@ function treeRow(me, bal) {
   row.append(b);
   return row;
 }
-/* The sheet redraws itself the moment the coins ripen, so Collect turns up
-   without a reload. */
-var treeTimer = 0;
 
 function renderCoins() {
   const n = myCoins(), pill = $('coins');
@@ -3451,8 +3452,6 @@ function renderCoins() {
   pill.classList.toggle('coin-thirsty', thirsty || picking);
   pill.title = n === null ? 'Sign in to see your coins' : thirsty ? 'Your tree wants water'
     : picking ? 'Coins are ripe on your tree' : 'Coins to bet on challenges';
-  clearTimeout(treeTimer);
-  if (busy && t.ripe && !t.got && t.ripe > now) treeTimer = setTimeout(renderCoins, t.ripe - now + 250);
 
   // the pill is a number; the sheet is where a number gets a meaning
   const you = $('coinYou');
