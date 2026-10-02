@@ -59,10 +59,10 @@
       ".read": true,
       "$id": {
         ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && auth.token.email === 'bhacker150@gmail.com'))",
-        ".validate": "newData.hasChildren(['by', 'at', 'kind']) && (newData.child('kind').val() === 'flair' ? newData.hasChild('item') : newData.child('kind').val() === 'slot' || newData.hasChildren(['to', 'amt']))",
+        ".validate": "newData.hasChildren(['by', 'at', 'kind']) && (newData.child('kind').val() === 'flair' ? newData.hasChild('item') : newData.child('kind').val() === 'slot' || newData.child('kind').val() === 'plant' || newData.child('kind').val() === 'grow' || newData.child('kind').val() === 'water' || newData.hasChildren(['to', 'amt']))",
         "by": { ".validate": "newData.val() === auth.token.email" },
         "at": { ".validate": "newData.val() === now" },
-        "kind": { ".validate": "newData.val() === 'flair' || newData.val() === 'slot' || newData.val() === 'gift' || newData.val() === 'bounty'" },
+        "kind": { ".validate": "newData.val() === 'flair' || newData.val() === 'slot' || newData.val() === 'gift' || newData.val() === 'bounty' || newData.val() === 'plant' || newData.val() === 'grow' || newData.val() === 'water'" },
         "item": { ".validate": "newData.isString() && newData.val().length <= 20 && newData.parent().child('kind').val() === 'flair'" },
         "to": { ".validate": "newData.isString() && newData.val() !== auth.token.email && (newData.parent().child('kind').val() === 'gift' || newData.parent().child('kind').val() === 'bounty')" },
         "amt": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 50 && (newData.parent().child('kind').val() === 'gift' || (newData.parent().child('kind').val() === 'bounty' && newData.val() % 2 === 0))" },

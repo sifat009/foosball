@@ -257,6 +257,11 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
   assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
   assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+  // a tree's three rows carry nothing but who and when
+  assert.ok(await put('spends/t1', B1, sp(B1, { kind: 'plant' })), 'a player could not plant a tree');
+  assert.ok(await put('spends/t2', B1, sp(B1, { kind: 'grow' })), 'a player could not grow a tree');
+  assert.ok(await put('spends/t3', B1, sp(B1, { kind: 'water' })), 'a player could not water a tree');
+  assert.ok(!await put('spends/x10', B1, sp(B1, { kind: 'water', amt: 5 })), 'a water carrying an amount');
 }
 // ---- one seat each, on the server's clock ----
 /* The walk only pays four different players, but the rules turn the obvious way
