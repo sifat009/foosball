@@ -3022,12 +3022,38 @@ const FLAIR_COST = 20, ICON_COST = 15, SLOT_COST = 5, SLOT_MAX = 3;
 const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
+/* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
+   Stage i costs TREE[i].cost to reach and pays TREE[i].pay when watered, and a
+   water costs WATER_COST — so a sapling only keeps itself, and an oak nets 5.
+   Weekends don't exist for a tree: nothing done to it then counts, and a
+   weekend left alone is never missed. */
+const TREE = [{ name: 'Sapling', art: 'sapling', cost: 10, pay: 2 }, { name: 'Young tree', art: 'young', cost: 25, pay: 3 },
+  { name: 'Tree', art: 'tree', cost: 50, pay: 5 }, { name: 'Old oak', art: 'oak', cost: 100, pay: 7 }];
+const WATER_COST = 2, TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water'];
+const dayStart = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d; };
+const weekend = d => d.getDay() === 0 || d.getDay() === 6;
+// ponytail: a day-by-day count, a few hundred steps for a tree left a year
+const weekdaysBetween = (a, b) => {
+  let n = 0;
+  for (const d = new Date(a); d.setDate(d.getDate() + 1), d < b;) if (!weekend(d)) n++;
+  return n;
+};
+/* What a tree is on day t, after neglect: a stage lost for every three missed
+   weekdays since it was last watered, dead below the sapling. Never stored back,
+   since `day` stays the last watering and storing would count the loss twice. */
+const treeAt = (tr, t) => {
+  if (!tr) return null;
+  const stage = tr.stage - Math.floor(weekdaysBetween(tr.day, dayStart(t)) / TREE_MISS);
+  return stage < 0 ? null : { stage, day: tr.day };
+};
+
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
 function coinWalk(rows, cups, spends, now = Date.now()) {
   const bal = {}, ok = [], tags = {}; // tags: game id -> what a bounty did in it
   const played = {}, bought = {}; // player + day -> games paid, extra games bought
   let bounties = [];
+  const trees = {}; // player -> { stage, day } as of its last watering
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
   (spends || []).filter(s => s && s.at && s.kind).forEach(s => {
@@ -3065,6 +3091,26 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
   ev.forEach(e => {
     if (e.spend) {
       const s = e.spend, who = EMAIL_NAMES[s.by], cost = spendCost(s);
+      /* A tree row prices itself off the tree, so it takes its own path. A
+         grow needs today's water first, so it can't paper over a neglected tree. */
+      if (TREE_KINDS.includes(s.kind)) {
+        const day = dayStart(+s.at), cur = treeAt(trees[who], +s.at);
+        if (who === undefined || weekend(day)) return;
+        const today = cur && +cur.day === +day, next = cur && TREE[cur.stage + 1];
+        if (s.kind === 'plant') {
+          if (cur || bal[who] < TREE[0].cost) return;
+          bal[who] -= TREE[0].cost; trees[who] = { stage: 0, day };
+        } else if (s.kind === 'water') {
+          if (!cur || today) return;
+          // the pay lands before the 2 is taken, so a tree waters on nought
+          bal[who] += TREE[cur.stage].pay - WATER_COST; trees[who] = { stage: cur.stage, day };
+        } else {
+          if (!today || !next || bal[who] < next.cost) return;
+          bal[who] -= next.cost; trees[who] = { stage: cur.stage + 1, day };
+        }
+        ok.push(s);
+        return;
+      }
       const to = EMAIL_NAMES[s.to];
       // a gift or bounty needs somebody on the list at the other end, and not you
       if (who === undefined || !(cost > 0) || bal[who] < cost) return;
@@ -3129,7 +3175,13 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       if (e.id) (tags[e.id] = tags[e.id] || []).push({ on: h.on, by: h.by, won, paid });
     });
   });
-  return { bal, ok, bounties, tags };
+  // the trees as they stand now: stage, and whether today's water is in
+  const treesNow = {};
+  Object.entries(trees).forEach(([n, tr]) => {
+    const t = treeAt(tr, now);
+    if (t) treesNow[n] = { stage: t.stage, watered: +t.day === +dayStart(now) };
+  });
+  return { bal, ok, bounties, tags, trees: treesNow };
 }
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
