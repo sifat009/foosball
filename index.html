@@ -439,6 +439,13 @@
   /* signed out, or not on the player list: the pill still says what it is */
   #coins.coin-out .coin-disc { filter: grayscale(0.7) brightness(1.1); }
   #coins.coin-out #coinN { color: #93a1b8; }
+  /* your tree is waiting for today's water: a green dot, the way an app badge
+     says something is waiting, without saying what until the sheet opens */
+  #coins { position: relative; }
+  #coins.coin-thirsty::after {
+    content: ""; position: absolute; top: -2px; right: -2px; width: 9px; height: 9px;
+    border-radius: 50%; background: #3ccf7f; box-shadow: 0 0 0 2px #16233a;
+  }
 
   .coin-you { background: #f4f7fb; border-radius: 14px; padding: 14px 16px; margin-top: 4px; font-size: 0.85rem; }
   .coin-you b { color: #96660a; }
@@ -3366,7 +3373,10 @@ function renderCoins() {
   pill.classList.toggle('coin-out', n === null);
   $('coinN').textContent = n === null ? '\u2013' : n;
   $('coinWho').textContent = myName() || ''; // textContent: EMAIL_NAMES is edited by hand
-  pill.title = n === null ? 'Sign in to see your coins' : 'Coins to bet on challenges';
+  const t = n === null ? null : chalTrees[myName()];
+  const thirsty = !!t && !t.watered && !weekend(new Date());
+  pill.classList.toggle('coin-thirsty', thirsty);
+  pill.title = n === null ? 'Sign in to see your coins' : thirsty ? 'Your tree wants water' : 'Coins to bet on challenges';
 
   // the pill is a number; the sheet is where a number gets a meaning
   const you = $('coinYou');
