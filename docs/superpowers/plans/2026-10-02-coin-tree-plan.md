@@ -113,7 +113,7 @@ Commit: *The rules take a tree's three rows*
 - At ~line 3693, beside `chalFlair`: `chalTrees = walk.trees`
   (`var chalTrees = {}`).
 - In `renderCoins`, after the bounty lines, append a `.coin-tree` row: the
-  stage name (or "No tree"), then "watered today" / "not watered today", and one
+  picture, the stage name (or "No tree"), then "watered today" / "not watered today", and one
   `<button class="btn">` built from the state:
   - no tree: **Plant · 10**
   - not watered: **Water · 2 (+pay)**
@@ -128,11 +128,19 @@ Commit: *The rules take a tree's three rows*
 - The Spending rules list gets one `<li>` with the table in a sentence:
   *Tree — plant for 10, grow for 25 / 50 / 100, water for 2 a weekday and it
   pays 2 / 3 / 5 / 7.*
-- CSS: `.coin-tree` sits inside `.coin-you`, with a top border and the button
-  aligned right.
+- The picture is an `<img>` from `icons/tree/`, picked from the state:
+  `none` with no tree, otherwise `TREE_ART[stage]` (`sapling`, `young`, `tree`,
+  `oak`). Unwatered on a weekday, the oak swaps to `dry.png`, and the other
+  stages get the `.dry` class. Each stage gets its own box size, so the picture
+  grows with the tree (about 56, 64, 72 and 96 pixels wide).
+- CSS: `.coin-tree` sits inside `.coin-you`, with a top border, the picture on
+  the left and the button aligned right.
+  `.coin-tree img.dry { filter: sepia(.75) saturate(1.1) hue-rotate(-12deg) brightness(.97); }`
+  `object-fit: contain; object-position: center bottom`, so every tree stands
+  on the same line.
 
 Check by hand in the browser: plant, water, grow, and reload to see the state
-persist.
+persist. Check the dry look on an unwatered tree, on a phone width too.
 
 Commit: *The coins sheet holds your tree, and one button for what it needs today*
 

@@ -63,8 +63,8 @@ The rules accept `plant`, `grow` and `water` in `kind`, with none of `item`,
 
 ## Page
 
-On the coins sheet, under "You have N coins", the tree shows its stage, whether
-it is watered today, and one button that follows its state:
+On the coins sheet, under "You have N coins", the tree shows its picture, its
+stage, whether it is watered today, and one button that follows its state:
 
 - **Plant · 10** when there is no tree
 - **Water · 2 (+yield)** when it is not watered today
@@ -73,9 +73,20 @@ it is watered today, and one button that follows its state:
 On a weekend there's no button, just "Resting till Monday", and no dot on the
 pill.
 
-A line under it says three days without water drops a stage. The coins pill
+Each stage has its own picture, and the empty plot has one too. Until the
+tree is watered, its leaves look dry: the oak uses its own autumn picture, and
+the other stages use their usual picture with a brown filter. The pictures grow
+with the stage, so the oak always reads as the biggest.
+
+A line under it says three weekdays without water drops a stage. The coins pill
 shows a dot while the day's watering is still waiting. There's no new item on
 the Spend shelf, because the tree lives with the balance.
+
+## Pictures
+
+Six transparent PNGs in `icons/tree/`, at most 256 pixels on a side: `none`,
+`sapling`, `young`, `tree`, `oak` and `dry`. They are plain files the page
+loads, and the service worker caches nothing, so there's nothing to register.
 
 ## Not doing
 
