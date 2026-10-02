@@ -484,7 +484,9 @@
   .sp-g { fill: currentColor; }
   .sp-dots { width: 1.35rem; height: 1.35rem; border-radius: 50%;
     background: conic-gradient(#b7791f 0 20%, #17854a 0 40%, #7c3aed 0 60%, #db2777 0 80%, #0e7490 0); }
-  .sp-shelf small { font-size: 0.7rem; font-weight: 800; color: #96660a; }
+  /* the price sits on the tile's floor, so a label that wraps (Extra game) doesn't
+     knock its price out of line with the others */
+  .sp-shelf small { font-size: 0.7rem; font-weight: 800; color: #96660a; margin-top: auto; }
   .sp-drawer { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f4f7fb; border-radius: 16px; padding: 14px; }
   /* everything spans the drawer but the player and the amount, which share a row */
   .sp-drawer > :not(select, input) { grid-column: 1 / -1; }
