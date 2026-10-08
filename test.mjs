@@ -2929,9 +2929,10 @@ const trees = await page.evaluate(s4 => {
 }, String(seat4));
 assert.deepEqual(trees.built, [3, 15, true], 'plant and three grows on one day did not make an oak for 185, watered');
 assert.deepEqual(trees.fall, [2, 0, null], 'three missed weekdays did not drop one stage, nine three, and twelve kill it');
-assert.deepEqual(trees.weekend, [2, 1, 13], 'a weekend counted against a tree, or the oak, three days dry, did not water as a Tree for 2');
+// Friday the 9th is after waters dropped to 1; Tuesday the 6th, before, still costs 2
+assert.deepEqual(trees.weekend, [2, 1, 14], 'a weekend counted against a tree, or the oak, three days dry, did not water as a Tree for 1');
 assert.equal(trees.sat, false, 'a tree was watered on a Saturday');
-assert.deepEqual(trees.twice, [true, false, 13], 'a second water on the same day went through');
+assert.deepEqual(trees.twice, [true, false, 13], 'a second water on the same day went through, or a water before the 9th did not cost 2');
 assert.deepEqual(trees.waiting, [true, 7, false], "a 9am water did not grow the oak's 7 coins, ripe at noon");
 assert.deepEqual(trees.picks, [false, true, false, false, 20], 'coins were picked before they ripened, twice, or a day late — or ripe ones did not pay 7');
 assert.deepEqual(trees.late, [true, true], 'an evening water did not ripen by 9pm');

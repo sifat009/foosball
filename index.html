@@ -2112,7 +2112,7 @@ Nur</textarea>
         <li><b>Gift.</b> Send up to 50 coins straight to another player, with a note
         if you like. It waits for them as a letter on this sheet until they open it.
         Anyone can read a note, so keep it to happy birthday.</li>
-        <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 2
+        <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 1
         each weekday and its coins ripen three hours later: collect them before midnight
         for 2, 3, 5 or 7 as it grows. Three weekdays without water and it drops a stage;
         a sapling that drops dies. It rests on weekends.</li>
@@ -3093,19 +3093,23 @@ const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
 /* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
-   Stage i costs TREE[i].cost to reach. A water costs WATER_COST up front and
+   Stage i costs TREE[i].cost to reach. A water costs waterCost up front and
    grows the day's coins, TREE[i].pay of them, which ripen a few hours later and
-   are collected with a tap — so a sapling only keeps itself, and an oak nets 5.
+   are collected with a tap — so a sapling nets 1, and an oak nets 6.
    Weekends don't exist for a tree: nothing done to it then counts, and a
    weekend left alone is never missed. */
 const TREE = [{ name: 'Sapling', art: 'sapling', cost: 10, pay: 2 }, { name: 'Young tree', art: 'young', cost: 25, pay: 3 },
   { name: 'Tree', art: 'tree', cost: 50, pay: 5 }, { name: 'Old oak', art: 'oak', cost: 100, pay: 7 }];
-const WATER_COST = 2, TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water', 'collect'];
+const TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water', 'collect'];
 /* Coins ripen three hours after the water, but never later than 9pm, so an
    evening water still leaves a window before midnight takes what's left. */
 /* Localhost only: ?play makes every day a weekday and ripens coins in twenty
    seconds, so the whole round can be tried in a minute. The live site never
    sees it, the same way it never sees the emulators. */
+/* When a water went from 2 to 1 (midnight into 2026-10-09, Dhaka), so a sapling pays more
+   than it drinks. A water before then cost 2, and the walk still charges it. */
+const WATER_CHEAP_FROM = 1791482400000;
+const waterCost = t => t < WATER_CHEAP_FROM ? 2 : 1;
 const TREE_PLAY = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('play');
 const RIPEN_MS = TREE_PLAY ? 2e4 : 3 * 36e5, RIPE_BY_HOUR = 21;
 
@@ -3184,8 +3188,9 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
           bal[who] -= TREE[0].cost; trees[who] = { stage: 0, day, ripe: null };
         } else if (s.kind === 'water') {
           // paid up front: a player on nought wins a challenge before they water
-          if (!cur || today || bal[who] < WATER_COST) return;
-          bal[who] -= WATER_COST;
+          const wc = waterCost(+s.at);
+          if (!cur || today || bal[who] < wc) return;
+          bal[who] -= wc;
           // worth what the tree was when watered, whatever it grows into after
           trees[who] = { stage: cur.stage, day, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay, got: false };
         } else if (s.kind === 'collect') {
@@ -3464,14 +3469,14 @@ function treeRow(me, bal) {
   if (off) { row.append(part('tree-rest', 'Resting till Monday', 'span')); return row; }
   const next = t && t.watered && TREE[t.stage + 1];
   const [kind, cost, label] = !t ? ['plant', TREE[0].cost, `Plant · ${TREE[0].cost}`]
-    : !t.watered ? ['water', WATER_COST, `Water · ${WATER_COST}`]
+    : !t.watered ? ['water', waterCost(now), `Water · ${waterCost(now)}`]
     : ripe ? ['collect', 0, `Collect · +${t.pay}`]
     : next ? ['grow', next.cost, `Grow · ${next.cost}`] : [];
   if (!kind) return row; // nothing to do but wait: coins ripening, or a picked oak
   const b = part('btn ' + (kind === 'grow' ? 'btn-gold' : 'btn-green') + ' tree-go', label, 'button');
   b.type = 'button'; b.dataset.tree = kind; b.dataset.cost = cost;
   b.disabled = free < cost;
-  if (b.disabled) b.title = kind === 'water' ? `You need ${WATER_COST} coins to water — win a challenge` : `You have ${free} to spend`;
+  if (b.disabled) b.title = kind === 'water' ? `You need ${waterCost(now)} coins to water — win a challenge` : `You have ${free} to spend`;
   row.append(b);
   return row;
 }
