@@ -2173,6 +2173,10 @@ Nur</textarea>
       <div class="al-txt"><b>Challenges</b><i>A pickup game is opening, filling or done</i></div>
       <input type="checkbox" class="sw" data-kind="challenge">
     </label>
+    <label class="al-row">
+      <div class="al-txt"><b>Your tree</b><i>It still wants today's water, or its coins are ripe</i></div>
+      <input type="checkbox" class="sw" data-kind="tree">
+    </label>
     <label class="al-row al-admin" style="display:none">
       <div class="al-txt"><b>Score suggestions</b><i>A score is waiting on you to confirm</i></div>
       <input type="checkbox" class="sw" data-kind="suggest">
@@ -2277,7 +2281,7 @@ function closeWho() { $('who').classList.remove('open'); window.chalIntent = nul
    mirrored to /pushPrefs under this device's token and the relay is what drops
    the kinds nobody here asked for. Anything missing means yes: a device that
    subscribed before this existed keeps getting everything. */
-const ALERT_KINDS = ['draw', 'result', 'milestone', 'challenge', 'suggest'];
+const ALERT_KINDS = ['draw', 'result', 'milestone', 'challenge', 'tree', 'suggest'];
 const PREFS_KEY = 'foosball-push-prefs';
 window.alertPrefs = () => {
   let saved = {};

@@ -1,7 +1,7 @@
 /* node relay/test-relay.mjs — no database, no key, no network. */
 import assert from 'node:assert';
 import { delayFor, recipients, sugReady, sugText, chalNews, chalSeats, chalScored,
-  chalClaim, chalClaimId, chalOthers } from './relay.mjs';
+  chalClaim, chalClaimId, chalOthers, treesOf, thirsty, nextRemind, ripeAt } from './relay.mjs';
 
 const NOW = 1_700_000_000_000;
 
@@ -174,5 +174,34 @@ assert.equal(sugText({ ...sug, pa: null, pb: null }),
 assert.equal(sugText({ by: 'Nur', sa: 9, sb: 6 }), 'Nur suggested 9 vs 6 — tap to accept or reject.');
 // a goalless player is 0, not a blank
 assert.match(sugText({ ...sug, pa: { fwd: 0, def: 9 } }), /Rifat 0 \+ Sifat 9 = 9/);
+
+// ---- trees: local dates, the same clock the walk reads ----
+const at = (d, h = 10) => +new Date(2026, 9, d, h); // Oct 2026: 5th is a Monday
+const sp = rows => Object.fromEntries(rows.map((r, i) => [i, r]));
+const me = 'me@x.com';
+// planting is the day's water: no nag that day, and nothing to ripen
+let tr = treesOf(sp([{ by: me, at: at(5), kind: 'plant' }]), at(5, 15));
+assert.equal(tr[me].ripe, null);
+assert.deepEqual(thirsty(tr, at(5, 15)), []);
+// the next weekday it wants water; a weekend wants nothing
+assert.deepEqual(thirsty(treesOf(sp([{ by: me, at: at(5), kind: 'plant' }]), at(6)), at(6)), [me]);
+assert.deepEqual(thirsty(treesOf(sp([{ by: me, at: at(9), kind: 'plant' }]), at(10)), at(10)), []);
+// watered: no nag, and its coins ripen three hours on, never past 9pm
+const watered = sp([{ by: me, at: at(5), kind: 'plant' }, { by: me, at: at(6), kind: 'water' }]);
+tr = treesOf(watered, at(6, 12));
+assert.deepEqual(thirsty(tr, at(6, 12)), []);
+assert.equal(tr[me].ripe, at(6, 13));
+assert.equal(ripeAt(at(6, 20)), at(6, 21));
+// a second water the same day doesn't move the ripe time
+tr = treesOf(sp([...Object.values(watered), { by: me, at: at(6, 18), kind: 'water' }]), at(6, 19));
+assert.equal(tr[me].ripe, at(6, 13));
+// a sapling left three weekdays dies, and a dead tree is nagged by nobody
+assert.deepEqual(thirsty(treesOf(sp([{ by: me, at: at(5), kind: 'plant' }]), at(9)), at(9)), []);
+// someone who never planted is never nagged
+assert.deepEqual(thirsty(treesOf(sp([{ by: me, at: at(5), kind: 'water' }]), at(6)), at(6)), []);
+// the nudge: today at 11am if it's still ahead, else the next weekday's
+assert.equal(nextRemind(at(6, 9)), at(6, 11));
+assert.equal(nextRemind(at(6, 12)), at(7, 11));
+assert.equal(nextRemind(at(9, 15)), at(12, 11)); // Friday afternoon -> Monday
 
 console.log('ok');

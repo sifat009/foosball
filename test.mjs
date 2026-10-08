@@ -1741,7 +1741,7 @@ const drawer = await page.evaluate(async () => {
 });
 assert.deepEqual(drawer.off, { all: false, on: 0, live: 0 },
   'with notifications off the drawer still showed kinds switched on, or let them be tapped');
-assert.deepEqual(drawer.on, { all: true, on: 5 }, 'a fresh device does not start with every kind on');
+assert.deepEqual(drawer.on, { all: true, on: 6 }, 'a fresh device does not start with every kind on');
 assert.equal(drawer.afterOff.pref, false, 'switching a kind off did not stick');
 assert.equal(drawer.afterOff.stored, false, 'the choice was not remembered on this device');
 assert.equal(drawer.afterOff.saved, 1, 'the relay was never told the kind was switched off');
@@ -1752,10 +1752,10 @@ assert.notEqual(drawer.playerSees, 'none',
   'a signed-in player was not offered the row for a score waiting on them to confirm');
 assert.deepEqual(drawer.masterOff, { on: false, pref: false },
   'the master switch did not drop the subscription');
-assert.deepEqual(drawer.midSubscribe, { on: 5, live: 5 },
+assert.deepEqual(drawer.midSubscribe, { on: 6, live: 6 },
   'the kinds stayed dark while the subscription was still in flight');
 assert.equal(drawer.masterOn.on, true, 'the master switch did not resubscribe');
-assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true, true],
+assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true, true, true],
   'turning notifications back on left a kind silently switched off');
 assert.equal(drawer.viewerSees, 'none', 'a viewer was offered the admin-only suggestions switch');
 assert.notEqual(drawer.adminSees, 'none', 'the admin lost the suggestions switch');

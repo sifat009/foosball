@@ -157,7 +157,61 @@ export const chalNews = (prev, c) => {
   return null;
 };
 
+/* ---- trees ----
+   The page works trees out in coinWalk, from /spends; this end repeats the
+   part a reminder needs: whose tree is alive, whether today's water is in, and
+   when its coins ripen. Same constants and day arithmetic as index.html, which
+   is why the process runs on the office's clock (TZ, set in main).
+
+   ponytail: no balances here, so a row the page's walk refuses for want of
+   coins still counts. The page never sends one, so only a hand-written row
+   would earn a stray ping. Port coinWalk if that ever matters. */
+export const TREE_MISS = 3, TREE_TOP = 3, RIPEN_MS = 3 * 36e5, RIPE_BY_HOUR = 21, REMIND_HOUR = 11;
+export const dayOf = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return +d; };
+const offDay = t => [0, 6].includes(new Date(t).getDay());
+export const ripeAt = t => Math.min(t + RIPEN_MS, dayOf(t) + RIPE_BY_HOUR * 36e5);
+const weekdaysBetween = (a, b) => {
+  let n = 0;
+  for (const d = new Date(a); d.setDate(d.getDate() + 1), +d < b;) if (!offDay(+d)) n++;
+  return n;
+};
+const treeAt = (tr, t) => {
+  if (!tr) return null;
+  const stage = tr.stage - Math.floor(weekdaysBetween(tr.day, dayOf(t)) / TREE_MISS);
+  return stage < 0 ? null : { ...tr, stage };
+};
+
+// email -> { stage, day, ripe } as of now; a dead tree is left out
+export const treesOf = (spends, now = Date.now()) => {
+  const trees = {};
+  Object.values(spends || {}).filter(s => s && s.at && s.by && ['plant', 'water', 'grow'].includes(s.kind))
+    .sort((a, b) => a.at - b.at).forEach(s => {
+      const t = +s.at, day = dayOf(t), cur = treeAt(trees[s.by], t), today = cur && cur.day === day;
+      if (offDay(t)) return;
+      if (s.kind === 'plant' && !cur) trees[s.by] = { stage: 0, day, ripe: null };
+      else if (s.kind === 'water' && cur && !today) trees[s.by] = { stage: cur.stage, day, ripe: ripeAt(t) };
+      else if (s.kind === 'grow' && today && cur.stage < TREE_TOP) trees[s.by] = { ...cur, stage: cur.stage + 1 };
+    });
+  const out = {};
+  Object.entries(trees).forEach(([e, tr]) => { const t = treeAt(tr, now); if (t) out[e] = t; });
+  return out;
+};
+
+// who to nag: a living tree with no water (or planting) today, on a weekday
+export const thirsty = (trees, now = Date.now()) =>
+  offDay(now) ? [] : Object.keys(trees).filter(e => trees[e].day !== dayOf(now));
+
+// the next weekday REMIND_HOUR strictly after now
+export const nextRemind = (now = Date.now()) => {
+  const d = new Date(now); d.setHours(REMIND_HOUR, 0, 0, 0);
+  while (+d <= now || offDay(+d)) d.setDate(d.getDate() + 1);
+  return +d;
+};
+
 async function main() {
+  // the tree's day ends at the office's midnight, not the VM's
+  process.env.TZ = process.env.TZ || 'Asia/Dhaka';
+
   const { initializeApp, applicationDefault } = await import('firebase-admin/app');
   const { getDatabase } = await import('firebase-admin/database');
   const { getMessaging } = await import('firebase-admin/messaging');
@@ -271,6 +325,33 @@ async function main() {
     });
     chalSeen = now;
   });
+
+  /* Trees. Two pings, both to the tree's owner alone: a weekday-afternoon
+     nudge if today's water isn't in, and one when today's coins ripen. A ripe
+     time already past is skipped rather than sent, so a restart can't repeat
+     one; a restart past REMIND_HOUR waits for tomorrow's nudge the same way. */
+  let trees = {};
+  const ripeTimers = new Map(); // email -> [ripe, timer]
+  db.ref('spends').on('value', s => {
+    trees = treesOf(s.val());
+    Object.entries(trees).forEach(([email, tr]) => {
+      const armed = ripeTimers.get(email);
+      if (!tr.ripe || tr.ripe <= Date.now() || (armed && armed[0] === tr.ripe)) return;
+      if (armed) clearTimeout(armed[1]);
+      ripeTimers.set(email, [tr.ripe, setTimeout(() => {
+        ripeTimers.delete(email);
+        send('Coins are ripe', 'Your tree is ready — collect before midnight or they drop.',
+          false, 'tree', null, [email]).catch(e => console.error('[send] failed:', e));
+      }, tr.ripe - Date.now())]);
+    });
+  });
+  const remind = () => setTimeout(() => {
+    const list = thirsty(trees);
+    if (list.length) send('Your tree wants water', 'Water it now and its coins ripen before the day is out.',
+      false, 'tree', null, list).catch(e => console.error('[send] failed:', e));
+    remind();
+  }, nextRemind() - Date.now());
+  remind();
 
   console.log('[relay] listening');
 }

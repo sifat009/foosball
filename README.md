@@ -457,6 +457,12 @@ knew the match was over.
 the two things the relay watches directly — opening the node to every signed-in
 account would let any Google user push to every phone in the office.
 
+Trees are the third: the relay watches `/spends` and repeats the tree half of
+`coinWalk` (no balances) to ping each owner alone — at 11am on a weekday if
+today's water isn't in, and when today's coins ripen. Its day is the office's,
+so it runs on `TZ=Asia/Dhaka` unless the environment says otherwise. Both sit
+behind the **Your tree** switch in the alerts drawer.
+
 A challenge announces itself three times — opened, all four seats gone, result
 filed — and one `value` listener tells them apart by diffing against the last
 snapshot. Whoever caused an announcement is left out of it: `recipients` takes
