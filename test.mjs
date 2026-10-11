@@ -2302,7 +2302,7 @@ await page.click('#ch-open2 .ch-off button');
 await page.evaluate(f => {
   window.renderChallenges({ ...f, open2: { ...f.open2, off: { bf: true, bd: true } } });
 }, CH.fixture);
-assert.match(await page.textContent('#ch-open2 .ch-off'), /Nur & Ofi want to call it off \u2014 1 more/,
+assert.match(await page.textContent('#ch-open2 .ch-off'), /Nur & Ofi want to cancel \u2014 1 more vote needed/,
   'the vote count did not name who voted');
 await page.click('#ch-open2 .ch-off button');
 await page.evaluate(f => {
@@ -2323,7 +2323,7 @@ assert.deepEqual(await page.evaluate(() => window.chalLog), [['chalRemove', 'ope
 await page.evaluate(f => { window.setAccount('sajeeb@x.com');
   window.renderChallenges({ ...f, open2: { ...f.open2, off: { bf: true } } }); }, CH.fixture);
 assert.ok(!(await page.$('#ch-open2 .ch-off')), 'a bystander was offered a vote');
-assert.match(await page.textContent('#ch-open2'), /Nur wants to call it off \u2014 2 more/,
+assert.match(await page.textContent('#ch-open2'), /Nur wants to cancel \u2014 2 more votes needed/,
   'a bystander was not told a vote is on');
 // on a phone the bar wraps inside the card rather than pushing the page sideways
 await page.setViewportSize({ width: 360, height: 720 });
