@@ -2094,7 +2094,7 @@ const CH = await page.evaluate(() => {
     'rashed@x.com': 'Rashed', 'toufiq@x.com': 'Toufiq', 'sajeeb@x.com': 'Sajeeb',
   });
   window.chalLog = [];
-  ['chalCreate', 'chalSeat', 'chalFile', 'chalConfirm', 'chalReject', 'chalRemove'].forEach(fn => {
+  ['chalCreate', 'chalSeat', 'chalFile', 'chalConfirm', 'chalReject', 'chalRemove', 'chalCallOff'].forEach(fn => {
     window[fn] = (...a) => window.chalLog.push([fn, ...a]);
   });
   const seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
@@ -2294,6 +2294,47 @@ assert.deepEqual(await page.evaluate(() => window.chalLog), [
 await page.evaluate(f => { window.setAccount('toufiq@x.com'); window.renderChallenges(f); }, CH.fixture);
 assert.equal(await page.$$eval('#ch-open2 .ch-seat', n => n.filter(e => e.tagName === 'BUTTON').length), 0,
   'a full lobby still offered a seat to leave');
+
+/* ...but three of the four can call it off, so one player walking away can't
+   keep the other three off the board. The third vote also takes the lobby. */
+await page.evaluate(f => { window.chalLog = []; window.renderChallenges(f); }, CH.fixture);
+await page.click('#ch-open2 .ch-off button');
+await page.evaluate(f => {
+  window.renderChallenges({ ...f, open2: { ...f.open2, off: { bf: true, bd: true } } });
+}, CH.fixture);
+assert.match(await page.textContent('#ch-open2 .ch-off'), /Nur & Ofi want to call it off \u2014 1 more/,
+  'the vote count did not name who voted');
+await page.click('#ch-open2 .ch-off button');
+await page.evaluate(f => {
+  window.renderChallenges({ ...f, open2: { ...f.open2, off: { rd: true } } });
+}, CH.fixture);
+await page.click('#ch-open2 .ch-off button');
+assert.deepEqual(await page.evaluate(() => window.chalLog), [
+  ['chalCallOff', 'open2', 'rd', true, false],
+  ['chalCallOff', 'open2', 'rd', true, true],
+  ['chalCallOff', 'open2', 'rd', false, false],
+], 'calling off did not vote, finish on the third vote, or take a vote back');
+// a lobby already carrying three votes is finished by whoever looks next
+await page.evaluate(f => { window.chalLog = [];
+  window.renderChallenges({ ...f, open2: { ...f.open2, off: { bf: true, bd: true, rf: true } } }); }, CH.fixture);
+assert.deepEqual(await page.evaluate(() => window.chalLog), [['chalRemove', 'open2']],
+  'a lobby with three votes was left standing');
+// somebody outside the four sees the count, not a button
+await page.evaluate(f => { window.setAccount('sajeeb@x.com');
+  window.renderChallenges({ ...f, open2: { ...f.open2, off: { bf: true } } }); }, CH.fixture);
+assert.ok(!(await page.$('#ch-open2 .ch-off')), 'a bystander was offered a vote');
+assert.match(await page.textContent('#ch-open2'), /Nur wants to call it off \u2014 2 more/,
+  'a bystander was not told a vote is on');
+// on a phone the bar wraps inside the card rather than pushing the page sideways
+await page.setViewportSize({ width: 360, height: 720 });
+await page.evaluate(f => { window.setAccount('toufiq@x.com');
+  window.renderChallenges({ ...f, open2: { ...f.open2, off: { bf: true, bd: true } } }); }, CH.fixture);
+assert.ok(await page.evaluate(() => {
+  const bar = document.querySelector('#ch-open2 .ch-off').getBoundingClientRect();
+  const card = $('ch-open2').getBoundingClientRect();
+  return bar.right <= card.right && document.documentElement.scrollWidth <= 360;
+}), 'the call-off bar overflowed a 360px phone');
+await page.setViewportSize({ width: 1280, height: 900 });
 
 // ---- filing a result ----
 /* Filing does not record anything: it files a claim, which the other half of

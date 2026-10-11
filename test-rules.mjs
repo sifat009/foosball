@@ -287,4 +287,27 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await confirm(id, R1, 5, 3, 1), 'a result was backdated');
   assert.ok(!await confirm(id, R1, 5, 3, Date.now() + 864e5), 'a result was dated tomorrow');
 }
+// ---- calling a full lobby off ----
+/* A full lobby is sealed so nobody deletes a game they lost. Three of the four
+   can still call it off — any three includes a winner, so two losers can't. */
+{
+  const id = await lobby();
+  assert.ok(!await put(`challenges/${id}/off/bf`, OUT, true), 'a stranger voted for a seat');
+  assert.ok(!await put(`challenges/${id}/off/bd`, B1, true), "a player voted for someone else's seat");
+  assert.ok(!await put(`challenges/${id}/off/bf`, B1, 'yes'), 'a vote that is not true stood');
+  assert.ok(await put(`challenges/${id}/off/bf`, B1, true), 'a player could not vote to call it off');
+  assert.ok(await del(`challenges/${id}/off/bf`, B1), 'a player could not take their vote back');
+  await put(`challenges/${id}/off/bf`, B1, true);
+  await put(`challenges/${id}/off/bd`, B2, true);
+  assert.ok(!await del('challenges/' + id, B2), 'two votes called a lobby off');
+  await put(`challenges/${id}/off/rf`, R1, true);
+  assert.ok(await del('challenges/' + id, R1), 'three votes could not call a lobby off');
+  assert.equal(await read('challenges/' + id), null, 'the called-off lobby is still there');
+
+  const filed = await lobby({ off: { bf: true, bd: true } });
+  await put(`challenges/${filed}/pending`, R1, claim(R1, 'r', 5, 3));
+  assert.ok(!await put(`challenges/${filed}/off/rd`, R2, true), 'a vote landed on a filed result');
+  const short = await lobby({ slots: { bf: SLOTS.bf } });
+  assert.ok(!await put(`challenges/${short}/off/bf`, B1, true), 'a vote landed on an unfilled lobby');
+}
 console.log('ok');

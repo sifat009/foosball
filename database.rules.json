@@ -19,7 +19,7 @@
     "challenges": {
       ".read": true,
       "$id": {
-        ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (auth.token.email === 'bhacker150@gmail.com' || (data.child('by').val() === auth.token.email && !data.child('slots').hasChildren(['bf', 'bd', 'rf', 'rd'])))))",
+        ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && (auth.token.email === 'bhacker150@gmail.com' || (data.child('by').val() === auth.token.email && !data.child('slots').hasChildren(['bf', 'bd', 'rf', 'rd'])) || (!data.child('score').exists() && !data.child('pending').exists() && (data.child('off').hasChildren(['bf', 'bd', 'rf']) || data.child('off').hasChildren(['bf', 'bd', 'rd']) || data.child('off').hasChildren(['bf', 'rf', 'rd']) || data.child('off').hasChildren(['bd', 'rf', 'rd']))))))",
         ".validate": "newData.hasChildren(['by', 'at']) && (data.exists() || (!newData.child('score').exists() && !newData.child('pending').exists()))",
         "by": { ".validate": "newData.val() === auth.token.email || data.val() === newData.val()" },
         "at": { ".validate": "newData.val() === now || newData.val() === data.val()" },
@@ -32,6 +32,12 @@
             "name": { ".validate": "newData.isString() && newData.val().length > 0" },
             "email": { ".validate": "newData.isString()" },
             "$other": { ".validate": false }
+          }
+        },
+        "off": {
+          "$seat": {
+            ".write": "auth != null && auth.token.email_verified === true && !root.child('challenges').child($id).child('score').exists() && !root.child('challenges').child($id).child('pending').exists() && root.child('challenges').child($id).child('slots').hasChildren(['bf', 'bd', 'rf', 'rd']) && root.child('challenges').child($id).child('slots').child($seat).child('email').val() === auth.token.email",
+            ".validate": "newData.val() === true"
           }
         },
         "pending": {

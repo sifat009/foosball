@@ -2981,6 +2981,12 @@ const chalPending = c => c.pending && c.pending.b != null && c.pending.r != null
    score filed at the table must not fall off the board that evening while it
    waits for the opponent to open the app. */
 const chalLive = c => chalDone(c) || !!chalPending(c) || sameDay(c.at || 0, Date.now());
+/* The seats voting to call a full lobby off. A full lobby is sealed so a loss
+   can't be deleted, but somebody walking away can't keep three people off the
+   board all day either: three of the four call it off, and any three of them
+   includes a winner. */
+const chalOff = c => SEATS.map(([id]) => id).filter(id => c.off && c.off[id] && c.slots && c.slots[id]);
+const CHAL_OFF = 3;
 const chalSat = c => !!acctEmail && SEATS.some(([id]) => c.slots && c.slots[id] && c.slots[id].email === acctEmail);
 // which half of the table you are sitting at, or null if you are watching
 const chalSide = c => !acctEmail ? null
@@ -3866,6 +3872,26 @@ function pendBar(c, pend) {
   return bar;
 }
 
+/* Calling a full lobby off. The four see a vote; anyone else sees the count
+   once somebody has voted. */
+function offBar(c) {
+  const votes = chalOff(c), seat = seatOf(c, acctEmail);
+  const names = votes.map(id => c.slots[id].name).join(' & ');
+  const tally = `${names} ${votes.length === 1 ? 'wants' : 'want'} to call it off \u2014 ${CHAL_OFF - votes.length} more needed.`;
+  if (!seat) return votes.length ? part('ch-note', tally) : null;
+  const bar = document.createElement('div');
+  bar.className = 'sug-bar ch-off';
+  const voted = votes.includes(seat);
+  bar.append(part('who', votes.length ? tally : 'Someone not showing up? Three of you can call it off.'));
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'sug-btn ' + (voted ? 'sug-withdraw' : 'sug-no');
+  b.innerHTML = svg('x') + (voted ? ' Keep it' : ' Call it off');
+  b.onclick = () => window.chalCallOff(c.id, seat, !voted, votes.length + 1 >= CHAL_OFF);
+  bar.append(b);
+  return bar;
+}
+
 /* What the game is worth, read before anybody decides to sit at it. A bet gets
    the gold strip; a game played for nothing gets a line, because a banner saying
    "no bet" is a banner about an absence. Both say what the loser does, since
@@ -3909,6 +3935,8 @@ function chalCard(c) {
     if (pend) el.append(pendBar(c, pend));
     else if (!chalSat(c) && !chalDone(c))
       el.append(part('ch-note', 'Waiting on one of the four to say who won.'));
+    const off = !pend && !chalDone(c) && offBar(c);
+    if (off) el.append(off);
   }
 
   const act = part('ch-act');
@@ -4104,6 +4132,8 @@ window.renderChallenges = all => {
   if (acctEmail && window.chalRemove)
     Object.entries(allChal).forEach(([id, c]) => {
       if (c && c.at && !c.slots && !c.score && !c.pending && (c.by === acctEmail || isAdmin)) window.chalRemove(id);
+      // the third vote's second write didn't land: whoever looks next finishes it
+      else if (c && c.at && !chalDone(c) && !chalPending(c) && chalOff(c).length >= CHAL_OFF) window.chalRemove(id);
     });
   renderChal();
 };
@@ -6636,6 +6666,16 @@ window.chalReject = id => remove(ref(db, `challenges/${id}/pending`))
     console.error('[chal] reject rejected:', err);
     alert('Could not clear that score: ' + err.message);
   });
+
+/* A vote, then — if it was the third — the lobby itself. The rules only let the
+   lobby go once three votes are on it, so the two writes are in that order. */
+window.chalCallOff = (id, seat, on, last) =>
+  (on ? set(ref(db, `challenges/${id}/off/${seat}`), true) : remove(ref(db, `challenges/${id}/off/${seat}`)))
+    .then(() => on && last && remove(ref(db, 'challenges/' + id)))
+    .catch(err => {
+      console.error('[chal] call-off rejected:', err);
+      alert('Could not call it off: ' + err.message);
+    });
 
 window.chalRemove = id => remove(ref(db, 'challenges/' + id))
   .catch(err => console.error('[chal] remove failed:', err));
