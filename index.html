@@ -2219,7 +2219,7 @@ const indivGoals = () => !cupId || +cupId >= INDIV_FROM;
 const SUB_ADMIN = 'Enter each player’s goals — the team score is the two added up, and the higher total wins. Group and knockout alike.';
 // the cup running before individual goals started: one box a side, no scorers
 const SUB_ADMIN_TEAM = 'Enter each team’s goals — the higher total wins. Group and knockout alike.';
-const SUB_SUGGEST = 'You can suggest scores — type into any match still showing empty boxes, and the admin confirms them.';
+const SUB_SUGGEST = 'You can suggest a score, or correct one — type into a match’s boxes. It counts once a player from the other side, or the admin, approves it.';
 
 // the subtitle is the one place a signed-out visitor learns suggesting exists.
 // the invite is a pill on its own line, and only appears before the knockout —
@@ -2228,7 +2228,7 @@ const SUB_SUGGEST = 'You can suggest scores — type into any match still showin
 function updateSub() {
   const sub = $('tourneySub');
   const main = isAdmin ? (indivGoals() ? SUB_ADMIN : SUB_ADMIN_TEAM)
-    : signedIn && !koStarted ? SUB_SUGGEST : '';
+    : canSuggest() ? SUB_SUGGEST : '';
   sub.textContent = main;
   const invite = !isAdmin && !signedIn && !koStarted;
   if (invite) {
@@ -2330,7 +2330,9 @@ function setAdmin(v) {
   // who may edit is not a change that waits for a finger to leave a score box
   if (isScore(document.activeElement)) document.activeElement.blur();
   updateSub();
-  if (curScreen === 'tourney') renderAll();
+  // a viewer's page had approved scores laid over the cup; the admin's folds
+  // them in instead, and must not save the overlay as if it had typed it
+  if (curScreen === 'tourney') Object.keys(curRes()).length && lastCup ? applyState(lastCup) : renderAll();
   // auth can resolve after the pre-draft view is already painted: an admin must
   // land on setup (to run the draft), a viewer on the countdown if one's set.
   if (curScreen === 'setup' || curScreen === 'countdown') {
@@ -2344,14 +2346,25 @@ function setAdmin(v) {
 setAdmin(false); // read-only until Firebase says otherwise
 
 /* ================= SUGGESTIONS =================
-   Any signed-in account that isn't the admin can propose a score for a group
-   match nobody recorded. Suggestions live in their own node and never touch
-   `cup` — the admin accepting one is what writes the real score. Keyed by cup
-   so Start Over can't leave a stale score pointing at a team that never played
-   it, and one key per match so changing your mind overwrites rather than
-   stacks. Same shape as history/<cupId>. */
-var signedIn = null, allSug = {};
+   Any listed player (EMAIL_NAMES) who isn't the admin can put up a score for a
+   match, or a correction to one already recorded. Suggestions live in their own
+   node and never touch `cup`. One counts once someone approves it: the admin,
+   or a player in that match — from the other side when a player suggested it,
+   from either side when a spectator did, never the suggester's own teammate.
+   Keyed by cup so Start Over can't leave a stale score pointing at a team that
+   never played it, and one key per match so changing your mind overwrites
+   rather than stacks. Same shape as history/<cupId>.
+
+   `cup` stays the admin's alone, so an approval lands in cupResults/<cupId>
+   instead; every page plays it over the cup straight away, and the admin's page
+   folds it into `cup` and clears it. Who plays for which team is
+   cupRoster/<cupId>, written by the admin's page from the names — the rules
+   check an approver against it, and can't read inside the cup's JSON. */
+var signedIn = null, allSug = {}, allRes = {}, allRoster = {}, rosterLoaded = false, rosterSent = null;
+var lastCup = null, merging = false;
 const curSug = () => (cupId && allSug[cupId]) || {};
+const curRes = () => (cupId && allRes[cupId]) || {};
+const curRoster = () => (cupId && allRoster[cupId]) || null;
 // a shared, content-derived id for cups that never stored one, so every client
 // keys suggestions the same way. Different rosters → different id → no cross-cup leak.
 const cupKeyFrom = teams => {
@@ -2359,7 +2372,20 @@ const cupKeyFrom = teams => {
   let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
   return 'c' + (h >>> 0).toString(36);
 };
-const canSuggest = () => !!signedIn && !isAdmin;
+// a declaration: updateSub runs on first load, before this line has
+function canSuggest() { return !!signedIn && !isAdmin && EMAIL_NAMES[signedIn.email] !== undefined; }
+// a name in the cup → the account behind it; a guest or a typo has none
+const emailOf = name => Object.keys(EMAIL_NAMES)
+  .find(e => EMAIL_NAMES[e].toLowerCase() === String(name || '').trim().toLowerCase()) || null;
+const rosterOf = ts => ts.map(t => ({ fwd: emailOf(t.fwd), def: emailOf(t.def) }));
+// the same reading the rules make: the suggester's own side is out, and so are they
+function approvers(s) {
+  const R = curRoster();
+  if (!R || s.ia == null) return [];
+  const side = i => { const t = R[i] || {}; return [t.fwd, t.def].filter(Boolean); };
+  const A = side(s.ia), B = side(s.ib);
+  return [...(A.includes(s.email) ? [] : A), ...(B.includes(s.email) ? [] : B)].filter(e => e !== s.email);
+}
 /* A suggestion key names a match in whichever stage it belongs to: 'gi_mi' in
    the group, 'kr_i' in the bracket — one namespace, since both are stored under
    the same cup. Everything that reads a key comes through here, so the bar, the
@@ -2375,7 +2401,63 @@ const sugTarget = key => {
    hands under a suggestion that is already in flight — the teams it was sent
    for travel with it, and a suggestion for a pairing that no longer exists is
    nobody's score. */
-const sugFits = (s, m) => !s.ta || !m.a || (teamName(s.ta) === teamName(m.a) && teamName(s.tb) === teamName(m.b));
+const sugFits = (s, m) => s.ia != null ? teams[s.ia] === m.a && teams[s.ib] === m.b
+  : !s.ta || !m.a || (teamName(s.ta) === teamName(m.a) && teamName(s.tb) === teamName(m.b));
+/* Where a score can still be put up, first time or as a correction. The group
+   shuts when the knockout opens — its table seeded the bracket. A knockout tie
+   shuts once the tie its winner went on to has anything in it, and the final
+   once the cup is in the Hall of Fame. Past that only the admin moves a result. */
+function canFile(key) {
+  const { m } = sugTarget(key);
+  if (!m || !m.a || !m.b) return false;
+  if (key[0] !== 'k') return !koStarted;
+  const [r, i] = key.slice(1).split('_').map(Number);
+  const next = koRounds[r + 1] && koRounds[r + 1][i >> 1];
+  return next ? next.sa == null && next.sb == null && !next.pa && !next.pb : !histIds.has(cupId);
+}
+
+/* Approved results, group first and then the bracket a round at a time, so a
+   result that sends a different team through lands before the ties it feeds —
+   and one sent for a pairing that has since changed no longer fits. */
+const resKeys = () => Object.keys(curRes()).sort((x, y) =>
+  (x[0] === 'k') - (y[0] === 'k') || parseInt(x.replace('k', '')) - parseInt(y.replace('k', '')));
+// a viewer's page, mid-applyState: the approved scores play over the cup
+function overlayResults() {
+  resKeys().forEach(key => {
+    const r = curRes()[key], { m, apply } = sugTarget(key);
+    if (m && sugFits(r, m)) apply(r.sa, r.sb, r.pa, r.pb);
+  });
+}
+/* The admin's page: each approved score goes in as if the admin had typed it,
+   so it saves, moves the bracket and crowns a champion like any other — then
+   it is cleared, and so is one that no longer fits anywhere. */
+function mergeResults() {
+  if (merging || !isAdmin || !gotRemote || !cupId || curScreen !== 'tourney' || !window.clearResult) return;
+  const keys = resKeys(), R = curRes();
+  merging = true;
+  try {
+    keys.forEach(key => {
+      const r = R[key], { m, apply } = sugTarget(key);
+      if (m && sugFits(r, m)) apply(r.sa, r.sb, r.pa, r.pb);
+      window.clearResult(cupId, key);
+    });
+  } finally { merging = false; }
+}
+// once per cup per session: a roster with nobody listed stores nothing, and
+// would otherwise be rewritten on every snapshot
+function ensureRoster() {
+  if (!isAdmin || !gotRemote || !cupId || !rosterLoaded || curRoster() || rosterSent === cupId
+    || curScreen !== 'tourney' || !teams.length || !window.writeRoster) return;
+  rosterSent = cupId;
+  window.writeRoster(cupId, rosterOf(teams));
+}
+/* The admin's own word settles a match: a suggestion for it is spent, and an
+   approved result not yet folded in is overruled. The merge clears its own. */
+function adminSettled(key, scored) {
+  if (!isAdmin || restoring || merging || !cupId) return;
+  if (scored && window.clearSuggestion) window.clearSuggestion(cupId, key);
+  if (curRes()[key] && window.clearResult) window.clearResult(cupId, key);
+}
 const sugOk = s => s && s.sa != null && s.sb != null && s.sa !== s.sb;
 
 window.setSignedIn = u => {
@@ -2383,6 +2465,19 @@ window.setSignedIn = u => {
   updateSub();
   if (curScreen !== 'tourney') return;
   renderGroups(); // signing in unlocks the boxes in both stages
+  if (koStarted && !holdRender()) renderBracket();
+};
+window.renderResults = all => {
+  allRes = all || {};
+  if (isAdmin) return mergeResults();
+  // the overlay is laid on while the cup is rebuilt, so rebuild it
+  if (lastCup && lastCup.screen === 'tourney') applyState(lastCup);
+};
+window.renderRoster = all => {
+  allRoster = all || {}; rosterLoaded = true;
+  ensureRoster();
+  if (curScreen !== 'tourney') return;
+  renderGroups(); // who may approve just changed
   if (koStarted && !holdRender()) renderBracket();
 };
 window.renderSuggestions = all => {
@@ -2402,8 +2497,10 @@ function sendSug(key, sa, sb, pa, pb) {
   if (sa == null && sb == null && !pa && !pb) return window.clearSuggestion(cupId, key);
   // the two teams ride along: the relay announces this to the admin's phone and
   // knows nothing about foosball, so the names have to travel with the score
+  // the two teams by index too: that is what the rules look up in the roster
   const m = sugTarget(key).m;
-  window.suggestScore(cupId, key, sa ?? null, sb ?? null, pa || null, pb || null, signedIn.name, signedIn.email, m.a, m.b);
+  window.suggestScore(cupId, key, sa ?? null, sb ?? null, pa || null, pb || null, signedIn.name, signedIn.email, m.a, m.b,
+    String(teams.indexOf(m.a)), String(teams.indexOf(m.b)));
 }
 // sa/sb ride along derived, for the bar text
 function submitSug(key, pa, pb) {
@@ -2419,40 +2516,43 @@ function sugLine(m, s) {
   return `${side(m.a, s.pa, s.sa)} – ${side(m.b, s.pb, s.sb)}`;
 }
 
-// mine === the signed-in suggester looking at their own pending score. Without
-// this the suggester got no words at all — just numbers in a box — and couldn't
-// tell the score had actually been sent to the admin.
-function sugBar(key, s, mine) {
+/* Four ways to look at a pending score. The suggester is told who it waits on
+   and can take it back; a player who can approve gets Approve and Reject; the
+   admin gets Accept, which writes the cup straight away, and Dismiss; anyone
+   else just reads it. */
+function sugBar(key, s) {
   const { m, apply } = sugTarget(key);
+  const me = signedIn && signedIn.email;
+  const mine = !!me && s.email === me;
+  const ok = approvers(s);
   const bar = document.createElement('div');
   bar.className = 'sug-bar' + (mine ? ' mine' : '');
   const who = document.createElement('div');
   who.className = 'who';
   who.innerHTML = svg(mine ? 'check' : 'bulb'); // icon is static markup...
   const score = sugLine(m, s);
+  const names = ok.map(e => EMAIL_NAMES[e]).filter(Boolean);
   who.append(mine // ...name/score stay text nodes
-    ? ' Sent — waiting for the admin’s approval.'
-    : ` ${s.by} suggests ${score}`);
+    ? ` Sent — waiting for ${names.length ? names.join(', ') + ' or the admin' : 'the admin'} to approve.`
+    : ` ${s.by} ${m.sa != null ? 'suggests a correction:' : 'suggests'} ${score}`);
   bar.appendChild(who);
+  const btn = (cls, icon, label, fn) => {
+    const b = document.createElement('button');
+    b.className = 'sug-btn ' + cls;
+    b.innerHTML = svg(icon) + ' ' + label;
+    b.onclick = fn;
+    bar.appendChild(b);
+  };
+  const drop = () => window.clearSuggestion && window.clearSuggestion(cupId, key);
   if (isAdmin) {
-    if (sugOk(s)) { // a half-filled or drawn suggestion isn't a score anyone can accept
-      const ok = document.createElement('button');
-      ok.className = 'sug-btn sug-ok';
-      ok.innerHTML = svg('check') + ' Accept';
-      ok.onclick = () => apply(s.sa, s.sb, s.pa, s.pb);
-      bar.appendChild(ok);
-    }
-    const no = document.createElement('button');
-    no.className = 'sug-btn sug-no';
-    no.innerHTML = svg('x') + ' Dismiss';
-    no.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, key);
-    bar.appendChild(no);
-  } else if (mine) { // the suggester can take back a score they sent by mistake
-    const w = document.createElement('button');
-    w.className = 'sug-btn sug-withdraw';
-    w.innerHTML = svg('x') + ' Withdraw';
-    w.onclick = () => window.clearSuggestion && window.clearSuggestion(cupId, key);
-    bar.appendChild(w);
+    // a half-filled or drawn suggestion isn't a score anyone can accept
+    if (sugOk(s)) btn('sug-ok', 'check', 'Accept', () => apply(s.sa, s.sb, s.pa, s.pb));
+    btn('sug-no', 'x', 'Dismiss', drop);
+  } else if (mine) {
+    btn('sug-withdraw', 'x', 'Withdraw', drop);
+  } else if (me && ok.includes(me)) {
+    if (sugOk(s)) btn('sug-ok', 'check', 'Approve', () => window.approveScore && window.approveScore(cupId, key, s, me));
+    btn('sug-no', 'x', 'Reject', drop);
   }
   return bar;
 }
@@ -5013,13 +5113,12 @@ function setGroupScore(gi, mi, sa, sb, pa, pb) {
      four boxes at a time and each keystroke lands here, so the news is the box
      that decides it — a later correction only re-announces if it actually
      changed who won. */
-  if (isAdmin && !restoring && m.winner && m.winner !== was && window.notify)
+  // an approved score folded in was already announced by the relay as it was approved
+  if (isAdmin && !restoring && !merging && m.winner && m.winner !== was && window.notify)
     window.notify('Group match recorded', `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`, null, null, 'result');
   // a real score settles the match, so any suggestion for it is spent — whether
   // the admin accepted it or just typed straight over it
-  if (isAdmin && !restoring && sa != null && cupId && window.clearSuggestion) {
-    window.clearSuggestion(cupId, gi + '_' + mi);
-  }
+  adminSettled(gi + '_' + mi, sa != null);
   renderAll();
 }
 const setGroupGoals = (gi, mi, pa, pb) => setGroupScore(gi, mi, teamGoals(pa), teamGoals(pb), pa, pb);
@@ -5112,6 +5211,7 @@ function save() {
 }
 
 function applyState(s) {
+  lastCup = s; // an approval arriving later rebuilds from it
   if (!s) return; // empty database — nothing published yet
   restoring = true;
   if (s.fwdText != null) $('fwdInput').value = s.fwdText;
@@ -5175,6 +5275,8 @@ function applyState(s) {
           if (side && koRounds[r][i][side]) setKoWinner(r, i, koRounds[r][i][side]);
         }));
       }
+      // still restoring, so a viewer's page writes and announces nothing
+      if (!isAdmin) overlayResults();
     }
   } else {
     // draft not opened yet: a viewer waits on the countdown screen, the admin on
@@ -5184,6 +5286,7 @@ function applyState(s) {
     else stopCountdown();
   }
   restoring = false;
+  if (s.screen === 'tourney') { mergeResults(); ensureRoster(); }
 }
 
 function scoreInput(value, disabled, onchange, canEdit = isAdmin) {
@@ -5444,11 +5547,11 @@ function renderGroups() {
       const active = Math.min(cell.length - 1,
         legTab[pair] ?? (held >= 0 ? held : Math.max(0, cell.findIndex(([m]) => !settled(m)))));
       const [m, mi] = cell[active];
-      // only an unrecorded match is open to suggestions, so a pending score can
-      // never contradict something already standing in the table
-      const open = m.sa == null && m.sb == null;
+      // a recorded score is open to a correction too, until the knockout starts
       const key = gi + '_' + mi;
-      const sug = open ? curSug()[key] : null;
+      const open = canFile(key);
+      const pend = open ? curSug()[key] : null;
+      const sug = pend && sugFits(pend, m) ? pend : null;
       const suggesting = open && canSuggest();
       const div = matchBox(m, {
         edit: (isAdmin || suggesting) && !koStarted, suggesting,
@@ -5482,7 +5585,7 @@ function renderGroups() {
       // the suggester edits numbers in the boxes AND gets a "sent, pending" bar
       // as confirmation; everyone else reads the score off the bar, where the
       // admin also gets accept/dismiss
-      if (sug) box.appendChild(sugBar(key, sug, suggesting));
+      if (sug) box.appendChild(sugBar(key, sug));
     });
     // 0-0 is the void marker, not a draw, so it must not trip the no-draws warning
     if (g.matches.some(m => badScore(m, false))) {
@@ -5554,9 +5657,7 @@ function setKoScore(r, i, sa, sb, pa, pb) {
   m.sa = sa; m.sb = sb; m.pa = clean(pa); m.pb = clean(pb);
   // a real score settles the tie, so any suggestion for it is spent — accepted
   // or typed straight over
-  if (isAdmin && !restoring && sa != null && cupId && window.clearSuggestion) {
-    window.clearSuggestion(cupId, 'k' + r + '_' + i);
-  }
+  adminSettled('k' + r + '_' + i, sa != null);
   setKoWinner(r, i, scoresValid(m) ? (m.sa > m.sb ? m.a : m.b) : null);
 }
 const setKoGoals = (r, i, pa, pb) => setKoScore(r, i, teamGoals(pa), teamGoals(pb), pa, pb);
@@ -5573,7 +5674,7 @@ function setKoWinner(r, i, team) {
   if (m.winner !== team) {
     /* The final is deliberately silent here: crowning the champion sends its
        own notification a moment later, and nobody needs both. */
-    if (isAdmin && !restoring && team && r + 1 < koRounds.length && window.notify)
+    if (isAdmin && !restoring && !merging && team && r + 1 < koRounds.length && window.notify)
       window.notify(koRoundName(r), `${teamName(m.a)} ${m.sa}–${m.sb} ${teamName(m.b)}`, null, null, 'result');
     m.winner = team;
     if (r + 1 < koRounds.length) {
@@ -5610,7 +5711,7 @@ function renderBracket() {
       // suggestion can never send two teams through
       const key = 'k' + r + '_' + i;
       const both = !!(m.a && m.b);
-      const open = both && m.sa == null && m.sb == null;
+      const open = canFile(key);
       const held = open ? curSug()[key] : null;
       const sug = held && sugFits(held, m) ? held : null;
       const suggesting = open && canSuggest();
@@ -5628,7 +5729,7 @@ function renderBracket() {
         onForfeit: isAdmin ? v => setKoScore(r, i, ...(FORFEIT[v] || [null, null])) : null,
       });
       box.className = 'bmatch card';
-      if (sug) box.appendChild(sugBar(key, sug, suggesting));
+      if (sug) box.appendChild(sugBar(key, sug));
       col.appendChild(box);
     });
     el.appendChild(col);
@@ -6694,9 +6795,10 @@ window.spendCoins = row => push(ref(db, 'spends'), { ...row, at: serverTimestamp
 onValue(ref(db, 'spends'), snap => window.renderSpends(snap.val() || {}),
   err => console.error('[spend] read failed:', err));
 
-window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
+window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb, ia, ib) =>
   set(ref(db, `suggestions/${cup}/${key}`),
-    { sa, sb, pa: pa || null, pb: pb || null, ta: ta || null, tb: tb || null, by, email, at: Date.now() })
+    { sa, sb, pa: pa || null, pb: pb || null, ta: ta || null, tb: tb || null, ia: ia ?? null, ib: ib ?? null,
+      by, email, at: Date.now() })
     .catch(err => {
       console.error('[suggest] write rejected:', err);
       alert('Could not send the suggestion: ' + err.message);
@@ -6705,8 +6807,29 @@ window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb) =>
 window.clearSuggestion = (cup, key) => remove(ref(db, `suggestions/${cup}/${key}`))
   .catch(err => console.error('[suggest] clear failed:', err));
 
-window.clearAllSuggestions = () => remove(ref(db, 'suggestions'))
+// the cup's approvals and roster go with it — they name a cup that is gone
+window.clearAllSuggestions = () => update(ref(db), { suggestions: null, cupResults: null, cupRoster: null })
   .catch(err => console.error('[suggest] wipe failed:', err));
+
+/* Approving is one update: the score goes to cupResults and the suggestion
+   goes, so it is never both pending and approved. The rules hold it to exactly
+   what was suggested, and stamp it with the server's clock. */
+window.approveScore = (cup, key, s, email) => update(ref(db), {
+  [`cupResults/${cup}/${key}`]: { sa: s.sa, sb: s.sb, pa: s.pa || null, pb: s.pb || null,
+    ta: s.ta || null, tb: s.tb || null, ia: s.ia, ib: s.ib, by: email, at: serverTimestamp() },
+  [`suggestions/${cup}/${key}`]: null,
+}).catch(err => {
+  console.error('[suggest] approve rejected:', err);
+  alert('Could not approve the score: ' + err.message);
+});
+window.clearResult = (cup, key) => remove(ref(db, `cupResults/${cup}/${key}`))
+  .catch(err => console.error('[result] clear failed:', err));
+window.writeRoster = (cup, roster) => set(ref(db, 'cupRoster/' + cup), roster)
+  .catch(err => console.error('[roster] write failed:', err));
+onValue(ref(db, 'cupResults'), snap => window.renderResults(snap.val() || {}),
+  err => console.error('[result] read failed:', err));
+onValue(ref(db, 'cupRoster'), snap => window.renderRoster(snap.val() || {}),
+  err => console.error('[roster] read failed:', err));
 
 // one subscription for every cup's suggestions — the node is tiny, and this
 // avoids resubscribing each time cupId changes

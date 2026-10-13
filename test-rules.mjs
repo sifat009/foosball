@@ -310,4 +310,65 @@ const confirm = (id, who, b, r, at = NOW) =>
   const short = await lobby({ slots: { bf: SLOTS.bf } });
   assert.ok(!await put(`challenges/${short}/off/bf`, B1, true), 'a vote landed on an unfilled lobby');
 }
+// ---- approving a cup score ----
+/* The cup itself is the admin's alone; an approval lands beside it in
+   cupResults. The roster is the admin's word on who plays for which team, so a
+   suggestion names its two teams by index and the rules check the approver
+   against them: an opponent of the suggester, or either side when a spectator
+   suggested, and never the suggester's own teammate. */
+{
+  const SAZ = 'sazedulhaque5@gmail.com', NUR = 'nuralam862@gmail.com';
+  // team 0 is blue's pair, team 1 red's, team 2 a pair with nobody listed
+  assert.ok(await put('cupRoster/k1', 'owner', { 0: { fwd: B1, def: B2 }, 1: { fwd: R1, def: R2 }, 2: {} }), 'roster fixture');
+  const TA = { fwd: 'Rifat', def: 'Rashed' }, TB = { fwd: 'Siddiq', def: 'Shewa' };
+  const sug = (email, extra) => ({ sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 },
+    ta: TA, tb: TB, ia: '0', ib: '1', by: 'x', email, at: 1, ...extra });
+  const approve = (key, who, s, over) => patch('', who, {
+    [`cupResults/k1/${key}`]: { sa: s.sa, sb: s.sb, pa: s.pa, pb: s.pb, ta: s.ta, tb: s.tb,
+      ia: s.ia, ib: s.ib, by: who, at: NOW, ...over },
+    [`suggestions/k1/${key}`]: null,
+  });
+
+  // a suggestion is in its author's own name
+  assert.ok(!await put('suggestions/k1/0_0', B1, sug(R1)), 'a suggestion was filed in someone else’s name');
+
+  // a player suggested: only the other side may approve
+  let s = sug(B1);
+  assert.ok(await put('suggestions/k1/0_0', B1, s), 'a player could not suggest');
+  assert.ok(!await approve('0_0', B1, s), 'the suggester approved their own score');
+  assert.ok(!await approve('0_0', B2, s), 'the suggester’s teammate approved');
+  assert.ok(!await approve('0_0', OUT, s), 'a stranger approved');
+  assert.ok(!await approve('0_0', SAZ, s), 'a listed player outside the match approved');
+  assert.ok(!await approve('0_0', R1, s, { sa: 10, sb: 7 }), 'an approval changed the score');
+  assert.ok(!await approve('0_0', R1, s, { pa: { fwd: 7, def: 3 } }), 'an approval changed who scored');
+  assert.ok(!await approve('0_0', R1, s, { ia: '2' }), 'an approval moved the match to other teams');
+  assert.ok(!await approve('0_0', R1, s, { ta: { fwd: 'Nur', def: 'Ofi' } }), 'an approval renamed a team');
+  assert.ok(!await approve('0_0', R1, s, { at: 5 }), 'an approval was backdated');
+  assert.ok(await approve('0_0', R1, s), 'an opponent could not approve');
+  assert.equal((await read('cupResults/k1/0_0')).sa, 10, 'the approved score is not in cupResults');
+  assert.equal(await read('suggestions/k1/0_0'), null, 'the suggestion outlived its approval');
+  // nothing to approve once the suggestion is spent
+  assert.ok(!await approve('0_0', R2, s), 'an approval landed with no suggestion behind it');
+
+  // a spectator suggested: either side may approve
+  s = sug(NUR);
+  await put('suggestions/k1/0_1', NUR, s);
+  assert.ok(await approve('0_1', B2, s), 'a player could not approve a spectator’s suggestion');
+  await put('suggestions/k1/0_2', NUR, s);
+  assert.ok(await approve('0_2', R2, s), 'the other side could not approve a spectator’s suggestion');
+
+  // a draw is no result, and an old suggestion that names no teams has nobody to approve it
+  s = sug(B1, { sa: 6, sb: 6, pa: { fwd: 3, def: 3 }, pb: { fwd: 3, def: 3 } });
+  await put('suggestions/k1/0_3', B1, s);
+  assert.ok(!await approve('0_3', R1, s), 'a drawn score was approved');
+  s = sug(B1); delete s.ia; delete s.ib;
+  await put('suggestions/k1/0_4', B1, s);
+  assert.ok(!await approve('0_4', R1, s), 'a suggestion with no teams was approved');
+
+  // the admin merges results into the cup and clears them; nobody else can
+  assert.ok(!await del('cupResults/k1/0_1', R1), 'a player removed an approved result');
+  assert.ok(!await put('cupRoster/k1/2', B1, { fwd: B1 }), 'a player wrote themselves onto the roster');
+  assert.ok(await del('cupResults/k1/0_1', ADMIN), 'the admin could not clear a merged result');
+  assert.ok(await del('cupResults', ADMIN) && await del('cupRoster', ADMIN), 'Start Over could not wipe the cup’s side nodes');
+}
 console.log('ok');

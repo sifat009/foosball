@@ -14,7 +14,30 @@
     },
     "suggestions": {
       ".read": true,
-      ".write": "auth != null && auth.token.email_verified === true"
+      ".write": "auth != null && auth.token.email_verified === true",
+      "$cup": {
+        "$key": {
+          ".validate": "newData.child('email').val() === auth.token.email && (!newData.child('ia').exists() || (newData.child('ia').isString() && newData.child('ib').isString()))"
+        }
+      }
+    },
+    "cupRoster": {
+      ".read": true,
+      ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'"
+    },
+    "cupResults": {
+      ".read": true,
+      ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'",
+      "$cup": {
+        "$key": {
+          ".write": "auth != null && auth.token.email_verified === true && newData.exists() && root.child('suggestions').child($cup).child($key).child('ia').isString() && root.child('suggestions').child($cup).child($key).child('ib').isString() && root.child('suggestions').child($cup).child($key).child('email').val() !== auth.token.email && (((root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ia').val()).child('fwd').val() === auth.token.email || root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ia').val()).child('def').val() === auth.token.email) && !(root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ia').val()).child('fwd').val() === root.child('suggestions').child($cup).child($key).child('email').val() || root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ia').val()).child('def').val() === root.child('suggestions').child($cup).child($key).child('email').val())) || ((root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ib').val()).child('fwd').val() === auth.token.email || root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ib').val()).child('def').val() === auth.token.email) && !(root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ib').val()).child('fwd').val() === root.child('suggestions').child($cup).child($key).child('email').val() || root.child('cupRoster').child($cup).child(root.child('suggestions').child($cup).child($key).child('ib').val()).child('def').val() === root.child('suggestions').child($cup).child($key).child('email').val())))",
+          ".validate": "newData.hasChildren(['sa', 'sb', 'ia', 'ib', 'by', 'at']) && newData.child('sa').val() !== newData.child('sb').val() && newData.child('sa').val() === root.child('suggestions').child($cup).child($key).child('sa').val() && newData.child('sb').val() === root.child('suggestions').child($cup).child($key).child('sb').val() && newData.child('ia').val() === root.child('suggestions').child($cup).child($key).child('ia').val() && newData.child('ib').val() === root.child('suggestions').child($cup).child($key).child('ib').val() && newData.child('pa/fwd').val() === root.child('suggestions').child($cup).child($key).child('pa/fwd').val() && newData.child('pa/def').val() === root.child('suggestions').child($cup).child($key).child('pa/def').val() && newData.child('pb/fwd').val() === root.child('suggestions').child($cup).child($key).child('pb/fwd').val() && newData.child('pb/def').val() === root.child('suggestions').child($cup).child($key).child('pb/def').val() && newData.child('ta/fwd').val() === root.child('suggestions').child($cup).child($key).child('ta/fwd').val() && newData.child('ta/def').val() === root.child('suggestions').child($cup).child($key).child('ta/def').val() && newData.child('tb/fwd').val() === root.child('suggestions').child($cup).child($key).child('tb/fwd').val() && newData.child('tb/def').val() === root.child('suggestions').child($cup).child($key).child('tb/def').val()",
+          "sa": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "sb": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "by": { ".validate": "newData.val() === auth.token.email" },
+          "at": { ".validate": "newData.val() === now" }
+        }
+      }
     },
     "challenges": {
       ".read": true,

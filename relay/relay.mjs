@@ -6,7 +6,7 @@
  * and knows nothing about foosball. The page decides what is worth announcing
  * and writes a row to /notify; this reads the row, sends it, deletes it.
  *
- * The exceptions are /suggestions and /challenges, which are watched directly:
+ * The exceptions are /suggestions, /cupResults and /challenges, which are watched directly:
  * opening /notify to non-admin accounts would let any signed-in Google user
  * push to every phone, so those announcements are derived here instead.
  *
@@ -64,11 +64,24 @@ export const sugReady = v => !!v && v.sa != null && v.sb != null && v.sa !== v.s
    scored them. The names travel on the suggestion — this end knows no teams.
    A cup that doesn't count individual goals has no breakdown to print, so it
    falls back to the team and its total. */
-export const sugText = v => {
-  const side = (t, p, s) => t && p ? `${t.fwd} ${p.fwd ?? 0} + ${t.def} ${p.def ?? 0} = ${s}`
-    : t ? `${t.fwd} + ${t.def} ${s}` : String(s);
-  return `${v.by} suggested ${side(v.ta, v.pa, v.sa)} vs ${side(v.tb, v.pb, v.sb)} — tap to accept or reject.`;
+const sugSide = (t, p, s) => t && p ? `${t.fwd} ${p.fwd ?? 0} + ${t.def} ${p.def ?? 0} = ${s}`
+  : t ? `${t.fwd} + ${t.def} ${s}` : String(s);
+export const sugText = v =>
+  `${v.by} suggested ${sugSide(v.ta, v.pa, v.sa)} vs ${sugSide(v.tb, v.pb, v.sb)} — tap to approve or reject.`;
+export const resText = v => `${sugSide(v.ta, v.pa, v.sa)} vs ${sugSide(v.tb, v.pb, v.sb)} — approved.`;
+
+/* Who can settle a cup suggestion, read off cupRoster/<cupId> the way the rules
+   read it: either side when a spectator suggested it, the other side when a
+   player did, never the suggester. The admin rides along in main(). */
+export const sugApprovers = (v, roster) => {
+  if (!v || v.ia == null || !roster) return [];
+  const side = i => { const t = roster[i] || {}; return [t.fwd, t.def].filter(Boolean); };
+  const A = side(v.ia), B = side(v.ib);
+  return [...(A.includes(v.email) ? [] : A), ...(B.includes(v.email) ? [] : B)].filter(e => e !== v.email);
 };
+/* A counter-offer is news to whoever filed the first one, so a suggestion is
+   identified by who sent it and its figures, not merely by its match. */
+export const sugId = (cup, key, v) => `${cup}/${key}|${v.email}|${v.sa}-${v.sb}`;
 
 
 /* ---- challenges ----
@@ -290,22 +303,44 @@ async function main() {
   db.ref('notify').on('child_changed', s => { cancel(s.key); schedule(s.key, s.val()); });
   db.ref('notify').on('child_removed', s => cancel(s.key));
 
-  /* Suggestions ping the admin alone. `seen` starts null so the first snapshot
-     only seeds it: without that, every restart would re-announce every
-     suggestion still sitting in the node. */
+  // who plays for which team, per cup — the page's admin writes it at the draw
+  let roster = {};
+  db.ref('cupRoster').on('value', s => { roster = s.val() || {}; });
+
+  /* Suggestions ping whoever can approve them, and the admin. `seen` starts
+     null so the first snapshot only seeds it: without that, every restart would
+     re-announce every suggestion still sitting in the node. */
   let seen = null;
   db.ref('suggestions').on('value', s => {
     const now = new Set();
     Object.entries(s.val() || {}).forEach(([cup, matches]) =>
       Object.entries(matches || {}).forEach(([key, v]) => {
         if (!sugReady(v)) return; // stays out of `seen` too, so the ping waits for the finished score
-        const id = cup + '/' + key;
+        const id = sugId(cup, key, v);
         now.add(id);
         if (seen && !seen.has(id))
-          send('Score suggested', sugText(v), true, 'suggest')
+          send('Score to approve', sugText(v), false, 'suggest', v.email,
+            [...sugApprovers(v, roster[cup]), ADMIN_EMAIL])
             .catch(e => console.error('[send] failed:', e));
       }));
     seen = now;
+  });
+
+  /* An approved score is the moment the table moves, so it goes to everybody
+     but the approver. Seeded the same way; the admin's page clearing a result
+     once it is folded in is not news. */
+  let resSeen = null;
+  db.ref('cupResults').on('value', s => {
+    const now = new Set();
+    Object.entries(s.val() || {}).forEach(([cup, matches]) =>
+      Object.entries(matches || {}).forEach(([key, v]) => {
+        const id = `${cup}/${key}|${v.at}`;
+        now.add(id);
+        if (resSeen && !resSeen.has(id))
+          send('Cup result', resText(v), false, 'result', v.by)
+            .catch(e => console.error('[send] failed:', e));
+      }));
+    resSeen = now;
   });
 
   /* Challenges. `seen` seeds on the first snapshot for the same reason

@@ -783,7 +783,7 @@ const cup = await page.evaluate(() => {
   window.suggestScore = (...a) => window.sugLog.push(['set', ...a]);
   window.clearSuggestion = (...a) => window.sugLog.push(['clear', ...a]);
   window.markRemote();
-  window.setSignedIn({ name: 'Nur', email: 'nur@example.com' }); // signed in, not the admin
+  window.setSignedIn({ name: 'Nur', email: 'nuralam862@gmail.com' }); // signed in, not the admin
   return cupId;
 });
 assert.ok((await page.textContent('#tourneySub')).toLowerCase().includes('suggest'),
@@ -807,14 +807,14 @@ await openInput.evaluate(i => i.blur());
 await page.waitForTimeout(150);
 // the two teams ride along, so the relay can name them on the admin's phone
 assert.deepEqual(await page.evaluate(() => window.sugLog), [
-  ['set', cup, '0_0', null, null, { fwd: 7, def: null }, null, 'Nur', 'nur@example.com',
-    { fwd: 'Siddiq', def: 'Shewa' }, { fwd: 'Sazedul Haque', def: 'Ofi' }],
+  ['set', cup, '0_0', null, null, { fwd: 7, def: null }, null, 'Nur', 'nuralam862@gmail.com',
+    { fwd: 'Siddiq', def: 'Shewa' }, { fwd: 'Sazedul Haque', def: 'Ofi' }, '1', '4'],
 ], 'the suggestion did not land in the suggestions node with its author, breakdown and teams');
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
 
 // the suggester (still signed in) must see their score was sent, not just guess
 await page.evaluate(c => window.renderSuggestions({ [c]: { '0_0':
-  { sa: 7, sb: 3, pa: { fwd: 4, def: 3 }, pb: { fwd: 2, def: 1 }, by: 'Nur', email: 'nur@example.com' } } }), cup);
+  { sa: 7, sb: 3, pa: { fwd: 4, def: 3 }, pb: { fwd: 2, def: 1 }, by: 'Nur', email: 'nuralam862@gmail.com' } } }), cup);
 await page.waitForTimeout(150);
 const mineText = (await page.textContent('.sug-bar.mine')).toLowerCase();
 assert.ok(mineText.includes('sent') && mineText.includes('approv'), 'the suggester gets no confirmation their score was sent');
@@ -824,7 +824,7 @@ assert.equal((await page.$$('.sug-bar.mine .sug-btn')).length, 1, 'the suggester
 await page.evaluate(c => {
   window.setSignedIn(null);
   window.renderSuggestions({ [c]: { '0_0':
-    { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nur@example.com' } } });
+    { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nuralam862@gmail.com' } } });
 }, cup);
 await page.waitForTimeout(150);
 assert.equal((await page.$$('.sug-bar')).length, 1, 'the pending suggestion is not shown');
@@ -867,7 +867,7 @@ const early = await page.evaluate(h => {
   window.setAdmin(false);
   show('setup'); // suggestions answer while the cup is still loading
   window.renderSuggestions({ 'stored-cup-1': { '0_0':
-    { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nur@example.com' } } });
+    { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nuralam862@gmail.com' } } });
   window.applyState(s);
   return cupId;
 }, HASH);
@@ -876,6 +876,82 @@ assert.equal(early, 'stored-cup-1', 'restoring a cup minted a new id instead of 
 assert.equal((await page.$$('.sug-bar')).length, 1,
   'a suggestion that arrived before the cup never painted on a scoreless cup');
 console.log('suggestions OK');
+
+// ---------- approving a cup score ----------
+/* A score counts once someone on the other side of it approves — or either side
+   when a spectator suggested it, never the suggester's own teammate — and it
+   counts on every page at once, before the admin's page has folded it into the
+   cup. Match 0_0 is team 1 (Siddiq + Shewa) against team 4 (Sazedul Haque +
+   Ofi); "Sazedul Haque" is nobody's account, so that seat can approve nothing. */
+const ap = await page.evaluate(() => {
+  window.approveLog = [];
+  window.approveScore = (...a) => window.approveLog.push(['approve', ...a]);
+  window.clearResult = (...a) => window.approveLog.push(['clearResult', ...a]);
+  window.writeRoster = () => {};
+  window.renderRoster({ 'stored-cup-1': rosterOf(teams) });
+  const sug = email => ({ sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 },
+    ta: teams[1], tb: teams[4], ia: '1', ib: '4', by: 'x', email });
+  const look = (who, s) => {
+    window.setSignedIn(who ? { name: 'x', email: who } : null);
+    window.renderSuggestions({ 'stored-cup-1': { '0_0': s } });
+    const bar = document.querySelector('#groups .sug-bar');
+    return [...bar.querySelectorAll('.sug-btn')].map(b => b.textContent.trim());
+  };
+  const SID = 'siddikcoder@gmail.com', SHEWA = 'shewa.ollyo@gmail.com', OFI = 'ofi.khan051@gmail.com';
+  const out = {
+    roster: rosterOf(teams)[4],
+    opponent: look(OFI, sug(SID)),
+    teammate: look(SHEWA, sug(SID)),
+    outsider: look('rifathaque93@gmail.com', sug(SID)),
+    specA: look(SHEWA, sug('nuralam862@gmail.com')),
+    specB: look(OFI, sug('nuralam862@gmail.com')),
+    unlisted: look('stranger@gmail.com', sug('nuralam862@gmail.com')),
+  };
+  look(SID, sug(SID));
+  out.waiting = document.querySelector('#groups .sug-bar').textContent;
+  look(OFI, sug(SID));
+  document.querySelector('#groups .sug-ok').click();
+  out.sent = window.approveLog.map(x => [x[0], x[1], x[2], x[4]]);
+  return out;
+});
+assert.deepEqual(ap.roster, { fwd: null, def: 'ofi.khan051@gmail.com' }, 'the roster matched a name nobody signs in as');
+assert.deepEqual(ap.opponent, ['Approve', 'Reject'], 'an opponent of the suggester cannot approve');
+assert.deepEqual(ap.teammate, [], 'the suggester’s teammate was offered Approve');
+assert.deepEqual(ap.outsider, [], 'a player outside the match was offered Approve');
+assert.deepEqual([ap.specA, ap.specB], [['Approve', 'Reject'], ['Approve', 'Reject']],
+  'a spectator’s suggestion is not open to both sides');
+assert.deepEqual(ap.unlisted, [], 'an account that is not a listed player was offered Approve');
+assert.ok(ap.waiting.includes('Ofi or the admin'), 'the suggester is not told who it waits on: ' + ap.waiting);
+assert.deepEqual(ap.sent, [['approve', 'stored-cup-1', '0_0', 'ofi.khan051@gmail.com']], 'Approve did not send the approval');
+// an unlisted account is not offered the boxes at all
+assert.equal(await page.evaluate(() => { window.setSignedIn({ name: 's', email: 'stranger@gmail.com' }); return canSuggest(); }),
+  false, 'an unlisted account can suggest');
+
+// a viewer's page plays the approved score over the cup at once, and writes nothing
+const res = { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, ia: '1', ib: '4', by: 'ofi.khan051@gmail.com', at: 1 };
+const overlaid = await page.evaluate(r => {
+  window.writes = []; window.approveLog = [];
+  window.setSignedIn(null);
+  window.renderSuggestions({});
+  // 0_1 names teams that are not in that fixture, so it is nobody's result
+  window.renderResults({ 'stored-cup-1': { '0_0': r, '0_1': { ...r, ia: '2' } } });
+  const [m0, m1] = groups[0].matches;
+  return [m0.sa, m0.sb, m0.winner === teams[1], m1.sa, window.writes.length, window.approveLog.length];
+}, res);
+assert.deepEqual(overlaid, [10, 6, true, null, 0, 0],
+  'an approved score did not count on a viewer’s page, a stale one did, or the viewer wrote');
+
+// the admin's page folds it into the cup and clears it, along with the stale one
+const merged = await page.evaluate(() => {
+  window.setAdmin(true);
+  const cup = JSON.parse(window.writes.pop() || 'null');
+  return [cup && cup.groupScores[0][0], cup && cup.groupScores[0][1], window.approveLog];
+});
+assert.deepEqual(merged, [[10, 6, { fwd: 6, def: 4 }, { fwd: 4, def: 2 }], [null, null, null, null],
+  [['clearResult', 'stored-cup-1', '0_0'], ['clearResult', 'stored-cup-1', '0_1']]],
+  'the admin’s page did not fold the approved score into the cup and clear it');
+await page.evaluate(() => { window.setAdmin(false); window.renderResults({}); });
+console.log('approving cup scores OK');
 
 // ---------- 5-team single group seeds top-4 crossed semis ----------
 // build one group of 5 with a clean 1>2>3>4>5 ranking (lower index always wins),
@@ -2017,13 +2093,14 @@ const koCup = await page.evaluate(() => {
   window.suggestScore = (...a) => window.sugLog.push(['set', ...a]);
   window.clearSuggestion = (...a) => window.sugLog.push(['clear', ...a]);
   window.setAdmin(false);
-  window.setSignedIn({ name: 'Nur', email: 'nur@example.com' }); // signed in, not the admin
+  window.setSignedIn({ name: 'Nur', email: 'nuralam862@gmail.com' }); // signed in, not the admin
   return cupId;
 });
 await page.waitForTimeout(80);
 const sugBoxes = () => page.$$('#bracket .score');
 const liveBoxes = async () => (await Promise.all((await sugBoxes()).map(s => s.isDisabled()))).filter(d => !d).length;
-assert.equal(await liveBoxes(), 4, 'a suggester should reach the four boxes of the tie with no score yet, and no others');
+// the part-scored semi is open too: a correction stands until the tie it feeds has a score
+assert.equal(await liveBoxes(), 8, 'a suggester should reach both semis while the final is unplayed, and nothing in the final');
 assert.equal((await page.$$('#bracket .ff')).length, 0, 'a suggester can forfeit a knockout tie');
 
 const semiTwo = async () => (await sugBoxes())[4]; // first box of the untouched semi
@@ -2034,7 +2111,7 @@ assert.deepEqual((await page.evaluate(() => window.sugLog)).map(x => x.slice(0, 
   'the knockout suggestion did not land under its own key');
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a suggestion wrote to the live cup');
 
-const sugK = { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nur@example.com' };
+const sugK = { sa: 10, sb: 6, pa: { fwd: 6, def: 4 }, pb: { fwd: 4, def: 2 }, by: 'Nur', email: 'nuralam862@gmail.com' };
 const teamsOf = await page.evaluate(() => [koRounds[0][1].a, koRounds[0][1].b]);
 await page.evaluate(([c, s]) => window.renderSuggestions({ [c]: { k0_1: s } }), [koCup, sugK]);
 await page.waitForTimeout(120);
@@ -2081,6 +2158,22 @@ await page.waitForTimeout(120);
 assert.deepEqual((await page.evaluate(() => window.sugLog)).map(x => x.slice(0, 3)), [['set', koCup, 'k1_0']],
   'a suggestion for the Grand Final did not land under its own key');
 assert.deepEqual(await page.evaluate(() => window.writes), [], 'a Grand Final suggestion wrote to the live cup');
+
+// once the final has anything in it the semis behind it are settled for good —
+// a correction there is the admin's alone; the final shuts once it is in the Hall
+const locks = await page.evaluate(c => {
+  window.setAdmin(true); setKoScore(1, 0, 10, 7); window.setAdmin(false);
+  const before = [canFile('k0_0'), canFile('k0_1'), canFile('k1_0')];
+  histIds.add(c);
+  const after = canFile('k1_0');
+  histIds.delete(c);
+  // put the final back and the celebration away, or it covers what comes next
+  window.setAdmin(true); setKoScore(1, 0, null, null); window.setAdmin(false);
+  $('celebrate').style.display = 'none';
+  return [...before, after];
+}, koCup);
+assert.deepEqual(locks, [false, false, true, false],
+  'a semi stayed open to correction past a played final, or the final past the Hall of Fame');
 
 console.log('knockout suggestions OK');
 

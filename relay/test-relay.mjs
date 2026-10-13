@@ -1,6 +1,6 @@
 /* node relay/test-relay.mjs — no database, no key, no network. */
 import assert from 'node:assert';
-import { delayFor, recipients, sugReady, sugText, chalNews, chalSeats, chalScored,
+import { delayFor, recipients, sugReady, sugText, resText, sugApprovers, sugId, chalNews, chalSeats, chalScored,
   chalClaim, chalClaimId, chalOthers, treesOf, thirsty, nextRemind, ripeAt } from './relay.mjs';
 
 const NOW = 1_700_000_000_000;
@@ -166,14 +166,32 @@ const sug = {
   ta: { fwd: 'Rifat', def: 'Sifat' }, tb: { fwd: 'Sajeeb', def: 'Toufiq' },
 };
 assert.equal(sugText(sug),
-  'Nur suggested Rifat 4 + Sifat 5 = 9 vs Sajeeb 2 + Toufiq 4 = 6 — tap to accept or reject.');
+  'Nur suggested Rifat 4 + Sifat 5 = 9 vs Sajeeb 2 + Toufiq 4 = 6 — tap to approve or reject.');
 // a cup with no individual goals still names the teams behind the totals
 assert.equal(sugText({ ...sug, pa: null, pb: null }),
-  'Nur suggested Rifat + Sifat 9 vs Sajeeb + Toufiq 6 — tap to accept or reject.');
+  'Nur suggested Rifat + Sifat 9 vs Sajeeb + Toufiq 6 — tap to approve or reject.');
 // a suggestion saved before the names travelled reads as it always did
-assert.equal(sugText({ by: 'Nur', sa: 9, sb: 6 }), 'Nur suggested 9 vs 6 — tap to accept or reject.');
+assert.equal(sugText({ by: 'Nur', sa: 9, sb: 6 }), 'Nur suggested 9 vs 6 — tap to approve or reject.');
 // a goalless player is 0, not a blank
 assert.match(sugText({ ...sug, pa: { fwd: 0, def: 9 } }), /Rifat 0 \+ Sifat 9 = 9/);
+
+// ---- who can approve a cup suggestion ----
+// team 0 is Rifat + Sifat, team 1 Sajeeb + Toufiq; Toufiq has no account
+const roster = { 0: { fwd: 'rifat@x', def: 'sifat@x' }, 1: { fwd: 'sajeeb@x' } };
+const cupSug = email => ({ ...sug, ia: '0', ib: '1', email });
+// a player suggested: the other side alone
+assert.deepEqual(sugApprovers(cupSug('rifat@x'), roster), ['sajeeb@x']);
+assert.deepEqual(sugApprovers(cupSug('sajeeb@x'), roster), ['rifat@x', 'sifat@x']);
+// a spectator suggested: either side
+assert.deepEqual(sugApprovers(cupSug('nur@x'), roster), ['rifat@x', 'sifat@x', 'sajeeb@x']);
+// no roster yet, or a suggestion that names no teams: nobody but the admin
+assert.deepEqual(sugApprovers(cupSug('nur@x'), undefined), []);
+assert.deepEqual(sugApprovers(sug, roster), []);
+// a counter-offer is a new announcement, the same figures again are not
+assert.notEqual(sugId('c', '0_0', cupSug('rifat@x')), sugId('c', '0_0', cupSug('sajeeb@x')));
+assert.equal(sugId('c', '0_0', cupSug('rifat@x')), sugId('c', '0_0', { ...cupSug('rifat@x'), at: 9 }));
+// the approval goes to everyone as the result it is
+assert.equal(resText(sug), 'Rifat 4 + Sifat 5 = 9 vs Sajeeb 2 + Toufiq 4 = 6 — approved.');
 
 // ---- trees: local dates, the same clock the walk reads ----
 const at = (d, h = 10) => +new Date(2026, 9, d, h); // Oct 2026: 5th is a Monday

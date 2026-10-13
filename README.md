@@ -5,9 +5,18 @@ Plain HTML — no build step, no npm. Deployed at
 <https://sifat009.github.io/foosball/>.
 
 State lives in a Firebase Realtime Database, so everyone sees the standings
-update live. One admin account can edit; everyone else is read-only. Any other
-signed-in Google account can *suggest* a score for an unrecorded group match —
-captured for the admin to accept, never applied on its own.
+update live. One admin account can edit; everyone else is read-only. Any listed
+player (`EMAIL_NAMES`) can *suggest* a score, or a correction to a recorded one,
+for any match still open — the group until the knockout starts, a knockout tie
+until the tie its winner feeds into has a score, the final until it is in the
+Hall of Fame. It counts once approved: by the admin, or by a player in that
+match — the other side when a player suggested it, either side when a spectator
+did, never the suggester's teammate. An approval lands in
+`cupResults/<cupId>`, counts on every page at once, and the admin's page folds
+it into `cup` and clears it. The rules check the approver against
+`cupRoster/<cupId>`, which the admin's page writes from the cup's names — a
+name that isn't in `EMAIL_NAMES` has no account, so that seat can't approve.
+The admin still types any score straight in, their own matches included.
 
 Every match — group *and* knockout — is scored per player: two boxes per team,
 forward then defender, and the team score is only ever those two added up. That
@@ -442,8 +451,9 @@ happen against the live project with the relay running.
 
 Ten things reach a phone: a group match recorded, a knockout match decided, the
 knockout opening, a champion crowned, a draft being scheduled, the draft falling
-due, and a challenge opening, filling, being scored or kicking off. Suggestions
-ping the admin alone.
+due, and a challenge opening, filling, being scored or kicking off. A cup
+suggestion pings whoever can approve it and the admin; an approval pings
+everyone.
 
 Sending needs a service-account key, which can never live in a page — so the
 page only *says what happened*. It writes a row to `/notify`, and a small
@@ -731,11 +741,12 @@ these by hand after deploying:
 - Killing the network shows the offline warning and edits stop saving.
 - Deciding the Grand Final adds the winner to Past Champions, and a viewer's
   open list picks it up without a reload.
-- Signing in with a non-admin Google account lets you type each player's goals
-  into an unrecorded group match; it appears to everyone as a pending suggestion
-  with your name, the standings don't move, and the admin sees Accept / Dismiss.
-  Accepting writes the real score *with its per-player breakdown* and clears the
-  suggestion. Suggesters never get the forfeit picker.
+- Signing in with a listed non-admin account lets you type each player's goals
+  into an open match; it appears to everyone as a pending suggestion with your
+  name, the standings don't move, the admin sees Accept / Dismiss and the
+  players who can approve see Approve / Reject. Approving moves the standings on
+  every page at once; the admin's page then writes it into the cup *with its
+  per-player breakdown* and clears it. Suggesters never get the forfeit picker.
 - On a phone, Share in the celebration opens the real OS share sheet with the
   PNG attached, and posting it to a chat shows the image rather than a link.
   The suite stubs `navigator.share`, so only the plumbing is covered offline.
