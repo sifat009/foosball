@@ -17,7 +17,7 @@
       ".write": "auth != null && auth.token.email_verified === true",
       "$cup": {
         "$key": {
-          ".validate": "newData.child('email').val() === auth.token.email && (!newData.child('ia').exists() || (newData.child('ia').isString() && newData.child('ib').isString()))"
+          ".validate": "newData.child('email').val() === auth.token.email && (auth.token.email === 'bhacker150@gmail.com' || auth.token.email === 'rifathaque93@gmail.com' || auth.token.email === 'sazedulhaque5@gmail.com' || auth.token.email === 'sajeeb.ollyo@gmail.com' || auth.token.email === 'siddikcoder@gmail.com' || auth.token.email === 'shewa.ollyo@gmail.com' || auth.token.email === 'ittoufiq@gmail.com' || auth.token.email === 'rashedcse18@gmail.com' || auth.token.email === 'nuralam862@gmail.com' || auth.token.email === 'ofi.khan051@gmail.com') && (!newData.child('ia').exists() || (newData.child('ia').isString() && newData.child('ib').isString()))"
         }
       }
     },

@@ -3045,7 +3045,10 @@ window.renderHall = renderHall;
    Who you are is this map, not the database. The rules can only see an email
    address; the page is what turns one into a player, which is why an account
    that isn't here can read the board but not sit down. Adding somebody is an
-   edit here and a deploy — the same cost as adding them to a cup. */
+   edit here and a deploy — the same cost as adding them to a cup. The rules
+   keep a copy of these addresses for who may suggest a cup score
+   (suggestions/$cup/$key), so add them there too; test-rules.mjs fails if the
+   two drift apart. */
 const EMAIL_NAMES = {
   'bhacker150@gmail.com': 'Sifat',
   'rifathaque93@gmail.com': 'Rifat',

@@ -17,6 +17,9 @@ it into `cup` and clears it. The rules check the approver against
 `cupRoster/<cupId>`, which the admin's page writes from the cup's names — a
 name that isn't in `EMAIL_NAMES` has no account, so that seat can't approve.
 The admin still types any score straight in, their own matches included.
+The rules keep their own copy of the `EMAIL_NAMES` addresses for who may
+suggest, so adding a player is an edit to both and a rules deploy;
+`test-rules.mjs` fails if the two lists differ.
 
 Every match — group *and* knockout — is scored per player: two boxes per team,
 forward then defender, and the team score is only ever those two added up. That

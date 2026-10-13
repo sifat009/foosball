@@ -9,6 +9,7 @@
  * account and no dependency beyond what firebase-tools already installs.
  */
 import assert from 'node:assert';
+import { readFileSync } from 'node:fs';
 
 const HOST = process.env.FIREBASE_DATABASE_EMULATOR_HOST || '127.0.0.1:9000';
 // the emulator loads firebase.json's rules under this one namespace; any other
@@ -331,6 +332,9 @@ const confirm = (id, who, b, r, at = NOW) =>
 
   // a suggestion is in its author's own name
   assert.ok(!await put('suggestions/k1/0_0', B1, sug(R1)), 'a suggestion was filed in someone else’s name');
+  // and only a listed player files one: an alt account posing as a spectator
+  // would otherwise open the match to the suggester's own teammate
+  assert.ok(!await put('suggestions/k1/0_0', OUT, sug(OUT)), 'an unlisted account filed a suggestion');
 
   // a player suggested: only the other side may approve
   let s = sug(B1);
@@ -370,5 +374,14 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('cupRoster/k1/2', B1, { fwd: B1 }), 'a player wrote themselves onto the roster');
   assert.ok(await del('cupResults/k1/0_1', ADMIN), 'the admin could not clear a merged result');
   assert.ok(await del('cupResults', ADMIN) && await del('cupRoster', ADMIN), 'Start Over could not wipe the cup’s side nodes');
+}
+// the rules carry their own copy of EMAIL_NAMES — they can't read the page — so
+// adding a player means both; this fails the moment the two drift apart
+{
+  const emails = src => [...src.matchAll(/'([^']+@[^']+)'/g)].map(m => m[1]).sort();
+  const page = readFileSync(new URL('index.html', import.meta.url), 'utf8').match(/const EMAIL_NAMES = \{([\s\S]*?)\};/)[1];
+  const rule = JSON.parse(readFileSync(new URL('database.rules.json', import.meta.url), 'utf8'))
+    .rules.suggestions.$cup.$key['.validate'];
+  assert.deepEqual([...new Set(emails(rule))], emails(page), 'the rules’ player list and EMAIL_NAMES differ');
 }
 console.log('ok');
