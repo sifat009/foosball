@@ -6893,12 +6893,22 @@ function watchConnection() {
   if (connected || document.hidden) { clearInterval(retry); retry = null; return; }
   if (!retry) retry = setInterval(() => { goOffline(db); goOnline(db); }, 5000);
 }
+/* .info/connected only flips once Firebase notices the socket is dead. Android
+   closes it the moment the network goes; iOS Safari leaves it looking open
+   until a keepalive times out, a minute or more, so the banner never came. The
+   browser itself knows sooner, and iOS does fire offline/online — so either one
+   saying offline is offline. Coming back, bounce the socket rather than wait
+   for the SDK to find out on its own. */
+const paintConnected = () => window.setConnected(connected && navigator.onLine);
 onValue(ref(db, '.info/connected'), s => {
-  window.setConnected(connected = s.val() === true);
+  connected = s.val() === true;
+  paintConnected();
   if (connected) flushPending(); // a write the last session never got to send
   watchConnection();
 });
 document.addEventListener('visibilitychange', watchConnection);
+addEventListener('offline', paintConnected);
+addEventListener('online', () => { goOffline(db); goOnline(db); paintConnected(); });
 
 /* ================= PUSH =================
    The page never sends a notification: an FCM send needs a service-account key,
