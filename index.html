@@ -4737,7 +4737,9 @@ const CYCLE_ANCHOR = 17;
 
 /* entries are the hall's, oldest first — the index is the cup's age, nothing more.
    `cool` is how deep into the current cycle we are, and so how many cups back still
-   block a pair: nothing at the top of a cycle, four cups by its last night.
+   block a pair: four cups by its last night, and one at the top of a cycle — the
+   free draw still may not hand back a pair from the cup just played, which is how
+   Sazedul + Rashed went straight from cup 27 into cup 28.
 
    Cycle length is the teams per cup, read off the newest entry, so a roster change
    re-measures it and lands the boundary somewhere new — that restarts the rotation
@@ -4748,7 +4750,7 @@ function pairLedger(entries) {
   entries.forEach((e, i) => (e.teams || []).forEach(t => last.set(pairKey(t.fwd, t.def), i)));
   const len = entries.length ? (entries[entries.length - 1].teams || []).length : 0;
   const since = Math.max(0, entries.length - CYCLE_ANCHOR);
-  return { last, n: entries.length, cool: len ? since % len : 0 };
+  return { last, n: entries.length, cool: len ? since % len || 1 : 0 };
 }
 
 /* Every way to pair these forwards with these defenders, minus the arrangements

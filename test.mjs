@@ -3432,6 +3432,13 @@ const drawCheck = await page.evaluate(() => {
     if (seen.size !== 25) out.badCycle = { firstCup: c + 1, distinct: seen.size };
   }
 
+  // a new cycle's free draw still may not repeat a pair from the cup before it
+  out.seamRepeats = 0;
+  for (let c = 22; c < 37; c += 5) {
+    const prev = new Set(cups[c - 1].teams.map(t => key(t.fwd, t.def)));
+    out.seamRepeats += cups[c].teams.filter(t => prev.has(key(t.fwd, t.def))).length;
+  }
+
   /* Where the club actually stands: nineteen cups recorded, cup 20 on the table,
      so tonight is the third of the cycle and the two cups behind it are blocked. */
   out.coolTonight = pairLedger(cups.slice(0, 19)).cool;
@@ -3461,6 +3468,7 @@ const drawCheck = await page.evaluate(() => {
 });
 assert.equal(drawCheck.badShape, null, 'planDraw returned something that is not a perfect matching');
 assert.equal(drawCheck.badCycle, null, 'a five-cup cycle was not a full rotation: ' + JSON.stringify(drawCheck.badCycle));
+assert.equal(drawCheck.seamRepeats, 0, 'the first cup of a cycle repeated a pair from the cup before it');
 assert.equal(drawCheck.coolTonight, 2, 'cup 20 is not the third cup of the cycle — the anchor has slipped');
 assert.equal(drawCheck.lastCupVariants, 1, 'the last cup of a cycle was not forced — the rotation is leaking');
 assert.deepEqual(drawCheck.empty, [], 'planDraw wedged on a clean ledger');
