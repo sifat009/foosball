@@ -964,6 +964,28 @@
     font-size: 1.3rem; font-weight: 900; color: #172b4d;
     letter-spacing: -0.01em; overflow-wrap: anywhere;
   }
+  /* only on your own profile: the app knows nobody else's photo */
+  #prPhoto {
+    display: block; width: 72px; height: 72px; border-radius: 50%; object-fit: cover;
+    margin: 0 auto 10px; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(23,43,77,0.2);
+  }
+  #prPhoto[hidden] { display: none; }
+  /* a chip, not a fifth stat: a fifth tile wraps alone on a phone, and a purse
+     is not part of a playing record anyway */
+  .pr-coins {
+    display: inline-flex; align-items: center; gap: 6px; margin-top: 10px;
+    background: #fff7e0; border: 1px solid #f0d79a; border-radius: 999px; padding: 4px 12px 4px 5px;
+    color: #96660a; font-size: 0.8rem; font-weight: 700;
+  }
+  .pr-coins b { font-weight: 900; }
+  .pr-coins[hidden] { display: none; }
+  .pr-foot { display: flex; justify-content: center; gap: 8px; margin-top: 18px; }
+  .pr-foot #profileClose { margin: 0; }
+  #prSignOut {
+    background: #fdf7f7; color: #b03636; border: 0; border-radius: 999px; padding: 9px 22px;
+    font-family: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer;
+  }
+  #prSignOut[hidden] { display: none; }
   .pr-sub { color: #8fa0b8; font-size: 0.78rem; font-weight: 600; margin-top: 3px; }
   .pr-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
@@ -1788,8 +1810,10 @@
 <div id="profile">
   <div class="hall-card">
     <div class="pr-head">
+      <img id="prPhoto" alt="" referrerpolicy="no-referrer" hidden>
       <div class="pr-name" id="prName"></div>
       <div class="pr-sub" id="prSub"></div>
+      <div class="pr-coins" id="prCoins" hidden><span class="coin-disc" aria-hidden="true"></span><b></b> coins</div>
     </div>
     <div class="pr-stats" id="prStats"></div>
     <div class="pr-h">Badges <span id="prCount"></span></div>
@@ -1799,7 +1823,10 @@
     <div class="pr-todo" id="prLocked"></div>
     <div class="pr-h">Cup by cup</div>
     <div id="prRuns"></div>
-    <button id="profileClose">Close</button>
+    <div class="pr-foot">
+      <button id="profileClose">Close</button>
+      <button id="prSignOut" hidden>Sign out</button>
+    </div>
   </div>
 </div>
 
@@ -2927,9 +2954,17 @@ function openProfile(name) {
     + c.cups + (c.cups === 1 ? ' cup' : ' cups');
   const stat = (v, l) => `<div class="pr-stat"><b>${v}</b><i>${l}</i></div>`;
   // numbers only, so innerHTML carries nothing a player typed
+  // the photo, purse and sign-out belong to whoever is signed in on this phone
+  const mine = name === myName(), free = mine ? myFree() : null;
   $('prStats').innerHTML = stat(c.titles, 'Cups won') + stat(c.p || '—', 'Played')
     + stat(c.p ? Math.round(c.w / c.p * 100) + '%' : '—', 'Win rate')
     + stat(c.g || '—', 'Goals');
+  $('prCoins').hidden = !mine;
+  $('prCoins').querySelector('b').textContent = free === null ? '–' : free;
+  const photo = mine && window.myPhoto && window.myPhoto();
+  $('prPhoto').hidden = !photo;
+  if (photo) $('prPhoto').src = photo; else $('prPhoto').removeAttribute('src');
+  $('prSignOut').hidden = !mine;
 
   /* Every badge, in two groups: what they have, then what is left. A flat grid
      of ten would put a new player's four grey tiles among their one gold one
@@ -3680,9 +3715,13 @@ function treeRow(me, bal) {
   return row;
 }
 
+// what the pill shows: a gift you sealed is gone from your purse until it's opened
+const myFree = () => myCoins() === null ? null
+  : myCoins() - sealedGifts().reduce((t, g) => t + g.amt, 0);
+
 function renderCoins() {
   const sealed = myName() ? sealedGifts() : [];
-  const n = myCoins() === null ? null : myCoins() - sealed.reduce((t, g) => t + g.amt, 0), pill = $('coins');
+  const n = myFree(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
   // while picked coins are in the air, the balance counts them in as they land
   $('coinN').textContent = n === null ? '\u2013' : coinCount ? coinCount.shown : n;
@@ -4620,6 +4659,10 @@ $('coinGo').onclick = () => { $('coinInfo').classList.remove('open'); $('chal').
 
 // the profile has no toolbar button of its own — a row of the board opens it
 $('profileClose').onclick = () => $('profile').classList.remove('open');
+$('prPhoto').onerror = () => { $('prPhoto').hidden = true; }; // a dead link, not an empty circle
+$('prSignOut').onclick = () => {
+  if (window.signOutMe && window.signOutMe()) $('profile').classList.remove('open');
+};
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 /* Every overlay card carries the same X in its corner — built here rather than
    in five copies of the markup, and it dismisses whichever card it sits in. */
@@ -7275,20 +7318,23 @@ onAuthStateChanged(auth, user => {
   window.setAccount(user && user.emailVerified ? user.email : null);
   // only the label moves — the icon and data-lbl are what the mobile tab bar shows
   $('authBtn').querySelector('use').setAttribute('href', admin ? '#i-check' : '#i-user');
-  /* "Sign out" answers what the button does and not who you are, which is the
-     question actually being asked — the coin pill next to it is your balance, and
-     it means nothing without a name against it. data-lbl too: that is all the
-     mobile tab bar shows, and it read "Account" for everybody. */
+  /* A player's name opens their own profile, and signing out lives in there; with
+     no name there is no profile, so the button is still a way out and says so.
+     data-lbl too: that is all the mobile tab bar shows. */
   const who = window.playerName && window.playerName();
   $('authBtn').querySelector('.lbl').textContent = user
-    ? (who ? ` ${who} — sign out` : admin ? ' Admin — sign out' : ' Sign out')
+    ? (who ? ` ${who}` : admin ? ' Admin — sign out' : ' Sign out')
     : ' Sign in';
   $('authBtn').dataset.lbl = who || 'Account';
 });
 
+window.signOutMe = () => confirm('Sign out?') && (signOut(auth), true);
+window.myPhoto = () => (auth.currentUser && auth.currentUser.photoURL) || null;
+
 $('authBtn').onclick = () => {
-  // the tab bar shows only a name here, so a tap meant as "that's me" signed people out
-  if (auth.currentUser) return confirm('Sign out?') && signOut(auth);
+  // people tap their name meaning "that's me", so it shows them, not the way out
+  const who = window.playerName && window.playerName();
+  if (auth.currentUser) return who ? window.openProfile(who) : window.signOutMe();
   window.pickAccount(); // a name first; the picker is what calls signInAs
 };
 

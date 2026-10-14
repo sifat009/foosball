@@ -30,11 +30,12 @@ is your own (`name === myName()`), three things are added:
    Google's image links often fail to load on other sites without it. If there
    is no photo, or it fails to load (`onerror`), the element hides and the
    header looks as it does today.
-2. **Coins.** A fifth stat tile, "Coins", after Goals. It shows the same
-   number as the coin pill: `myCoins()` minus unopened sealed gifts. That
-   calculation moves out of `renderCoins()` into one small function so both
-   use it. While your coins haven't loaded (`myCoins()` is null), the tile
-   shows "–", like the pill does.
+2. **Coins.** A gold chip under the subtitle ("120 coins", with the pill's
+   coin icon) showing the same number as the coin pill: `myCoins()` minus
+   unopened sealed gifts. That calculation moves out of `renderCoins()` into
+   `myFree()` so both use it. While your coins haven't loaded, it shows "–".
+   It was planned as a fifth stat tile, but a fifth tile wraps onto a row of
+   its own at phone width.
 3. **Sign out.** A red button beside Close. It keeps the
    `confirm('Sign out?')` step, then calls `signOut(auth)` and closes the
    profile.

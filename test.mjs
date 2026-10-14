@@ -3614,6 +3614,28 @@ assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on the
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); window.renderSpends({}); });
 console.log('side bets OK');
 
+/* Your own profile carries your photo, your coins and the way out; anybody
+   else's carries none of them, since this phone knows only its own account. */
+const ownProfile = () => page.evaluate(() => ({
+  stats: [...document.querySelectorAll('#prStats .pr-stat i')].map(i => i.textContent),
+  coins: !$('prCoins').hidden && $('prCoins').querySelector('b').textContent,
+  photo: !$('prPhoto').hidden && $('prPhoto').getAttribute('src'),
+  out: !$('prSignOut').hidden,
+}));
+await page.evaluate(() => { window.myPhoto = () => 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; window.setAccount('nur@x.com'); window.openProfile('Nur'); });
+let me = await ownProfile();
+assert.deepEqual(me.stats, ['Cups won', 'Played', 'Win rate', 'Goals'], 'the stat row changed on your own profile');
+assert.equal(me.coins, await page.textContent('#coinN'), 'the profile and the pill disagree on your coins');
+assert.ok(me.photo, 'your own photo is not shown');
+assert.ok(me.out, 'your own profile has no Sign out');
+await page.evaluate(() => window.openProfile('Sifat'));
+me = await ownProfile();
+assert.ok(!me.coins && !me.photo && !me.out, "someone else's profile shows your coins, photo or Sign out");
+await page.evaluate(() => { window.myPhoto = () => null; window.openProfile('Nur'); });
+assert.equal((await ownProfile()).photo, false, 'an account with no photo still shows an empty circle');
+await page.evaluate(() => { delete window.myPhoto; window.setAccount(null); $('profile').classList.remove('open'); });
+console.log('own profile OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
