@@ -233,6 +233,13 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(await put('challenges/plain', OUT,
     { by: OUT, at: NOW, slots: { bf: { name: 'Stranger', email: OUT } } }),
     'an ordinary lobby could not be opened');
+  // and with the creator's seat stamped, the way the page opens one
+  assert.ok(await put('challenges/plain2', OUT,
+    { by: OUT, at: NOW, slots: { bf: { name: 'Stranger', email: OUT, at: NOW } } }),
+    'a lobby could not be opened with its first seat stamped');
+  assert.ok(!await put('challenges/plain3', OUT,
+    { by: OUT, at: NOW, slots: { bf: { name: 'Stranger', email: OUT, at: 5 } } }),
+    'a lobby was opened with a seat stamped by the client');
 }
 
 // ---- spending coins ----
@@ -258,6 +265,39 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
   assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
   assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+
+  /* A bet from the side: on a full lobby with no result, by somebody not in it,
+     within two minutes of the last seat being taken. */
+  const NUR = 'nuralam862@gmail.com';
+  const seated = (at) => Object.fromEntries(Object.entries(SLOTS).map(([k, v]) => [k, { ...v, at }]));
+  const fresh = await lobby({ slots: seated(Date.now()) });
+  const stale = await lobby({ slots: seated(Date.now() - 3 * 6e4) });
+  const scored = await lobby({ slots: seated(Date.now()), score: { b: 1, r: 0, at: 2 } });
+  const filed = await lobby({ slots: seated(Date.now()), pending: claim(B1, 'b', 1, 0) });
+  const half = await lobby({ slots: { bf: { ...SLOTS.bf, at: Date.now() } } });
+  const bet = (game, extra) => sp(NUR, { kind: 'bet', game, side: 'b', amt: 6, ...extra });
+  assert.ok(await put('spends/w1', NUR, bet(fresh)), 'a spectator could not bet on a game that just filled');
+  assert.ok(await put('spends/w2', NUR, bet(fresh, { side: 'r', amt: 10 })), 'a spectator could not bet ten on the other side');
+  assert.ok(!await put('spends/w3', B1, sp(B1, { kind: 'bet', game: fresh, side: 'r', amt: 6 })), 'a player bet on their own game');
+  assert.ok(!await put('spends/w4', NUR, bet(stale)), 'a bet landed after the two minutes');
+  assert.ok(!await put('spends/w5', NUR, bet(scored)), 'a bet landed on a game with a result');
+  assert.ok(!await put('spends/w6', NUR, bet(filed)), 'a bet landed on a game with a result filed');
+  assert.ok(!await put('spends/w7', NUR, bet(half)), 'a bet landed on a lobby that is not full');
+  assert.ok(!await put('spends/w8', NUR, bet('nope')), 'a bet landed on a lobby that does not exist');
+  assert.ok(!await put('spends/w9', NUR, bet(fresh, { amt: 11 })), 'a bet over ten');
+  assert.ok(!await put('spends/w10', NUR, bet(fresh, { amt: 2.5 })), 'a fractional bet');
+  assert.ok(!await put('spends/w11', NUR, bet(fresh, { side: 'x' })), 'a bet on no side');
+  assert.ok(!await put('spends/w12', NUR, bet(fresh, { to: B1 })), 'a bet carrying a recipient');
+  assert.ok(!await put('spends/w13', NUR, sp(NUR, { kind: 'bet', game: fresh, amt: 6 })), 'a bet naming no side');
+  assert.ok(!await put('spends/w14', NUR, sp(NUR, { kind: 'gift', to: B1, amt: 5, side: 'b' })), 'a gift carrying a side');
+
+  // a seat stamps when it was taken, on the server's clock, once, and only its own
+  const open = await lobby({ slots: { bf: SLOTS.bf } });
+  assert.ok(await put(`challenges/${open}/slots/bf/at`, B1, NOW), 'a player could not stamp their seat');
+  assert.ok(!await put(`challenges/${open}/slots/bf/at`, B1, NOW), 'a seat was stamped twice, reopening the betting');
+  const open2 = await lobby({ slots: { bf: SLOTS.bf } });
+  assert.ok(!await put(`challenges/${open2}/slots/bf/at`, B1, 5), 'a seat was stamped with a time the client picked');
+  assert.ok(!await put(`challenges/${open2}/slots/bf/at`, R1, NOW), 'somebody stamped another player’s seat');
   // a gift may carry a short note, and nothing else may
   assert.ok(await put('spends/n1', B1, sp(B1, { kind: 'gift', to: R1, amt: 1, note: 'Happy birthday!' })), 'a gift could not carry a note');
   assert.ok(!await put('spends/n2', B1, sp(B1, { kind: 'gift', to: R1, amt: 1, note: 'x'.repeat(61) })), 'a note over 60 characters');

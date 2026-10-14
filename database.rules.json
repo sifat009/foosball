@@ -54,6 +54,7 @@
             ".validate": "!newData.exists() || (newData.hasChildren(['name', 'email']) && newData.child('email').val() === auth.token.email && ($seat === 'bf' || newData.parent().child('bf/email').val() !== auth.token.email) && ($seat === 'bd' || newData.parent().child('bd/email').val() !== auth.token.email) && ($seat === 'rf' || newData.parent().child('rf/email').val() !== auth.token.email) && ($seat === 'rd' || newData.parent().child('rd/email').val() !== auth.token.email))",
             "name": { ".validate": "newData.isString() && newData.val().length > 0" },
             "email": { ".validate": "newData.isString()" },
+            "at": { ".validate": "newData.val() === now && !data.exists()" },
             "$other": { ".validate": false }
           }
         },
@@ -88,14 +89,16 @@
       ".read": true,
       "$id": {
         ".write": "auth != null && auth.token.email_verified === true && (!data.exists() || (!newData.exists() && auth.token.email === 'bhacker150@gmail.com'))",
-        ".validate": "newData.hasChildren(['by', 'at', 'kind']) && (newData.child('kind').val() === 'flair' ? newData.hasChild('item') : newData.child('kind').val() === 'slot' || newData.child('kind').val() === 'plant' || newData.child('kind').val() === 'grow' || newData.child('kind').val() === 'water' || newData.child('kind').val() === 'collect' || newData.hasChildren(['to', 'amt']))",
+        ".validate": "newData.hasChildren(['by', 'at', 'kind']) && (newData.child('kind').val() === 'flair' ? newData.hasChild('item') : newData.child('kind').val() === 'bet' ? (newData.hasChildren(['game', 'side', 'amt']) && root.child('challenges').child(newData.child('game').val()).child('slots').hasChildren(['bf', 'bd', 'rf', 'rd']) && !root.child('challenges').child(newData.child('game').val()).child('score').exists() && !root.child('challenges').child(newData.child('game').val()).child('pending').exists() && root.child('challenges').child(newData.child('game').val()).child('slots/bf/email').val() !== auth.token.email && root.child('challenges').child(newData.child('game').val()).child('slots/bd/email').val() !== auth.token.email && root.child('challenges').child(newData.child('game').val()).child('slots/rf/email').val() !== auth.token.email && root.child('challenges').child(newData.child('game').val()).child('slots/rd/email').val() !== auth.token.email && (root.child('challenges').child(newData.child('game').val()).child('slots/bf/at').val() >= now - 120000 || root.child('challenges').child(newData.child('game').val()).child('slots/bd/at').val() >= now - 120000 || root.child('challenges').child(newData.child('game').val()).child('slots/rf/at').val() >= now - 120000 || root.child('challenges').child(newData.child('game').val()).child('slots/rd/at').val() >= now - 120000)) : newData.child('kind').val() === 'slot' || newData.child('kind').val() === 'plant' || newData.child('kind').val() === 'grow' || newData.child('kind').val() === 'water' || newData.child('kind').val() === 'collect' || newData.hasChildren(['to', 'amt']))",
         "by": { ".validate": "newData.val() === auth.token.email" },
         "at": { ".validate": "newData.val() === now" },
-        "kind": { ".validate": "newData.val() === 'flair' || newData.val() === 'slot' || newData.val() === 'gift' || newData.val() === 'bounty' || newData.val() === 'plant' || newData.val() === 'grow' || newData.val() === 'water' || newData.val() === 'collect'" },
+        "kind": { ".validate": "newData.val() === 'flair' || newData.val() === 'slot' || newData.val() === 'bet' || newData.val() === 'gift' || newData.val() === 'bounty' || newData.val() === 'plant' || newData.val() === 'grow' || newData.val() === 'water' || newData.val() === 'collect'" },
         "item": { ".validate": "newData.isString() && newData.val().length <= 20 && newData.parent().child('kind').val() === 'flair'" },
         "to": { ".validate": "newData.isString() && newData.val() !== auth.token.email && (newData.parent().child('kind').val() === 'gift' || newData.parent().child('kind').val() === 'bounty')" },
-        "amt": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 50 && (newData.parent().child('kind').val() === 'gift' || (newData.parent().child('kind').val() === 'bounty' && newData.val() % 2 === 0))" },
+        "amt": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 50 && (newData.parent().child('kind').val() === 'gift' || (newData.parent().child('kind').val() === 'bet' && newData.val() <= 10) || (newData.parent().child('kind').val() === 'bounty' && newData.val() % 2 === 0))" },
         "note": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 60 && newData.parent().child('kind').val() === 'gift'" },
+        "game": { ".validate": "newData.isString() && newData.val().length <= 40 && newData.parent().child('kind').val() === 'bet'" },
+        "side": { ".validate": "(newData.val() === 'b' || newData.val() === 'r') && newData.parent().child('kind').val() === 'bet'" },
         "$other": { ".validate": false }
       }
     },

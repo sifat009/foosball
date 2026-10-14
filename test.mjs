@@ -3522,6 +3522,98 @@ await page.evaluate(() => {
 });
 console.log('draft OK');
 
+/* Betting from the side. Shewa & Toufiq beat Siddiq & Sajeeb five times, so
+   Shewa holds ten; then game g fills at 100 and Sifat & Ofi beat Nur & Rashed. */
+const wager = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (at, ...ns) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) =>
+    [k, { name: ns[i], email: em(ns[i]), ...(at[i] != null ? { at: at[i] } : {}) }]));
+  const seed = [1, 2, 3, 4, 5].map(i => ({ id: 's' + i, at: i, slots: S([], 'Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'), score: { b: 1, r: 0, at: i } }));
+  const game = (extra = {}) => ({ id: 'g', at: 50, slots: S([90, 95, 99, 100], 'Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 500 }, ...extra });
+  const bet = (at, by, side, amt, game = 'g') => ({ at, by: em(by), kind: 'bet', game, side, amt });
+  const run = (g, ...spends) => { const w = window.coinWalk(g ? [...seed, g] : seed, [], spends); return { bal: w.bal, n: (w.wagers.g || []).length }; };
+  return {
+    win: run(game(), bet(150, 'Shewa', 'b', 6)),
+    lose: run(game(), bet(150, 'Shewa', 'r', 6)),
+    ten: run(game(), bet(150, 'Shewa', 'b', 10)),
+    odd: run(game(), bet(150, 'Shewa', 'b', 1)),
+    draw: run(game({ score: { b: 1, r: 1, at: 500 } }), bet(150, 'Shewa', 'b', 6)),
+    gone: run(null, bet(150, 'Shewa', 'b', 6)),
+    open: run(game({ score: undefined }), bet(150, 'Shewa', 'b', 6)),
+    early: run(game(), bet(99, 'Shewa', 'b', 6)),
+    late: run(game(), bet(100 + 120001, 'Shewa', 'b', 6)),
+    afterResult: run(game({ score: { b: 1, r: 0, at: 120 } }), bet(150, 'Shewa', 'b', 6)),
+    seated: run(game(), bet(150, 'Nur', 'r', 6)),
+    twice: run(game(), bet(150, 'Shewa', 'b', 6), bet(160, 'Shewa', 'r', 10)),
+    tooMuch: run(game(), bet(150, 'Shewa', 'b', 11)),
+    broke: run(game(), bet(150, 'Siddiq', 'b', 6)),
+    // a player swapped in at 300: the line-up the bet was on isn't the one that played
+    swapped: run(game({ slots: S([90, 95, 99, 300], 'Sifat', 'Ofi', 'Nur', 'Rashed') }), bet(150, 'Shewa', 'b', 6)),
+    noTimes: run(game({ slots: S([], 'Sifat', 'Ofi', 'Nur', 'Rashed') }), bet(150, 'Shewa', 'b', 6)),
+    // eight of the ten given away before the game is agreed: the bet doesn't stand
+    spent: run(game(), bet(150, 'Shewa', 'b', 6), { at: 200, by: em('Shewa'), kind: 'gift', to: em('Nur'), amt: 8 }),
+    held: (() => {
+      window.allChal = { g: game({ score: undefined, at: Date.now() }) };
+      window.chalWagers = { g: [{ who: 'Shewa', side: 'b', amt: 6 }] };
+      const n = chalHeld('Shewa');
+      window.allChal = { g: game({ at: Date.now() }) };
+      const settled = chalHeld('Shewa');
+      window.allChal = {}; window.chalWagers = {};
+      return [n, settled];
+    })(),
+  };
+});
+assert.equal(wager.win.bal.Shewa, 13, 'a winning 6 should come back as 9');
+assert.equal(wager.lose.bal.Shewa, 4, 'a losing 6 should cost 6');
+assert.equal(wager.ten.bal.Shewa, 15, 'a winning 10 should come back as 15');
+assert.equal(wager.odd.bal.Shewa, 10, 'a winning 1 comes back as 1, rounded down');
+assert.equal(wager.win.bal.Sifat, 2, 'a side bet changed what the players were paid');
+for (const k of ['draw', 'gone', 'open', 'spent'])
+  assert.equal(wager[k].bal.Shewa, k === 'spent' ? 2 : 10, `a bet on a ${k} game moved coins`);
+for (const k of ['early', 'late', 'afterResult', 'seated', 'tooMuch', 'broke', 'swapped', 'noTimes'])
+  assert.equal(wager[k].n, 0, `a ${k} bet was let stand`);
+assert.equal(wager.seated.bal.Nur, 0, 'a player’s bet on their own game moved coins');
+assert.deepEqual([wager.twice.n, wager.twice.bal.Shewa], [1, 13], 'a second bet on one game counted');
+assert.deepEqual(wager.held, [6, 0], 'a side bet is not held until its game is agreed');
+
+// the panel, seen by somebody not playing, then by one of the four
+const panel = async who => page.evaluate(({ who }) => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const now = Date.now(), seat = (n, at) => ({ name: n, email: em(n), at });
+  const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { by: em('Shewa'), at: i,
+    slots: { bf: seat('Shewa'), bd: seat('Toufiq'), rf: seat('Siddiq'), rd: seat('Sajeeb') }, score: { b: 1, r: 0, at: i } }]));
+  rows.wg = { by: em('Sifat'), at: now - 5000,
+    slots: { bf: seat('Sifat', now - 4000), bd: seat('Ofi', now - 3000), rf: seat('Nur', now - 2000), rd: seat('Rashed', now - 1000) } };
+  window.spent = null;
+  window.spendCoins = row => { window.spent = row; return Promise.resolve(); };
+  window.wgPick = null;
+  window.setAccount(em(who)); window.renderSpends({}); window.renderChallenges(rows);
+  const card = $('ch-wg');
+  const q = s => card.querySelectorAll(s);
+  const out = { teams: [...q('.ch-wg-team')].map(t => t.tagName.toLowerCase()), left: card.querySelector('.ch-wg-left').textContent };
+  if (q('button.ch-wg-team').length) {
+    q('button.ch-wg-team')[1].click();
+    const input = $('ch-wg').querySelector('.ch-wg-amt input');
+    input.value = '7'; input.dispatchEvent(new Event('input'));
+    out.pay = $('ch-wg').querySelector('.ch-wg-pay').textContent;
+    out.go = $('ch-wg').querySelector('.ch-wg-go').textContent;
+    $('ch-wg').querySelector('.ch-wg-go').click();
+    out.spent = window.spent;
+  }
+  return out;
+}, { who });
+const side = await panel('Shewa');
+assert.deepEqual(side.teams, ['button', 'button'], 'a spectator cannot pick a pair');
+assert.match(side.left, /^Closes in 00:01:5\d$/, 'the betting clock is not counting down two minutes');
+assert.equal(side.pay, 'Win 10 · lose 7', 'the payout line is wrong for 7');
+assert.equal(side.go, 'Bet 7 on Nur & Rashed', 'the bet button does not name the amount and the pair');
+assert.deepEqual({ ...side.spent }, { kind: 'bet', game: 'wg', side: 'r', amt: 7, by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) },
+  'the bet written is not the one shown');
+const player = await panel('Nur');
+assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on their own game');
+await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); window.renderSpends({}); });
+console.log('side bets OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

@@ -322,7 +322,7 @@ a result put right moves the coins when the new one was agreed, not the wrong on
 ### Spending them
 
 Betting only moves coins between players, so there was nothing to buy with them.
-The coins sheet now sells four things, all on the challenge board:
+The coins sheet now sells these, all on the challenge board:
 
 - **Name colour, 20.** Your name shows in that colour on every seat you take, until you buy another.
 - **Name icon, 15.** A crown, flame, star, bolt, shield or target in front of your
@@ -336,6 +336,17 @@ The coins sheet now sells four things, all on the challenge board:
   zero). Nobody beats them, and the creator gets the amount back on top of what
   was collected. It takes a free coin to sit against a target. A target who sits
   down against hunters with none plays an ordinary game, which the bounty ignores.
+- **Bet on a game, 1–10.** For two minutes after a lobby's fourth seat is taken,
+  anyone not playing can put coins on a pair. A win pays back the bet times 1.5,
+  rounded down (bet 6, get 9); a loss loses the bet, and the coins go to nobody,
+  so this is the one spend that takes coins out of the game. A draw, a cancelled
+  lobby or a game the walk doesn't pay costs nothing. One bet per player per game.
+  Each seat now records the server's time when it is taken (`slots/<seat>/at`,
+  written once), and the window runs from the latest of the four, so a swapped
+  player starts a new window and earlier bets don't stand. The rules check the
+  window, the seat list and that there is no result yet; the walk decides the
+  rest at the moment the game is agreed, and a bet the bettor can no longer cover
+  then doesn't stand either way.
 
 Each is a row in `spends`, and the walk decides it the way it decides a bet: a
 spend goes through only if the buyer holds the price at that moment, otherwise

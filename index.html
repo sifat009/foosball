@@ -1472,6 +1472,46 @@
   .ch-betnote.bet { background: #fff8e8; border: 1px solid #f3e0b0; color: #96660a; }
   .ch-betnote.no { background: #fdf6e6; border: 1px solid #f0dfb4; color: #96660a; }
   .ch-betnote b { color: #17854a; }
+  /* betting from the side: the two pairs as panels, each with who is on them */
+  .ch-wg { margin-top: 11px; display: grid; gap: 8px; }
+  .ch-wg-h { display: flex; align-items: baseline; gap: 8px; }
+  .ch-wg-h .ch-flbl { margin: 0; }
+  .ch-wg-left { margin-left: auto; font-size: 0.72rem; font-weight: 800; color: #96660a; font-variant-numeric: tabular-nums; }
+  .ch-wg-left.done { color: #8fa0b8; }
+  .ch-wg-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .ch-wg-team {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0;
+    border: 1.5px solid #e7ecf3; border-radius: 12px; padding: 9px 11px; background: #fff;
+    font-family: inherit; text-align: left; width: 100%;
+  }
+  .ch-wg-team u { text-decoration: none; font-size: 0.6rem; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; }
+  .ch-wg-team > b { font-size: 0.86rem; font-weight: 800; color: #172b4d; overflow-wrap: anywhere; }
+  .ch-wg-team.blue { border-color: #cfdefb; } .ch-wg-team.blue u, .ch-wg-team.blue .ch-wg-cta { color: #2563eb; }
+  .ch-wg-team.red { border-color: #f7d6c4; } .ch-wg-team.red u, .ch-wg-team.red .ch-wg-cta { color: #dc5a1e; }
+  .ch-wg-team.blue.on { border-color: #2563eb; background: #f3f7ff; }
+  .ch-wg-team.red.on { border-color: #dc5a1e; background: #fff6f0; }
+  button.ch-wg-team { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
+  .ch-wg-tot { font-size: 0.72rem; font-weight: 900; color: #96660a; line-height: 1.35; }
+  .ch-wg-tot .coin-disc { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -2px; }
+  .ch-wg-who { display: flex; flex-wrap: wrap; gap: 4px; }
+  .ch-wg-chip { font-size: 0.68rem; font-weight: 800; color: #5b6a7d; background: #f4f7fb; border-radius: 999px; padding: 2px 8px; }
+  .ch-wg-chip.you { color: #17854a; background: #eef7f2; }
+  .ch-wg-team.on .ch-wg-chip { background: #fff; }
+  .ch-wg-cta { align-self: stretch; border-top: 1px dashed #e7ecf3; padding-top: 6px; font-size: 0.72rem; font-weight: 900; }
+  .ch-wg-drawer { display: grid; gap: 9px; border-radius: 12px; padding: 11px; background: #f4f7fb; }
+  .ch-wg-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ch-wg-amt { display: inline-flex; align-items: center; border: 1.5px solid #dbe3ee; border-radius: 12px; background: #fff; overflow: hidden; }
+  .ch-wg-amt:focus-within { border-color: #17854a; }
+  .ch-wg-amt button { border: 0; background: none; font-family: inherit; font-weight: 900; font-size: 1rem; color: #5b6a7d; width: 36px; height: 40px; cursor: pointer; }
+  .ch-wg-amt input {
+    width: 44px; border: 0; background: none; font-family: inherit; font-size: 1.05rem; font-weight: 900;
+    color: #172b4d; text-align: center; font-variant-numeric: tabular-nums; -moz-appearance: textfield;
+  }
+  .ch-wg-amt input::-webkit-inner-spin-button, .ch-wg-amt input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .ch-wg-amt input:focus { outline: none; }
+  .ch-wg-pay { font-size: 0.82rem; font-weight: 800; color: #5b6a7d; }
+  .ch-wg-go { width: 100%; padding: 12px 18px; font-size: 0.9rem; }
+  .ch-wg .ch-betnote { margin-top: 0; }
   /* the bet a finished game was played for, beside the pair that won it */
   .ch-rbet {
     flex: none; display: inline-flex; align-items: center; gap: 4px;
@@ -2120,6 +2160,10 @@ Nur</textarea>
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
         bounty per player at a time, and you need a coin to sit against a target.</li>
+        <li><b>Bet on a game.</b> When a challenge fills, everyone not playing has two
+        minutes to put 1 to 10 coins on a pair. If they win you get half as much again
+        back: bet 6, get 9. If they lose, your bet is gone. A draw or a cancelled
+        challenge costs you nothing.</li>
         <li>You can only spend what isn't riding on an open table, and a spend
         can't be undone.</li>
       </ul>
@@ -3203,6 +3247,18 @@ const hexOf = item => {
 const colourOf = item => FLAIR[item] || hexOf(item);
 const FLAIR_COST = 20, ICON_COST = 15, SLOT_COST = 5, SLOT_MAX = 3;
 const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
+/* A bet from the side of the table: anyone not playing puts 1 to 10 on a pair in
+   the two minutes after the lobby fills, and gets half as much again back if
+   they win. Nothing moves until the game is agreed, so a draw, a cancelled lobby
+   or a game the walk doesn't pay costs nobody anything. What a loser stakes is
+   gone, not paid to anyone: that is where coins leave. */
+const WAGER_MAX = 10, WAGER_MS = 2 * 6e4;
+const wagerWin = a => Math.floor(a * 1.5);
+/* When the fourth seat was taken: the latest of the four times, so a swapped
+   player fills the lobby again and starts a new window. A seat taken before
+   seats carried a time has none, and nobody can bet on that lobby. */
+const chalFillAt = c => chalFull(c) && SEATS.every(([x]) => +c.slots[x].at > 0)
+  ? Math.max(...SEATS.map(([x]) => +c.slots[x].at)) : null;
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
 /* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
@@ -3251,6 +3307,8 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
   const played = {}, bought = {}; // player + day -> games paid, extra games bought
   let bounties = [];
   const trees = {}; // player -> { stage, day } as of its last watering
+  const byId = {}, wagers = {}; // game id -> the lobby, the bets on it
+  (rows || []).forEach(c => { if (c && c.id) byId[c.id] = c; });
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   const ev = [];
   (spends || []).filter(s => s && s.at && s.kind).forEach(s => {
@@ -3272,7 +3330,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
     const bet = chalBet(c), t = chalAt(c);
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, id: c.id, nil: c.score.nil === true,
+    ev.push({ t, bet, id: c.id, nil: c.score.nil === true, won: b > r ? 'b' : 'r',
       day: (c.at || 0) >= CH_DAILY_FROM ? new Date(c.at).toDateString() : null,
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
@@ -3314,6 +3372,19 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
           if (!today || !next || bal[who] < next.cost) return;
           bal[who] -= next.cost; trees[who] = { ...tr, stage: cur.stage + 1 };
         }
+        ok.push(s);
+        return;
+      }
+      /* A bet stands if it came from somebody on the list who isn't one of the
+         four, inside the window, before the result, and their first on this game.
+         It takes nothing now: what it does is decided when the game is agreed. */
+      if (s.kind === 'bet') {
+        const c = byId[s.game], fill = c && chalFillAt(c), amt = +s.amt, w = wagers[s.game] || [];
+        if (who === undefined || !fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return;
+        if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return;
+        if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return;
+        if (w.some(x => x.who === who) || bal[who] < amt) return;
+        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at }];
         ok.push(s);
         return;
       }
@@ -3380,6 +3451,14 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
       }
       if (e.id) (tags[e.id] = tags[e.id] || []).push({ on: h.on, by: h.by, won, paid });
     });
+    /* The side bets on it. One that can't be covered any more, because the coins
+       went somewhere else first, doesn't stand either way: the same line a table
+       bet draws for the two who lost. */
+    (e.id && wagers[e.id] || []).forEach(x => {
+      if (bal[x.who] < x.amt) return;
+      x.won = x.side === e.won;
+      bal[x.who] += x.won ? wagerWin(x.amt) - x.amt : -x.amt;
+    });
   });
   /* The trees as they stand now: stage, whether today's water is in, and
      today's coins — when they ripen, what they're worth, whether they're picked. */
@@ -3390,7 +3469,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
     const watered = +t.day === +dayStart(now), coins = watered && tr.ripe;
     treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got) };
   });
-  return { bal, ok, bounties, tags, trees: treesNow };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers };
 }
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
@@ -3439,7 +3518,12 @@ window.myCoins = myCoins;
 const chalHeld = name => !name ? 0 : Object.values(allChal || {})
   .filter(c => c && c.at && chalBet(c) && !chalDone(c) && chalLive(c)
     && SEATS.some(([s]) => c.slots && seatName(c.slots[s]) === name))
-  .reduce((n, c) => n + chalBet(c), 0);
+  .reduce((n, c) => n + chalBet(c), 0)
+  // and a bet from the side on a game still to be agreed
+  + Object.entries(chalWagers).filter(([id]) => allChal[id] && !chalDone(allChal[id]) && chalLive(allChal[id]))
+    .reduce((n, [, w]) => n + w.filter(x => x.who === name).reduce((m, x) => m + x.amt, 0), 0);
+/* game id -> the bets from the side the walk let stand; set where the flair is. */
+var chalWagers = {};
 
 /* What the reader could bet right now. Worked out once a render rather than per
    seat: the balance is the whole ledger walked, and one card would ask for it
@@ -3501,6 +3585,8 @@ setInterval(() => {
   if (over) renderChal();
 }, 1000);
 function chalShort(c) {
+  // why a seat isn't yours: a full lobby has none to offer, so nothing to explain
+  if (chalFull(c) && !chalSat(c)) return null;
   // the day's cap first: "tomorrow" is the stronger of the two reasons
   if (chalUsed >= chalMax && !chalSat(c) && !chalDone(c) && !chalPending(c)) return capMsg();
   if (chalBusy && chalBusy !== c.id && !chalSat(c) && !chalDone(c) && !chalPending(c)) return BUSY_MSG;
@@ -4014,6 +4100,107 @@ function betRow(c) {
   return el;
 }
 
+/* Betting from the side: the two pairs as panels, each with who has bet on
+   it. Open to anyone on the list who isn't playing, for two minutes from the
+   fourth seat; after that the panels stay up, read-only, until the game is
+   agreed. Which pair you picked and how much is this page's to remember across
+   repaints, since the board redraws on every write. */
+var wgPick = null, wgAmt = 5;
+const wgPayText = a => `Win ${wagerWin(a)} \u00b7 lose ${a}`;
+function wagerPanel(c) {
+  const fill = chalFillAt(c);
+  if (!fill || chalDone(c)) return null;
+  const bets = chalWagers[c.id] || [], me = myName();
+  const open = !chalPending(c) && Date.now() < fill + WAGER_MS;
+  if (!open && !bets.length) return null;
+  const playing = SEATS.some(([x]) => seatName(c.slots[x]) === me);
+  const mine = bets.find(x => x.who === me);
+  const can = open && !!me && !playing && !mine;
+  const pick = can && wgPick && wgPick.id === c.id ? wgPick.side : null;
+  const box = part('ch-wg');
+  const head = part('ch-wg-h');
+  head.append(part('ch-flbl', 'Who wins?', 'span'));
+  if (open) {
+    const left = part('ch-wg-left', 'Closes in ', 'span');
+    left.append(leftNode(fill + WAGER_MS));
+    head.append(left);
+  } else head.append(part('ch-wg-left done', 'Betting closed', 'span'));
+  box.append(head);
+  const teams = part('ch-wg-teams');
+  [['b', 'Blue'], ['r', 'Red']].forEach(([side, team]) => {
+    const on = bets.filter(x => x.side === side);
+    const p = document.createElement(can ? 'button' : 'div');
+    p.className = 'ch-wg-team ' + (side === 'b' ? 'blue' : 'red') + (pick === side || (mine && mine.side === side) ? ' on' : '');
+    // names are user input: text nodes throughout
+    p.append(part('', team, 'u'), part('', pairName(c, side + 'f', side + 'd'), 'b'));
+    const tot = part('ch-wg-tot', '', 'span');
+    tot.append(part('coin-disc', '', 'span'), `${on.reduce((n, x) => n + x.amt, 0)} coins on them`);
+    const who = part('ch-wg-who', '', 'span');
+    on.forEach(x => {
+      const chip = part('ch-wg-chip' + (x.who === me ? ' you' : ''), '', 'span');
+      chip.append(x.who === me ? 'You' : flairName(x.who), ' ' + x.amt);
+      who.append(chip);
+    });
+    p.append(tot, who);
+    if (can) {
+      p.type = 'button';
+      p.append(part('ch-wg-cta', pick === side ? 'Your pick \u2713' : 'Bet on them', 'span'));
+      p.onclick = () => { wgPick = pick === side ? null : { id: c.id, side }; renderChal(); };
+    }
+    teams.append(p);
+  });
+  box.append(teams);
+  if (mine) {
+    const n = part('ch-betnote bet');
+    n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}. If they win you get `,
+      part('', String(wagerWin(mine.amt)), 'b'), '.');
+    box.append(n);
+  } else if (can && !pick) box.append(part('ch-note', 'Tap the pair you think will win.'));
+  else if (pick) box.append(wagerDrawer(c, pick));
+  return box;
+}
+function wagerDrawer(c, side) {
+  const free = Math.max(0, chalFree || 0);
+  const box = part('ch-wg-drawer');
+  if (free < 1) {
+    box.append(part('ch-shy', `You need a coin free to bet \u2014 you have ${free}.`));
+    return box;
+  }
+  wgAmt = Math.max(1, Math.min(WAGER_MAX, free, wgAmt));
+  const row = part('ch-wg-row');
+  const amt = part('ch-wg-amt');
+  const input = document.createElement('input');
+  Object.assign(input, { type: 'number', min: 1, max: Math.min(WAGER_MAX, free), step: 1, value: wgAmt, inputMode: 'numeric', id: 'wgAmt-' + c.id });
+  input.setAttribute('aria-label', 'How many coins');
+  const pay = part('ch-wg-pay', wgPayText(wgAmt), 'span');
+  const go = document.createElement('button');
+  go.type = 'button';
+  go.className = 'btn btn-green ch-wg-go';
+  const name = pairName(c, side + 'f', side + 'd');
+  const show = () => { pay.textContent = wgPayText(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; input.value = wgAmt; };
+  const step = d => { wgAmt = Math.max(1, Math.min(WAGER_MAX, free, wgAmt + d)); show(); };
+  const dn = document.createElement('button'), up = document.createElement('button');
+  dn.type = up.type = 'button';
+  dn.textContent = '\u2212'; up.textContent = '+';
+  dn.setAttribute('aria-label', 'One less'); up.setAttribute('aria-label', 'One more');
+  dn.onclick = () => step(-1); up.onclick = () => step(1);
+  // as they type, without a repaint that would take the caret away
+  input.oninput = () => { const n = Math.round(+input.value); if (n >= 1) { wgAmt = Math.min(WAGER_MAX, free, n); pay.textContent = wgPayText(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; } };
+  input.onchange = show;
+  amt.append(dn, input, up);
+  row.append(amt, pay);
+  show();
+  go.onclick = () => {
+    if (!window.spendCoins || !myName()) return;
+    go.disabled = true;
+    wgPick = null;
+    window.spendCoins({ kind: 'bet', game: c.id, side, amt: wgAmt, by: acctEmail });
+  };
+  box.append(row, go);
+  if (free < WAGER_MAX) box.append(part('ch-note', `You have ${free} free to bet.`));
+  return box;
+}
+
 function chalCard(c) {
   const el = document.createElement('div');
   el.className = 'ch-card' + (chalLit === c.id ? ' lit' : '');
@@ -4031,6 +4218,9 @@ function chalCard(c) {
   const why = chalShort(c) || (myName() && !chalSat(c) && !chalDone(c) && !chalPending(c)
     && SEATS.filter(([x]) => !(c.slots && c.slots[x])).map(([x]) => huntShort(c, x)).find(Boolean));
   if (why) el.append(part('ch-shy', why));
+
+  const wg = wagerPanel(c);
+  if (wg) el.append(wg);
 
   const pend = chalPending(c);
   if (chalFull(c)) {
@@ -4158,6 +4348,7 @@ function renderChal() {
   chalTags = walk.tags;
   chalTrees = walk.trees;
   chalGifts = walk.ok.filter(x => x.kind === 'gift');
+  chalWagers = walk.wagers;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
@@ -6719,7 +6910,9 @@ onValue(historyRef, snap => {
    can never touch a title. Ownership is enforced by the rules on the email
    each seat carries, not by this page: see database.rules.json. */
 // the server's clock, not the opener's: the walk counts a player's day by it
-window.chalCreate = (id, row) => set(ref(db, 'challenges/' + id), { ...row, at: serverTimestamp() })
+// the creator's seat is stamped like any other, so a lobby they fill can be bet on
+window.chalCreate = (id, row) => set(ref(db, 'challenges/' + id), { ...row, at: serverTimestamp(),
+  slots: Object.fromEntries(Object.entries(row.slots || {}).map(([k, v]) => [k, { ...v, at: serverTimestamp() }])) })
   .catch(err => {
     console.error('[chal] create rejected:', err);
     alert('Could not open the challenge: ' + err.message);
@@ -6734,7 +6927,14 @@ window.chalSeat = (id, seat, row) => {
   const at = ref(db, `challenges/${id}/slots/${seat}`);
   const p = row
     ? runTransaction(at, cur => cur === null ? row : undefined)
-        .then(res => { if (!res.committed) alert('That seat has just been taken.'); })
+        .then(res => {
+          if (!res.committed) return alert('That seat has just been taken.');
+          /* When it was taken, on the server's clock, in a write of its own: the
+             transaction can't carry the server's time, and the rules hold this to
+             it. The last of the four is when betting on the game opens. Failing
+             costs only that: the lobby plays as before with nothing to bet on. */
+          return set(ref(db, `challenges/${id}/slots/${seat}/at`), serverTimestamp()).catch(() => {});
+        })
     : remove(at);
   return p.catch(err => {
     console.error('[chal] seat write rejected:', err);
