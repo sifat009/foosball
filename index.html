@@ -970,6 +970,9 @@
     margin: 0 auto 10px; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(23,43,77,0.2);
   }
   #prPhoto[hidden] { display: none; }
+  /* an image is pushed aside by a float where text is not, so the photo sat
+     left of the name; a zero-width float takes no room from anything */
+  #profile .card-x { margin-left: -40px; }
   /* a chip, not a fifth stat: a fifth tile wraps alone on a phone, and a purse
      is not part of a playing record anyway */
   .pr-coins {
