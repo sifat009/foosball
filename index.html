@@ -989,6 +989,16 @@
     font-family: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer;
   }
   #prSignOut[hidden] { display: none; }
+  #prChal[hidden], #prTree[hidden] { display: none; }
+  .pr-mate { margin: -12px 4px 22px; color: #5b6a7d; font-size: 0.8rem; font-weight: 600; }
+  .pr-mate b { color: #172b4d; font-weight: 800; }
+  /* the coins sheet's own row, shown and not worked here: tending it is a tap away */
+  .pr-tree {
+    display: block; width: 100%; margin: 0 0 22px; padding: 0 12px 12px; text-align: left;
+    background: #f7f9fc; border: 0; border-radius: 12px; font: inherit; color: inherit; cursor: pointer;
+  }
+  .pr-tree .coin-tree { border-top: 0; margin-top: 0; }
+  .pr-tree:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
   .pr-sub { color: #8fa0b8; font-size: 0.78rem; font-weight: 600; margin-top: 3px; }
   .pr-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
@@ -1818,7 +1828,17 @@
       <div class="pr-sub" id="prSub"></div>
       <div class="pr-coins" id="prCoins" hidden><span class="coin-disc" aria-hidden="true"></span><b></b> coins</div>
     </div>
+    <div class="pr-h">Cups</div>
     <div class="pr-stats" id="prStats"></div>
+    <div id="prChal" hidden>
+      <div class="pr-h">Challenges</div>
+      <div class="pr-stats" id="prChalStats"></div>
+      <div class="pr-mate" id="prMate"></div>
+    </div>
+    <div id="prTree" hidden>
+      <div class="pr-h">Your tree</div>
+      <button type="button" class="pr-tree" id="prTreeRow" aria-label="Open your coins to look after your tree"></button>
+    </div>
     <div class="pr-h">Badges <span id="prCount"></span></div>
     <div class="pr-badges" id="prBadges"></div>
     <div class="pr-cap" id="prCap"></div>
@@ -2969,6 +2989,24 @@ function openProfile(name) {
   if (photo) $('prPhoto').src = photo; else $('prPhoto').removeAttribute('src');
   $('prSignOut').hidden = !mine;
 
+  const ch = chalRecord(name, allChal);
+  $('prChal').hidden = !ch.p;
+  $('prChalStats').innerHTML = stat(ch.p, 'Played') + stat(ch.w, 'Won') + stat(ch.l, 'Lost')
+    + stat(Math.round(ch.w / (ch.p || 1) * 100) + '%', 'Win rate');
+  const mate = $('prMate');
+  mate.replaceChildren(); // textContent pieces: a name is edited by hand
+  if (ch.mate) mate.append('Best partner ', part('', ch.mate.name, 'b'),
+    ` · ${ch.mate.w} ${ch.mate.w === 1 ? 'win' : 'wins'} together`);
+  mate.hidden = !ch.mate;
+
+  // your own tree only: nobody else's purse or garden is on show
+  $('prTree').hidden = !mine;
+  if (mine) {
+    const row = treeRow(name, myCoins() || 0);
+    row.querySelectorAll('button').forEach(x => x.remove()); // no button inside a button
+    $('prTreeRow').replaceChildren(row);
+  }
+
   /* Every badge, in two groups: what they have, then what is left. A flat grid
      of ten would put a new player's four grey tiles among their one gold one
      and read as a list of failures; under a heading that says Still to win,
@@ -3190,6 +3228,29 @@ const chalBet = c => {
    it. Rows filed before that fall back to when the lobby opened, which is what
    the walk used for everything. */
 const chalAt = c => (c && c.score && c.score.at != null ? +c.score.at : (c && c.at) || 0);
+
+/* A player's challenge record, counted on the games the coins count: agreed,
+   full, four different listed players. A draw is played but neither won nor
+   lost. The best partner is whoever they have won with most, more games
+   together breaking a tie. */
+function chalRecord(name, rows) {
+  const out = { p: 0, w: 0, l: 0, mate: null }, mates = {};
+  Object.values(rows || {}).filter(c => c && chalDone(c) && chalFull(c)).forEach(c => {
+    const names = SEATS.map(([s]) => seatName(c.slots[s]));
+    if (new Set(SEATS.map(([s]) => c.slots[s].email)).size !== 4 || names.includes(undefined)) return;
+    const at = names.indexOf(name);
+    if (at < 0) return;
+    const side = SEATS[at][0][0], b = +c.score.b, r = +c.score.r; // 'b' or 'r'
+    const mate = names[SEATS.findIndex(([s], i) => s[0] === side && i !== at)];
+    const m = mates[mate] = mates[mate] || { name: mate, p: 0, w: 0 };
+    out.p++; m.p++;
+    if (b === r) return;
+    if ((b > r) === (side === 'b')) { out.w++; m.w++; } else out.l++;
+  });
+  const best = Object.values(mates).filter(m => m.w).sort((a, b) => b.w - a.w || b.p - a.p)[0];
+  out.mate = best || null;
+  return out;
+}
 
 /* Five games a day each, free or bet, so the table turns over and nobody waits
    all lunch behind the same four. A game counts on the day it was agreed, a claim
@@ -4663,6 +4724,7 @@ $('coinGo').onclick = () => { $('coinInfo').classList.remove('open'); $('chal').
 // the profile has no toolbar button of its own — a row of the board opens it
 $('profileClose').onclick = () => $('profile').classList.remove('open');
 $('prPhoto').onerror = () => { $('prPhoto').hidden = true; }; // a dead link, not an empty circle
+$('prTreeRow').onclick = () => { $('profile').classList.remove('open'); $('coins').click(); };
 $('prSignOut').onclick = () => {
   if (window.signOutMe && window.signOutMe()) $('profile').classList.remove('open');
 };

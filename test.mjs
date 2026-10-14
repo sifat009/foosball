@@ -3633,7 +3633,35 @@ me = await ownProfile();
 assert.ok(!me.coins && !me.photo && !me.out, "someone else's profile shows your coins, photo or Sign out");
 await page.evaluate(() => { window.myPhoto = () => null; window.openProfile('Nur'); });
 assert.equal((await ownProfile()).photo, false, 'an account with no photo still shows an empty circle');
-await page.evaluate(() => { delete window.myPhoto; window.setAccount(null); $('profile').classList.remove('open'); });
+/* Challenges on every profile, the tree on your own. Nur wins two with Sifat
+   and one with Ofi, loses one with Ofi, draws one; a game with a repeated
+   address and an unagreed one count for nothing. */
+const game = (b, r, [bf, bd, rf, rd], extra = {}) => ({ at: 1, score: { b, r }, ...extra,
+  slots: { bf: { email: bf }, bd: { email: bd }, rf: { email: rf }, rd: { email: rd } } });
+const P = ['nur@x.com', 'sifat@x.com', 'ofi@x.com', 'sajeeb@x.com'], Q = ['nur@x.com', 'ofi@x.com', 'sifat@x.com', 'toufiq@x.com'];
+const chalRows = { g1: game(10, 5, P), g2: game(10, 8, P), g3: game(10, 2, Q), g4: game(3, 10, Q), g5: game(5, 5, P),
+  dup: game(10, 0, ['nur@x.com', 'nur@x.com', 'ofi@x.com', 'sajeeb@x.com']), open: { ...game(10, 0, P), score: null } };
+const chalView = () => page.evaluate(() => ({
+  shown: !$('prChal').hidden,
+  stats: [...document.querySelectorAll('#prChalStats .pr-stat')].map(s => s.querySelector('b').textContent),
+  mate: $('prMate').hidden ? null : $('prMate').textContent,
+  tree: !$('prTree').hidden,
+  treeButtons: $('prTreeRow').querySelectorAll('button').length,
+}));
+await page.evaluate(rows => { window.renderChallenges(rows); window.openProfile('Nur'); }, chalRows);
+let cv = await chalView();
+assert.deepEqual(cv.stats, ['5', '3', '1', '60%'], 'the challenge record is counted wrong: ' + JSON.stringify(cv.stats));
+assert.equal(cv.mate, 'Best partner Sifat · 2 wins together', 'the best partner is wrong');
+assert.ok(cv.tree, 'your own profile has no tree');
+assert.equal(cv.treeButtons, 0, 'the tree on the profile carries a button inside a button');
+await page.evaluate(() => window.openProfile('Sajeeb'));
+cv = await chalView();
+assert.deepEqual(cv.stats, ['3', '0', '2', '0%'], "an opponent's record is wrong: " + JSON.stringify(cv.stats));
+assert.equal(cv.mate, null, 'a player with no wins has a best partner');
+assert.ok(!cv.tree, "someone else's profile shows your tree");
+await page.evaluate(() => window.openProfile('Rashed'));
+assert.equal((await chalView()).shown, false, 'a player with no challenges shows an empty Challenges section');
+await page.evaluate(() => { window.renderChallenges({}); delete window.myPhoto; window.setAccount(null); $('profile').classList.remove('open'); });
 console.log('own profile OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
