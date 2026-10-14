@@ -3052,7 +3052,7 @@ const trees = await page.evaluate(s4 => {
     sat: has(w([...oak, sat], D(12)), sat),
     twice: [has(w([...oak, tue1, tue2], D(6, 12)), tue1), has(w([...oak, tue1, tue2], D(6, 12)), tue2), w([...oak, tue1, tue2], D(6, 12)).bal.Sifat],
     waiting: [waiting.ripe === D(6, 12), waiting.pay, waiting.got],
-    picks: [has(day6, pickEarly), has(day6, pick), has(day6, pickAgain), has(day6, pickTomorrow), day6.bal.Sifat],
+    picks: [has(day6, pickEarly), has(day6, pick), has(day6, pickAgain), has(day6, pickTomorrow), day6.bal.Sifat, day6.picked.Sifat],
     late: [has(w([...oak, lateWater, latePick], D(6, 22)), latePick), w([...oak, lateWater], D(6, 20, 31)).trees.Sifat.ripe === D(6, 21)],
     plantDay: has(w([...oak, plantPick], D(5, 15)), plantPick),
     broke: [has(w([gift, nurPlant, nurWater], D(6, 12)), nurWater), w([gift, nurPlant, nurWater], D(6, 12)).bal.Nur],
@@ -3068,7 +3068,7 @@ assert.deepEqual(trees.weekend, [2, 1, 14], 'a weekend counted against a tree, o
 assert.equal(trees.sat, false, 'a tree was watered on a Saturday');
 assert.deepEqual(trees.twice, [true, false, 13], 'a second water on the same day went through, or a water before the 9th did not cost 2');
 assert.deepEqual(trees.waiting, [true, 7, false], "a 9am water did not grow the oak's 7 coins, ripe at noon");
-assert.deepEqual(trees.picks, [false, true, false, false, 20], 'coins were picked before they ripened, twice, or a day late — or ripe ones did not pay 7');
+assert.deepEqual(trees.picks, [false, true, false, false, 20, 7], 'coins were picked before they ripened, twice, or a day late — or ripe ones did not pay 7, or a refused pick reached the lifetime tally');
 assert.deepEqual(trees.late, [true, true], 'an evening water did not ripen by 9pm');
 assert.equal(trees.plantDay, false, 'a planting day had coins to collect');
 assert.deepEqual(trees.broke, [false, 0], 'a player on nought watered a tree');
@@ -3654,6 +3654,7 @@ assert.deepEqual(cv.stats, ['5', '3', '1', '60%'], 'the challenge record is coun
 assert.equal(cv.mate, 'Best partner Sifat · 2 wins together', 'the best partner is wrong');
 assert.ok(cv.tree, 'your own profile has no tree');
 assert.equal(cv.treeButtons, 0, 'the tree on the profile carries a button inside a button');
+assert.equal(await page.textContent('#prPicked'), 'Collected from your tree so far: 0 coins', 'the lifetime tree tally is missing');
 await page.evaluate(() => window.openProfile('Sajeeb'));
 cv = await chalView();
 assert.deepEqual(cv.stats, ['3', '0', '2', '0%'], "an opponent's record is wrong: " + JSON.stringify(cv.stats));

@@ -1838,6 +1838,7 @@
     <div id="prTree" hidden>
       <div class="pr-h">Your tree</div>
       <button type="button" class="pr-tree" id="prTreeRow" aria-label="Open your coins to look after your tree"></button>
+      <div class="pr-mate" id="prPicked"></div>
     </div>
     <div class="pr-h">Badges <span id="prCount"></span></div>
     <div class="pr-badges" id="prBadges"></div>
@@ -3005,6 +3006,8 @@ function openProfile(name) {
     const row = treeRow(name, myCoins() || 0);
     row.querySelectorAll('button').forEach(x => x.remove()); // no button inside a button
     $('prTreeRow').replaceChildren(row);
+    const n = chalPicked[name] || 0;
+    $('prPicked').replaceChildren('Collected from your tree so far: ', part('', n + (n === 1 ? ' coin' : ' coins'), 'b'));
   }
 
   /* Every badge, in two groups: what they have, then what is left. A flat grid
@@ -3406,6 +3409,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
   const played = {}, bought = {}; // player + day -> games paid, extra games bought
   let bounties = [];
   const trees = {}; // player -> { stage, day } as of its last watering
+  const picked = {}; // player -> every coin they have collected off a tree
   const byId = {}, wagers = {}; // game id -> the lobby, the bets on it
   (rows || []).forEach(c => { if (c && c.id) byId[c.id] = c; });
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
@@ -3467,6 +3471,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
           // ripe, the same day, once: midnight takes what wasn't picked
           if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return;
           bal[who] += tr.pay; tr.got = true;
+          picked[who] = (picked[who] || 0) + tr.pay;
         } else {
           if (!today || !next || bal[who] < next.cost) return;
           bal[who] -= next.cost; trees[who] = { ...tr, stage: cur.stage + 1 };
@@ -3568,7 +3573,7 @@ function coinWalk(rows, cups, spends, now = Date.now()) {
     const watered = +t.day === +dayStart(now), coins = watered && tr.ripe;
     treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got) };
   });
-  return { bal, ok, bounties, tags, trees: treesNow, wagers };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked };
 }
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
@@ -3702,7 +3707,7 @@ function chalShort(c) {
 }
 
 /* player -> { stage, watered }, from the walk; set where the flair is. */
-var chalTrees = {};
+var chalTrees = {}, chalPicked = {};
 /* Every gift the walk honoured, oldest first; set where the flair is. */
 var chalGifts = [];
 /* Gifts to you arrive as letters: one still sealed waits on the sheet with its
@@ -4450,6 +4455,7 @@ function renderChal() {
   chalHunts = walk.bounties;
   chalTags = walk.tags;
   chalTrees = walk.trees;
+  chalPicked = walk.picked;
   chalGifts = walk.ok.filter(x => x.kind === 'gift');
   chalWagers = walk.wagers;
   renderCoins(); // same inputs: the lobbies, and who is signed in
