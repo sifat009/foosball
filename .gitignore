@@ -7,3 +7,5 @@ package-lock.json
 .DS_Store
 # brainstorming mockups
 .superpowers/
+# design checker settings and cache
+.impeccable/
