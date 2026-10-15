@@ -2888,6 +2888,28 @@ const spendCheck = await page.evaluate(s4 => {
     })(),
   };
 }, String(seat4));
+/* The history is the walk's own lines, so for everybody they add up to the
+   balance, and what nothing moved for still shows, as a 0. */
+const hist = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const seed = [1, 2, 3].map(i => ({ id: 'g' + i, at: i, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: i, nil: i === 3 } }));
+  const w = window.coinWalk(seed, [], [
+    { at: 9, by: em('Sifat'), kind: 'gift', to: em('Nur'), amt: 4 },
+    { at: 10, by: em('Rashed'), kind: 'flair', item: 'gold' },
+    { at: 11, by: em('Ofi'), kind: 'bounty', to: em('Nur'), amt: 2 },
+  ]);
+  const sums = Object.keys(w.bal).every(n => (w.log[n] || []).reduce((m, l) => m + l.d, 0) === w.bal[n]);
+  return { sums, sifat: w.log.Sifat.map(l => [l.d, l.why]), nur: w.log.Nur.map(l => [l.d, l.why]), rashed: w.log.Rashed.map(l => [l.d, l.why]) };
+}, String(seat4));
+assert.ok(hist.sums, 'a history that does not add up to the balance');
+assert.deepEqual(hist.sifat[0], [2, 'Won with Ofi vs Nur & Rashed'], 'a challenge win in the history');
+assert.deepEqual(hist.sifat[2], [4, 'Won with Ofi vs Nur & Rashed, to nil'], 'a win to nil in the history');
+assert.deepEqual(hist.sifat[3], [-4, 'Gift to Nur'], 'a gift sent in the history');
+assert.deepEqual(hist.nur.at(-1), [4, 'Gift from Sifat'], 'a gift received in the history');
+assert.deepEqual(hist.nur[2], [0, 'Lost with Rashed vs Sifat & Ofi, to nil'], 'a loser on nought shows nothing taken, not the price');
+assert.deepEqual(hist.rashed.at(-1), [0, 'A name colour: not enough coins'], 'a spend nobody could pay for is missing from the history');
+
 assert.deepEqual([spendCheck.flair.bal.Sifat, spendCheck.flair.ok.length], [10, 0], 'a twenty-coin colour went through on ten coins');
 assert.equal(spendCheck.flairPaid.bal.Sifat, 0, 'a colour did not cost twenty');
 assert.equal(await page.evaluate(ok => flairMap(ok).Sifat.color, spendCheck.flairPaid.ok), '#b7791f',

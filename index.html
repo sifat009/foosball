@@ -515,6 +515,17 @@
   .spend { display: grid; gap: 10px; margin-bottom: 4px; }
   .coin-tabs { margin: 12px 0 14px; }
   .coin-tabs .leg-tab { color: #172b4d; }
+  .hist-sum { font-size: 0.8rem; color: #5b6b85; margin-bottom: 8px; }
+  .hist-row { display: grid; grid-template-columns: 1fr auto 2.6em; gap: 2px 10px; align-items: baseline;
+    padding: 8px 0; border-bottom: 1px solid #dfe6f0; font-size: 0.82rem; }
+  .hist-why { color: #172b4d; overflow-wrap: anywhere; }
+  .hist-when { grid-column: 1; font-size: 0.7rem; color: #7a879c; }
+  .hist-d { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+  .hist-bal { text-align: right; color: #7a879c; font-variant-numeric: tabular-nums; }
+  .hist-up .hist-d { color: #17854a; }
+  .hist-down .hist-d { color: #c0392b; }
+  .hist-none .hist-why, .hist-none .hist-d { color: #7a879c; }
+  .hist-more { margin-top: 10px; width: 100%; }
   .spend[hidden] { display: none; }
   .sp-shelf { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
   .sp-shelf button { font: inherit; font-size: 0.74rem; font-weight: 700; line-height: 1.15; color: #172b4d; cursor: pointer;
@@ -2164,6 +2175,7 @@ Nur</textarea>
       <div class="leg-tabs coin-tabs">
         <button type="button" class="leg-tab on" data-pane="coinEarn" aria-pressed="true">Earn &amp; bet</button>
         <button type="button" class="leg-tab" data-pane="coinSpend" aria-pressed="false">Spend</button>
+        <button type="button" class="leg-tab" data-pane="coinHist" aria-pressed="false">History</button>
       </div>
       <div id="coinEarn">
       <div class="rules-h">Earning</div>
@@ -2187,6 +2199,8 @@ Nur</textarea>
         table don't count.</li>
       </ul>
       </div>
+      <!-- every coin in and out, the walk's own lines, newest first -->
+      <div id="coinHist" hidden></div>
       <div id="coinSpend" hidden>
       <div id="spend" class="spend" hidden>
         <div id="spKind" class="sp-shelf" role="group" aria-label="What to buy">
@@ -3453,6 +3467,15 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   const cupBets = {}; // cup id -> the bets on who wins it
   (rows || []).forEach(c => { if (c && c.id) byId[c.id] = c; });
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
+  /* The history: every change to a balance goes through `move`, so the lines
+     always add up to it. A 0 line is something tried that moved nothing. */
+  const log = {};
+  const note = (n, d, why, t, wait) => {
+    if (bal[n] !== undefined) (log[n] = log[n] || []).push({ t: +t || 0, d, why, bal: bal[n], wait: !!wait });
+  };
+  const move = (n, d, why, t) => { if (bal[n] === undefined) return; bal[n] += d; note(n, d, why, t); };
+  const pairOf = (c, side) => (side === 'b' ? ['bf', 'bd'] : ['rf', 'rd']).map(x => seatName(c.slots[x])).join(' & ');
+  const refuse = (who, s, short, why = short ? 'not enough coins' : 'didn’t go through') => note(who, 0, `${spendWhat(s)}: ${why}`, s.at);
   const ev = [];
   (spends || []).filter(s => s && s.at && s.kind).forEach(s => {
     ev.push({ t: +s.at, spend: s });
@@ -3478,11 +3501,12 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
   (cups || []).filter(e => e && e.runnerUp).forEach(e => {
-    const pay = (team, n) => ev.push({ t: e.date || 0, cup: n, up: team.split(' + ').filter(Boolean), down: [] });
-    pay(e.champion || '', CUP_WIN);
-    pay(e.runnerUp, CUP_RUNNER);
+    const pay = (team, n, why) => ev.push({ t: e.date || 0, cup: n, why, up: team.split(' + ').filter(Boolean), down: [] });
+    pay(e.champion || '', CUP_WIN, 'Won the cup');
+    pay(e.runnerUp, CUP_RUNNER, 'Runner-up in the cup');
     const aw = e.awards || {};
-    [...(aw.boot || []), ...(aw.glove || [])].forEach(n => pay(n, CUP_AWARD));
+    (aw.boot || []).forEach(n => pay(n, CUP_AWARD, 'Golden Boot'));
+    (aw.glove || []).forEach(n => pay(n, CUP_AWARD, 'Golden Glove'));
   });
   // a champion saved settles the bets on its cup, whether or not the cup pays prizes
   (cups || []).filter(e => e && e.id && e.champion && drawn[e.id])
@@ -3496,28 +3520,29 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
          grow needs today's water first, so it can't paper over a neglected tree. */
       if (TREE_KINDS.includes(s.kind)) {
         const day = dayStart(+s.at), cur = treeAt(trees[who], +s.at);
-        if (who === undefined || weekend(day)) return;
+        if (who === undefined) return;
         const today = cur && +cur.day === +day, next = cur && TREE[cur.stage + 1];
+        if (weekend(day)) return refuse(who, s, false, 'a weekend doesn’t count');
         const tr = trees[who];
         if (s.kind === 'plant') {
           // planting is the day's water, but grows no coins: no harvest on day one
-          if (cur || bal[who] < TREE[0].cost) return;
-          bal[who] -= TREE[0].cost; trees[who] = { stage: 0, day, ripe: null };
+          if (cur || bal[who] < TREE[0].cost) return refuse(who, s, !cur);
+          move(who, -TREE[0].cost, 'Planted a tree', s.at); trees[who] = { stage: 0, day, ripe: null };
         } else if (s.kind === 'water') {
           // paid up front: a player on nought wins a challenge before they water
           const wc = waterCost(+s.at);
-          if (!cur || today || bal[who] < wc) return;
-          bal[who] -= wc;
+          if (!cur || today || bal[who] < wc) return refuse(who, s, cur && !today);
+          move(who, -wc, `Watered your ${TREE[cur.stage].name.toLowerCase()}`, s.at);
           // worth what the tree was when watered, whatever it grows into after
           trees[who] = { stage: cur.stage, day, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay, got: false };
         } else if (s.kind === 'collect') {
           // ripe, the same day, once: midnight takes what wasn't picked
-          if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return;
-          bal[who] += tr.pay; tr.got = true;
+          if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return refuse(who, s, false);
+          move(who, tr.pay, 'Collected from your tree', s.at); tr.got = true;
           picked[who] = (picked[who] || 0) + tr.pay;
         } else {
-          if (!today || !next || bal[who] < next.cost) return;
-          bal[who] -= next.cost; trees[who] = { ...tr, stage: cur.stage + 1 };
+          if (!today || !next || bal[who] < next.cost) return refuse(who, s, today && next);
+          move(who, -next.cost, `Grew your tree to ${next.name.toLowerCase()}`, s.at); trees[who] = { ...tr, stage: cur.stage + 1 };
         }
         ok.push(s);
         return;
@@ -3527,11 +3552,13 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
          It takes nothing now: what it does is decided when the game is agreed. */
       if (s.kind === 'bet') {
         const c = byId[s.game], fill = c && chalFillAt(c), amt = +s.amt, w = wagers[s.game] || [];
-        if (who === undefined || !fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return;
-        if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return;
-        if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return;
-        if (w.some(x => x.who === who) || bal[who] < amt) return;
-        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at }];
+        if (who === undefined) return;
+        if (!c) return refuse(who, s, false, 'the challenge was cancelled');
+        if (!fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
+        if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return refuse(who, s, false);
+        if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
+        if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
+        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on: pairOf(c, s.side) }];
         ok.push(s);
         return;
       }
@@ -3540,22 +3567,25 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
          A redraw rewrites the draw's time, and anything before it falls outside. */
       if (s.kind === 'cupbet') {
         const d = drawn[s.cup], ts = (d && d.teams) || [], amt = +s.amt, w = cupBets[s.cup] || [];
-        if (who === undefined || !d || ts.length < 3 || !ts[s.team] || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return;
-        if (+s.at < +d.at || +s.at > +d.at + CUPBET_MS) return;
-        if (w.some(x => x.who === who) || bal[who] < amt) return;
+        if (who === undefined) return;
+        if (!d || ts.length < 3 || !ts[s.team] || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
+        if (+s.at < +d.at || +s.at > +d.at + CUPBET_MS) return refuse(who, s, false);
+        if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
         cupBets[s.cup] = [...w, { who, team: ts[s.team], amt, n: ts.length, at: +s.at }];
         ok.push(s);
         return;
       }
       const to = EMAIL_NAMES[s.to];
       // a gift or bounty needs somebody on the list at the other end, and not you
-      if (who === undefined || !(cost > 0) || bal[who] < cost) return;
-      if ((s.kind === 'gift' || s.kind === 'bounty') && (to === undefined || to === who)) return;
-      if (s.kind === 'flair' && !colourOf(s.item) && !iconOf(s.item)) return;
+      if (who === undefined) return;
+      if (!(cost > 0) || bal[who] < cost) return refuse(who, s, cost > 0);
+      if ((s.kind === 'gift' || s.kind === 'bounty') && (to === undefined || to === who)) return refuse(who, s, false);
+      if (s.kind === 'flair' && !colourOf(s.item) && !iconOf(s.item)) return refuse(who, s, false);
       // one bounty on a player at a time; a second buys nothing
-      if (s.kind === 'bounty' && bounties.some(h => h.on === to)) return;
-      bal[who] -= cost;
-      if (s.kind === 'gift') bal[to] += cost;
+      if (s.kind === 'bounty' && bounties.some(h => h.on === to)) return refuse(who, s, false, `${to} already has one`);
+      move(who, -cost, s.kind === 'gift' ? `Gift to ${to}` : s.kind === 'bounty' ? `Posted a bounty on ${to}`
+        : s.kind === 'slot' ? 'Bought an extra game' : iconOf(s.item) ? 'Bought an icon' : 'Bought a name colour', s.at);
+      if (s.kind === 'gift') move(to, cost, `Gift from ${who}`, s.at);
       if (s.kind === 'bounty') bounties.push({ s, by: who, on: to, amt: cost, until: +s.at + BOUNTY_MS, got: 0 });
       if (s.kind === 'slot') { const k = who + new Date(+s.at).toDateString(); bought[k] = (bought[k] || 0) + 1; }
       ok.push(s);
@@ -3563,15 +3593,16 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     }
     if (e.expire) { // nobody beat them: the creator has it back
       const h = bounties.find(x => x.s === e.expire);
-      if (h) { bal[h.by] += h.amt; bounties = bounties.filter(x => x !== h); }
+      if (h) { move(h.by, h.amt, `Nobody beat ${h.on}: your bounty back`, e.t); bounties = bounties.filter(x => x !== h); }
       return;
     }
-    if (e.cup) return e.up.forEach(n => { if (bal[n] !== undefined) bal[n] += e.cup; });
+    if (e.cup) return e.up.forEach(n => move(n, e.cup, e.why, e.t));
     // the same line as a side bet: one that can't be covered any more doesn't stand
     if (e.settle) return (cupBets[e.settle] || []).forEach(x => {
-      if (bal[x.who] < x.amt) return;
+      x.settled = true;
+      if (bal[x.who] < x.amt) return note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: couldn’t cover it by then`, e.t);
       x.won = x.team === e.champ;
-      bal[x.who] += x.won ? cupBetWin(x.amt, x.n) - x.amt : -x.amt;
+      move(x.who, x.won ? cupBetWin(x.amt, x.n) - x.amt : -x.amt, `Cup bet on ${x.team} ${x.won ? 'won' : 'lost'}`, e.t);
     });
     /* The day's five, plus what was bought, are the page's rule — and the page
        is the only thing that asks. A game written round it lands here, so this
@@ -3579,7 +3610,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        opened, it pays nothing and takes nothing, and doesn't use up anyone's. */
     const all = e.up.concat(e.down);
     if (e.day) {
-      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0))) return;
+      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0)))
+        return all.forEach(n => note(n, 0, 'A challenge past the day’s game limit paid nothing', e.t));
       all.forEach(n => { played[n + e.day] = (played[n + e.day] || 0) + 1; });
     }
     /* Which bounties this game touches, decided on what the hunters held going
@@ -3598,20 +3630,24 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        bet that did not move. */
     const paid = e.bet && e.down.every(n => bal[n] >= e.bet);
     const x = e.nil ? 2 : 1;
-    e.up.forEach(n => { bal[n] += (paid ? e.bet : COIN_WIN) * x; });
+    // "Won with Nur vs Ofi & Rashed, bet 3, to nil"
+    const game = (n, side, vs) => `${side} with ${side === 'Won' ? e.up.find(m => m !== n) : e.down.find(m => m !== n)} vs ${vs.join(' & ')}`
+      + (paid ? `, bet ${e.bet}` : '') + (e.nil ? ', to nil' : '');
+    e.up.forEach(n => move(n, (paid ? e.bet : COIN_WIN) * x, game(n, 'Won', e.down), e.t));
     // a free loss costs nothing, unless it was to nil — then the two a win pays
     const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
-    e.down.forEach(n => { bal[n] = Math.max(0, bal[n] - cost); });
+    e.down.forEach(n => move(n, -Math.min(bal[n], cost), game(n, 'Lost', e.up), e.t));
     hunts.forEach(({ h, won }) => {
       let paid = 0;
       if (won) { // the target held: each loser pays the creator, what they can
         e.down.forEach(n => {
           const p = Math.min(BOUNTY_FEE, bal[n]);
-          bal[n] -= p; bal[h.by] += p; h.got += p; paid += p;
+          move(n, -p, `Bounty fee to ${h.by} for losing to ${h.on}`, e.t);
+          move(h.by, p, `Bounty fee from ${n}`, e.t); h.got += p; paid += p;
         });
       } else { // beaten: the two who did it split what was posted
         paid = Math.floor(h.amt / 2);
-        e.up.forEach(n => { bal[n] += paid; });
+        e.up.forEach(n => move(n, paid, `Your share of the bounty on ${h.on}`, e.t));
         bounties = bounties.filter(x => x !== h);
       }
       if (e.id) (tags[e.id] = tags[e.id] || []).push({ on: h.on, by: h.by, won, paid });
@@ -3620,11 +3656,21 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        went somewhere else first, doesn't stand either way: the same line a table
        bet draws for the two who lost. */
     (e.id && wagers[e.id] || []).forEach(x => {
-      if (bal[x.who] < x.amt) return;
+      x.settled = true;
+      if (bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
       x.won = x.side === e.won;
-      bal[x.who] += x.won ? wagerWin(x.amt) - x.amt : -x.amt;
+      move(x.who, x.won ? wagerWin(x.amt) - x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
     });
   });
+  /* Bets nothing has settled: waiting on their game or champion, or on one that
+     never came, which takes nothing either. */
+  const lastCup = Object.keys(drawn).sort((a, b) => +drawn[b].at - +drawn[a].at)[0];
+  Object.entries(wagers).forEach(([id, w]) => w.filter(x => !x.settled).forEach(x =>
+    chalDone(byId[id]) ? note(x.who, 0, `Bet of ${x.amt} on ${x.on}: the game paid nothing, so nor did the bet`, x.at)
+      : note(x.who, 0, `Bet of ${x.amt} on ${x.on}: waiting for the result`, x.at, true)));
+  Object.entries(cupBets).forEach(([id, w]) => w.filter(x => !x.settled).forEach(x =>
+    id === lastCup ? note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: waiting for the champion`, x.at, true)
+      : note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: the cup had no champion, nothing taken`, x.at)));
   /* The trees as they stand now: stage, whether today's water is in, and
      today's coins — when they ripen, what they're worth, whether they're picked. */
   const treesNow = {};
@@ -3634,8 +3680,15 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const watered = +t.day === +dayStart(now), coins = watered && tr.ripe;
     treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got) };
   });
-  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log };
 }
+// what a spend row was for, in a history line that says it didn't go through
+const spendWhat = s => ({
+  plant: 'Plant a tree', water: 'Water your tree', collect: 'Collect from your tree', grow: 'Grow your tree',
+  bet: `Bet of ${s.amt} on a challenge`, cupbet: `Cup bet of ${s.amt}`, slot: 'An extra game',
+  gift: `Gift of ${s.amt} to ${EMAIL_NAMES[s.to] || 'somebody'}`, bounty: `Bounty of ${s.amt} on ${EMAIL_NAMES[s.to] || 'somebody'}`,
+  flair: iconOf(s.item) ? 'An icon' : 'A name colour',
+})[s.kind] || 'A spend';
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
 window.coinWalk = coinWalk;
@@ -3858,7 +3911,36 @@ function treeRow(me, bal) {
 const myFree = () => myCoins() === null ? null
   : myCoins() - sealedGifts().reduce((t, g) => t + g.amt, 0);
 
+/* player -> their history lines from the walk; set where the flair is. */
+var coinLog = {}, histShown = 30;
+function renderHistory() {
+  const box = $('coinHist'), me = myName();
+  box.textContent = '';
+  if (!me) return box.append(part('hist-sum', acctEmail
+    ? 'Signed in, but not on the player list.' : 'Sign in as a player to see your coins come and go.'));
+  // the waiting bets first: they are what the balance doesn't show yet
+  const lines = (coinLog[me] || []).slice().sort((a, b) => (b.wait - a.wait) || (b.t - a.t));
+  const all = myCoins(), held = chalHeld(me);
+  box.append(part('hist-sum', held ? `${all} coins in all, ${held} of them riding on bets and games not settled yet.`
+    : `${all} coin${all === 1 ? '' : 's'} in all.`));
+  if (!lines.length) return box.append(part('hist-sum', 'Nothing yet \u2014 win a challenge to earn your first.'));
+  lines.slice(0, histShown).forEach(l => {
+    const row = part('hist-row ' + (l.d > 0 ? 'hist-up' : l.d < 0 ? 'hist-down' : 'hist-none'));
+    // textContent throughout: the names in a line are whatever is on the player list
+    row.append(part('hist-why', l.why), part('hist-d', l.d > 0 ? '+' + l.d : l.d < 0 ? '\u2212' + -l.d : '0'),
+      part('hist-bal', l.wait ? '' : l.bal),
+      part('hist-when', l.t ? new Date(l.t).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : ''));
+    box.append(row);
+  });
+  if (lines.length > histShown) {
+    const b = part('btn hist-more', 'Show more', 'button');
+    b.type = 'button';
+    b.onclick = () => { histShown += 30; renderHistory(); };
+    box.append(b);
+  }
+}
 function renderCoins() {
+  renderHistory();
   const sealed = myName() ? sealedGifts() : [];
   const n = myFree(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
@@ -4615,6 +4697,7 @@ function renderChal() {
   chalGifts = walk.ok.filter(x => x.kind === 'gift');
   chalWagers = walk.wagers;
   cupWagers = walk.cupBets;
+  coinLog = walk.log;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
