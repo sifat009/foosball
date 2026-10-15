@@ -489,6 +489,13 @@
   .coin-tree .tree-go { padding: 8px 14px; font-size: 0.8rem; white-space: nowrap; flex: none; box-shadow: none; }
   .tree-rest { font-size: 0.78rem; font-weight: 700; color: #5b6b85; text-align: right; flex: none; max-width: 96px; }
   .tree-note { font-size: 0.72rem; color: #7a879c; margin-top: 6px; }
+  /* the four stages side by side in the Spend rules */
+  .tree-stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
+  .tree-stages div { display: flex; flex-direction: column; align-items: center; text-align: center;
+    padding: 8px 4px; border-radius: 10px; background: #f4f7fb; font-size: 0.7rem; color: #5b6b85; line-height: 1.35; }
+  .tree-stages img { height: 44px; width: 100%; object-fit: contain; object-position: center bottom; margin-bottom: 4px; }
+  .tree-stages b { color: #172b4d; font-size: 0.74rem; white-space: nowrap; }
+  .tree-stages em { font-style: normal; font-weight: 700; color: #17854a; }
   /* a gift waiting to be opened: a letter with the coins still inside */
   .gift-card { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 10px 12px;
     background: #fff8e6; border: 1px solid #f3dca0; border-radius: 12px; }
@@ -2214,7 +2221,16 @@ Nur</textarea>
         <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 1
         each weekday and its coins ripen three hours later: collect them before midnight
         for 2, 3, 5 or 7 as it grows. Three weekdays without water and it drops a stage;
-        a sapling that drops dies. It rests on weekends.</li>
+        a sapling that drops dies. It rests on weekends.
+        <!-- mirrors TREE and waterCost in the script: change them together -->
+        <div class="tree-stages">
+          <div><img src="icons/tree/sapling.png" alt=""><b>Sapling</b><span>Plant · 10</span><span>+2 a day</span><em>1 profit</em></div>
+          <div><img src="icons/tree/young.png" alt=""><b>Young tree</b><span>Grow · 25</span><span>+3 a day</span><em>2 profit</em></div>
+          <div><img src="icons/tree/tree.png" alt=""><b>Tree</b><span>Grow · 50</span><span>+5 a day</span><em>4 profit</em></div>
+          <div><img src="icons/tree/oak.png" alt=""><b>Old oak</b><span>Grow · 100</span><span>+7 a day</span><em>6 profit</em></div>
+        </div>
+        A day's coins are worth the stage it was watered at, so growing after the
+        water pays the new amount from the next weekday.</li>
         <li><b>Bounty.</b> Put an even number of coins on a player for two days.
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
