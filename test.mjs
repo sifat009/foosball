@@ -3550,6 +3550,8 @@ const wager = await page.evaluate(() => {
     // a player swapped in at 300: the line-up the bet was on isn't the one that played
     swapped: run(game({ slots: S([90, 95, 99, 300], 'Sifat', 'Ofi', 'Nur', 'Rashed') }), bet(150, 'Shewa', 'b', 6)),
     noTimes: run(game({ slots: S([], 'Sifat', 'Ofi', 'Nur', 'Rashed') }), bet(150, 'Shewa', 'b', 6)),
+    // one seat's time never landed: the latest of the other three opens the window
+    oneMissing: run(game({ slots: S([90, 95, 100], 'Sifat', 'Ofi', 'Nur', 'Rashed') }), bet(150, 'Shewa', 'b', 6)),
     // eight of the ten given away before the game is agreed: the bet doesn't stand
     spent: run(game(), bet(150, 'Shewa', 'b', 6), { at: 200, by: em('Shewa'), kind: 'gift', to: em('Nur'), amt: 8 }),
     held: (() => {
@@ -3572,6 +3574,7 @@ for (const k of ['draw', 'gone', 'open', 'spent'])
   assert.equal(wager[k].bal.Shewa, k === 'spent' ? 2 : 10, `a bet on a ${k} game moved coins`);
 for (const k of ['early', 'late', 'afterResult', 'seated', 'tooMuch', 'broke', 'swapped', 'noTimes'])
   assert.equal(wager[k].n, 0, `a ${k} bet was let stand`);
+assert.equal(wager.oneMissing.bal.Shewa, 13, 'a seat with no time shut betting for the whole lobby');
 assert.equal(wager.seated.bal.Nur, 0, 'a player’s bet on their own game moved coins');
 assert.deepEqual([wager.twice.n, wager.twice.bal.Shewa], [1, 13], 'a second bet on one game counted');
 assert.deepEqual(wager.held, [6, 0], 'a side bet is not held until its game is agreed');

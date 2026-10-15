@@ -3391,10 +3391,15 @@ const wagerWin = a => Math.floor(a * 1.5);
 const CUPBET_MS = 5 * 6e4;
 const cupBetWin = (a, n) => a * (n - 1);
 /* When the fourth seat was taken: the latest of the four times, so a swapped
-   player fills the lobby again and starts a new window. A seat taken before
-   seats carried a time has none, and nobody can bet on that lobby. */
-const chalFillAt = c => chalFull(c) && SEATS.every(([x]) => +c.slots[x].at > 0)
-  ? Math.max(...SEATS.map(([x]) => +c.slots[x].at)) : null;
+   player fills the lobby again and starts a new window. The time is a second
+   write after the seat, and one that never lands (a dropped connection, a tab
+   still on an old page) leaves that seat without one: the latest of the others
+   stands in, as the rules already let it. Only a lobby with no time at all has
+   nothing to bet on. */
+const chalFillAt = c => {
+  const ts = chalFull(c) ? SEATS.map(([x]) => +c.slots[x].at).filter(t => t > 0) : [];
+  return ts.length ? Math.max(...ts) : null;
+};
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
 
 /* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
@@ -7215,15 +7220,12 @@ window.chalCreate = (id, row) => set(ref(db, 'challenges/' + id), { ...row, at: 
 window.chalSeat = (id, seat, row) => {
   const at = ref(db, `challenges/${id}/slots/${seat}`);
   const p = row
-    ? runTransaction(at, cur => cur === null ? row : undefined)
-        .then(res => {
-          if (!res.committed) return alert('That seat has just been taken.');
-          /* When it was taken, on the server's clock, in a write of its own: the
-             transaction can't carry the server's time, and the rules hold this to
-             it. The last of the four is when betting on the game opens. Failing
-             costs only that: the lobby plays as before with nothing to bet on. */
-          return set(ref(db, `challenges/${id}/slots/${seat}/at`), serverTimestamp()).catch(() => {});
-        })
+    /* When it was taken rides in the same write, on the server's clock, which
+       the rules hold it to: the last of the four is when betting on the game
+       opens. As a second write it went missing whenever a phone was locked
+       straight after the tap, and the lobby had nothing to bet on. */
+    ? runTransaction(at, cur => cur === null ? { ...row, at: serverTimestamp() } : undefined)
+        .then(res => { if (!res.committed) alert('That seat has just been taken.'); })
     : remove(at);
   return p.catch(err => {
     console.error('[chal] seat write rejected:', err);
