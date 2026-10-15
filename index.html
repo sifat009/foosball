@@ -3020,7 +3020,7 @@ function openProfile(name) {
   const ch = chalRecord(name, allChal);
   $('prChal').hidden = !ch.p;
   $('prChalStats').innerHTML = stat(ch.p, 'Played') + stat(ch.w, 'Won') + stat(ch.l, 'Lost')
-    + stat(Math.round(ch.w / (ch.p || 1) * 100) + '%', 'Challenge win rate');
+    + stat(Math.round(ch.w / (ch.p || 1) * 100) + '%', 'Chal&shy;lenge win rate'); // a soft hyphen: a phone-width box can't fit the word
   const mate = $('prMate');
   mate.replaceChildren(); // textContent pieces: a name is edited by hand
   if (ch.mate) mate.append('Best partner ', part('', ch.mate.name, 'b'),
