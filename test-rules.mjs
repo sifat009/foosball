@@ -298,6 +298,26 @@ const confirm = (id, who, b, r, at = NOW) =>
   const open2 = await lobby({ slots: { bf: SLOTS.bf } });
   assert.ok(!await put(`challenges/${open2}/slots/bf/at`, B1, 5), 'a seat was stamped with a time the client picked');
   assert.ok(!await put(`challenges/${open2}/slots/bf/at`, R1, NOW), 'somebody stamped another player’s seat');
+  /* A bet on the cup: within five minutes of the admin's draw, on a team in it,
+     by anyone, the players included. Only the admin stamps a draw. */
+  const TS = ['Rifat + Rashed', 'Siddiq + Shewa', 'Nur + Ofi'];
+  assert.ok(await put('cupDrawn/k1', ADMIN, { at: NOW, teams: TS }), 'the admin could not stamp a draw');
+  assert.ok(!await put('cupDrawn/k2', B1, { at: NOW, teams: TS }), 'a player stamped a draw');
+  assert.ok(!await put('cupDrawn/k3', ADMIN, { at: 5, teams: TS }), 'a draw was stamped with a time the client picked');
+  assert.ok(await put('cupDrawn/old', 'owner', { at: Date.now() - 6 * 6e4, teams: TS }), 'fixture old failed to plant');
+  assert.ok(await put('cupDrawn/two', 'owner', { at: Date.now(), teams: TS.slice(0, 2) }), 'fixture two failed to plant');
+  const cb = (cup, extra) => sp(B1, { kind: 'cupbet', cup, team: 1, amt: 6, ...extra });
+  assert.ok(await put('spends/c1', B1, cb('k1')), 'a player could not bet on the cup');
+  assert.ok(await put('spends/c2', B1, cb('k1', { team: 0, amt: 10 })), 'a player could not bet ten on their own team');
+  assert.ok(!await put('spends/c3', B1, cb('old')), 'a cup bet landed after the five minutes');
+  assert.ok(!await put('spends/c4', B1, cb('two')), 'a cup bet landed on a 2-team cup');
+  assert.ok(!await put('spends/c5', B1, cb('nope')), 'a cup bet landed on a cup never drawn');
+  assert.ok(!await put('spends/c6', B1, cb('k1', { team: 3 })), 'a cup bet landed on a team not in the cup');
+  assert.ok(!await put('spends/c7', B1, cb('k1', { team: 0.5 })), 'a cup bet on half a team');
+  assert.ok(!await put('spends/c8', B1, cb('k1', { amt: 11 })), 'a cup bet over ten');
+  assert.ok(!await put('spends/c9', B1, sp(B1, { kind: 'cupbet', cup: 'k1', amt: 6 })), 'a cup bet naming no team');
+  assert.ok(!await put('spends/c10', B1, cb('k1', { side: 'b' })), 'a cup bet carrying a side');
+  assert.ok(!await put('spends/c11', B1, sp(B1, { kind: 'gift', to: R1, amt: 5, team: 1 })), 'a gift carrying a team');
   // a gift may carry a short note, and nothing else may
   assert.ok(await put('spends/n1', B1, sp(B1, { kind: 'gift', to: R1, amt: 1, note: 'Happy birthday!' })), 'a gift could not carry a note');
   assert.ok(!await put('spends/n2', B1, sp(B1, { kind: 'gift', to: R1, amt: 1, note: 'x'.repeat(61) })), 'a note over 60 characters');

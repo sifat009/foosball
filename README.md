@@ -347,6 +347,18 @@ The coins sheet now sells these, all on the challenge board:
   window, the seat list and that there is no result yet; the walk decides the
   rest at the moment the game is agreed, and a bet the bettor can no longer cover
   then doesn't stand either way.
+- **Bet on the cup, 1–10.** For five minutes after the last team is drawn, anyone
+  on the list, players included and their own team too, can put coins on one team
+  to win the cup. A win pays the bet times one less than the number of teams (bet
+  5 in a 4-team cup, get 15), so a random pick gets back three quarters of what
+  it put in; a loss is gone. One bet per player per cup, and none on a 2-team cup.
+  The admin's page stamps the draw in `cupDrawn/<cupId>` (`at` on the server's
+  clock, the team names), and holds **Kick Off the Cup** shut until the five
+  minutes are up, so no match is played while bets are open. A bet is
+  `{ kind: 'cupbet', cup, team, amt }` with `team` the team's place in the draw.
+  It settles when the champion is saved to `history`, against the entry's id; a
+  cup that never gets one costs nobody anything, and an undone or corrected
+  final moves the bets with it, the way cup prizes move.
 
 Each is a row in `spends`, and the walk decides it the way it decides a bet: a
 spend goes through only if the buyer holds the price at that moment, otherwise

@@ -3614,6 +3614,114 @@ assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on the
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); window.renderSpends({}); });
 console.log('side bets OK');
 
+/* Betting on the cup. Shewa holds ten, as above; the draw of cup k finished at
+   100 with four teams, and the second of them won it. */
+const cupbet = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (...ns) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]) }]));
+  const seed = [1, 2, 3, 4, 5].map(i => ({ id: 's' + i, at: i, slots: S('Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'), score: { b: 1, r: 0, at: i } }));
+  const TS = ['Sifat + Ofi', 'Nur + Rashed', 'Rifat + Toufiq', 'Siddiq + Sajeeb'];
+  const drawn = (at = 100, teams = TS) => ({ k: { at, teams } });
+  const champ = { id: 'k', date: 1000, champion: 'Nur + Rashed' };
+  const bet = (at, by, team, amt, cup = 'k') => ({ at, by: em(by), kind: 'cupbet', cup, team, amt });
+  const run = (o, ...spends) => {
+    const w = window.coinWalk(seed, o.cups || [champ], spends, 2000, o.drawn || drawn());
+    return { bal: w.bal, n: (w.cupBets.k || []).length };
+  };
+  return {
+    win: run({}, bet(150, 'Shewa', 1, 5)),
+    lose: run({}, bet(150, 'Shewa', 0, 5)),
+    three: run({ drawn: drawn(100, TS.slice(1)), cups: [{ ...champ }] }, bet(150, 'Shewa', 0, 5)),
+    open: run({ cups: [] }, bet(150, 'Shewa', 1, 5)),
+    // a cup with no draw on record: the walk has nothing to hold the bet to
+    undrawn: run({ drawn: {} }, bet(150, 'Shewa', 1, 5)),
+    early: run({}, bet(99, 'Shewa', 1, 5)),
+    late: run({}, bet(100 + 300001, 'Shewa', 1, 5)),
+    redrawn: run({ drawn: drawn(400) }, bet(150, 'Shewa', 1, 5)),
+    two: run({ drawn: drawn(100, TS.slice(0, 2)) }, bet(150, 'Shewa', 1, 5)),
+    noTeam: run({}, bet(150, 'Shewa', 4, 5)),
+    tooMuch: run({}, bet(150, 'Shewa', 1, 11)),
+    broke: run({}, bet(150, 'Siddiq', 1, 5)),
+    twice: run({}, bet(150, 'Shewa', 1, 5), bet(160, 'Shewa', 0, 10)),
+    // a player on the winning team may back themselves
+    own: run({ drawn: drawn(100, ['Sifat + Ofi', 'Shewa + Toufiq', 'Nur + Rashed']), cups: [{ ...champ, champion: 'Shewa + Toufiq' }] },
+      bet(150, 'Toufiq', 1, 5)),
+    spent: run({}, bet(150, 'Shewa', 1, 5), { at: 200, by: em('Shewa'), kind: 'gift', to: em('Nur'), amt: 8 }),
+    held: (() => {
+      const was = [cupId, curScreen, histIds];
+      cupId = 'k'; curScreen = 'tourney'; histIds = new Set();
+      window.cupWagers = { k: [{ who: 'Shewa', team: 'Nur + Rashed', amt: 5, n: 4 }] };
+      const live = chalHeld('Shewa');
+      histIds = new Set(['k']);
+      const settled = chalHeld('Shewa');
+      histIds = new Set(); curScreen = 'setup';
+      const abandoned = chalHeld('Shewa');
+      [cupId, curScreen, histIds] = was; window.cupWagers = {};
+      return [live, settled, abandoned];
+    })(),
+  };
+});
+assert.equal(cupbet.win.bal.Shewa, 20, 'a winning 5 in a 4-team cup should come back as 15');
+assert.equal(cupbet.lose.bal.Shewa, 5, 'a losing 5 should cost 5');
+assert.equal(cupbet.three.bal.Shewa, 15, 'a winning 5 in a 3-team cup should come back as 10');
+for (const k of ['open', 'undrawn', 'spent'])
+  assert.equal(cupbet[k].bal.Shewa, k === 'spent' ? 2 : 10, `a bet on a ${k} cup moved coins`);
+for (const k of ['undrawn', 'early', 'late', 'redrawn', 'two', 'noTeam', 'tooMuch', 'broke'])
+  assert.equal(cupbet[k].n, 0, `a ${k} cup bet was let stand`);
+assert.deepEqual([cupbet.twice.n, cupbet.twice.bal.Shewa], [1, 20], 'a second bet on one cup counted');
+assert.equal(cupbet.own.bal.Toufiq, 15, 'a player could not back their own team');
+assert.deepEqual(cupbet.held, [5, 0, 0], 'a cup bet is not held while its cup is in play, and only then');
+
+// the panel on the draw, and the admin's Kick Off held shut while it is open
+const cupPanel = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const seat = n => ({ name: n, email: em(n) });
+  const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { by: em('Shewa'), at: i,
+    slots: { bf: seat('Shewa'), bd: seat('Toufiq'), rf: seat('Siddiq'), rd: seat('Sajeeb') }, score: { b: 1, r: 0, at: i } }]));
+  const was = [cupId, curScreen];
+  cupId = 'kp'; show('draw');
+  window.spent = null;
+  window.spendCoins = row => { window.spent = row; return Promise.resolve(); };
+  window.cbPick = null;
+  window.setAccount(em('Shewa')); window.renderSpends({}); window.renderChallenges(rows);
+  window.renderDrawn({ kp: { at: Date.now() - 1000, teams: ['Sifat + Ofi', 'Nur + Rashed', 'Rifat + Toufiq'] } });
+  const box = () => $('cupBetsDraw');
+  const out = {
+    shown: box().style.display !== 'none',
+    teams: [...box().querySelectorAll('.ch-wg-team')].map(t => t.tagName.toLowerCase()),
+    left: box().querySelector('.ch-wg-left').textContent,
+    kick: [$('tourneyBtn').disabled, $('tourneyBtn').textContent],
+  };
+  box().querySelectorAll('button.ch-wg-team')[1].click();
+  const input = box().querySelector('.ch-wg-amt input');
+  input.value = '7'; input.dispatchEvent(new Event('input'));
+  out.pay = box().querySelector('.ch-wg-pay').textContent;
+  out.go = box().querySelector('.ch-wg-go').textContent;
+  box().querySelector('.ch-wg-go').click();
+  out.spent = { ...window.spent };
+  // five minutes on: closed, and Kick Off is a button again
+  window.renderDrawn({ kp: { at: Date.now() - 301000, teams: ['Sifat + Ofi', 'Nur + Rashed', 'Rifat + Toufiq'] } });
+  out.after = [box().style.display, $('tourneyBtn').disabled, $('tourneyBtn').textContent.trim()];
+  // a 2-team draw has nothing to bet on and nothing to wait for
+  window.renderDrawn({ kp: { at: Date.now() - 1000, teams: ['Sifat + Ofi', 'Nur + Rashed'] } });
+  out.two = [box().style.display, $('tourneyBtn').disabled];
+  window.renderDrawn({}); window.setAccount(null); window.renderChallenges({}); window.renderSpends({});
+  cupId = was[0]; show(was[1]);
+  return out;
+});
+assert.ok(cupPanel.shown, 'the cup bets panel is not on the draw');
+assert.deepEqual(cupPanel.teams, ['button', 'button', 'button'], 'a player cannot pick a team');
+assert.match(cupPanel.left, /^Closes in 00:04:5\d$/, 'the cup betting clock is not counting down five minutes');
+assert.equal(cupPanel.kick[0], true, 'Kick Off can be pressed while bets are open');
+assert.match(cupPanel.kick[1], /^Kick off in 00:04:5\d$/, 'Kick Off does not count down to the bets closing');
+assert.equal(cupPanel.pay, 'Win 14 · lose 7', 'the payout line is wrong for 7 on a 3-team cup');
+assert.equal(cupPanel.go, 'Bet 7 on Nur + Rashed', 'the bet button does not name the amount and the team');
+assert.deepEqual(cupPanel.spent, { kind: 'cupbet', cup: 'kp', team: 1, amt: 7,
+  by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) }, 'the cup bet written is not the one shown');
+assert.deepEqual(cupPanel.after, ['none', false, 'Kick Off the Cup'], 'the window closing did not hand Kick Off back');
+assert.deepEqual(cupPanel.two, ['none', false], 'a 2-team cup was opened for betting');
+console.log('cup bets OK');
+
 /* Your own profile carries your photo, your coins and the way out; anybody
    else's carries none of them, since this phone knows only its own account. */
 const ownProfile = () => page.evaluate(() => ({

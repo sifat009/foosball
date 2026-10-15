@@ -46,13 +46,15 @@ can come later if the wait bothers people.
   kick-off. A redraw rewrites it with a new `at`, and bets placed before that
   stop counting, the same way a swapped seat restarts a challenge's window.
 - A bet is a `spends` row: `{ kind: 'cupbet', cup, team, amt }`, where `team` is
-  a name from `cupDrawn/<cup>/teams`.
+  the team's place in `cupDrawn/<cup>/teams` (0, 1, 2…). An index rather than the
+  name, because the rules can check that `teams/<team>` exists but can't search a
+  list for a name.
 
 ## Enforcement
 
 - **The database rules:** only the admin writes `cupDrawn`, and its `at` must
   equal `now`. A `cupbet` needs `cupDrawn/<cup>` with `at` no more than 300
-  seconds ago, more than two teams, `team` among them, and `amt` a whole number
+  seconds ago, more than two teams, `teams/<team>` present, and `amt` a whole number
   from 1 to 10.
 - **The wallet walk (`coinWalk`):** the bettor is on the player list. The bet
   falls inside `[at, at + 5 min]` of the current `cupDrawn`. It is their first
