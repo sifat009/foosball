@@ -2981,7 +2981,7 @@ function openProfile(name) {
   // the photo, purse and sign-out belong to whoever is signed in on this phone
   const mine = name === myName(), free = mine ? myFree() : null;
   $('prStats').innerHTML = stat(c.titles, 'Cups won') + stat(c.p || '—', 'Played')
-    + stat(c.p ? Math.round(c.w / c.p * 100) + '%' : '—', 'Win rate')
+    + stat(c.p ? Math.round(c.w / c.p * 100) + '%' : '—', 'Cup win rate')
     + stat(c.g || '—', 'Goals');
   $('prCoins').hidden = !mine;
   $('prCoins').querySelector('b').textContent = free === null ? '–' : free;
@@ -2993,7 +2993,7 @@ function openProfile(name) {
   const ch = chalRecord(name, allChal);
   $('prChal').hidden = !ch.p;
   $('prChalStats').innerHTML = stat(ch.p, 'Played') + stat(ch.w, 'Won') + stat(ch.l, 'Lost')
-    + stat(Math.round(ch.w / (ch.p || 1) * 100) + '%', 'Win rate');
+    + stat(Math.round(ch.w / (ch.p || 1) * 100) + '%', 'Challenge win rate');
   const mate = $('prMate');
   mate.replaceChildren(); // textContent pieces: a name is edited by hand
   if (ch.mate) mate.append('Best partner ', part('', ch.mate.name, 'b'),

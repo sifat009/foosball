@@ -3624,7 +3624,7 @@ const ownProfile = () => page.evaluate(() => ({
 }));
 await page.evaluate(() => { window.myPhoto = () => 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; window.setAccount('nur@x.com'); window.openProfile('Nur'); });
 let me = await ownProfile();
-assert.deepEqual(me.stats, ['Cups won', 'Played', 'Win rate', 'Goals'], 'the stat row changed on your own profile');
+assert.deepEqual(me.stats, ['Cups won', 'Played', 'Cup win rate', 'Goals'], 'the stat row changed on your own profile');
 assert.equal(me.coins, await page.textContent('#coinN'), 'the profile and the pill disagree on your coins');
 assert.ok(me.photo, 'your own photo is not shown');
 assert.ok(me.out, 'your own profile has no Sign out');
