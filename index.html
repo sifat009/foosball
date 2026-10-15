@@ -751,6 +751,9 @@
     padding: 7px 6px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
   .nb-row:last-child { border-bottom: 0; }
+  .nb-h.nb-more { margin-top: 18px; }
+  .nb-i .coin-disc { display: inline-block; width: 16px; height: 16px; vertical-align: -2px; }
+  .nb-row.bad .coin-disc { opacity: 0.35; filter: grayscale(1); }
   .nb-i { flex: none; width: 22px; text-align: center; font-size: 1.05rem; line-height: 1; }
   .nb-n { flex: 1; min-width: 0; font-weight: 700; font-size: 0.86rem; color: #fff; overflow-wrap: anywhere; }
   .nb-b { font-weight: 800; font-size: 0.8rem; color: #f0d79a; white-space: nowrap; }
@@ -6417,14 +6420,24 @@ function renderNewBadges() {
   const i = celebrateEntry ? hallEntries.indexOf(celebrateEntry) : hallEntries.length - 1;
   if (i < 0) return;
   const list = newBadges(hallEntries.slice(0, i + 1));
-  if (!list.length) return;
-  box.appendChild(part('nb-h', 'New badges'));
-  list.forEach(n => {
-    const row = document.createElement('div');
-    row.className = 'nb-row' + (n.bad ? ' bad' : '');
-    row.append(part('nb-i', n.icon), part('nb-n', n.name), part('nb-b', n.label));
-    box.appendChild(row);
-  });
+  const row = (cls, icon, name, label) => {
+    const r = document.createElement('div');
+    r.className = 'nb-row' + cls;
+    const i = part('nb-i', typeof icon === 'string' ? icon : '');
+    if (typeof icon !== 'string') i.append(icon);
+    r.append(i, part('nb-n', name), part('nb-b', label));
+    box.appendChild(r);
+  };
+  if (list.length) box.appendChild(part('nb-h', 'New badges'));
+  list.forEach(n => row(n.bad ? ' bad' : '', n.icon, n.name, n.label));
+  /* What the bets on this cup came to, settled by the same entry: who backed
+     the champions first, with what they got back, then everyone else. A bet
+     that couldn't be covered when it settled was never won or lost. */
+  const bets = (cupWagers[hallEntries[i].id] || []).filter(x => x.won !== undefined)
+    .sort((a, b) => b.won - a.won);
+  if (bets.length) box.appendChild(part('nb-h' + (list.length ? ' nb-more' : ''), 'Cup bets'));
+  bets.forEach(x => row(x.won ? '' : ' bad', part('coin-disc', '', 'span'), `${x.who} on ${x.team}`,
+    x.won ? `won ${cupBetWin(x.amt, x.n)}` : `lost ${x.amt}`));
 }
 
 function celebrate(name, entry) {

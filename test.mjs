@@ -3720,6 +3720,27 @@ assert.deepEqual(cupPanel.spent, { kind: 'cupbet', cup: 'kp', team: 1, amt: 7,
   by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) }, 'the cup bet written is not the one shown');
 assert.deepEqual(cupPanel.after, ['none', false, 'Kick Off the Cup'], 'the window closing did not hand Kick Off back');
 assert.deepEqual(cupPanel.two, ['none', false], 'a 2-team cup was opened for betting');
+// the celebration lists what the bets came to, winners first
+const cheer = await page.evaluate(() => {
+  const was = [hallEntries, window.cupWagers, celebrateEntry];
+  const e = { id: 'kc', date: 1000, champion: 'Nur + Rashed' };
+  hallEntries = [e];
+  window.cupWagers = { kc: [
+    { who: 'Shewa', team: 'Sifat + Ofi', amt: 5, n: 4, won: false },
+    { who: 'Toufiq', team: 'Nur + Rashed', amt: 3, n: 4, won: true },
+    { who: 'Ofi', team: 'Nur + Rashed', amt: 9, n: 4 }, // couldn't cover it: never settled
+  ] };
+  celebrateEntry = e;
+  renderNewBadges();
+  const rows = [...$('newBadges').querySelectorAll('.nb-row')].slice(-2).map(r => [r.className, r.querySelector('.nb-n').textContent, r.querySelector('.nb-b').textContent]);
+  const head = [...$('newBadges').querySelectorAll('.nb-h')].map(h => h.textContent);
+  [hallEntries, window.cupWagers, celebrateEntry] = was;
+  $('newBadges').innerHTML = '';
+  return { rows, head };
+});
+assert.ok(cheer.head.includes('Cup bets'), 'the celebration has no cup bets');
+assert.deepEqual(cheer.rows, [['nb-row', 'Toufiq on Nur + Rashed', 'won 9'], ['nb-row bad', 'Shewa on Sifat + Ofi', 'lost 5']],
+  'the celebration does not list the bets winners first, with what they came to');
 console.log('cup bets OK');
 
 /* Your own profile carries your photo, your coins and the way out; anybody

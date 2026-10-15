@@ -358,7 +358,8 @@ The coins sheet now sells these, all on the challenge board:
   `{ kind: 'cupbet', cup, team, amt }` with `team` the team's place in the draw.
   It settles when the champion is saved to `history`, against the entry's id; a
   cup that never gets one costs nobody anything, and an undone or corrected
-  final moves the bets with it, the way cup prizes move.
+  final moves the bets with it, the way cup prizes move. The champion
+  celebration lists what each bet came to under the new badges, winners first.
 
 Each is a row in `spends`, and the walk decides it the way it decides a bet: a
 spend goes through only if the buyer holds the price at that moment, otherwise
