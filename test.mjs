@@ -2358,7 +2358,7 @@ await page.evaluate(() => {
 });
 assert.deepEqual(
   await page.evaluate(() => [...document.querySelectorAll('#whoGrid .who-name')].map(b => b.textContent)),
-  ['Sifat', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq', 'Shewa', 'Toufiq', 'Rashed', 'Nur', 'Ofi'],
+  ['Sifat', 'Rifat', 'Sazedul', 'Sajeeb', 'Siddiq', 'Shewa', 'Toufiq', 'Rashed', 'Nur', 'Ofi', 'Jakir'],
   'the picker is not one tile per player — a second address for somebody got its own tile');
 await page.click('#whoGrid .who-name');                // Sifat, who has two addresses on the map
 assert.deepEqual(await page.evaluate(() => [window.hints, $('who').classList.contains('open')]),
@@ -2370,6 +2370,13 @@ await page.click('#who .card-x');
 assert.deepEqual(await page.evaluate(() => [$('who').classList.contains('open'), window.chalIntent]),
   [false, null],
   'closing the picker left the tapped seat behind to fire on a later sign-in');
+// somebody the admin added from the page is a player until removed; a hand-written one can't be renamed
+const tiles = () => page.evaluate(() => { window.pickAccount(); $('who').classList.remove('open');
+  return [...document.querySelectorAll('#whoGrid .who-name')].map(b => b.textContent).slice(-2); });
+await page.evaluate(() => window.renderPlayerList({ 'new,player@gmail,com': 'Newbie', 'ofi,khan051@gmail,com': 'Fake' }));
+assert.deepEqual(await tiles(), ['Jakir', 'Newbie'], 'an added player missed the picker, or renamed a listed one');
+await page.evaluate(() => window.renderPlayerList({}));
+assert.deepEqual(await tiles(), ['Ofi', 'Jakir'], 'a removed player stayed on the picker');
 
 // ---- taking and vacating a seat ----
 await page.evaluate(f => { window.setAccount('sajeeb@x.com'); window.renderChallenges(f); window.chalLog = []; }, CH.fixture);

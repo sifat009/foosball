@@ -19,7 +19,10 @@ name that isn't in `EMAIL_NAMES` has no account, so that seat can't approve.
 The admin still types any score straight in, their own matches included.
 The rules keep their own copy of the `EMAIL_NAMES` addresses for who may
 suggest, so adding a player is an edit to both and a rules deploy;
-`test-rules.mjs` fails if the two lists differ.
+`test-rules.mjs` fails if the two lists differ. Or, with no deploy: the admin
+adds (and removes) players from their own profile, which writes
+`players/<email with dots as commas>` — the page folds those into
+`EMAIL_NAMES` and the suggest rule reads the same node.
 
 Every match — group *and* knockout — is scored per player: two boxes per team,
 forward then defender, and the team score is only ever those two added up. That

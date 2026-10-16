@@ -395,6 +395,14 @@ const confirm = (id, who, b, r, at = NOW) =>
   // and only a listed player files one: an alt account posing as a spectator
   // would otherwise open the match to the suggester's own teammate
   assert.ok(!await put('suggestions/k1/0_0', OUT, sug(OUT)), 'an unlisted account filed a suggestion');
+  // the admin can list somebody from the page, and nobody else can
+  const NEW = 'new.player@gmail.com', NEWKEY = 'players/new,player@gmail,com';
+  assert.ok(!await put(NEWKEY, B1, 'New'), 'a player added somebody to the list');
+  assert.ok(!await put(NEWKEY, ADMIN, ''), 'a player was added with no name');
+  assert.ok(await put(NEWKEY, ADMIN, 'New'), 'the admin could not add a player');
+  assert.ok(await put('suggestions/k1/9_9', NEW, sug(NEW)), 'a player the admin added could not suggest');
+  assert.ok(!await del(NEWKEY, B1), 'a player removed somebody from the list');
+  assert.ok(await del(NEWKEY, ADMIN) && await del('suggestions/k1/9_9', ADMIN), 'the admin could not remove a player');
 
   // a player suggested: only the other side may approve
   let s = sug(B1);

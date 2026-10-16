@@ -1020,6 +1020,25 @@
   }
   .pr-tree .coin-tree { border-top: 0; margin-top: 0; }
   .pr-tree:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
+  #prAdd[hidden] { display: none; }
+  .pr-add { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 4px; }
+  .pr-add input {
+    flex: 1 1 120px; min-width: 0; font: inherit; font-size: 0.9rem; padding: 8px 12px;
+    border: 2px solid #e7ecf3; border-radius: 10px; color: #16233a; background: #fff;
+  }
+  .pr-add input:focus { border-color: #17854a; outline: none; }
+  .pr-add button, .pr-added button {
+    font: inherit; font-size: 0.82rem; font-weight: 800; padding: 8px 16px; cursor: pointer;
+    border: 2px solid #e7ecf3; border-radius: 10px; background: #fff; color: #17854a;
+  }
+  #prAddNote { margin: 6px 4px 0; min-height: 1.1em; color: #b03636; font-size: 0.8rem; font-weight: 600; }
+  .pr-added {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    margin: 0 4px 6px; font-size: 0.85rem; overflow-wrap: anywhere;
+  }
+  .pr-added i { color: #8fa0b8; font-style: normal; }
+  .pr-added button { color: #b03636; padding: 4px 12px; flex: none; overflow-wrap: normal; }
+  #prAdded { margin-bottom: 22px; }
   .pr-sub { color: #8fa0b8; font-size: 0.78rem; font-weight: 600; margin-top: 3px; }
   .pr-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
@@ -1871,6 +1890,18 @@
     <div class="pr-todo" id="prLocked"></div>
     <div class="pr-h">Cup by cup</div>
     <div id="prRuns"></div>
+    <!-- the admin's own profile only: players added here live in /players,
+         on top of the hand-written EMAIL_NAMES -->
+    <div id="prAdd" hidden>
+      <div class="pr-h">Add a player</div>
+      <form class="pr-add" id="prAddForm">
+        <input id="prAddName" placeholder="Name" maxlength="20" required>
+        <input id="prAddEmail" type="email" placeholder="Gmail address" required>
+        <button>Add</button>
+      </form>
+      <div id="prAddNote"></div>
+      <div id="prAdded"></div>
+    </div>
     <div class="pr-foot">
       <button id="profileClose">Close</button>
       <button id="prSignOut" hidden>Sign out</button>
@@ -3030,6 +3061,7 @@ function openProfile(name) {
   $('prPhoto').hidden = !photo;
   if (photo) $('prPhoto').src = photo; else $('prPhoto').removeAttribute('src');
   $('prSignOut').hidden = !mine;
+  $('prAdd').hidden = !(mine && isAdmin);
 
   const ch = chalRecord(name, allChal);
   $('prChal').hidden = !ch.p;
@@ -3212,7 +3244,8 @@ window.renderHall = renderHall;
    edit here and a deploy — the same cost as adding them to a cup. The rules
    keep a copy of these addresses for who may suggest a cup score
    (suggestions/$cup/$key), so add them there too; test-rules.mjs fails if the
-   two drift apart. */
+   two drift apart. Or skip the deploy: the admin can add somebody from their
+   own profile, which writes /players (see renderPlayerList below). */
 const EMAIL_NAMES = {
   'bhacker150@gmail.com': 'Sifat',
   'rifathaque93@gmail.com': 'Rifat',
@@ -3223,7 +3256,55 @@ const EMAIL_NAMES = {
   'ittoufiq@gmail.com': 'Toufiq',
   'rashedcse18@gmail.com': 'Rashed',
   'nuralam862@gmail.com': 'Nur',
-  'ofi.khan051@gmail.com': 'Ofi'
+  'ofi.khan051@gmail.com': 'Ofi',
+  'jshossen01@gmail.com': 'Jakir'
+};
+
+/* Players the admin added from the page live in /players, keyed by the address
+   with its dots as commas (a key can't hold a dot), and are folded into the map
+   above, whose hand-written entries always win. The rules read the same node
+   for who may suggest a cup score. */
+const HAND_EMAILS = new Set(Object.keys(EMAIL_NAMES));
+var addedPlayers = {};
+window.renderPlayerList = v => {
+  Object.keys(addedPlayers).forEach(e => { delete EMAIL_NAMES[e]; }); // the last list's, so a removal lands
+  addedPlayers = {};
+  Object.entries(v).forEach(([k, n]) => {
+    const e = k.replace(/,/g, '.');
+    if (!HAND_EMAILS.has(e)) addedPlayers[e] = n;
+  });
+  Object.assign(EMAIL_NAMES, addedPlayers);
+  paintAdded();
+  window.setAccount(acctEmail); // someone added who signed in before the list landed gets their name now
+};
+function paintAdded() {
+  $('prAdded').replaceChildren(...Object.entries(addedPlayers).map(([email, name]) => {
+    const row = document.createElement('div');
+    row.className = 'pr-added';
+    const who = document.createElement('span');
+    const at = document.createElement('i');
+    at.textContent = email;
+    who.append(name + ' ', at); // text nodes: both were typed by hand
+    const x = document.createElement('button');
+    x.type = 'button';
+    x.textContent = 'Remove';
+    x.onclick = () => confirm(`Remove ${name}? Their games and coins stay, under no name.`)
+      && window.removePlayer && window.removePlayer(email);
+    row.append(who, x);
+    return row;
+  }));
+}
+$('prAddForm').onsubmit = e => {
+  e.preventDefault();
+  const name = $('prAddName').value.trim(), email = $('prAddEmail').value.trim().toLowerCase();
+  const note = $('prAddNote');
+  note.textContent = !name ? 'Give them a name.'
+    : /[$#\[\]\/,]/.test(email) ? 'That address has a character the database can’t store.'
+    : EMAIL_NAMES[email] ? `That address is already ${EMAIL_NAMES[email]}.`
+    : '';
+  if (note.textContent || !window.addPlayer) return;
+  window.addPlayer(email, name);
+  $('prAddForm').reset();
 };
 
 /* Blue column then Red, forward row then defender: reading order is the grid,
@@ -7359,6 +7440,18 @@ window.chalCallOff = (id, seat, on, last) =>
 
 window.writeDrawn = (id, teams) => set(ref(db, 'cupDrawn/' + id), { at: serverTimestamp(), teams })
   .catch(err => console.error('[cupDrawn] write rejected:', err));
+// players the admin added from their profile; the rules let only the admin write
+const playerKey = email => email.replace(/\./g, ',');
+window.addPlayer = (email, name) => set(ref(db, 'players/' + playerKey(email)), name)
+  .catch(err => {
+    console.error('[players] add rejected:', err);
+    alert('Could not add the player: ' + err.message);
+  });
+window.removePlayer = email => remove(ref(db, 'players/' + playerKey(email)))
+  .catch(err => console.error('[players] remove failed:', err));
+onValue(ref(db, 'players'), snap => { window.renderPlayerList(snap.val() || {}); paintAuthBtn(); },
+  err => console.error('[players] read failed:', err));
+
 onValue(ref(db, 'cupDrawn'), snap => window.renderDrawn(snap.val() || {}),
   err => console.error('[cupDrawn] read failed:', err));
 
@@ -7652,6 +7745,13 @@ onAuthStateChanged(auth, user => {
   // who may edit the cup and who is sitting at the table are different
   // questions — the admin plays casual games like everybody else
   window.setAccount(user && user.emailVerified ? user.email : null);
+  paintAuthBtn();
+});
+
+// also run when /players lands: somebody the admin added may be who is signed in
+function paintAuthBtn() {
+  const user = auth.currentUser;
+  const admin = !!user && user.email === window.ADMIN_EMAIL && user.emailVerified;
   // only the label moves — the icon and data-lbl are what the mobile tab bar shows
   $('authBtn').querySelector('use').setAttribute('href', admin ? '#i-check' : '#i-user');
   /* A player's name opens their own profile, and signing out lives in there; with
@@ -7662,7 +7762,7 @@ onAuthStateChanged(auth, user => {
     ? (who ? ` ${who}` : admin ? ' Admin — sign out' : ' Sign out')
     : ' Sign in';
   $('authBtn').dataset.lbl = who || 'Account';
-});
+}
 
 window.signOutMe = () => confirm('Sign out?') && (signOut(auth), true);
 window.myPhoto = () => (auth.currentUser && auth.currentUser.photoURL) || null;
