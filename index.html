@@ -1900,6 +1900,7 @@
         <button>Add</button>
       </form>
       <div id="prAddNote"></div>
+      <div class="pr-h">All players</div>
       <div id="prAdded"></div>
     </div>
     <div class="pr-foot">
@@ -3062,6 +3063,7 @@ function openProfile(name) {
   if (photo) $('prPhoto').src = photo; else $('prPhoto').removeAttribute('src');
   $('prSignOut').hidden = !mine;
   $('prAdd').hidden = !(mine && isAdmin);
+  if (mine && isAdmin) paintAdded();
 
   const ch = chalRecord(name, allChal);
   $('prChal').hidden = !ch.p;
@@ -3278,7 +3280,8 @@ window.renderPlayerList = v => {
   window.setAccount(acctEmail); // someone added who signed in before the list landed gets their name now
 };
 function paintAdded() {
-  $('prAdded').replaceChildren(...Object.entries(addedPlayers).map(([email, name]) => {
+  // everyone on the map; only the ones added here can be removed here
+  $('prAdded').replaceChildren(...Object.entries(EMAIL_NAMES).map(([email, name]) => {
     const row = document.createElement('div');
     row.className = 'pr-added';
     const who = document.createElement('span');
@@ -3290,7 +3293,8 @@ function paintAdded() {
     x.textContent = 'Remove';
     x.onclick = () => confirm(`Remove ${name}? Their games and coins stay, under no name.`)
       && window.removePlayer && window.removePlayer(email);
-    row.append(who, x);
+    row.append(who);
+    if (addedPlayers[email]) row.append(x);
     return row;
   }));
 }
