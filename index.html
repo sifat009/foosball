@@ -1553,6 +1553,12 @@
   .ch-wg-h .ch-flbl { margin: 0; }
   .ch-wg-left { margin-left: auto; font-size: 0.72rem; font-weight: 800; color: #96660a; font-variant-numeric: tabular-nums; }
   .ch-wg-left.done { color: #8fa0b8; }
+  .ch-wg-pot {
+    display: flex; align-items: center; gap: 6px; border-radius: 10px; padding: 7px 10px;
+    background: #fff8e8; border: 1px solid #f3e0b0; color: #96660a;
+    font-size: 0.74rem; font-weight: 900; font-variant-numeric: tabular-nums;
+  }
+  .ch-wg-pot .coin-disc { display: inline-block; width: 12px; height: 12px; }
   .ch-wg-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .ch-wg-team {
     display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0;
@@ -4445,8 +4451,7 @@ function betRow(c) {
   return el;
 }
 
-/* Betting from the side: the two pairs as panels, each with who has bet on
-   it. Open to anyone on the list who isn't playing, for two minutes from the
+/* Betting from the side: the two pairs as panels, and the pot. Open to anyone on the list who isn't playing, for two minutes from the
    fourth seat; after that the panels stay up, read-only, until the game is
    agreed. Which pair you picked and how much is this page's to remember across
    repaints, since the board redraws on every write. */
@@ -4471,22 +4476,25 @@ function wagerPanel(c) {
     head.append(left);
   } else head.append(part('ch-wg-left done', 'Betting closed', 'span'));
   box.append(head);
+  /* Which pair a bet is on is nobody's but the bettor's while the game is on:
+     a player who could see a big bet on their own pair could throw the game to
+     wipe it out. The pot shows there is money on it, not where. */
+  if (bets.length) {
+    const pot = part('ch-wg-pot');
+    pot.append(part('coin-disc', '', 'span'), `${bets.length} ${bets.length === 1 ? 'bet' : 'bets'} · ${bets.reduce((n, x) => n + x.amt, 0)} coins in`);
+    box.append(pot);
+  }
   const teams = part('ch-wg-teams');
   [['b', 'Blue'], ['r', 'Red']].forEach(([side, team]) => {
-    const on = bets.filter(x => x.side === side);
     const p = document.createElement(can ? 'button' : 'div');
     p.className = 'ch-wg-team ' + (side === 'b' ? 'blue' : 'red') + (pick === side || (mine && mine.side === side) ? ' on' : '');
     // names are user input: text nodes throughout
     p.append(part('', team, 'u'), part('', pairName(c, side + 'f', side + 'd'), 'b'));
-    const tot = part('ch-wg-tot', '', 'span');
-    tot.append(part('coin-disc', '', 'span'), `${on.reduce((n, x) => n + x.amt, 0)} coins on them`);
-    const who = part('ch-wg-who', '', 'span');
-    on.forEach(x => {
-      const chip = part('ch-wg-chip' + (x.who === me ? ' you' : ''), '', 'span');
-      chip.append(x.who === me ? 'You' : flairName(x.who), ' ' + x.amt);
-      who.append(chip);
-    });
-    p.append(tot, who);
+    if (mine && mine.side === side) {
+      const who = part('ch-wg-who', '', 'span');
+      who.append(part('ch-wg-chip you', 'You ' + mine.amt, 'span'));
+      p.append(who);
+    }
     if (can) {
       p.type = 'button';
       p.append(part('ch-wg-cta', pick === side ? 'Your pick \u2713' : 'Bet on them', 'span'));
@@ -4498,10 +4506,11 @@ function wagerPanel(c) {
   if (mine) {
     const n = part('ch-betnote bet');
     n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}. If they win you get `,
-      part('', String(wagerWin(mine.amt)), 'b'), '.');
+      part('', String(wagerWin(mine.amt)), 'b'), '. Only you can see which pair.');
     box.append(n);
-  } else if (can && !pick) box.append(part('ch-note', 'Tap the pair you think will win.'));
-  else if (pick) box.append(wagerDrawer(c, pick));
+  } else if (pick) box.append(wagerDrawer(c, pick));
+  else box.append(part('ch-note', (can ? 'Tap the pair you think will win. ' : '')
+    + 'Who bet on which pair stays hidden until the score is in.'));
   return box;
 }
 function wagerDrawer(c, side) {

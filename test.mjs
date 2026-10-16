@@ -3643,6 +3643,23 @@ assert.deepEqual({ ...side.spent }, { kind: 'bet', game: 'wg', side: 'r', amt: 7
   'the bet written is not the one shown');
 const player = await panel('Nur');
 assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on their own game');
+// a big bet on Nur's own pair: Nur sees the pot, not which pair it is on
+const hid = await page.evaluate(() => {
+  const c = { id: 'h', at: Date.now() - 5000, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
+    [['bf', 'bd', 'rf', 'rd'][i], { name: n, email: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), at: Date.now() - 4000 }])) };
+  // after setAccount, whose repaint walks the ledger and resets the bets
+  const look = who => { window.setAccount(Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === who));
+    chalWagers = { h: [{ who: 'Shewa', side: 'r', amt: 10 }, { who: 'Toufiq', side: 'b', amt: 3 }] };
+    const p = wagerPanel(c); return { pot: p.querySelector('.ch-wg-pot').textContent, chips: [...p.querySelectorAll('.ch-wg-chip')].map(x => x.textContent), text: p.textContent }; };
+  const out = { nur: look('Nur'), shewa: look('Shewa') };
+  chalWagers = {}; window.setAccount(null);
+  return out;
+});
+assert.equal(hid.nur.pot, '2 bets · 13 coins in', 'the pot is not shown');
+assert.deepEqual(hid.nur.chips, [], 'a player can see who bet on their game');
+assert.doesNotMatch(hid.nur.text, /Shewa|10 coins on/, 'a player can see where the money is');
+assert.deepEqual(hid.shewa.chips, ['You 10'], 'a bettor does not see their own bet');
+assert.doesNotMatch(hid.shewa.text, /Toufiq/, 'a bettor can see somebody else\'s bet');
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); window.renderSpends({}); });
 console.log('side bets OK');
 
