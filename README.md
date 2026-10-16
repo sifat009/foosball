@@ -340,9 +340,9 @@ The coins sheet now sells these, all on the challenge board:
   was collected. It takes a free coin to sit against a target. A target who sits
   down against hunters with none plays an ordinary game, which the bounty ignores.
 - **Bet on a game, 1–10.** For two minutes after a lobby's fourth seat is taken,
-  anyone not playing can put coins on a pair. A win pays back the bet times 1.5,
-  rounded down (bet 6, get 9); a loss loses the bet, and the coins go to nobody,
-  so this is the one spend that takes coins out of the game. A draw, a cancelled
+  anyone not playing can put coins on a pair, at even money: a win gains the bet
+  (bet 6, +6) and a loss loses it, to nobody. The bet is never taken up front, so
+  the app shows and records only the gain. A draw, a cancelled
   lobby or a game the walk doesn't pay costs nothing. One bet per player per game.
   Each seat now records the server's time when it is taken (`slots/<seat>/at`,
   written once), and the window runs from the latest of the four, so a swapped
@@ -352,8 +352,8 @@ The coins sheet now sells these, all on the challenge board:
   then doesn't stand either way.
 - **Bet on the cup, 1–10.** For five minutes after the last team is drawn, anyone
   on the list, players included and their own team too, can put coins on one team
-  to win the cup. A win pays the bet times one less than the number of teams (bet
-  5 in a 4-team cup, get 15), so a random pick gets back three quarters of what
+  to win the cup. A win gains the bet times two less than the number of teams (bet
+  5 in a 4-team cup, +10), so a random pick gets back three quarters of what
   it put in; a loss is gone. One bet per player per cup, and none on a 2-team cup.
   The admin's page stamps the draw in `cupDrawn/<cupId>` (`at` on the server's
   clock, the team names), and holds **Kick Off the Cup** shut until the five

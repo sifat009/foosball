@@ -2288,12 +2288,12 @@ Nur</textarea>
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
         bounty per player at a time, and you need a coin to sit against a target.</li>
         <li><b>Bet on a game.</b> When a challenge fills, everyone not playing has two
-        minutes to put 1 to 10 coins on a pair. If they win you get half as much again
-        back: bet 6, get 9. If they lose, your bet is gone. A draw or a cancelled
+        minutes to put 1 to 10 coins on a pair. If they win you win your bet: bet 6,
+        win +6. If they lose, your bet is gone. A draw or a cancelled
         challenge costs you nothing.</li>
         <li><b>Bet on the cup.</b> For five minutes after the draw, anyone can put 1 to
-        10 coins on one team, their own included. If they win the cup you get your bet
-        times one less than the number of teams: bet 5 in a 4-team cup, get 15.</li>
+        10 coins on one team, their own included. If they win the cup you win your bet
+        times two less than the number of teams: bet 5 in a 4-team cup, win +10.</li>
         <li>You can only spend what isn't riding on an open table, and a spend
         can't be undone.</li>
       </ul>
@@ -3482,19 +3482,20 @@ const colourOf = item => FLAIR[item] || hexOf(item);
 const FLAIR_COST = 20, ICON_COST = 15, SLOT_COST = 5, SLOT_MAX = 3;
 const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 /* A bet from the side of the table: anyone not playing puts 1 to 10 on a pair in
-   the two minutes after the lobby fills, and gets half as much again back if
-   they win. Nothing moves until the game is agreed, so a draw, a cancelled lobby
-   or a game the walk doesn't pay costs nobody anything. What a loser stakes is
-   gone, not paid to anyone: that is where coins leave. */
+   the two minutes after the lobby fills, at even money: a win gains the bet, a
+   loss loses it. The bet never leaves the wallet until then, so the history shows
+   the gain, never a payback. Nothing moves until the game is agreed, so a draw, a
+   cancelled lobby or a game the walk doesn't pay costs nobody anything. What a
+   loser stakes is gone, not paid to anyone. */
 const WAGER_MAX = 10, WAGER_MS = 2 * 6e4;
-const wagerWin = a => Math.floor(a * 1.5);
 /* A bet on who wins the cup: anyone on the list, their own team included, puts
    1 to 10 on one team in the five minutes after the draw, while the admin's
-   Kick Off waits. A win pays the bet times one less than the number of teams,
-   so a random pick gets back (n - 1)/n of what it put in. Nothing moves until
+   Kick Off waits. A win gains the bet times two less than the number of teams
+   (it pays back n - 1 times the bet, the bet included, never taken), so a random
+   pick gets back (n - 1)/n of what it put in. Nothing moves until
    the champion is saved; a cup that never gets one costs nobody anything. */
 const CUPBET_MS = 5 * 6e4;
-const cupBetWin = (a, n) => a * (n - 1);
+const cupBetWin = (a, n) => a * (n - 2);
 /* When the fourth seat was taken: the latest of the four times, so a swapped
    player fills the lobby again and starts a new window. The time is a second
    write after the seat, and one that never lands (a dropped connection, a tab
@@ -3693,7 +3694,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       x.settled = true;
       if (bal[x.who] < x.amt) return note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: couldn’t cover it by then`, e.t);
       x.won = x.team === e.champ;
-      move(x.who, x.won ? cupBetWin(x.amt, x.n) - x.amt : -x.amt, `Cup bet on ${x.team} ${x.won ? 'won' : 'lost'}`, e.t);
+      move(x.who, x.won ? cupBetWin(x.amt, x.n) : -x.amt, `Cup bet on ${x.team} ${x.won ? 'won' : 'lost'}`, e.t);
     });
     /* The day's five, plus what was bought, are the page's rule — and the page
        is the only thing that asks. A game written round it lands here, so this
@@ -3750,7 +3751,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       x.settled = true;
       if (bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
       x.won = x.side === e.won;
-      move(x.who, x.won ? wagerWin(x.amt) - x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
+      move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
     });
   });
   /* Bets nothing has settled: waiting on their game or champion, or on one that
@@ -4456,7 +4457,7 @@ function betRow(c) {
    agreed. Which pair you picked and how much is this page's to remember across
    repaints, since the board redraws on every write. */
 var wgPick = null, wgAmt = 5;
-const wgPayText = a => `Win ${wagerWin(a)} \u00b7 lose ${a}`;
+const wgPayText = a => `Win +${a} \u00b7 lose ${a}`;
 function wagerPanel(c) {
   const fill = chalFillAt(c);
   if (!fill || chalDone(c)) return null;
@@ -4506,7 +4507,7 @@ function wagerPanel(c) {
   if (mine) {
     const n = part('ch-betnote bet');
     n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}. If they win you get `,
-      part('', String(wagerWin(mine.amt)), 'b'), '. Only you can see which pair.');
+      part('', '+' + mine.amt, 'b'), '. Only you can see which pair.');
     box.append(n);
   } else if (pick) box.append(wagerDrawer(c, pick));
   else box.append(part('ch-note', (can ? 'Tap the pair you think will win. ' : '')
@@ -4612,11 +4613,11 @@ function cupBetPanel() {
     const n = part('ch-betnote bet'), win = cupBetWin(mine.amt, mine.n);
     if (over && mine.won !== undefined) n.append(mine.won
       ? `Your ${mine.amt} on ${mine.team} won you ` : `Your ${mine.amt} on ${mine.team} is gone.`,
-      ...(mine.won ? [part('', String(win), 'b'), '.'] : []));
-    else n.append(`You bet ${mine.amt} on ${mine.team}. If they win the cup you get `, part('', String(win), 'b'), '.');
+      ...(mine.won ? [part('', '+' + win, 'b'), '.'] : []));
+    else n.append(`You bet ${mine.amt} on ${mine.team}. If they win the cup you get `, part('', '+' + win, 'b'), '.');
     box.append(n);
   } else if (can && pick === null) box.append(part('ch-note', 'Tap the team you think will win the cup.'));
-  else if (pick !== null) box.append(betDrawer('cup', ts[pick], a => `Win ${cupBetWin(a, ts.length)} \u00b7 lose ${a}`, amt => {
+  else if (pick !== null) box.append(betDrawer('cup', ts[pick], a => `Win +${cupBetWin(a, ts.length)} \u00b7 lose ${a}`, amt => {
     cbPick = null;
     window.spendCoins({ kind: 'cupbet', cup: cupId, team: pick, amt, by: acctEmail });
   }));
@@ -6635,7 +6636,7 @@ function renderNewBadges() {
     .sort((a, b) => b.won - a.won);
   if (bets.length) box.appendChild(part('nb-h' + (list.length ? ' nb-more' : ''), 'Cup bets'));
   bets.forEach(x => row(x.won ? '' : ' bad', part('coin-disc', '', 'span'), `${x.who} on ${x.team}`,
-    x.won ? `won ${cupBetWin(x.amt, x.n)}` : `lost ${x.amt}`));
+    x.won ? `won +${cupBetWin(x.amt, x.n)}` : `lost ${x.amt}`));
 }
 
 function celebrate(name, entry) {

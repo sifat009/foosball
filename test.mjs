@@ -3594,18 +3594,18 @@ const wager = await page.evaluate(() => {
     })(),
   };
 });
-assert.equal(wager.win.bal.Shewa, 13, 'a winning 6 should come back as 9');
+assert.equal(wager.win.bal.Shewa, 16, 'a winning 6 should gain 6');
 assert.equal(wager.lose.bal.Shewa, 4, 'a losing 6 should cost 6');
-assert.equal(wager.ten.bal.Shewa, 15, 'a winning 10 should come back as 15');
-assert.equal(wager.odd.bal.Shewa, 10, 'a winning 1 comes back as 1, rounded down');
+assert.equal(wager.ten.bal.Shewa, 20, 'a winning 10 should gain 10');
+assert.equal(wager.odd.bal.Shewa, 11, 'a winning 1 should gain 1');
 assert.equal(wager.win.bal.Sifat, 2, 'a side bet changed what the players were paid');
 for (const k of ['draw', 'gone', 'open', 'spent'])
   assert.equal(wager[k].bal.Shewa, k === 'spent' ? 2 : 10, `a bet on a ${k} game moved coins`);
 for (const k of ['early', 'late', 'afterResult', 'seated', 'tooMuch', 'broke', 'swapped', 'noTimes'])
   assert.equal(wager[k].n, 0, `a ${k} bet was let stand`);
-assert.equal(wager.oneMissing.bal.Shewa, 13, 'a seat with no time shut betting for the whole lobby');
+assert.equal(wager.oneMissing.bal.Shewa, 16, 'a seat with no time shut betting for the whole lobby');
 assert.equal(wager.seated.bal.Nur, 0, 'a player’s bet on their own game moved coins');
-assert.deepEqual([wager.twice.n, wager.twice.bal.Shewa], [1, 13], 'a second bet on one game counted');
+assert.deepEqual([wager.twice.n, wager.twice.bal.Shewa], [1, 16], 'a second bet on one game counted');
 assert.deepEqual(wager.held, [6, 0], 'a side bet is not held until its game is agreed');
 
 // the panel, seen by somebody not playing, then by one of the four
@@ -3637,7 +3637,7 @@ const panel = async who => page.evaluate(({ who }) => {
 const side = await panel('Shewa');
 assert.deepEqual(side.teams, ['button', 'button'], 'a spectator cannot pick a pair');
 assert.match(side.left, /^Closes in 00:01:5\d$/, 'the betting clock is not counting down two minutes');
-assert.equal(side.pay, 'Win 10 · lose 7', 'the payout line is wrong for 7');
+assert.equal(side.pay, 'Win +7 · lose 7', 'the payout line is wrong for 7');
 assert.equal(side.go, 'Bet 7 on Nur & Rashed', 'the bet button does not name the amount and the pair');
 assert.deepEqual({ ...side.spent }, { kind: 'bet', game: 'wg', side: 'r', amt: 7, by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) },
   'the bet written is not the one shown');
@@ -3710,9 +3710,9 @@ const cupbet = await page.evaluate(() => {
     })(),
   };
 });
-assert.equal(cupbet.win.bal.Shewa, 20, 'a winning 5 in a 4-team cup should come back as 15');
+assert.equal(cupbet.win.bal.Shewa, 20, 'a winning 5 in a 4-team cup should gain 10');
 assert.equal(cupbet.lose.bal.Shewa, 5, 'a losing 5 should cost 5');
-assert.equal(cupbet.three.bal.Shewa, 15, 'a winning 5 in a 3-team cup should come back as 10');
+assert.equal(cupbet.three.bal.Shewa, 15, 'a winning 5 in a 3-team cup should gain 5');
 for (const k of ['open', 'undrawn', 'spent'])
   assert.equal(cupbet[k].bal.Shewa, k === 'spent' ? 2 : 10, `a bet on a ${k} cup moved coins`);
 for (const k of ['undrawn', 'early', 'late', 'redrawn', 'two', 'noTeam', 'tooMuch', 'broke'])
@@ -3763,7 +3763,7 @@ assert.deepEqual(cupPanel.teams, ['button', 'button', 'button'], 'a player canno
 assert.match(cupPanel.left, /^Closes in 00:04:5\d$/, 'the cup betting clock is not counting down five minutes');
 assert.equal(cupPanel.kick[0], true, 'Kick Off can be pressed while bets are open');
 assert.match(cupPanel.kick[1], /^Kick off in 00:04:5\d$/, 'Kick Off does not count down to the bets closing');
-assert.equal(cupPanel.pay, 'Win 14 · lose 7', 'the payout line is wrong for 7 on a 3-team cup');
+assert.equal(cupPanel.pay, 'Win +7 · lose 7', 'the payout line is wrong for 7 on a 3-team cup');
 assert.equal(cupPanel.go, 'Bet 7 on Nur + Rashed', 'the bet button does not name the amount and the team');
 assert.deepEqual(cupPanel.spent, { kind: 'cupbet', cup: 'kp', team: 1, amt: 7,
   by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) }, 'the cup bet written is not the one shown');
@@ -3788,7 +3788,7 @@ const cheer = await page.evaluate(() => {
   return { rows, head };
 });
 assert.ok(cheer.head.includes('Cup bets'), 'the celebration has no cup bets');
-assert.deepEqual(cheer.rows, [['nb-row', 'Toufiq on Nur + Rashed', 'won 9'], ['nb-row bad', 'Shewa on Sifat + Ofi', 'lost 5']],
+assert.deepEqual(cheer.rows, [['nb-row', 'Toufiq on Nur + Rashed', 'won +6'], ['nb-row bad', 'Shewa on Sifat + Ofi', 'lost 5']],
   'the celebration does not list the bets winners first, with what they came to');
 console.log('cup bets OK');
 
