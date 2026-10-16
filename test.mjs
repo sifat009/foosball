@@ -3106,6 +3106,31 @@ assert.deepEqual(trees.replant, [true, 0], 'a dead sapling could not be planted 
 assert.equal(trees.early, false, 'a tree grew without being watered that day');
 console.log('trees OK');
 
+/* Growing never shares the daily tap's spot: the row offers no Grow at all,
+   only the path's next stage, which opens the page that holds it. */
+const growFlow = await page.evaluate(() => {
+  const now = Date.now(), seat = n => ({ name: n, email: n.toLowerCase() + '@x.com' });
+  const games = {};
+  for (let i = 0; i < 20; i++) games['tg' + i] = { at: now - (i + 9) * 864e5,
+    slots: { bf: seat('Sifat'), bd: seat('Ofi'), rf: seat('Nur'), rd: seat('Rashed') }, score: { b: 5, r: 0 } };
+  // planted on the last weekday before today, so it is alive whatever day the suite runs
+  const d = new Date(now); d.setHours(10, 0, 0, 0);
+  do d.setDate(d.getDate() - 1); while (d.getDay() === 0 || d.getDay() === 6);
+  window.renderChallenges(games);
+  window.setAccount('sifat@x.com');
+  window.renderSpends({ tp: { at: +d, by: 'sifat@x.com', kind: 'plant' } });
+  const you = $('coinYou'), out = { rowGrow: !!you.querySelector('[data-tree=grow]') };
+  you.querySelector('.tree-step.next').click();
+  out.page = !!you.querySelector('.tree-page [data-tree=grow]');
+  you.querySelector('.tree-back').click();
+  out.back = !you.querySelector('.tree-page') && !!you.querySelector('.tree-path');
+  window.renderSpends({}); window.renderChallenges({}); window.setAccount(null);
+  return out;
+});
+assert.deepEqual(growFlow, { rowGrow: false, page: true, back: true },
+  'Grow sits in the tree row again, where a habit tap lands, or the path does not open and close its page');
+console.log('grow page OK');
+
 /* At the table: a seat facing the target needs a free coin; the target's
    partner needs nothing. Rashed has none. */
 const huntBoard = await page.evaluate(() => {

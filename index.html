@@ -453,7 +453,7 @@
      the sheet is where the balance already lives. The picture grows with the
      stage — the oak is wider than tall, so each stage gets its own box — and
      every one stands on the same line. */
-  .coin-tree { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #dfe6f0; }
+  .coin-tree { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #dfe6f0; }
   .tree-art { flex: none; height: 64px; width: 56px; object-fit: contain; object-position: center bottom; }
   .tree-art.tree-0 { width: 52px; } .tree-art.tree-1 { width: 56px; }
   .tree-art.tree-2 { width: 66px; height: 70px; } .tree-art.tree-3 { width: 88px; height: 70px; }
@@ -489,6 +489,54 @@
   .coin-tree .tree-go { padding: 8px 14px; font-size: 0.8rem; white-space: nowrap; flex: none; box-shadow: none; }
   .tree-rest { font-size: 0.78rem; font-weight: 700; color: #5b6b85; text-align: right; flex: none; max-width: 96px; }
   .tree-note { font-size: 0.72rem; color: #7a879c; margin-top: 6px; }
+  /* done for the day: a check where the tap was, and it does nothing */
+  .tree-done { flex: none; display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px; border-radius: 999px;
+    font-size: 0.78rem; font-weight: 800; color: #17854a; background: #e3f5ea; user-select: none; }
+  .tree-done svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  /* ripening: a ring fills green round the day's coins, gold once it closes */
+  .tree-rip { flex: none; display: grid; justify-items: center; gap: 2px; min-width: 64px; }
+  .tree-ring { position: relative; width: 46px; height: 46px; display: grid; place-items: center; }
+  .tree-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); }
+  .tree-ring .trk { fill: none; stroke: #dfe6f0; stroke-width: 4; }
+  .tree-ring .arc { fill: none; stroke: #22ab5f; stroke-width: 4; stroke-linecap: round; stroke-dasharray: 100; transition: stroke-dashoffset 1s linear; }
+  .tree-ring-mid { position: relative; display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%;
+    font-size: 0.72rem; font-weight: 800; color: #96660a; opacity: 0.8;
+    background: radial-gradient(circle at 34% 30%, #fff6d6, #f7d77a 60%, #e5b13a); }
+  .tree-ring-left { font-size: 0.72rem; font-weight: 800; color: #17854a; font-variant-numeric: tabular-nums; }
+  /* picking: a small gold ring in Collect drains to midnight */
+  .tree-mini { width: 16px; height: 16px; transform: rotate(-90deg); vertical-align: -3px; margin-right: 6px; }
+  .tree-mini .trk { fill: none; stroke: rgba(255,255,255,0.35); stroke-width: 4; }
+  .tree-mini .arc { fill: none; stroke: #ffe28a; stroke-width: 4; stroke-dasharray: 100; transition: stroke-dashoffset 1s linear; }
+  @media (prefers-reduced-motion: reduce) { .tree-ring .arc, .tree-mini .arc { transition: none; } }
+  /* the growth path: sapling to oak, the next stage the one way in to growing */
+  .tree-path { flex-basis: 100%; display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; position: relative; margin-top: 2px; }
+  .tree-path::before { content: ""; position: absolute; left: 12%; right: 12%; top: 24px; height: 2px; background: #dfe6f0; }
+  .tree-step { position: relative; display: grid; justify-items: center; gap: 2px; padding: 4px 2px; border: 0; border-radius: 10px;
+    background: none; font: inherit; font-size: 0.68rem; color: #5b6b85; }
+  .tree-step-ring { width: 40px; height: 40px; border-radius: 50%; background: #fff; border: 2px solid #dfe6f0; display: grid; place-items: center; }
+  .tree-step img { width: 30px; height: 30px; object-fit: contain; }
+  .tree-step.past .tree-step-ring { border-color: #8fd3ad; }
+  .tree-step.now { color: #17854a; font-weight: 800; }
+  .tree-step.now .tree-step-ring { border-color: #17854a; box-shadow: 0 0 0 3px #e3f5ea; }
+  .tree-step.next { cursor: pointer; color: #96660a; font-weight: 800; }
+  .tree-step.next .tree-step-ring { border: 2px dashed #ecc45c; }
+  .tree-step.next:hover .tree-step-ring { background: #fff8e6; }
+  .tree-step.next:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
+  .tree-step.later { opacity: 0.45; }
+  .tree-step.later img { filter: grayscale(1); }
+  /* the next stage's page: what it pays, when it pays back, and one Grow */
+  .tree-page { display: grid; gap: 12px; }
+  .tree-back { justify-self: start; padding: 0; border: 0; background: none; font: inherit; font-size: 0.78rem; font-weight: 700; color: #5b6b85; cursor: pointer; }
+  .tree-back:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
+  .tree-page-h { color: #172b4d; font-size: 0.95rem; }
+  .tree-ba { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; text-align: center; font-size: 0.74rem; color: #5b6b85; }
+  .tree-ba img { display: block; height: 56px; width: 100%; object-fit: contain; object-position: center bottom; margin-bottom: 2px; }
+  .tree-ba-to { padding-bottom: 22px; font-weight: 800; color: #96660a; }
+  .tree-facts { display: grid; gap: 6px; margin: 0; font-size: 0.8rem; }
+  .tree-facts div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid #dfe6f0; padding-bottom: 6px; }
+  .tree-facts dt { color: #5b6b85; }
+  .tree-facts dd { margin: 0; font-weight: 800; color: #172b4d; font-variant-numeric: tabular-nums; text-align: right; }
+  .coin-tree .tree-grow { width: 100%; padding: 12px; font-size: 0.88rem; box-shadow: none; }
   /* the four stages side by side in the Spend rules */
   .tree-stages { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0; }
   .tree-stages div { display: flex; flex-direction: column; align-items: center; text-align: center;
@@ -3626,7 +3674,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
           if (!cur || today || bal[who] < wc) return refuse(who, s, cur && !today);
           move(who, -wc, `Watered your ${TREE[cur.stage].name.toLowerCase()}`, s.at);
           // worth what the tree was when watered, whatever it grows into after
-          trees[who] = { stage: cur.stage, day, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay, got: false };
+          trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay, got: false };
         } else if (s.kind === 'collect') {
           // ripe, the same day, once: midnight takes what wasn't picked
           if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return refuse(who, s, false);
@@ -3770,7 +3818,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const t = treeAt(tr, now);
     if (!t) return;
     const watered = +t.day === +dayStart(now), coins = watered && tr.ripe;
-    treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got) };
+    treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got),
+      from: coins ? tr.at : null };
   });
   return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log };
 }
@@ -3893,13 +3942,24 @@ const leftNode = until => {
   el.dataset.until = until;
   return el;
 };
+// the ring's own label, read at a glance: 2h 41m, then 41m, then 38s
+const leftShort = ms => {
+  const m = Math.ceil(ms / 6e4);
+  return ms <= 0 ? '0s' : ms < 6e4 ? Math.ceil(ms / 1000) + 's' : m >= 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : m + 'm';
+};
+// how far along from..to a ring is: a fill counts up to ripe, a drain down to midnight
+const arcAt = el => {
+  const p = Math.min(1, Math.max(0, (Date.now() - +el.dataset.from) / (+el.dataset.to - +el.dataset.from)));
+  el.setAttribute('stroke-dashoffset', 100 * (el.dataset.drain ? p : 1 - p));
+};
 setInterval(() => {
   let over = false;
   document.querySelectorAll('[data-until]').forEach(el => {
     const ms = +el.dataset.until - Date.now();
-    el.textContent = leftIn(ms);
+    el.textContent = el.dataset.short ? leftShort(ms) : leftIn(ms);
     if (ms <= 0) over = true;
   });
+  document.querySelectorAll('[data-from]').forEach(arcAt);
   // a bounty run out drops off the board and the coin panel
   if (over) renderChal();
 }, 1000);
@@ -3942,16 +4002,70 @@ const sealedGifts = () => {
   const seen = giftSeen(), from = Date.now() - GIFT_SEALED_MS;
   return giftsToMe().filter(g => +g.at > seen && +g.at > from);
 };
-/* Your tree and the one thing it wants today: planting, water, or the next
-   stage. The walk is still what decides — this only offers what it would take. */
 /* Where a day's coins hang on each stage's picture, as left/top percentages of
    its box: one per coin the stage grows, over the leaves. */
 const TREE_COINS = [[[28, 22], [60, 8]], [[22, 20], [62, 10], [44, 38]],
   [[18, 30], [48, 10], [76, 26], [32, 48], [64, 44]],
   [[12, 34], [32, 14], [54, 6], [78, 22], [22, 52], [48, 36], [86, 48]]];
-function treeRow(me, bal) {
+/* A ring that runs from..to: fills green to ripe, or drains gold to midnight.
+   The interval that ticks the clocks moves it; pathLength makes it percent. */
+function treeArc(cls, from, to, drain) {
+  const ns = 'http://www.w3.org/2000/svg', svg = document.createElementNS(ns, 'svg');
+  svg.setAttribute('viewBox', '0 0 44 44'); svg.setAttribute('class', cls); svg.setAttribute('aria-hidden', 'true');
+  ['trk', 'arc'].forEach(k => {
+    const c = document.createElementNS(ns, 'circle');
+    c.setAttribute('class', k); c.setAttribute('cx', 22); c.setAttribute('cy', 22); c.setAttribute('r', 19);
+    svg.append(c);
+  });
+  const arc = svg.lastChild;
+  arc.setAttribute('pathLength', 100);
+  Object.assign(arc.dataset, { from, to }, drain ? { drain: 1 } : {});
+  arcAt(arc);
+  return svg;
+}
+const anTree = n => (/^[aeiou]/i.test(n) ? 'an ' : 'a ') + n.toLowerCase();
+const TICK = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7"/></svg>';
+/* the sheet's tree is showing the page for its next stage; any reopen of the sheet starts back on the tree */
+var treeOpen = false;
+
+/* Growing is a decision made a few times a month, watering a tap made every
+   weekday, so they never share a spot: growing happens here, on a page opened
+   on purpose from the path, and this page is its confirm. */
+function treeGrowPage(t, free, off) {
+  const cur = TREE[t.stage], next = TREE[t.stage + 1], page = part('coin-tree tree-page');
+  const back = part('tree-back', '← Your tree', 'button');
+  back.type = 'button'; back.dataset.path = 'close';
+  const ba = part('tree-ba');
+  [cur, next].forEach((x, i) => {
+    const d = part(''), img = document.createElement('img');
+    img.alt = ''; img.src = `icons/tree/${x.art}.png`;
+    d.append(img, part('', x.name, 'span'));
+    ba.append(d);
+    if (!i) ba.append(part('tree-ba-to', '→', 'span'));
+  });
+  const facts = document.createElement('dl');
+  facts.className = 'tree-facts';
+  [['Coins a day', `+${cur.pay} → +${next.pay}`],
+    ['Earns its cost back in', `${Math.ceil(next.cost / (next.pay - cur.pay))} weekdays`],
+    ['Costs', `${next.cost} of your ${free}`]].forEach(([k, v]) => {
+    const r = part(''); r.append(part('', k, 'dt'), part('', v, 'dd')); facts.append(r);
+  });
+  // the walk refuses a grow before today's water, so the button says so first
+  const why = off ? 'Grows on a weekday' : !t.watered ? 'Water it first, then grow'
+    : free < next.cost ? `You need ${next.cost - free} more` : '';
+  const b = part('btn btn-gold tree-grow', why || `Grow into ${anTree(next.name)} · ${next.cost}`, 'button');
+  b.type = 'button'; b.dataset.tree = 'grow'; b.dataset.cost = next.cost; b.disabled = !!why;
+  page.append(back, part('tree-page-h', `Grow into ${anTree(next.name)}`, 'b'), ba, facts, b);
+  return page;
+}
+
+/* Your tree and the one thing it wants today. The walk is still what decides —
+   this only offers what it would take. `sheet` is the coin sheet's copy: only
+   that one gets the growth path and the page behind it. */
+function treeRow(me, bal, sheet) {
   const t = chalTrees[me], now = Date.now(), off = weekend(new Date(now)), st = t && TREE[t.stage];
   const free = bal - chalHeld(me), dry = !!t && !t.watered && !off;
+  if (sheet && treeOpen && t && TREE[t.stage + 1]) return treeGrowPage(t, free, off);
   const ripe = !!t && !!t.ripe && !t.got && now >= t.ripe;
   const row = part('coin-tree'), pic = part('tree-pic');
   const img = document.createElement('img');
@@ -3975,27 +4089,66 @@ function treeRow(me, bal) {
     : off ? ['', 'The weekend']
     : !t.watered ? ['no', 'Not watered today']
     : !t.ripe ? ['ok', 'Planted today · water it next weekday']
-    : t.got ? ['ok', `Collected today · +${t.pay}`]
-    : ripe ? ['gold', 'Ripe · pick within ']
-    : ['ok', 'Watered · ripe in '];
+    : t.got ? ['ok', `+${t.pay} today`]
+    : ripe ? ['gold', 'Ripe · ']
+    : ['ok', 'Watered · ripening'];
   const state = part('tree-state' + (cls ? ' ' + cls : ''), line, 'span');
-  /* a clock that ticks down to the second, the bounty's own: to ripe, then to
-     midnight, when what wasn't picked drops off. Reaching nought redraws. */
-  if (t && t.ripe && !t.got && !off) state.append(leftNode(ripe ? +dayStart(now) + 864e5 : t.ripe));
+  // till midnight, when what wasn't picked drops off; reaching nought redraws
+  if (ripe && !off) {
+    const left = leftNode(+dayStart(now) + 864e5);
+    left.dataset.short = 1; left.textContent = leftShort(+dayStart(now) + 864e5 - now);
+    state.append(left, ' left');
+  }
   what.append(part('', st ? st.name : 'No tree', 'b'), state);
   row.append(pic, what);
-  if (off) { row.append(part('tree-rest', 'Resting till Monday', 'span')); return row; }
-  const next = t && t.watered && TREE[t.stage + 1];
+  /* The slot on the right is the daily tap and nothing else: plant, water or
+     collect. Done for the day, it turns into something that does nothing on a
+     tap, so a thumb tapping out of habit never lands on a 50-coin grow. */
   const [kind, cost, label] = !t ? ['plant', TREE[0].cost, `Plant · ${TREE[0].cost}`]
     : !t.watered ? ['water', waterCost(now), `Water · ${waterCost(now)}`]
-    : ripe ? ['collect', 0, `Collect · +${t.pay}`]
-    : next ? ['grow', next.cost, `Grow · ${next.cost}`] : [];
-  if (!kind) return row; // nothing to do but wait: coins ripening, or a picked oak
-  const b = part('btn ' + (kind === 'grow' ? 'btn-gold' : 'btn-green') + ' tree-go', label, 'button');
-  b.type = 'button'; b.dataset.tree = kind; b.dataset.cost = cost;
-  b.disabled = free < cost;
-  if (b.disabled) b.title = kind === 'water' ? `You need ${waterCost(now)} coins to water — win a challenge` : `You have ${free} to spend`;
-  row.append(b);
+    : ripe ? ['collect', 0, `Collect · +${t.pay}`] : [];
+  if (off && t) row.append(part('tree-rest', 'Resting till Monday', 'span'));
+  else if (kind) {
+    const b = part('btn btn-green tree-go', '', 'button');
+    // picking: a small gold ring in the button drains to midnight
+    if (kind === 'collect') b.append(treeArc('tree-mini', t.ripe, +dayStart(now) + 864e5, true));
+    b.append(label);
+    b.type = 'button'; b.dataset.tree = kind; b.dataset.cost = cost;
+    b.disabled = free < cost;
+    if (b.disabled) b.title = kind === 'water' ? `You need ${waterCost(now)} coins to water — win a challenge` : `You have ${free} to spend`;
+    row.append(b);
+  } else if (t.ripe && !t.got) {
+    // ripening: a ring fills round the day's coins, and turns into Collect when it closes
+    const rip = part('tree-rip'), ring = part('tree-ring');
+    const from = t.from || t.ripe - RIPEN_MS; // a water from before this ring was drawn
+    ring.append(treeArc('', from, t.ripe), part('tree-ring-mid', '+' + t.pay, 'span'));
+    const left = leftNode(t.ripe);
+    left.dataset.short = 1; left.textContent = leftShort(t.ripe - now); left.className = 'tree-ring-left';
+    rip.append(ring, left);
+    rip.setAttribute('role', 'img');
+    rip.setAttribute('aria-label', `${t.pay} coins ripen in ${leftShort(t.ripe - now)}`);
+    row.append(rip);
+  } else {
+    const done = part('tree-done', '', 'span');
+    done.innerHTML = TICK;
+    done.append(t.got ? 'Collected' : 'Planted');
+    row.append(done);
+  }
+  /* the four stages as a path under the tree: where it is, and the next one,
+     which is the only way to growing */
+  if (sheet && t) {
+    const path = part('tree-path');
+    TREE.forEach((x, i) => {
+      const nx = i === t.stage + 1;
+      const c = part('tree-step ' + (i < t.stage ? 'past' : i === t.stage ? 'now' : nx ? 'next' : 'later'), '', nx ? 'button' : 'span');
+      const ring = part('tree-step-ring', '', 'span'), im = document.createElement('img');
+      im.alt = ''; im.src = `icons/tree/${x.art}.png`; ring.append(im);
+      c.append(ring, part('', i === t.stage ? 'Now' : nx ? `${x.cost} ›` : i < t.stage ? x.name.split(' ')[0] : String(x.cost), 'span'));
+      if (nx) { c.type = 'button'; c.dataset.path = 'open'; c.setAttribute('aria-label', `${x.name}: see what growing into it costs and pays`); }
+      path.append(c);
+    });
+    row.append(path);
+  }
   return row;
 }
 
@@ -4075,7 +4228,7 @@ function renderCoins() {
     card.append(what, b);
     you.append(card);
   }
-  you.append(treeRow(myName(), myCoins()), part('tree-note', '3 weekdays without water drops a stage.'));
+  you.append(treeRow(myName(), myCoins(), true), part('tree-note', '3 weekdays without water drops a stage.'));
   const opened = giftsToMe().filter(g => !sealed.includes(g)).slice(-5).reverse();
   if (opened.length) {
     const log = part('gift-log');
@@ -4211,11 +4364,21 @@ $('coinYou').onclick = e => {
     if (!flyCoins(Array(Math.min(gift.amt, 10)).fill(g), gift.amt, shown)) renderCoins();
     return;
   }
+  const pth = e.target.closest('[data-path]');
+  if (pth) {
+    treeOpen = pth.dataset.path === 'open';
+    renderCoins();
+    // keyboard focus follows: onto the page's way back, or back onto the path
+    const f = $('coinYou').querySelector(treeOpen ? '.tree-back' : '.tree-step.next');
+    if (f) f.focus({ preventScroll: true });
+    return;
+  }
   const b = e.target.closest('[data-tree]');
   if (!b || b.disabled || !myName() || !window.spendCoins) return;
   const kind = b.dataset.tree;
-  // watering and picking are the daily taps, so only growing and planting ask
-  if (kind !== 'water' && kind !== 'collect' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
+  // watering and picking are daily taps, and growing has its own page to decide on
+  if (kind === 'grow') treeOpen = false;
+  if (kind === 'plant' && !confirm(`Spend ${b.dataset.cost} coins? This can't be undone.`)) return;
   b.disabled = true; // the snapshot redraws the row; until then, one tap is one row
   if (kind === 'collect') {
     const cs = [...b.closest('.coin-tree').querySelectorAll('.tree-coin')];
@@ -5048,9 +5211,10 @@ window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate 
 $('chalBtn').addEventListener('click', closeChalForm);
 /* The card is the only way into the sheet — it has no toolbar button, the way the
    profile has none. Keyboard too: it is a role=button, so it has to answer one. */
-$('coins').onclick = () => $('coinInfo').classList.add('open');
+const openCoins = () => { if (treeOpen) { treeOpen = false; renderCoins(); } $('coinInfo').classList.add('open'); };
+$('coins').onclick = openCoins;
 $('coins').onkeydown = e => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('coinInfo').classList.add('open'); }
+  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCoins(); }
 };
 $('coinInfo').onclick = e => { if (e.target === $('coinInfo')) $('coinInfo').classList.remove('open'); };
 // the conversion: reading about coins, one tap from the board that pays them
