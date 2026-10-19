@@ -1248,17 +1248,17 @@
   }
 
   /* ---- match toss overlay ---- */
-  #tossBtn {
+  .toss-btn {
     display: inline-flex; align-items: center; gap: 8px;
     background: #fff; color: #96660a; border: 1.5px solid #f0d79a;
     border-radius: 999px; padding: 10px 22px; font-family: inherit;
     font-size: 0.86rem; font-weight: 800; cursor: pointer;
     box-shadow: 0 4px 14px rgba(229,185,63,0.18); transition: filter 0.15s, border-color 0.15s;
   }
-  #tossBtn:hover { filter: brightness(1.03); border-color: #e6c153; }
+  .toss-btn:hover { filter: brightness(1.03); border-color: #e6c153; }
   /* the button supplies its own gap, so the subtitle above it drops its
      bottom margin — that way the spacing holds up when updateSub() hides it */
-  #tourneySub { margin-bottom: 0; }
+  #tourneySub, #setupSub { margin-bottom: 0; }
   .toss-launch { text-align: center; margin: 20px 0 34px; }
   /* fixture deadline banner — sits above whichever stage is live */
   .deadline {
@@ -2056,7 +2056,8 @@
 <!-- Screen 1: setup -->
 <div id="setup" class="screen active">
   <h1>The <span class="accent">Ollyo Foosball Cup</span></h1>
-  <div class="subtitle">Register your squad — one name per line, then let the wheels decide.</div>
+  <div class="subtitle" id="setupSub">Register your squad — one name per line, then let the wheels decide.</div>
+  <div class="toss-launch"><button class="toss-btn">🕓 Match Toss</button></div>
   <div class="panels">
     <div class="panel fwd card">
       <label>Forwards</label>
@@ -2132,7 +2133,7 @@ Nur</textarea>
 <div id="tourney" class="screen">
   <h1>The <span class="accent">Battle Of Titans</span></h1>
   <div class="subtitle" id="tourneySub">Enter each player’s goals — the team score is the two added up, and the higher total wins. Group and knockout alike.</div>
-  <div class="toss-launch"><button id="tossBtn">🕓 Match Toss</button></div>
+  <div class="toss-launch"><button id="tossBtn" class="toss-btn">🕓 Match Toss</button></div>
   <div id="deadline" class="deadline" style="display:none"></div>
   <div id="champion"></div>
   <div id="champSave"></div>
@@ -7803,7 +7804,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';
     requestAnimationFrame(drawIdle); // canvas has size only once the panel is visible
   }
-  $('tossBtn').onclick = openToss;
+  document.querySelectorAll('.toss-btn').forEach(b => b.onclick = openToss);
   $('tossClose').onclick = () => $('toss').classList.remove('open');
   $('toss').onclick = e => { if (e.target === $('toss')) $('toss').classList.remove('open'); };
   window.addEventListener('resize', () => { if ($('toss').classList.contains('open')) drawIdle(); });
