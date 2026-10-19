@@ -611,7 +611,8 @@
     text-transform: uppercase; letter-spacing: 0.06em; color: #5b6b85; }
   .trk-card.now .trk-kick { color: #17854a; }
   .trk-prize { font-size: 1rem; font-weight: 900; color: #8a5d06; letter-spacing: 0; text-transform: none; white-space: nowrap; }
-  .trk-what { font-size: 1.05rem; font-weight: 900; margin: 4px 0 8px; }
+  .trk-what { font-size: 1.05rem; font-weight: 900; margin: 4px 0 4px; }
+  .trk-how { font-size: 0.82rem; line-height: 1.45; color: #3d4b63; margin-bottom: 10px; }
   .trk-note { font-size: 0.8rem; color: #5b6b85; }
   .trk-go { display: flex; align-items: center; gap: 10px; }
   .trk-bar { flex: 1; height: 8px; background: #dfe6f0; border-radius: 99px; overflow: hidden; }
@@ -3657,30 +3658,31 @@ const monthStart = m => +new Date(Math.floor(m / 12), m % 12, 1);
 const TRACK_FROM = 2026 * 12 + 10; // November 2026: nothing before it counts
 /* What a goal counts is one fact the walk hands it: a game won or lost, a tree
    tap, a gift, a bet placed or won, a bounty share, a cup final or award.
+   `how` is the line the card shows under it: where to go and what to do.
    A month's track is drawn from this list's order, so a goal is only ever added
    at the end, with `from` set to the first month it may appear: reordering,
    removing or adding one without `from` would redraw every past month, and the
    prizes already paid with it. */
 const TRACK_GOALS = [
-  { tier: 0, text: 'Win a challenge', n: 1, on: f => f.k === 'win' },
-  { tier: 0, text: 'Play 3 challenges', n: 3, on: f => f.k === 'win' || f.k === 'loss' },
-  { tier: 0, text: 'Water your tree 3 times', n: 3, on: f => f.k === 'water' },
-  { tier: 0, text: 'Gift someone a coin', n: 1, on: f => f.k === 'gift' },
-  { tier: 0, text: 'Place a side bet', n: 1, on: f => f.k === 'bet' },
-  { tier: 1, text: 'Win 3 challenges', n: 3, on: f => f.k === 'win' },
-  { tier: 1, text: 'Win a challenge to nil', n: 1, on: f => f.k === 'win' && f.nil },
-  { tier: 1, text: 'Win with 2 different partners', n: 2, partners: true, on: f => f.k === 'win' },
-  { tier: 1, text: 'Win a side bet', n: 1, on: f => f.k === 'betwon' },
-  { tier: 1, text: 'Win a challenge played for a bet', n: 1, on: f => f.k === 'win' && f.paid },
-  { tier: 1, text: 'Water your tree 5 times', n: 5, on: f => f.k === 'water' },
-  { tier: 1, text: 'Collect from your tree 3 times', n: 3, on: f => f.k === 'collect' },
-  { tier: 2, text: 'Win 5 challenges', n: 5, on: f => f.k === 'win' },
-  { tier: 2, text: 'Win with 3 different partners', n: 3, partners: true, on: f => f.k === 'win' },
-  { tier: 2, text: 'Make a cup final', n: 1, on: f => f.k === 'final' },
-  { tier: 2, text: 'Win the Golden Boot or Glove', n: 1, on: f => f.k === 'award' },
-  { tier: 2, text: 'Beat a bounty target', n: 1, on: f => f.k === 'bounty' },
-  { tier: 2, text: 'Grow your tree a stage', n: 1, on: f => f.k === 'grow' },
-  { tier: 2, text: 'Win 2 challenges to nil', n: 2, on: f => f.k === 'win' && f.nil },
+  { tier: 0, text: 'Win a challenge', how: 'Take a seat in a 2v2 lobby on the Challenges board and win. It counts once the other side confirms the result.', n: 1, on: f => f.k === 'win' },
+  { tier: 0, text: 'Play 3 challenges', how: 'Play three 2v2 games on the Challenges board, win or lose. A draw doesn’t count.', n: 3, on: f => f.k === 'win' || f.k === 'loss' },
+  { tier: 0, text: 'Water your tree 3 times', how: 'Tap Water under your tree at the top of this sheet, on three weekdays.', n: 3, on: f => f.k === 'water' },
+  { tier: 0, text: 'Gift someone a coin', how: 'In the Spend tab, pick Gift, choose a player and send them a coin or more.', n: 1, on: f => f.k === 'gift' },
+  { tier: 0, text: 'Place a side bet', how: 'When a challenge you’re not playing in fills up, you have 2 minutes to bet 1 to 10 coins on a pair. Look for Who wins? on the full lobby.', n: 1, on: f => f.k === 'bet' },
+  { tier: 1, text: 'Win 3 challenges', how: 'Win three 2v2 games on the Challenges board.', n: 3, on: f => f.k === 'win' },
+  { tier: 1, text: 'Win a challenge to nil', how: 'Win a challenge without the other side scoring, and tick To nil when you file who won.', n: 1, on: f => f.k === 'win' && f.nil },
+  { tier: 1, text: 'Win with 2 different partners', how: 'Win two challenges, each with a different teammate.', n: 2, partners: true, on: f => f.k === 'win' },
+  { tier: 1, text: 'Win a side bet', how: 'Bet on a pair in a full lobby you’re not playing in, within 2 minutes of it filling, and see that pair win.', n: 1, on: f => f.k === 'betwon' },
+  { tier: 1, text: 'Win a challenge played for a bet', how: 'Open a lobby for coins (2, 5, 10 or more), or sit at one, and win it.', n: 1, on: f => f.k === 'win' && f.paid },
+  { tier: 1, text: 'Water your tree 5 times', how: 'Tap Water under your tree at the top of this sheet, on five weekdays.', n: 5, on: f => f.k === 'water' },
+  { tier: 1, text: 'Collect from your tree 3 times', how: 'Water your tree, wait for its coins to ripen, then tap Collect. Do it on three days.', n: 3, on: f => f.k === 'collect' },
+  { tier: 2, text: 'Win 5 challenges', how: 'Win five 2v2 games on the Challenges board.', n: 5, on: f => f.k === 'win' },
+  { tier: 2, text: 'Win with 3 different partners', how: 'Win three challenges, each with a different teammate.', n: 3, partners: true, on: f => f.k === 'win' },
+  { tier: 2, text: 'Make a cup final', how: 'Reach a cup final with your team. Champion or runner-up, both count.', n: 1, on: f => f.k === 'final' },
+  { tier: 2, text: 'Win the Golden Boot or Glove', how: 'Score the most goals in a cup for the Boot, or, drafted as a defender, concede the fewest per match for the Glove.', n: 1, on: f => f.k === 'award' },
+  { tier: 2, text: 'Beat a bounty target', how: 'The Challenges board lists anyone with a bounty on them. Beat them in a challenge to share the bounty.', n: 1, on: f => f.k === 'bounty' },
+  { tier: 2, text: 'Grow your tree a stage', how: 'Water your tree, then tap the next stage on the path under it at the top of this sheet and pay to grow it.', n: 1, on: f => f.k === 'grow' },
+  { tier: 2, text: 'Win 2 challenges to nil', how: 'Win two challenges without the other side scoring, ticking To nil each time you file the result.', n: 2, on: f => f.k === 'win' && f.nil },
 ];
 /* Month m's ten goals: 3 easy, 4 medium, 3 hard, each tier shuffled by a small
    generator seeded with m (mulberry32), so every phone draws the same track
@@ -4422,7 +4424,8 @@ function renderTrack() {
     const g = goals[sel], kick = part('trk-kick');
     kick.append(part('', `Stage ${sel + 1}` + (soon ? '' : sel === myStage ? ' · you are here' : sel < myStage ? ' · behind you' : ''), 'span'),
       part('trk-prize', '+' + TRACK_PRIZE[sel], 'span'));
-    card.append(kick, part('trk-what', g.text));
+    // the goal, then how to go about it: a goal names a thing to do, not where
+    card.append(kick, part('trk-what', g.text), part('trk-how', g.how));
     if (soon) card.append(part('trk-note', `Opens on 1 ${month}.`));
     else if (sel === myStage) {
       const go = part('trk-go'), bar = part('trk-bar'), fill = part('', '', 'i');

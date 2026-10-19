@@ -2969,6 +2969,7 @@ assert.deepEqual([trk.broke.d, trk.broke.why], [0, 'Skip a track stage: not enou
 assert.ok(trk.tiers.every(t => t === '0001111222'), 'a track is not 3 easy, 4 medium, 3 hard: ' + trk.tiers[0]);
 assert.ok(trk.same && trk.unique, 'a month drew a different or repeating track');
 assert.ok(trk.differ > 6, 'every month draws the same track');
+assert.ok(await page.evaluate(() => TRACK_GOALS.every(g => g.how)), 'a track goal has no how-to line');
 // the tab draws ten stops and a card, before November and after
 assert.equal(await page.evaluate(() => { window.renderTrack(); return $('coinTrack').querySelectorAll('.trk-stop').length; }), 10,
   'the Track tab is missing its stops');

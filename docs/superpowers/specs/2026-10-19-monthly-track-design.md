@@ -131,8 +131,10 @@ The Track tab is a hill (design D1 from the mockups):
   first letter and the first letter that tells them apart: Sifat and Siddiq are
   Sf and Sd, Sajeeb and Sazedul are Sj and Sz. A stop shows three at most, yours
   first, and the rest as a count ("+8").
-- Tapping a stop shows that stage in a card under the hill: its goal, its prize,
-  and the full names of who's on it. On your own stage the card shows progress
+- Tapping a stop shows that stage in a card under the hill: its goal, a line
+  saying how to do it ("When a challenge you're not playing in fills up, you
+  have 2 minutes to bet 1 to 10 coins on a pair…"), its prize, and the full
+  names of who's on it. Every goal carries that line as `how`. On your own stage the card shows progress
   ("1 of 3"), and **Skip · N**, greyed out if you can't afford it. On a cleared
   stage it says what you collected; on a later stage, "Opens when you clear
   stage N".
