@@ -328,6 +328,9 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(await put('spends/t3', B1, sp(B1, { kind: 'water' })), 'a player could not water a tree');
   assert.ok(await put('spends/t4', B1, sp(B1, { kind: 'collect' })), "a player could not collect a tree's coins");
   assert.ok(!await put('spends/x10', B1, sp(B1, { kind: 'water', amt: 5 })), 'a water carrying an amount');
+  // a skip is whatever stage the walk has you on: it carries nothing either
+  assert.ok(await put('spends/k1', B1, sp(B1, { kind: 'skip' })), 'a player could not skip a track stage');
+  assert.ok(!await put('spends/x11', B1, sp(B1, { kind: 'skip', amt: 5 })), 'a skip carrying an amount');
 }
 // ---- one seat each, on the server's clock ----
 /* The walk only pays four different players, but the rules turn the obvious way

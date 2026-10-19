@@ -2917,6 +2917,63 @@ assert.deepEqual(hist.nur.at(-1), [4, 'Gift from Sifat'], 'a gift received in th
 assert.deepEqual(hist.nur[2], [0, 'Lost with Rashed vs Sifat & Ofi, to nil'], 'a loser on nought shows nothing taken, not the price');
 assert.deepEqual(hist.rashed.at(-1), [0, 'A name colour: not enough coins'], 'a spend nobody could pay for is missing from the history');
 
+/* The month's track rides the walk too. Sixty games in July and August pay
+   Sifat and Ofi 120 each before there is any track, which pays for the skips. */
+const trk = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const day = (m, d, h = 12) => +new Date(Math.floor(m / 12), m % 12, d, h);
+  const g = (at, w1, w2, l1, l2, x = {}) => ({ at, slots: S(w1, w2, l1, l2), score: { b: 1, r: x.draw ? 1 : 0, at, nil: !!x.nil } });
+  const seed = Array.from({ length: 60 }, (_, i) => g(+new Date(2026, 6, 1 + i, 12), 'Sifat', 'Ofi', 'Nur', 'Rashed'));
+  const skip = (at, by = 'Sifat') => ({ at, by: em(by), kind: 'skip' });
+  const find = ok => { for (let m = TRACK_FROM; m < TRACK_FROM + 600; m++) if (ok(trackOf(m).map(x => x.text))) return m; };
+  const walk = (games, spends = []) => window.coinWalk([...seed, ...games], [], spends);
+  // a month that opens on a win, then three games
+  const m1 = find(t => t[0] === 'Win a challenge' && t[1] === 'Play 3 challenges');
+  const four = [2, 3, 4, 5].map(d => g(day(m1, d), 'Sifat', 'Ofi', 'Nur', 'Rashed'));
+  const after = k => walk(four.slice(0, k)).track.Sifat.stage;
+  // a month with two partners in it somewhere: skip up to it, then win twice with Ofi and once with Nur
+  const m2 = find(t => t.includes('Win with 2 different partners'));
+  const k2 = trackOf(m2).findIndex(x => x.text === 'Win with 2 different partners');
+  const skips = Array.from({ length: k2 }, (_, i) => skip(day(m2, 1, 9) + i));
+  const mates = [g(day(m2, 2), 'Sifat', 'Ofi', 'Nur', 'Rashed'), g(day(m2, 3), 'Sifat', 'Ofi', 'Nur', 'Rashed'), g(day(m2, 4), 'Sifat', 'Nur', 'Ofi', 'Rashed')];
+  const all11 = Array.from({ length: 11 }, (_, i) => skip(day(m1, 1, 9) + i));
+  const tiers = [...Array(24)].map((_, i) => trackOf(TRACK_FROM + i).map(x => x.tier).join(''));
+  return {
+    m1, k2,
+    pre: walk([]).track.Sifat,
+    steps: [after(1), after(2), after(3), after(4)],
+    nur: walk(four).track.Nur.stage,
+    paid: walk(four.slice(0, 1)).log.Sifat.at(-1),
+    draw: walk([g(day(m1, 2), 'Sifat', 'Ofi', 'Nur', 'Rashed', { draw: true })]).track.Sifat?.stage ?? 0,
+    next: walk([four[0], g(day(m1 + 1, 2), 'Sifat', 'Ofi', 'Nur', 'Rashed')]).track.Sifat.month,
+    mates: [walk(mates.slice(0, 2), skips).track.Sifat.stage, walk(mates, skips).track.Sifat.stage],
+    skipped: (w => [w.track.Sifat.stage, w.bal.Sifat, w.log.Sifat.at(-1)])(walk([], all11)),
+    broke: walk([], [skip(day(m1, 1), 'Nur')]).log.Nur.at(-1),
+    tiers, same: JSON.stringify(trackOf(m1)) === JSON.stringify(trackOf(m1)),
+    differ: new Set([...Array(12)].map((_, i) => trackOf(TRACK_FROM + i).map(x => x.text).join())).size,
+    unique: [...Array(24)].every((_, i) => new Set(trackOf(TRACK_FROM + i).map(x => x.text)).size === 10),
+  };
+}, String(seat4));
+assert.ok(trk.m1 && trk.k2 >= 3, 'no month to test the track on');
+assert.equal(trk.pre, undefined, 'a game before November 2026 moved somebody up the track');
+assert.deepEqual(trk.steps, [1, 1, 1, 2], 'the game that cleared stage 1 also counted for stage 2, or stage 2 never cleared: ' + trk.steps);
+assert.equal(trk.nur, 0, 'a loss counted toward Win a challenge');
+assert.deepEqual([trk.paid.d, trk.paid.why], [3, 'Track stage 1 cleared: Win a challenge'], 'clearing stage 1 did not pay 3');
+assert.equal(trk.draw, 0, 'a draw counted as a win');
+assert.equal(trk.next, trk.m1 + 1, 'a new month did not start a new track');
+assert.deepEqual(trk.mates, [trk.k2, trk.k2 + 1], 'the same partner twice counted as two partners, or two partners did not clear');
+assert.deepEqual(trk.skipped.slice(0, 2), [10, 120 - 106], 'ten skips should cost every prize, 106, and reach the top');
+assert.deepEqual([trk.skipped[2].d, trk.skipped[2].why], [0, 'Skip a track stage: didn’t go through'], 'a skip past the tenth stage went through');
+assert.deepEqual([trk.broke.d, trk.broke.why], [0, 'Skip a track stage: not enough coins'], 'a skip nobody could pay for went through');
+assert.ok(trk.tiers.every(t => t === '0001111222'), 'a track is not 3 easy, 4 medium, 3 hard: ' + trk.tiers[0]);
+assert.ok(trk.same && trk.unique, 'a month drew a different or repeating track');
+assert.ok(trk.differ > 6, 'every month draws the same track');
+// the tab draws ten stops and a card, before November and after
+assert.equal(await page.evaluate(() => { window.renderTrack(); return $('coinTrack').querySelectorAll('.trk-stop').length; }), 10,
+  'the Track tab is missing its stops');
+console.log('track OK');
+
 assert.deepEqual([spendCheck.flair.bal.Sifat, spendCheck.flair.ok.length], [10, 0], 'a twenty-coin colour went through on ten coins');
 assert.equal(spendCheck.flairPaid.bal.Sifat, 0, 'a colour did not cost twenty');
 assert.equal(await page.evaluate(ok => flairMap(ok).Sifat.color, spendCheck.flairPaid.ok), '#b7791f',

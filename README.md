@@ -408,6 +408,22 @@ rim and a highlight is three gradients. Note that `.eyebrow > span` is scoped to
 the direct child on purpose — the badge's padding and letter-spacing would
 otherwise land on the pill's own spans and flatten it.
 
+### The monthly track
+
+The coins sheet's **Track** tab is a hill of ten stages a month, one goal each
+(win a challenge, water your tree three times, make a cup final…). Clearing a
+stage pays its prize, 3 at the bottom rising to 25 at the top, and opens the
+next; a stuck stage can be skipped for its prize, paying nothing. Everyone starts
+again at the bottom on the 1st. The first month is November 2026.
+
+Nothing is stored. `trackOf(month)` draws the month's ten goals from
+`TRACK_GOALS` with a generator seeded by the month, and `coinWalk` moves every
+player up as it walks the games, tree taps, gifts and bets it already reads.
+So **`TRACK_GOALS` is append-only**: reorder or remove one and every past month
+is redrawn, prizes included. A new goal goes on the end with `from` set to the
+first month it may appear. A skip is a `spends` row of kind `skip` with nothing
+else on it. The spec is `docs/superpowers/specs/2026-10-19-monthly-track-design.md`.
+
 ## Before it works
 
 **Authorized domains.** Firebase Console → Authentication → Settings →

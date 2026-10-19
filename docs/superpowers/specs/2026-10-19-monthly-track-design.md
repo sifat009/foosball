@@ -65,7 +65,8 @@ carrying `runnerUp`.
 **The pool only grows at the end.** A month's track is drawn from the pool's
 order, so reordering it or removing a goal would quietly change every past
 month's track and the prizes already paid. Goals are never removed or
-reordered, only added at the end of their tier.
+reordered. A new one goes on the end with `from`, the first month it may be
+drawn in, so months before it shuffle exactly as they did.
 
 ## The month's track
 
@@ -126,8 +127,10 @@ The Track tab is a hill (design D1 from the mockups):
   that gently bobs (no bob with reduced motion), and later stops are white
   stones. Each stop shows its prize in a tag beside it.
 - Players' initials sit above the stop they're on. Initials are the first two
-  letters of the name. When two players would share them (Sifat and Siddiq,
-  Sajeeb and Sazedul), both use first and last letter instead (Sf / Sd, Sb / Sl).
+  letters of the first name. When two players would share them, each uses its
+  first letter and the first letter that tells them apart: Sifat and Siddiq are
+  Sf and Sd, Sajeeb and Sazedul are Sj and Sz. A stop shows three at most, yours
+  first, and the rest as a count ("+8").
 - Tapping a stop shows that stage in a card under the hill: its goal, its prize,
   and the full names of who's on it. On your own stage the card shows progress
   ("1 of 3"), and **Skip · N**, greyed out if you can't afford it. On a cleared
@@ -135,6 +138,8 @@ The Track tab is a hill (design D1 from the mockups):
   stage N".
 - The card opens on your own stage. Signed out, the hill and everyone's places
   still show, with no "you" and no Skip.
+- Before 1 November the tab shows November's hill with everyone at the foot,
+  "Opens in N days", and no Skip.
 
 Nobody's coins are shown, only stages, the same rule the coin pill follows.
 
@@ -154,12 +159,12 @@ Nobody's coins are shown, only stages, the same rule the coin pill follows.
   - One win can't clear two stages.
   - "Different partners" counts a repeat partner once.
   - A new month puts the player back on stage 1.
-  - A draw and a game past the daily limit count for nothing.
-  - A refused water doesn't count.
+  - A draw counts for nothing.
   - Nothing before November 2026 counts.
   - A skip goes through with enough coins and is refused without.
   - A skip is refused after stage 10.
 - `trackOf` (`test.mjs`): the same month always gives the same track; each
-  track is 3 easy, 4 medium and 3 hard with no repeats.
+  track is 3 easy, 4 medium and 3 hard with no repeats; months differ.
+- Page (`test.mjs`): the Track tab draws ten stops.
 - Rules (`test-rules.mjs`): a `skip` row with only `by`, `at` and `kind` is
   accepted, and one carrying `amt` is refused.

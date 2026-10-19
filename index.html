@@ -562,7 +562,8 @@
   /* the shop: a shelf of tiles, and under it a drawer holding the one you tapped */
   .spend { display: grid; gap: 10px; margin-bottom: 4px; }
   .coin-tabs { margin: 12px 0 14px; }
-  .coin-tabs .leg-tab { color: #172b4d; }
+  /* four tabs on a phone: tighter, so Earn & bet stays on one line */
+  .coin-tabs .leg-tab { color: #172b4d; padding: 7px 4px; letter-spacing: 0.04em; white-space: nowrap; }
   .hist-sum { font-size: 0.8rem; color: #5b6b85; margin-bottom: 8px; }
   .hist-row { display: grid; grid-template-columns: 1fr auto 2.6em; gap: 2px 10px; align-items: baseline;
     padding: 8px 0; border-bottom: 1px solid #dfe6f0; font-size: 0.82rem; }
@@ -573,6 +574,52 @@
   .hist-up .hist-d { color: #17854a; }
   .hist-down .hist-d { color: #c0392b; }
   .hist-none .hist-why, .hist-none .hist-d { color: #7a879c; }
+  /* the month's track: a trail up a hill, ten stops and a cup on top */
+  .trk-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; color: #172b4d; }
+  .trk-left { font-size: 0.78rem; color: #5b6b85; }
+  .trk-scene { position: relative; aspect-ratio: 340 / 470; border-radius: 16px; overflow: hidden;
+    background: linear-gradient(180deg, #cfe8ff 0%, #e9f5ff 34%, #f4fbef 52%); }
+  .trk-scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .trk-deco { position: absolute; transform: translate(-50%, -100%); pointer-events: none; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.12)); }
+  .trk-stop { position: absolute; transform: translate(-50%, -50%); padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; font: inherit; }
+  .trk-stop:focus-visible { outline: none; }
+  .trk-stop:focus-visible .trk-stone { outline: 3px solid #f0b429; outline-offset: 3px; }
+  .trk-stone { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 0.9rem; color: #5b6b85;
+    background: radial-gradient(circle at 35% 30%, #fff, #e8edf3); border: 3px solid #fff; box-shadow: 0 3px 0 #b9c4d2, 0 5px 10px rgba(0,0,0,0.15); }
+  .trk-stop.done .trk-stone { color: #7a4f00; background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10); box-shadow: 0 3px 0 #a8730c, 0 5px 10px rgba(0,0,0,0.15); }
+  .trk-stop.now .trk-stone { width: 44px; height: 44px; font-size: 1.1rem; color: #fff; background: radial-gradient(circle at 35% 30%, #3fcf80, #17854a);
+    box-shadow: 0 4px 0 #0f5e33, 0 0 0 5px rgba(255,255,255,0.7); animation: trk-bob 1.6s ease-in-out infinite; }
+  .trk-stop.sel .trk-stone { outline: 3px solid #16233a; outline-offset: 3px; }
+  .trk-tag { position: absolute; top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 0.72rem; font-weight: 900; color: #8a5d06;
+    background: #fffdf5; border: 1.5px solid #ecc45c; border-radius: 99px; padding: 1px 6px; }
+  .trk-tag.r { left: calc(100% + 5px); }
+  .trk-tag.l { right: calc(100% + 5px); }
+  .trk-stop.done .trk-tag { color: #17854a; border-color: #a7dcbc; background: #f3fbf6; }
+  .trk-stop .trk-avs, .trk-top .trk-avs { position: absolute; bottom: calc(100% + 2px); }
+  .trk-avs { display: inline-flex; }
+  .trk-av { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #16233a; color: #fff;
+    font-size: 0.66rem; font-weight: 800; border: 2px solid #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.25); }
+  .trk-av + .trk-av { margin-left: -6px; }
+  .trk-av.me { background: #f0b429; color: #16233a; }
+  .trk-av.trk-more { width: auto; min-width: 24px; padding: 0 5px; border-radius: 99px; background: #fff; color: #16233a; }
+  .trk-top { position: absolute; transform: translate(-50%, -50%); display: grid; justify-items: center; gap: 2px; }
+  .trk-top b { font-size: 1.9rem; line-height: 1; filter: drop-shadow(0 3px 3px rgba(0,0,0,0.2)); }
+  .trk-top span.trk-flag { font-size: 0.72rem; font-weight: 900; color: #8a5d06; background: #fff; border-radius: 99px; padding: 1px 8px; border: 1.5px solid #ecc45c; }
+  .trk-card { margin-top: 12px; border: 2px solid #dfe6f0; border-radius: 14px; padding: 12px 14px; color: #172b4d; }
+  .trk-card.now { border-color: #17854a; box-shadow: 0 0 0 4px #e3f5ea; }
+  .trk-kick { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 0.72rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 0.06em; color: #5b6b85; }
+  .trk-card.now .trk-kick { color: #17854a; }
+  .trk-prize { font-size: 1rem; font-weight: 900; color: #8a5d06; letter-spacing: 0; text-transform: none; white-space: nowrap; }
+  .trk-what { font-size: 1.05rem; font-weight: 900; margin: 4px 0 8px; }
+  .trk-note { font-size: 0.8rem; color: #5b6b85; }
+  .trk-go { display: flex; align-items: center; gap: 10px; }
+  .trk-bar { flex: 1; height: 8px; background: #dfe6f0; border-radius: 99px; overflow: hidden; }
+  .trk-bar i { display: block; height: 100%; background: linear-gradient(90deg, #22ab5f, #17854a); }
+  .trk-skip { padding: 8px 14px; font-size: 0.8rem; box-shadow: none; white-space: nowrap; }
+  .trk-who { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.78rem; color: #5b6b85; }
+  @keyframes trk-bob { 50% { transform: translateY(-4px); } }
+  @media (prefers-reduced-motion: reduce) { .trk-stop.now .trk-stone { animation: none; } }
   .hist-more { margin-top: 10px; width: 100%; }
   .spend[hidden] { display: none; }
   .sp-shelf { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
@@ -2262,6 +2309,7 @@ Nur</textarea>
         <button type="button" class="leg-tab on" data-pane="coinEarn" aria-pressed="true">Earn &amp; bet</button>
         <button type="button" class="leg-tab" data-pane="coinSpend" aria-pressed="false">Spend</button>
         <button type="button" class="leg-tab" data-pane="coinHist" aria-pressed="false">History</button>
+        <button type="button" class="leg-tab" data-pane="coinTrack" aria-pressed="false">Track</button>
       </div>
       <div id="coinEarn">
       <div class="rules-h">Earning</div>
@@ -2270,6 +2318,8 @@ Nur</textarea>
         both sides have agreed who won.</li>
         <li>A loss pays nothing, and a result still waiting to be confirmed pays
         nothing until it is.</li>
+        <li>The <b>Track</b> tab is a climb of ten stages a month, one goal each.
+        Clearing one pays its prize, +3 at the bottom up to +25 at the top.</li>
       </ul>
       <div class="rules-h">Betting</div>
       <ul>
@@ -2287,6 +2337,8 @@ Nur</textarea>
       </div>
       <!-- every coin in and out, the walk's own lines, newest first -->
       <div id="coinHist" hidden></div>
+      <!-- this month's ten stages, drawn as a trail up a hill -->
+      <div id="coinTrack" hidden></div>
       <div id="coinSpend" hidden>
       <div id="spend" class="spend" hidden>
         <div id="spKind" class="sp-shelf" role="group" aria-label="What to buy">
@@ -3595,6 +3647,60 @@ const treeAt = (tr, t) => {
   return stage < 0 ? null : { stage, day: tr.day };
 };
 
+/* The month's track: ten stages, one goal each, and a prize for every stage
+   cleared that grows as you climb. Kept nowhere but the walk, like a tree, so a
+   corrected score corrects everybody's stage and prizes with it. */
+const TRACK_PRIZE = [3, 4, 5, 6, 8, 10, 12, 15, 18, 25];
+// local months, counted from year 0, so the next month is just + 1
+const monthOf = t => { const d = new Date(t); return d.getFullYear() * 12 + d.getMonth(); };
+const monthStart = m => +new Date(Math.floor(m / 12), m % 12, 1);
+const TRACK_FROM = 2026 * 12 + 10; // November 2026: nothing before it counts
+/* What a goal counts is one fact the walk hands it: a game won or lost, a tree
+   tap, a gift, a bet placed or won, a bounty share, a cup final or award.
+   A month's track is drawn from this list's order, so a goal is only ever added
+   at the end, with `from` set to the first month it may appear: reordering,
+   removing or adding one without `from` would redraw every past month, and the
+   prizes already paid with it. */
+const TRACK_GOALS = [
+  { tier: 0, text: 'Win a challenge', n: 1, on: f => f.k === 'win' },
+  { tier: 0, text: 'Play 3 challenges', n: 3, on: f => f.k === 'win' || f.k === 'loss' },
+  { tier: 0, text: 'Water your tree 3 times', n: 3, on: f => f.k === 'water' },
+  { tier: 0, text: 'Gift someone a coin', n: 1, on: f => f.k === 'gift' },
+  { tier: 0, text: 'Place a side bet', n: 1, on: f => f.k === 'bet' },
+  { tier: 1, text: 'Win 3 challenges', n: 3, on: f => f.k === 'win' },
+  { tier: 1, text: 'Win a challenge to nil', n: 1, on: f => f.k === 'win' && f.nil },
+  { tier: 1, text: 'Win with 2 different partners', n: 2, partners: true, on: f => f.k === 'win' },
+  { tier: 1, text: 'Win a side bet', n: 1, on: f => f.k === 'betwon' },
+  { tier: 1, text: 'Win a challenge played for a bet', n: 1, on: f => f.k === 'win' && f.paid },
+  { tier: 1, text: 'Water your tree 5 times', n: 5, on: f => f.k === 'water' },
+  { tier: 1, text: 'Collect from your tree 3 times', n: 3, on: f => f.k === 'collect' },
+  { tier: 2, text: 'Win 5 challenges', n: 5, on: f => f.k === 'win' },
+  { tier: 2, text: 'Win with 3 different partners', n: 3, partners: true, on: f => f.k === 'win' },
+  { tier: 2, text: 'Make a cup final', n: 1, on: f => f.k === 'final' },
+  { tier: 2, text: 'Win the Golden Boot or Glove', n: 1, on: f => f.k === 'award' },
+  { tier: 2, text: 'Beat a bounty target', n: 1, on: f => f.k === 'bounty' },
+  { tier: 2, text: 'Grow your tree a stage', n: 1, on: f => f.k === 'grow' },
+  { tier: 2, text: 'Win 2 challenges to nil', n: 2, on: f => f.k === 'win' && f.nil },
+];
+/* Month m's ten goals: 3 easy, 4 medium, 3 hard, each tier shuffled by a small
+   generator seeded with m (mulberry32), so every phone draws the same track
+   and nothing has to be stored. */
+const trackMemo = {};
+const trackOf = m => trackMemo[m] || (trackMemo[m] = (() => {
+  let a = m;
+  const rnd = () => {
+    let t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+  return [3, 4, 3].flatMap((k, tier) => {
+    const g = TRACK_GOALS.filter(x => x.tier === tier && (x.from || 0) <= m);
+    for (let i = g.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [g[i], g[j]] = [g[j], g[i]]; }
+    return g.slice(0, k);
+  });
+})());
+
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
 function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
@@ -3614,6 +3720,26 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (bal[n] !== undefined) (log[n] = log[n] || []).push({ t: +t || 0, d, why, bal: bal[n], wait: !!wait });
   };
   const move = (n, d, why, t) => { if (bal[n] === undefined) return; bal[n] += d; note(n, d, why, t); };
+  /* player -> { month, stage, from, count, seen, skipped } on this month's track.
+     `from` is when the stage opened: only a fact after it counts, so the one
+     that clears a stage can't count toward the next. */
+  const track = {};
+  const trackAt = (n, t) => {
+    const m = monthOf(t);
+    if (!track[n] || track[n].month !== m) track[n] = { month: m, stage: 0, from: monthStart(m) - 1, count: 0, seen: [], skipped: [] };
+    return track[n];
+  };
+  const climb = (p, t) => Object.assign(p, { stage: p.stage + 1, from: t, count: 0, seen: [] });
+  const hit = (n, f, t) => {
+    if (bal[n] === undefined || monthOf(t) < TRACK_FROM) return;
+    const p = trackAt(n, t), g = trackOf(p.month)[p.stage];
+    if (!g || t <= p.from || !g.on(f)) return;
+    // different partners: the same one twice is still one
+    if (g.partners) { if (!p.seen.includes(f.partner)) p.seen.push(f.partner); p.count = p.seen.length; } else p.count++;
+    if (p.count < g.n) return;
+    move(n, TRACK_PRIZE[p.stage], `Track stage ${p.stage + 1} cleared: ${g.text}`, t);
+    climb(p, t);
+  };
   const pairOf = (c, side) => (side === 'b' ? ['bf', 'bd'] : ['rf', 'rd']).map(x => seatName(c.slots[x])).join(' & ');
   const refuse = (who, s, short, why = short ? 'not enough coins' : 'didn’t go through') => note(who, 0, `${spendWhat(s)}: ${why}`, s.at);
   const ev = [];
@@ -3641,12 +3767,12 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
   (cups || []).filter(e => e && e.runnerUp).forEach(e => {
-    const pay = (team, n, why) => ev.push({ t: e.date || 0, cup: n, why, up: team.split(' + ').filter(Boolean), down: [] });
+    const pay = (team, n, why, award) => ev.push({ t: e.date || 0, cup: n, why, award, up: team.split(' + ').filter(Boolean), down: [] });
     pay(e.champion || '', CUP_WIN, 'Won the cup');
     pay(e.runnerUp, CUP_RUNNER, 'Runner-up in the cup');
     const aw = e.awards || {};
-    (aw.boot || []).forEach(n => pay(n, CUP_AWARD, 'Golden Boot'));
-    (aw.glove || []).forEach(n => pay(n, CUP_AWARD, 'Golden Glove'));
+    (aw.boot || []).forEach(n => pay(n, CUP_AWARD, 'Golden Boot', true));
+    (aw.glove || []).forEach(n => pay(n, CUP_AWARD, 'Golden Glove', true));
   });
   // a champion saved settles the bets on its cup, whether or not the cup pays prizes
   (cups || []).filter(e => e && e.id && e.champion && drawn[e.id])
@@ -3685,6 +3811,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
           move(who, -next.cost, `Grew your tree to ${next.name.toLowerCase()}`, s.at); trees[who] = { ...tr, stage: cur.stage + 1 };
         }
         ok.push(s);
+        hit(who, { k: s.kind }, +s.at);
         return;
       }
       /* A bet stands if it came from somebody on the list who isn't one of the
@@ -3700,6 +3827,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
         wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on: pairOf(c, s.side) }];
         ok.push(s);
+        hit(who, { k: 'bet' }, +s.at);
         return;
       }
       /* A bet on the cup stands if it came from somebody on the list, inside the
@@ -3715,6 +3843,20 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         ok.push(s);
         return;
       }
+      /* A skip is whatever stage the player is on when it lands: it costs that
+         stage's prize and opens the next, paying nothing. Past the tenth, or
+         before there was a track, there's nothing to skip. */
+      if (s.kind === 'skip') {
+        if (who === undefined) return;
+        const t = +s.at, p = monthOf(t) >= TRACK_FROM && trackAt(who, t), prize = p && TRACK_PRIZE[p.stage];
+        if (!prize) return refuse(who, s, false);
+        if (bal[who] < prize) return refuse(who, s, true);
+        move(who, -prize, `Skipped track stage ${p.stage + 1}`, t);
+        p.skipped.push(p.stage);
+        climb(p, t);
+        ok.push(s);
+        return;
+      }
       const to = EMAIL_NAMES[s.to];
       // a gift or bounty needs somebody on the list at the other end, and not you
       if (who === undefined) return;
@@ -3725,7 +3867,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       if (s.kind === 'bounty' && bounties.some(h => h.on === to)) return refuse(who, s, false, `${to} already has one`);
       move(who, -cost, s.kind === 'gift' ? `Gift to ${to}` : s.kind === 'bounty' ? `Posted a bounty on ${to}`
         : s.kind === 'slot' ? 'Bought an extra game' : iconOf(s.item) ? 'Bought an icon' : 'Bought a name colour', s.at);
-      if (s.kind === 'gift') move(to, cost, `Gift from ${who}`, s.at);
+      if (s.kind === 'gift') { move(to, cost, `Gift from ${who}`, s.at); hit(who, { k: 'gift' }, +s.at); }
       if (s.kind === 'bounty') bounties.push({ s, by: who, on: to, amt: cost, until: +s.at + BOUNTY_MS, got: 0 });
       if (s.kind === 'slot') { const k = who + new Date(+s.at).toDateString(); bought[k] = (bought[k] || 0) + 1; }
       ok.push(s);
@@ -3736,7 +3878,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       if (h) { move(h.by, h.amt, `Nobody beat ${h.on}: your bounty back`, e.t); bounties = bounties.filter(x => x !== h); }
       return;
     }
-    if (e.cup) return e.up.forEach(n => move(n, e.cup, e.why, e.t));
+    if (e.cup) return e.up.forEach(n => { move(n, e.cup, e.why, e.t); hit(n, { k: e.award ? 'award' : 'final' }, e.t); });
     // the same line as a side bet: one that can't be covered any more doesn't stand
     if (e.settle) return (cupBets[e.settle] || []).forEach(x => {
       x.settled = true;
@@ -3777,6 +3919,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     // a free loss costs nothing, unless it was to nil — then the two a win pays
     const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
     e.down.forEach(n => move(n, -Math.min(bal[n], cost), game(n, 'Lost', e.up), e.t));
+    e.up.forEach(n => hit(n, { k: 'win', partner: e.up.find(m => m !== n), nil: e.nil, paid }, e.t));
+    e.down.forEach(n => hit(n, { k: 'loss' }, e.t));
     hunts.forEach(({ h, won }) => {
       let paid = 0;
       if (won) { // the target held: each loser pays the creator, what they can
@@ -3787,7 +3931,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         });
       } else { // beaten: the two who did it split what was posted
         paid = Math.floor(h.amt / 2);
-        e.up.forEach(n => move(n, paid, `Your share of the bounty on ${h.on}`, e.t));
+        e.up.forEach(n => { move(n, paid, `Your share of the bounty on ${h.on}`, e.t); hit(n, { k: 'bounty' }, e.t); });
         bounties = bounties.filter(x => x !== h);
       }
       if (e.id) (tags[e.id] = tags[e.id] || []).push({ on: h.on, by: h.by, won, paid });
@@ -3800,6 +3944,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       if (bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
       x.won = x.side === e.won;
       move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
+      if (x.won) hit(x.who, { k: 'betwon' }, e.t);
     });
   });
   /* Bets nothing has settled: waiting on their game or champion, or on one that
@@ -3821,14 +3966,14 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got),
       from: coins ? tr.at : null };
   });
-  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track };
 }
 // what a spend row was for, in a history line that says it didn't go through
 const spendWhat = s => ({
   plant: 'Plant a tree', water: 'Water your tree', collect: 'Collect from your tree', grow: 'Grow your tree',
   bet: `Bet of ${s.amt} on a challenge`, cupbet: `Cup bet of ${s.amt}`, slot: 'An extra game',
   gift: `Gift of ${s.amt} to ${EMAIL_NAMES[s.to] || 'somebody'}`, bounty: `Bounty of ${s.amt} on ${EMAIL_NAMES[s.to] || 'somebody'}`,
-  flair: iconOf(s.item) ? 'An icon' : 'A name colour',
+  flair: iconOf(s.item) ? 'An icon' : 'A name colour', skip: 'Skip a track stage',
 })[s.kind] || 'A spend';
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
@@ -4184,8 +4329,142 @@ function renderHistory() {
     box.append(b);
   }
 }
+/* The Track tab: the month's ten stages as stops on a trail up a hill, each
+   player's initials on the one they are on, and a card for the tapped stop.
+   Stages only, never coins: the same rule the pill keeps. */
+var chalTrack = {}, trackSel = null;
+// the stops sit where they're put, in the scene's 340 x 470, and the trail runs through them
+const TRACK_SPOTS = [[58, 440], [170, 448], [282, 412], [196, 360], [78, 326], [150, 268], [276, 236], [196, 180], [76, 148], [146, 92]];
+const TRACK_TOP = [232, 52];
+const TRACK_TRAIL = (pts => pts.reduce((d, p, i) => {
+  if (!i) return `M${p}`;
+  // Catmull-Rom through every stop, as cubic Béziers
+  const p0 = pts[i - 2] || pts[i - 1], p1 = pts[i - 1], p3 = pts[i + 1] || p;
+  return d + ` C${[p1[0] + (p[0] - p0[0]) / 6, p1[1] + (p[1] - p0[1]) / 6]} ${[p[0] - (p3[0] - p1[0]) / 6, p[1] - (p3[1] - p1[1]) / 6]} ${p}`;
+}, ''))(TRACK_SPOTS.concat([TRACK_TOP]));
+// where somebody is this month: anyone the walk last saw in another month is at the bottom
+const trackNow = n => {
+  const p = chalTrack[n], m = monthOf(Date.now());
+  return p && p.month === m ? p : { month: m, stage: 0, count: 0, seen: [], skipped: [] };
+};
+/* Two letters a player: the first two of their first name, or, when that
+   matches somebody else's, the first letter and the first one that tells them
+   apart (Sifat and Siddiq: Sf and Sd). */
+const trackInitials = names => {
+  const first = n => n.split(' ')[0], two = n => first(n).slice(0, 2);
+  return Object.fromEntries(names.map(n => {
+    const f = first(n), clash = names.filter(o => o !== n && two(o) === two(n)).map(first);
+    let i = 2;
+    while (i < f.length && clash.some(o => o[i] === f[i])) i++;
+    return [n, clash.length ? f[0] + (f[i] || f.at(-1)) : two(n)];
+  }));
+};
+function renderTrack() {
+  const box = $('coinTrack'), now = Date.now(), me = myName();
+  box.textContent = '';
+  // before the first month, November's hill is shown with everyone at the foot
+  const soon = monthOf(now) < TRACK_FROM, m = soon ? TRACK_FROM : monthOf(now);
+  const goals = trackOf(m), names = [...new Set(Object.values(EMAIL_NAMES))], ini = trackInitials(names);
+  const at = n => soon ? 0 : trackNow(n).stage;
+  const mine = me ? (soon ? trackNow('') : trackNow(me)) : null, myStage = me ? at(me) : -1;
+  const on = {};
+  names.forEach(n => (on[at(n)] = on[at(n)] || []).push(n));
+  const sel = trackSel === null ? Math.max(myStage, 0) : trackSel;
+  // three faces a stop at most, yours first; the rest are a count
+  const avs = list => {
+    const w = part('trk-avs', '', 'span'), l = list.slice().sort((a, b) => (b === me) - (a === me));
+    l.slice(0, l.length > 3 ? 2 : 3).forEach(n => w.append(part('trk-av' + (n === me ? ' me' : ''), ini[n], 'span')));
+    if (l.length > 3) w.append(part('trk-av trk-more', '+' + (l.length - 2), 'span'));
+    return w;
+  };
+
+  const head = part('trk-head');
+  const month = new Date(monthStart(m)).toLocaleString(undefined, { month: 'long' });
+  const days = Math.ceil(((soon ? monthStart(m) : monthStart(m + 1)) - now) / 864e5);
+  head.append(part('', month + ' track', 'b'),
+    part('trk-left', soon ? `Opens in ${days} day${days === 1 ? '' : 's'}` : days <= 1 ? 'Last day' : `${days} days left`, 'span'));
+
+  const scene = part('trk-scene');
+  // static markup only: nothing a player typed goes into innerHTML
+  scene.innerHTML = '<svg viewBox="0 0 340 470" preserveAspectRatio="none" aria-hidden="true">'
+    + '<path d="M0 150 C 60 110, 120 120, 170 70 C 210 30, 250 60, 340 40 L340 470 L0 470Z" fill="#d6ecc6"/>'
+    + '<path d="M0 230 C 80 200, 150 230, 220 190 C 270 165, 300 175, 340 160 L340 470 L0 470Z" fill="#c3e3ab"/>'
+    + '<path d="M0 330 C 90 300, 170 330, 250 300 C 290 287, 320 290, 340 285 L340 470 L0 470Z" fill="#acd892"/>'
+    + `<path d="${TRACK_TRAIL}" fill="none" stroke="#e9d3a8" stroke-width="20" stroke-linecap="round"/>`
+    + `<path d="${TRACK_TRAIL}" fill="none" stroke="#f6e7c8" stroke-width="12" stroke-linecap="round" stroke-dasharray="2 10"/></svg>`;
+  [['sapling', 30, 83, 10], ['young', 90, 64, 10], ['tree', 12, 54, 13], ['oak', 84, 27, 18]].forEach(([art, x, y, w]) => {
+    const im = document.createElement('img');
+    im.className = 'trk-deco'; im.alt = ''; im.src = `icons/tree/${art}.png`;
+    im.style.cssText = `left:${x}%;top:${y}%;width:${w}%`;
+    scene.append(im);
+  });
+  goals.forEach((g, i) => {
+    const [x, y] = TRACK_SPOTS[i];
+    const b = part('trk-stop ' + (i < myStage ? 'done' : i === myStage ? 'now' : 'later') + (i === sel ? ' sel' : ''), '', 'button');
+    b.type = 'button'; b.dataset.stage = i;
+    b.style.left = x / 3.4 + '%'; b.style.top = y / 4.7 + '%';
+    b.setAttribute('aria-label', `Stage ${i + 1}: ${g.text}, +${TRACK_PRIZE[i]}`);
+    if (on[i]) b.append(avs(on[i]));
+    b.append(part('trk-stone', i < myStage ? '✓' : String(i + 1), 'span'), part('trk-tag ' + (x > 170 ? 'l' : 'r'), '+' + TRACK_PRIZE[i], 'span'));
+    scene.append(b);
+  });
+  const top = part('trk-top');
+  top.style.left = TRACK_TOP[0] / 3.4 + '%'; top.style.top = (TRACK_TOP[1] - 14) / 4.7 + '%';
+  if (on[10]) top.append(avs(on[10]));
+  top.append(part('', '🏆', 'b'), part('trk-flag', 'Top', 'span'));
+  scene.append(top);
+
+  // the card: the tapped stage, or the reader's own
+  const card = part('trk-card' + (sel === myStage && !soon ? ' now' : ''));
+  if (sel >= 10) {
+    card.append(part('trk-what', 'All ten cleared this month'), part('trk-note', 'A new track opens on the 1st.'));
+  } else {
+    const g = goals[sel], kick = part('trk-kick');
+    kick.append(part('', `Stage ${sel + 1}` + (soon ? '' : sel === myStage ? ' · you are here' : sel < myStage ? ' · behind you' : ''), 'span'),
+      part('trk-prize', '+' + TRACK_PRIZE[sel], 'span'));
+    card.append(kick, part('trk-what', g.text));
+    if (soon) card.append(part('trk-note', `Opens on 1 ${month}.`));
+    else if (sel === myStage) {
+      const go = part('trk-go'), bar = part('trk-bar'), fill = part('', '', 'i');
+      fill.style.width = (100 * mine.count / g.n) + '%';
+      bar.append(fill);
+      const free = (coinBal()[me] || 0) - chalHeld(me);
+      const skip = part('btn btn-gold trk-skip', `Skip · ${TRACK_PRIZE[sel]}`, 'button');
+      skip.type = 'button'; skip.dataset.skip = TRACK_PRIZE[sel]; skip.disabled = free < TRACK_PRIZE[sel];
+      if (skip.disabled) skip.title = `You have ${free} to spend`;
+      go.append(bar, part('trk-note', `${mine.count} of ${g.n}`, 'span'), skip);
+      card.append(go);
+    } else if (me && sel < myStage) {
+      card.append(part('trk-note', mine.skipped.includes(sel) ? 'You skipped this one.' : `You collected +${TRACK_PRIZE[sel]} for this one.`));
+    } else card.append(part('trk-note', sel === 0 ? 'Where everyone starts.' : `Opens once stage ${sel} is cleared.`));
+  }
+  const here = on[sel] || [];
+  if (here.length && !soon) {
+    const who = part('trk-who');
+    who.append(avs(here), here.map(n => n === me ? 'You' : n).join(', ') + (here.length > 1 ? ' are here' : ' is here'));
+    card.append(who);
+  }
+  box.append(head, scene, card);
+}
+$('coinTrack').onclick = e => {
+  const st = e.target.closest('[data-stage]');
+  if (st) {
+    trackSel = +st.dataset.stage;
+    renderTrack();
+    const f = $('coinTrack').querySelector(`[data-stage="${trackSel}"]`);
+    if (f) f.focus({ preventScroll: true });
+    return;
+  }
+  const b = e.target.closest('[data-skip]');
+  if (!b || b.disabled || !myName() || !window.spendCoins) return;
+  if (!confirm(`Skip this stage for ${b.dataset.skip} coins? A skipped stage pays nothing.`)) return;
+  b.disabled = true; // the snapshot redraws the card; until then, one tap is one row
+  trackSel = null;
+  window.spendCoins({ kind: 'skip', by: acctEmail });
+};
 function renderCoins() {
   renderHistory();
+  renderTrack();
   const sealed = myName() ? sealedGifts() : [];
   const n = myFree(), pill = $('coins');
   pill.classList.toggle('coin-out', n === null);
@@ -4956,6 +5235,7 @@ function renderChal() {
   chalWagers = walk.wagers;
   cupWagers = walk.cupBets;
   coinLog = walk.log;
+  chalTrack = walk.track;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
@@ -5211,7 +5491,11 @@ window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate 
 $('chalBtn').addEventListener('click', closeChalForm);
 /* The card is the only way into the sheet — it has no toolbar button, the way the
    profile has none. Keyboard too: it is a role=button, so it has to answer one. */
-const openCoins = () => { if (treeOpen) { treeOpen = false; renderCoins(); } $('coinInfo').classList.add('open'); };
+const openCoins = () => {
+  // the tree's page and a stop tapped last time both go back to where you are
+  if (treeOpen || trackSel !== null) { treeOpen = false; trackSel = null; renderCoins(); }
+  $('coinInfo').classList.add('open');
+};
 $('coins').onclick = openCoins;
 $('coins').onkeydown = e => {
   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openCoins(); }
