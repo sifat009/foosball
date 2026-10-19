@@ -1,4 +1,4 @@
-# The monthly track: a hill to climb
+# The monthly track: islands to cross
 
 Coins come in from challenge wins, cups and the tree, and each of those pays
 the same every time. Nothing says "do this next". The track does: ten stages a
@@ -116,38 +116,43 @@ The rules add `skip` to the accepted `kind` values. A `skip` carries none of
 
 The coins sheet gets a fourth tab: **Earn & bet · Spend · History · Track**.
 
-The Track tab is a hill (design D1 from the mockups):
+The Track tab is a forest pond drawn like a casual game's level map (the
+summer pond from the mockups; it replaced an earlier hill and trail):
 
 - "November track" and how many days are left.
-- A small landscape with a sandy trail climbing to a trophy at the top, and the
-  four tree pictures (`icons/tree/`) along the way, sapling at the bottom and oak
-  near the top.
-- Ten stops at fixed spots, with the trail drawn through them (Catmull-Rom curve).
-  Cleared stops are gold coins with a check, the reader's stop is a green stone
-  that gently bobs (no bob with reduced motion), and later stops are white
-  stones. Each stop shows its prize in a tag beside it.
+- Turquoise water with ten grassy islands and a bigger one for the cup. Each
+  island has a brown earth edge under the grass and a foam line round its
+  shore. Plank bridges and mossy stepping stones join them in turn, lily pads
+  float between, and forest banks run down both sides. The tree pictures
+  (`icons/tree/`) line the banks and grow on alternate islands, from a sapling
+  on the first to an oak on the ninth. The scene is seeded SVG, built once, so
+  every phone draws the same pond.
+- Each stage is a glossy badge on its island's upper right: gold with a check
+  once cleared, red and gently bobbing for the reader's stage (no bob with
+  reduced motion), grey with its number while still to come. Its prize sits in
+  a tag under it.
 - Players' initials sit above the stop they're on. Initials are the first two
   letters of the first name. When two players would share them, each uses its
   first letter and the first letter that tells them apart: Sifat and Siddiq are
   Sf and Sd, Sajeeb and Sazedul are Sj and Sz. A stop shows three at most, yours
   first, and the rest as a count ("+8").
-- Tapping a stop shows that stage in a card under the hill: its goal, a line
+- Tapping a stop shows that stage in a card under the pond: its goal, a line
   saying how to do it ("When a challenge you're not playing in fills up, you
   have 2 minutes to bet 1 to 10 coins on a pair…"), its prize, and the full
   names of who's on it. Every goal carries that line as `how`. On your own stage the card shows progress
   ("1 of 3"), and **Skip · N**, greyed out if you can't afford it. On a cleared
   stage it says what you collected; on a later stage, "Opens when you clear
   stage N".
-- The card opens on your own stage. Signed out, the hill and everyone's places
+- The card opens on your own stage. Signed out, the pond and everyone's places
   still show, with no "you" and no Skip.
-- Before 1 November the tab shows November's hill with everyone at the foot,
+- Before 1 November the tab shows November's pond with everyone on the first island,
   "Opens in N days", and no Skip.
 
 Nobody's coins are shown, only stages, the same rule the coin pill follows.
 
 ## Not doing
 
-- No push notification for clearing a stage. The History line and the hill
+- No push notification for clearing a stage. The History line and the pond
   already say it.
 - No record of past months. A month's track and results can be worked out again
   from the data if one is ever wanted.

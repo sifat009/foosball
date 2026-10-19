@@ -574,26 +574,26 @@
   .hist-up .hist-d { color: #17854a; }
   .hist-down .hist-d { color: #c0392b; }
   .hist-none .hist-why, .hist-none .hist-d { color: #7a879c; }
-  /* the month's track: a trail up a hill, ten stops and a cup on top */
+  /* the month's track: ten islands on a forest pond and a cup on the last */
   .trk-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 10px; color: #172b4d; }
   .trk-left { font-size: 0.78rem; color: #5b6b85; }
-  .trk-scene { position: relative; aspect-ratio: 340 / 470; border-radius: 16px; overflow: hidden;
-    background: linear-gradient(180deg, #cfe8ff 0%, #e9f5ff 34%, #f4fbef 52%); }
+  .trk-scene { position: relative; aspect-ratio: 340 / 470; border-radius: 16px; overflow: hidden; background: #2fadd2; }
   .trk-scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .trk-deco { position: absolute; transform: translate(-50%, -100%); pointer-events: none; filter: drop-shadow(0 3px 2px rgba(0,0,0,0.12)); }
+  .trk-deco { position: absolute; transform: translate(-50%, -100%); pointer-events: none; filter: drop-shadow(0 5px 3px rgba(10,40,20,0.35)); }
   .trk-stop { position: absolute; transform: translate(-50%, -50%); padding: 0; border: 0; background: none; cursor: pointer; display: grid; place-items: center; font: inherit; }
   .trk-stop:focus-visible { outline: none; }
   .trk-stop:focus-visible .trk-stone { outline: 3px solid #f0b429; outline-offset: 3px; }
-  .trk-stone { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 0.9rem; color: #5b6b85;
-    background: radial-gradient(circle at 35% 30%, #fff, #e8edf3); border: 3px solid #fff; box-shadow: 0 3px 0 #b9c4d2, 0 5px 10px rgba(0,0,0,0.15); }
-  .trk-stop.done .trk-stone { color: #7a4f00; background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10); box-shadow: 0 3px 0 #a8730c, 0 5px 10px rgba(0,0,0,0.15); }
-  .trk-stop.now .trk-stone { width: 44px; height: 44px; font-size: 1.1rem; color: #fff; background: radial-gradient(circle at 35% 30%, #3fcf80, #17854a);
-    box-shadow: 0 4px 0 #0f5e33, 0 0 0 5px rgba(255,255,255,0.7); animation: trk-bob 1.6s ease-in-out infinite; }
+  /* a level badge, a glossy ball: grey still to come, gold cleared, red where you are */
+  .trk-stone { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 0.88rem; color: #fff;
+    text-shadow: 0 1px 1px rgba(0,0,0,0.55); border: 2px solid rgba(255,255,255,0.95);
+    background: radial-gradient(circle at 35% 28%, #dfe4ea 0 10%, #7d8796 42%, #4c5563 100%);
+    box-shadow: inset 0 0 0 3px rgba(255,255,255,0.22), 0 3px 0 rgba(0,0,0,0.28), 0 6px 8px rgba(0,0,0,0.25); }
+  .trk-stop.done .trk-stone { color: #6b4500; text-shadow: 0 1px 0 rgba(255,255,255,0.5); background: radial-gradient(circle at 35% 28%, #fff6cf 0 12%, #f5c33b 45%, #c7860b 100%); }
+  .trk-stop.now .trk-stone { width: 40px; height: 40px; font-size: 1.1rem; background: radial-gradient(circle at 35% 28%, #ffd1d6 0 12%, #ef3e57 45%, #a8102a 100%);
+    animation: trk-bob 1.6s ease-in-out infinite; }
   .trk-stop.sel .trk-stone { outline: 3px solid #16233a; outline-offset: 3px; }
-  .trk-tag { position: absolute; top: 50%; transform: translateY(-50%); white-space: nowrap; font-size: 0.72rem; font-weight: 900; color: #8a5d06;
-    background: #fffdf5; border: 1.5px solid #ecc45c; border-radius: 99px; padding: 1px 6px; }
-  .trk-tag.r { left: calc(100% + 5px); }
-  .trk-tag.l { right: calc(100% + 5px); }
+  .trk-tag { position: absolute; top: calc(100% + 1px); left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 0.7rem; font-weight: 900; color: #8a5d06;
+    background: #fffdf5; border: 1.5px solid #ecc45c; border-radius: 99px; padding: 0 6px; }
   .trk-stop.done .trk-tag { color: #17854a; border-color: #a7dcbc; background: #f3fbf6; }
   .trk-stop .trk-avs, .trk-top .trk-avs { position: absolute; bottom: calc(100% + 2px); }
   .trk-avs { display: inline-flex; }
@@ -4331,19 +4331,113 @@ function renderHistory() {
     box.append(b);
   }
 }
-/* The Track tab: the month's ten stages as stops on a trail up a hill, each
+/* The Track tab: the month's ten stages as islands on a forest pond, each
    player's initials on the one they are on, and a card for the tapped stop.
    Stages only, never coins: the same rule the pill keeps. */
 var chalTrack = {}, trackSel = null;
-// the stops sit where they're put, in the scene's 340 x 470, and the trail runs through them
-const TRACK_SPOTS = [[58, 440], [170, 448], [282, 412], [196, 360], [78, 326], [150, 268], [276, 236], [196, 180], [76, 148], [146, 92]];
-const TRACK_TOP = [232, 52];
-const TRACK_TRAIL = (pts => pts.reduce((d, p, i) => {
-  if (!i) return `M${p}`;
-  // Catmull-Rom through every stop, as cubic Béziers
-  const p0 = pts[i - 2] || pts[i - 1], p1 = pts[i - 1], p3 = pts[i + 1] || p;
-  return d + ` C${[p1[0] + (p[0] - p0[0]) / 6, p1[1] + (p[1] - p0[1]) / 6]} ${[p[0] - (p3[0] - p1[0]) / 6, p[1] - (p3[1] - p1[1]) / 6]} ${p}`;
-}, ''))(TRACK_SPOTS.concat([TRACK_TOP]));
+// the islands sit where they're put, in the scene's 340 x 470; the cup's is the last
+const TRACK_SPOTS = [[66, 430], [172, 436], [272, 398], [194, 348], [78, 318], [152, 262], [270, 232], [194, 174], [76, 142], [150, 88]];
+const TRACK_TOP = [240, 48];
+const trackR = i => i === 10 ? 38 : 30 + (i % 3) * 3; // island sizes
+/* The pond, drawn the way casual games draw a level map: islands with an earth
+   edge under the grass, a foam line where water meets land, plank bridges and
+   mossy stepping stones between them, lily pads, and forest banks down both
+   sides. Seeded, so it's the same pond on every phone, and built once. */
+let trackPondSvg = null;
+const trackPond = () => trackPondSvg || (trackPondSvg = (() => {
+  let rs = 5;
+  const rnd = () => (rs = (rs * 9301 + 49297) % 233280) / 233280;
+  // a closed Catmull-Rom curve through the points
+  const smooth = p => {
+    const n = p.length;
+    let d = `M${p[0]}`;
+    for (let i = 0; i < n; i++) {
+      const p0 = p[(i - 1 + n) % n], p1 = p[i], p2 = p[(i + 1) % n], p3 = p[(i + 2) % n];
+      d += ` C${p1[0] + (p2[0] - p0[0]) / 6},${p1[1] + (p2[1] - p0[1]) / 6} ${p2[0] - (p3[0] - p1[0]) / 6},${p2[1] - (p3[1] - p1[1]) / 6} ${p2}`;
+    }
+    return d + 'Z';
+  };
+  const blob = (cx, cy, rx, ry, n = 10, j = 0.2) => smooth([...Array(n)].map((_, i) => {
+    const a = i / n * Math.PI * 2, k = 1 - j / 2 + j * rnd();
+    return [cx + Math.cos(a) * rx * k, cy + Math.sin(a) * ry * k];
+  }));
+  const bank = side => {
+    const p = [[side < 0 ? -20 : 360, -20]];
+    for (let y = -10; y <= 480; y += 34) { const w = 16 + rnd() * 18; p.push([side < 0 ? w : 340 - w, y]); }
+    return smooth(p.concat([[side < 0 ? -20 : 360, 490]]));
+  };
+  let o = '<defs><linearGradient id="trkW" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#46c6dd"/><stop offset="1" stop-color="#1f97c4"/></linearGradient>'
+    + '<radialGradient id="trkG" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#97df62"/><stop offset=".55" stop-color="#64bd45"/><stop offset="1" stop-color="#4b9c35"/></radialGradient>'
+    + '<radialGradient id="trkR" cx=".35" cy=".3" r=".75"><stop offset="0" stop-color="#e3e7ea"/><stop offset=".6" stop-color="#a3abb3"/><stop offset="1" stop-color="#6f7880"/></radialGradient>'
+    + '<filter id="trkB"><feGaussianBlur stdDeviation="2.5"/></filter></defs><rect width="340" height="470" fill="url(#trkW)"/>';
+  // deep patches out in the open water, and glints on top
+  for (let k = 0; k < 7; k++) o += `<path d="${blob(60 + rnd() * 220, 30 + rnd() * 420, 30 + rnd() * 30, 14 + rnd() * 12)}" fill="#0b4f6e" opacity=".12"/>`;
+  for (let k = 0; k < 40; k++) {
+    const x = rnd() * 340, y = rnd() * 470, w = 5 + rnd() * 9;
+    o += `<path d="M${x} ${y} q${w / 2} -2.5 ${w} 0" stroke="#fff" stroke-width="1.3" fill="none" opacity="${0.25 + rnd() * 0.3}" stroke-linecap="round"/>`;
+  }
+  const all = TRACK_SPOTS.concat([TRACK_TOP]);
+  const lands = [bank(-1), bank(1)].concat(all.map(([x, y], i) => blob(x, y + 6, trackR(i), trackR(i) * 0.72)));
+  const rock = (x, y, r) => `<ellipse cx="${x}" cy="${y + r * 0.55}" rx="${r * 1.1}" ry="${r * 0.45}" fill="#0b3f55" opacity=".25" filter="url(#trkB)"/>`
+    + `<path d="${blob(x, y, r, r * 0.78, 8, 0.25)}" fill="url(#trkR)"/><path d="${blob(x - r * 0.1, y - r * 0.38, r * 0.55, r * 0.22, 7)}" fill="#79b84a" opacity=".85"/>`
+    + `<ellipse cx="${x}" cy="${y + r * 0.62}" rx="${r * 1.05}" ry="${r * 0.32}" fill="none" stroke="#fff" stroke-width="1" opacity=".7"/>`;
+  // a round pad with a notch to its middle, squashed a little for the view from above
+  const pad = (x, y, r, flower) => {
+    const a = rnd() * 360, c1 = [x + r * Math.cos(-0.28), y + r * Math.sin(-0.28)], c2 = [x + r * Math.cos(0.28), y + r * Math.sin(0.28)];
+    let g = `<g transform="translate(${x} ${y}) scale(1 .78) rotate(${a}) translate(${-x} ${-y})"><path d="M${x} ${y} L${c1} A${r} ${r} 0 1 0 ${c2}Z" fill="#4fa83f" stroke="#2f7a2b" stroke-width=".8"/></g>`;
+    if (flower) g += [0, 72, 144, 216, 288].map(b => {
+      const px = x + Math.cos(b * Math.PI / 180) * 2.6, py = y - 1 + Math.sin(b * Math.PI / 180) * 2;
+      return `<ellipse cx="${px}" cy="${py}" rx="2.6" ry="1.6" transform="rotate(${b} ${px} ${py})" fill="#ff8fb8"/>`;
+    }).join('') + `<circle cx="${x}" cy="${y - 1}" r="1.4" fill="#ffe066"/>`;
+    return g;
+  };
+  const bridge = (a, ra, b, rb) => {
+    const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), ux = dx / L, uy = dy / L;
+    const s = [a[0] + ux * ra * 0.7, a[1] + 6 + uy * ra * 0.5], e = [b[0] - ux * rb * 0.7, b[1] + 6 - uy * rb * 0.5];
+    const len = Math.hypot(e[0] - s[0], e[1] - s[1]), ang = Math.atan2(e[1] - s[1], e[0] - s[0]) * 180 / Math.PI, w = 13;
+    let g = `<g transform="translate(${s[0]} ${s[1]}) rotate(${ang})"><rect y="${-w / 2 + 5}" width="${len}" height="${w}" rx="2" fill="#0b3f55" opacity=".28" filter="url(#trkB)"/>`
+      + `<rect y="${-w / 2}" width="${len}" height="${w}" rx="1.5" fill="#c58c53" stroke="#7a4f2a"/>`;
+    for (let x = 3.5; x < len; x += 3.6) g += `<line x1="${x}" y1="${-w / 2}" x2="${x}" y2="${w / 2}" stroke="#7a4f2a" stroke-width=".7" opacity=".75"/>`;
+    g += `<rect y="${-w / 2 - 1.5}" width="${len}" height="2" rx="1" fill="#7a4f2a"/><rect y="${w / 2 - 0.5}" width="${len}" height="2" rx="1" fill="#7a4f2a"/>`;
+    return g + [0, len / 2, len].map(x => `<circle cx="${x}" cy="${-w / 2 - 0.5}" r="1.8" fill="#7a4f2a"/><circle cx="${x}" cy="${w / 2 + 0.5}" r="1.8" fill="#7a4f2a"/>`).join('') + '</g>';
+  };
+  // between islands: a plank bridge, then stepping stones, in turn
+  let under = '', over = '';
+  all.forEach((p, i) => {
+    if (!i) return;
+    const a = all[i - 1];
+    if (i % 2) { over += bridge(a, trackR(i - 1), p, trackR(i)); return; }
+    const dx = p[0] - a[0], dy = p[1] - a[1], L = Math.hypot(dx, dy), gap = L - trackR(i - 1) - trackR(i), k = gap > 40 ? 3 : 2;
+    for (let j = 1; j <= k; j++) {
+      const f = (trackR(i - 1) + gap * j / (k + 1)) / L, n = (rnd() - 0.5) * 10;
+      under += rock(a[0] + dx * f - dy / L * n, a[1] + 6 + dy * f + dx / L * n, 8 + rnd() * 3);
+    }
+  });
+  [[120, 400], [230, 455], [300, 300], [118, 205], [240, 128], [40, 250], [300, 170], [110, 30]].forEach(([x, y], k) => { under += pad(x, y, 6 + rnd() * 3, k % 2 === 0); });
+  const bush = (x, y, s) => `<ellipse cx="${x}" cy="${y + 3 * s}" rx="${11 * s}" ry="${3.5 * s}" fill="#173d12" opacity=".25"/>`
+    + [[-6, 0, 6, '#3e9c3c'], [5, -1, 7, '#5fbf4e'], [0, -6, 7, '#3e9c3c'], [-2, -9, 4, '#9be27a']].map(([dx, dy, r, c]) => `<circle cx="${x + dx * s}" cy="${y + dy * s}" r="${r * s}" fill="${c}"/>`).join('');
+  let dots = '';
+  all.forEach(([x, y], i) => {
+    const r = trackR(i);
+    for (let k = 0; k < 5; k++) { const a = rnd() * Math.PI * 2, d = rnd() * r * 0.6; dots += `<circle cx="${x + Math.cos(a) * d}" cy="${y + 6 + Math.sin(a) * d * 0.7}" r="1.1" fill="${['#fff', '#ffe066', '#ff8fb1'][k % 3]}"/>`; }
+    for (let k = 0; k < 4; k++) {
+      const a = rnd() * Math.PI * 2, d = rnd() * r * 0.7, tx = x + Math.cos(a) * d, ty = y + 6 + Math.sin(a) * d * 0.7;
+      dots += `<path d="M${tx - 2} ${ty} l1 -3 M${tx} ${ty} l0 -3.5 M${tx + 2} ${ty} l-1 -3" stroke="#3f8a2e" stroke-width=".8" stroke-linecap="round"/>`;
+    }
+    if (i % 3 === 2) dots += rock(x - r * 0.5, y + 14, 5);
+    if (i % 2 === 0 && i < 10) dots += bush(x - r * 0.45, y + 10, 0.6);
+  });
+  for (let y = 10; y < 470; y += 46) dots += bush(8 + rnd() * 8, y + rnd() * 10, 0.9 + rnd() * 0.3) + bush(332 - rnd() * 8, y + 20 + rnd() * 10, 0.9 + rnd() * 0.3);
+  return `<svg viewBox="0 0 340 470" preserveAspectRatio="none" aria-hidden="true">${o}`
+    + lands.map(d => `<path d="${d}" fill="#a7ecef" stroke="#a7ecef" stroke-width="16" stroke-linejoin="round" opacity=".55"/>`).join('') + under
+    + lands.map(d => `<path d="${d}" fill="none" stroke="#fff" stroke-width="2.4" transform="translate(0 5)" opacity=".85"/>`).join('')
+    + lands.map(d => `<path d="${d}" fill="#7a4f2c" transform="translate(0 6)"/><path d="${d}" fill="#5c3a20" transform="translate(0 7.5)" opacity=".5"/>`).join('')
+    + lands.map(d => `<path d="${d}" fill="url(#trkG)" stroke="#3f8a2e" stroke-width="1.2"/>`).join('') + over + dots + '</svg>';
+})());
+// the app's trees: big ones on the banks, and one on alternate islands growing from a sapling to an oak
+const TRACK_TREES = [['oak', 4, 14, 26], ['tree', 97, 22, 22], ['oak', 2, 44, 24], ['tree', 99, 52, 20], ['oak', 97, 80, 26], ['tree', 3, 74, 20], ['young', 99, 100, 16], ['oak', 1, 100, 24],
+  ...[[0, 'sapling'], [2, 'young'], [4, 'young'], [6, 'tree'], [8, 'oak']].map(([i, art]) => [art, (TRACK_SPOTS[i][0] - 14) / 3.4, (TRACK_SPOTS[i][1] + 8) / 4.7, 9 + i * 0.9])]
+  .sort((a, b) => a[2] - b[2]);
 // where somebody is this month: anyone the walk last saw in another month is at the bottom
 const trackNow = n => {
   const p = chalTrack[n], m = monthOf(Date.now());
@@ -4364,7 +4458,7 @@ const trackInitials = names => {
 function renderTrack() {
   const box = $('coinTrack'), now = Date.now(), me = myName();
   box.textContent = '';
-  // before the first month, November's hill is shown with everyone at the foot
+  // before the first month, November's pond is shown with everyone on the first island
   const soon = monthOf(now) < TRACK_FROM, m = soon ? TRACK_FROM : monthOf(now);
   const goals = trackOf(m), names = [...new Set(Object.values(EMAIL_NAMES))], ini = trackInitials(names);
   const at = n => soon ? 0 : trackNow(n).stage;
@@ -4388,30 +4482,26 @@ function renderTrack() {
 
   const scene = part('trk-scene');
   // static markup only: nothing a player typed goes into innerHTML
-  scene.innerHTML = '<svg viewBox="0 0 340 470" preserveAspectRatio="none" aria-hidden="true">'
-    + '<path d="M0 150 C 60 110, 120 120, 170 70 C 210 30, 250 60, 340 40 L340 470 L0 470Z" fill="#d6ecc6"/>'
-    + '<path d="M0 230 C 80 200, 150 230, 220 190 C 270 165, 300 175, 340 160 L340 470 L0 470Z" fill="#c3e3ab"/>'
-    + '<path d="M0 330 C 90 300, 170 330, 250 300 C 290 287, 320 290, 340 285 L340 470 L0 470Z" fill="#acd892"/>'
-    + `<path d="${TRACK_TRAIL}" fill="none" stroke="#e9d3a8" stroke-width="20" stroke-linecap="round"/>`
-    + `<path d="${TRACK_TRAIL}" fill="none" stroke="#f6e7c8" stroke-width="12" stroke-linecap="round" stroke-dasharray="2 10"/></svg>`;
-  [['sapling', 30, 83, 10], ['young', 90, 64, 10], ['tree', 12, 54, 13], ['oak', 84, 27, 18]].forEach(([art, x, y, w]) => {
+  scene.innerHTML = trackPond();
+  TRACK_TREES.forEach(([art, x, y, w]) => {
     const im = document.createElement('img');
     im.className = 'trk-deco'; im.alt = ''; im.src = `icons/tree/${art}.png`;
     im.style.cssText = `left:${x}%;top:${y}%;width:${w}%`;
     scene.append(im);
   });
+  // each stage's badge sits on the upper right of its island, the prize under it
   goals.forEach((g, i) => {
     const [x, y] = TRACK_SPOTS[i];
     const b = part('trk-stop ' + (i < myStage ? 'done' : i === myStage ? 'now' : 'later') + (i === sel ? ' sel' : ''), '', 'button');
     b.type = 'button'; b.dataset.stage = i;
-    b.style.left = x / 3.4 + '%'; b.style.top = y / 4.7 + '%';
+    b.style.left = (x + 12) / 3.4 + '%'; b.style.top = (y - 8) / 4.7 + '%';
     b.setAttribute('aria-label', `Stage ${i + 1}: ${g.text}, +${TRACK_PRIZE[i]}`);
     if (on[i]) b.append(avs(on[i]));
-    b.append(part('trk-stone', i < myStage ? '✓' : String(i + 1), 'span'), part('trk-tag ' + (x > 170 ? 'l' : 'r'), '+' + TRACK_PRIZE[i], 'span'));
+    b.append(part('trk-stone', i < myStage ? '✓' : String(i + 1), 'span'), part('trk-tag', '+' + TRACK_PRIZE[i], 'span'));
     scene.append(b);
   });
   const top = part('trk-top');
-  top.style.left = TRACK_TOP[0] / 3.4 + '%'; top.style.top = (TRACK_TOP[1] - 14) / 4.7 + '%';
+  top.style.left = TRACK_TOP[0] / 3.4 + '%'; top.style.top = (TRACK_TOP[1] - 2) / 4.7 + '%';
   if (on[10]) top.append(avs(on[10]));
   top.append(part('', '🏆', 'b'), part('trk-flag', 'Top', 'span'));
   scene.append(top);

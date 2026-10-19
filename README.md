@@ -410,7 +410,7 @@ otherwise land on the pill's own spans and flatten it.
 
 ### The monthly track
 
-The coins sheet's **Track** tab is a hill of ten stages a month, one goal each
+The coins sheet's **Track** tab is a pond of ten islands a month, one stage and one goal each
 (win a challenge, water your tree three times, make a cup final…). Clearing a
 stage pays its prize, 3 at the bottom rising to 25 at the top, and opens the
 next; a stuck stage can be skipped for its prize, paying nothing. Everyone starts
