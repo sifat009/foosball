@@ -4271,11 +4271,11 @@ function treeRow(me, bal, sheet) {
   const what = part('tree-what');
   const [cls, line] = !t ? ['', 'Plant one and water it each weekday.']
     : off ? ['', 'The weekend']
-    : !t.watered ? ['no', 'Not watered today']
+    : !t.watered ? (holiday(now) ? ['gold', `Holiday · get ${st.pay * 2} coins`] : ['no', 'Not watered today'])
     : !t.ripe ? ['ok', 'Planted today · water it next weekday']
     : t.got ? ['ok', `+${t.pay} today`]
     : ripe ? ['gold', 'Ripe · ']
-    : ['ok', 'Watered · ripening'];
+    : ['ok', t.pay > TREE[t.paidStage].pay ? `Watered, will get ${t.pay} coins` : 'Watered · ripening'];
   const state = part('tree-state' + (cls ? ' ' + cls : ''), line, 'span');
   // till midnight, when what wasn't picked drops off; reaching nought redraws
   if (ripe && !off) {
@@ -4606,7 +4606,7 @@ function renderCoins() {
   const thirsty = busy && !t.watered, picking = busy && !!t.ripe && !t.got && now >= t.ripe;
   pill.classList.toggle('coin-thirsty', thirsty || picking || sealed.length > 0);
   pill.title = n === null ? 'Sign in to see your coins' : sealed.length ? 'A gift is waiting for you'
-    : thirsty ? 'Your tree wants water'
+    : thirsty ? (holiday(now) ? 'Holiday: your tree pays double today' : 'Your tree wants water')
     : picking ? 'Coins are ripe on your tree' : 'Coins to bet on challenges';
 
   // the pill is a number; the sheet is where a number gets a meaning

@@ -3185,15 +3185,17 @@ const growFlow = await page.evaluate(() => {
   out.page = !!you.querySelector('.tree-page [data-tree=grow]');
   you.querySelector('.tree-back').click();
   out.back = !you.querySelector('.tree-page') && !!you.querySelector('.tree-path');
-  // watered on a holiday: double pay is no stage's pay, and the coins still drew by it
+  // a holiday says so before the water, and a water then draws its doubled coins
   window.renderHolidays({ [isoDay(now)]: isoDay(now) });
+  window.renderSpends({ tp: { at: +d, by: 'sifat@x.com', kind: 'plant' } });
+  out.offer = weekend(new Date(now)) || you.querySelector('.tree-state').textContent === 'Holiday · get 4 coins';
   window.renderSpends({ tp: { at: +d, by: 'sifat@x.com', kind: 'plant' }, tw: { at: now - 1000, by: 'sifat@x.com', kind: 'water' } });
   out.holiday = !!you.querySelector('.coin-tree');
   window.renderHolidays({});
   window.renderSpends({}); window.renderChallenges({}); window.setAccount(null);
   return out;
 });
-assert.deepEqual(growFlow, { rowGrow: false, page: true, back: true, holiday: true },
+assert.deepEqual(growFlow, { rowGrow: false, page: true, back: true, offer: true, holiday: true },
   'Grow sits in the tree row again, where a habit tap lands, or the path does not open and close its page');
 console.log('grow page OK');
 
