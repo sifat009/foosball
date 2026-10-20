@@ -435,12 +435,26 @@ const roll = await page.evaluate(({ nur, rifat, saj }) => {
   koStarted = true;
   return rollupPlayers();
 }, T);
-assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 11, ga: 7, g: 7, nil: 0 }, 'winner not credited group goals + the KO forfeit');
-assert.deepEqual(roll['Rashed'], { p: 2, w: 2, gf: 11, ga: 7, g: 3, nil: 0 },
+assert.deepEqual(roll['Nur'], { p: 2, w: 2, gf: 11, ga: 7, g: 7, nil: 0, nilWon: 0 }, 'winner not credited group goals + the KO forfeit');
+assert.deepEqual(roll['Rashed'], { p: 2, w: 2, gf: 11, ga: 7, g: 3, nil: 0, nilWon: 0 },
   'partners share the team result but never each other’s goals');
-assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 9, g: 4, nil: 0 },
+assert.deepEqual(roll['Sajeeb'], { p: 2, w: 1, gf: 9, ga: 9, g: 4, nil: 0, nilWon: 0 },
   'a forfeit adds a play and no goals — and it is not a nil, nobody kept them out');
-assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19, g: 11, nil: 0 }, 'loser goals wrong');
+assert.deepEqual(roll['Rifat'], { p: 2, w: 0, gf: 15, ga: 19, g: 11, nil: 0, nilWon: 0 }, 'loser goals wrong');
+
+// a played 10-0 is a nil both ways: the losers' `nil`, the winners' `nilWon`
+const ten = await page.evaluate(({ nur, rifat }) => {
+  const was = [groups, koRounds, koStarted];
+  groups = [{ name: 'A', teams: [nur, rifat], matches: [
+    { a: nur, b: rifat, sa: 10, sb: 0, pa: { fwd: 6, def: 4 }, pb: { fwd: 0, def: 0 }, winner: nur },
+  ] }];
+  koRounds = []; koStarted = false;
+  const P = rollupPlayers();
+  [groups, koRounds, koStarted] = was;
+  return P;
+}, T);
+assert.deepEqual([ten.Nur.nilWon, ten.Rashed.nilWon, ten.Nur.nil], [1, 1, 0], 'a 10-0 win was not counted for the winners');
+assert.deepEqual([ten.Rifat.nil, ten.Sifat.nil, ten.Rifat.nilWon], [1, 1, 0], 'a 10-0 loss was not counted for the losers');
 
 /* Golden Boot and Golden Glove, worked out from that rollup. Boot is raw
    individual goals; Glove is fewest conceded per match among the defence only,
@@ -2828,6 +2842,22 @@ assert.equal(cupCoins.oldAwards.Nur, 0, 'an award on a cup saved before prizes w
 assert.deepEqual([cupCoins.paid.Sifat, cupCoins.paid.Ofi], [10, 10], 'a champion was not paid ten');
 assert.deepEqual([cupCoins.paid.Nur, cupCoins.paid.Rashed], [5, 5], 'a runner-up was not paid five');
 assert.equal(cupCoins.old.Sifat, 0, 'a cup saved before runners-up were recorded was back-paid');
+
+/* A 10-0 in the cup: five to each winner, five from each loser, nobody below
+   zero — and only on a cup saved with `nilWon`, so no older one moves. */
+const tenCoins = await page.evaluate(() => {
+  const P = { Sifat: { nilWon: 2, nil: 0 }, Ofi: { nilWon: 1, nil: 0 }, Nur: { nilWon: 0, nil: 1 },
+    Rashed: { nilWon: 0, nil: 3 }, Toufiq: { nilWon: 0, nil: 0 } };
+  return {
+    paid: window.coins([], [{ champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed', date: 1, players: P }]),
+    old: window.coins([], [{ champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed', date: 1,
+      players: { Sifat: { nil: 0 }, Nur: { nil: 2 } } }]),
+  };
+});
+// champions 10 + two 10-0s; runner-up 5 - one 10-0; 5 - three, floored at 0
+assert.deepEqual([tenCoins.paid.Sifat, tenCoins.paid.Ofi, tenCoins.paid.Nur, tenCoins.paid.Rashed, tenCoins.paid.Toufiq],
+  [20, 15, 0, 0, 0], 'a 10-0 in the cup did not pay five and take five, floored at zero');
+assert.deepEqual([tenCoins.old.Sifat, tenCoins.old.Nur], [10, 5], 'a cup saved before 10-0s paid moved a balance');
 
 /* A nil pays double and costs double, free or bet, never below zero — and only
    when the claim carried the To nil box. Results are filed 1-0, so the score

@@ -256,6 +256,12 @@ everything.
 So a challenge win pays. **Two coins** to each player on the winning side of a
 settled score; a draw, a loss and an unconfirmed claim pay nothing.
 
+A cup match played out 10-0 pays each winner **five** and takes five from each
+loser, never below zero, when the champion is saved. It is read off the cup's
+per-player rollup: `nil` (finished on nought) and `nilWon` (kept the other side
+on nought). Only entries carrying `nilWon` pay, so no cup saved before it moves
+a balance. A forfeit has no goal breakdown and a 0-0 is a no-show, so neither counts.
+
 Coins stay on the challenge board. They buy nothing in the Cup — not a draw, not
 a match, not a title. A re-spin at the draft and a freeze on a match card were
 both built and taken out again: the draw lands a team the moment the wheels stop.

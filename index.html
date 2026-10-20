@@ -2328,6 +2328,8 @@ Nur</textarea>
         both sides have agreed who won.</li>
         <li>A loss pays nothing, and a result still waiting to be confirmed pays
         nothing until it is.</li>
+        <li>A <b>10-0 in the cup</b> pays each winner <b>+5</b> and costs each loser 5,
+        once the champion is saved. Nobody goes below zero.</li>
         <li>The <b>Track</b> tab is a climb of ten stages a month, one goal each.
         Clearing one pays its prize, +3 at the bottom up to +25 at the top.</li>
       </ul>
@@ -3573,8 +3575,10 @@ const seatName = s => s ? EMAIL_NAMES[s.email] : undefined;
    written from the first cup after this shipped, so no old cup is back-paid. An
    undone final deletes the entry and its coins with it. The Golden Boot and
    Golden Glove pay five to each holder, a shared award paying every one of them
-   in full, and only on those same entries. */
-const CUP_WIN = 10, CUP_RUNNER = 5, CUP_AWARD = 5;
+   in full, and only on those same entries. A match won 10-0 pays each winner five
+   and takes five from each loser, nobody below zero — read off the rollup's
+   `nilWon` and `nil`, and only where `nilWon` is there, so no older cup moves. */
+const CUP_WIN = 10, CUP_RUNNER = 5, CUP_AWARD = 5, CUP_NIL = 5;
 
 /* What coins buy, all on the challenge board. A spend is a row in `spends` the
    walk honours only if the buyer holds the price at that moment — the same test
@@ -3812,6 +3816,11 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const aw = e.awards || {};
     (aw.boot || []).forEach(n => pay(n, CUP_AWARD, 'Golden Boot', true));
     (aw.glove || []).forEach(n => pay(n, CUP_AWARD, 'Golden Glove', true));
+    Object.entries(e.players || {}).forEach(([n, s]) => {
+      if (!s || s.nilWon === undefined) return;
+      for (let i = 0; i < s.nilWon; i++) ev.push({ t: e.date || 0, tenNil: CUP_NIL, who: n, why: 'Won 10-0 in the cup' });
+      for (let i = 0; i < (s.nil || 0); i++) ev.push({ t: e.date || 0, tenNil: -CUP_NIL, who: n, why: 'Lost 10-0 in the cup' });
+    });
   });
   // a champion saved settles the bets on its cup, whether or not the cup pays prizes
   (cups || []).filter(e => e && e.id && e.champion && drawn[e.id])
@@ -3917,6 +3926,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       if (h) { move(h.by, h.amt, `Nobody beat ${h.on}: your bounty back`, e.t); bounties = bounties.filter(x => x !== h); }
       return;
     }
+    if (e.tenNil) return move(e.who, Math.max(e.tenNil, -bal[e.who]), e.why, e.t);
     if (e.cup) return e.up.forEach(n => { move(n, e.cup, e.why, e.t); hit(n, { k: e.award ? 'award' : 'final' }, e.t); });
     // the same line as a side bet: one that can't be covered any more doesn't stand
     if (e.settle) return (cupBets[e.settle] || []).forEach(x => {
@@ -7010,9 +7020,9 @@ function renderBracket() {
    never a goal to anybody's name. */
 function rollupPlayers() {
   const P = {};
-  const add = (name, w, gf, ga, g, nil) => {
-    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0, g: 0, nil: 0 });
-    x.p++; x.w += w; x.gf += gf; x.ga += ga; x.g += g; x.nil += nil;
+  const add = (name, w, gf, ga, g, nil, nilWon) => {
+    const x = P[name] || (P[name] = { p: 0, w: 0, gf: 0, ga: 0, g: 0, nil: 0, nilWon: 0 });
+    x.p++; x.w += w; x.gf += gf; x.ga += ga; x.g += g; x.nil += nil; x.nilWon += nilWon;
   };
   /* `nil` is the one thing a per-cup total can never give back: goals for are
      summed across the cup, so a match that finished 0 is invisible the moment
@@ -7024,9 +7034,9 @@ function rollupPlayers() {
      predate this. */
   const credit = (team, won, gf, ga, p) => {
     if (!team) return;
-    const nil = p && gf === 0 ? 1 : 0;
-    add(team.fwd, won, gf, ga, (p && p.fwd) || 0, nil);
-    add(team.def, won, gf, ga, (p && p.def) || 0, nil);
+    const nil = p && gf === 0 ? 1 : 0, nilWon = p && won && ga === 0 ? 1 : 0; // the other side of it, for the coins
+    add(team.fwd, won, gf, ga, (p && p.fwd) || 0, nil, nilWon);
+    add(team.def, won, gf, ga, (p && p.def) || 0, nil, nilWon);
   };
   const play = m => {
     if (!m.winner || !m.a || !m.b) return;
