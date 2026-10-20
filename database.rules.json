@@ -28,6 +28,13 @@
         ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20"
       }
     },
+    "holidays": {
+      ".read": true,
+      "$from": {
+        ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'",
+        ".validate": "$from.matches(/^\\d{4}-\\d{2}-\\d{2}$/) && newData.isString() && newData.val().matches(/^\\d{4}-\\d{2}-\\d{2}$/) && newData.val() >= $from"
+      }
+    },
     "cupDrawn": {
       ".read": true,
       "$cup": {

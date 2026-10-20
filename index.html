@@ -1127,14 +1127,14 @@
     font: inherit; font-size: 0.82rem; font-weight: 800; padding: 8px 16px; cursor: pointer;
     border: 2px solid #e7ecf3; border-radius: 10px; background: #fff; color: #17854a;
   }
-  #prAddNote { margin: 6px 4px 0; min-height: 1.1em; color: #b03636; font-size: 0.8rem; font-weight: 600; }
+  #prAddNote, #prHolNote { margin: 6px 4px 0; min-height: 1.1em; color: #b03636; font-size: 0.8rem; font-weight: 600; }
   .pr-added {
     display: flex; justify-content: space-between; align-items: center; gap: 8px;
     margin: 0 4px 6px; font-size: 0.85rem; overflow-wrap: anywhere;
   }
   .pr-added i { color: #8fa0b8; font-style: normal; }
   .pr-added button { color: #b03636; padding: 4px 12px; flex: none; overflow-wrap: normal; }
-  #prAdded { margin-bottom: 22px; }
+  #prAdded, #prHols { margin-bottom: 22px; }
   .pr-sub { color: #8fa0b8; font-size: 0.78rem; font-weight: 600; margin-top: 3px; }
   .pr-stats {
     display: grid; grid-template-columns: repeat(auto-fit, minmax(62px, 1fr));
@@ -2004,6 +2004,14 @@
       <div id="prAddNote"></div>
       <div class="pr-h">All players</div>
       <div id="prAdded"></div>
+      <div class="pr-h">Holidays · a tree's water pays double</div>
+      <form class="pr-add" id="prHolForm">
+        <input id="prHolFrom" type="date" aria-label="First day" required>
+        <input id="prHolTo" type="date" aria-label="Last day" required>
+        <button>Add</button>
+      </form>
+      <div id="prHolNote"></div>
+      <div id="prHols"></div>
     </div>
     <div class="pr-foot">
       <button id="profileClose">Close</button>
@@ -2384,7 +2392,8 @@ Nur</textarea>
           <div><img src="icons/tree/oak.png" alt=""><b>Old oak</b><span>Grow · 100</span><span>+7 a day</span><em>6 profit</em></div>
         </div>
         A day's coins are worth the stage it was watered at, so growing after the
-        water pays the new amount from the next weekday.</li>
+        water pays the new amount from the next weekday. A water on a holiday pays
+        double.</li>
         <li><b>Bounty.</b> Put an even number of coins on a player for two days.
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
@@ -3419,6 +3428,28 @@ $('prAddForm').onsubmit = e => {
   $('prAddForm').reset();
 };
 
+window.renderHolidays = v => { holidays = v; paintHolidays(); renderChal(); }; // the walk pays by them
+function paintHolidays() {
+  $('prHols').replaceChildren(...Object.entries(holidays).sort().map(([a, b]) => {
+    const row = document.createElement('div'), x = document.createElement('button');
+    row.className = 'pr-added';
+    x.type = 'button';
+    x.textContent = 'Remove';
+    x.onclick = () => window.removeHoliday && window.removeHoliday(a);
+    row.append(a === b ? a : `${a} to ${b}`, x);
+    return row;
+  }));
+}
+$('prHolFrom').onchange = () => { if (!$('prHolTo').value) $('prHolTo').value = $('prHolFrom').value; };
+$('prHolForm').onsubmit = e => {
+  e.preventDefault();
+  const a = $('prHolFrom').value, b = $('prHolTo').value;
+  $('prHolNote').textContent = b < a ? 'The last day is before the first.' : '';
+  if (b < a || !window.addHoliday) return;
+  window.addHoliday(a, b);
+  $('prHolForm').reset();
+};
+
 /* Blue column then Red, forward row then defender: reading order is the grid,
    so the same four entries lay out the card and the create form. */
 const SEATS = [['bf', 'Blue', 'Forward'], ['rf', 'Red', 'Forward'],
@@ -3628,6 +3659,11 @@ const TREE_MISS = 3, TREE_KINDS = ['plant', 'grow', 'water', 'collect'];
    than it drinks. A water before then cost 2, and the walk still charges it. */
 const WATER_CHEAP_FROM = 1791482400000;
 const waterCost = t => t < WATER_CHEAP_FROM ? 2 : 1;
+/* Holidays a water pays double on, set by the admin from their profile:
+   first day -> last day, both local YYYY-MM-DD, which compare as strings. */
+var holidays = {};
+const isoDay = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const holiday = t => { const k = isoDay(t); return Object.entries(holidays).some(([a, b]) => a <= k && k <= b); };
 const TREE_PLAY = ['localhost', '127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('play');
 const RIPEN_MS = TREE_PLAY ? 2e4 : 3 * 36e5, RIPE_BY_HOUR = 21;
 
@@ -3803,7 +3839,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
           if (!cur || today || bal[who] < wc) return refuse(who, s, cur && !today);
           move(who, -wc, `Watered your ${TREE[cur.stage].name.toLowerCase()}`, s.at);
           // worth what the tree was when watered, whatever it grows into after
-          trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay, got: false };
+          trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay * (holiday(+s.at) ? 2 : 1), got: false };
         } else if (s.kind === 'collect') {
           // ripe, the same day, once: midnight takes what wasn't picked
           if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return refuse(who, s, false);
@@ -8007,6 +8043,14 @@ window.removePlayer = email => remove(ref(db, 'players/' + playerKey(email)))
   .catch(err => console.error('[players] remove failed:', err));
 onValue(ref(db, 'players'), snap => { window.renderPlayerList(snap.val() || {}); paintAuthBtn(); },
   err => console.error('[players] read failed:', err));
+
+// holidays: first day -> last day; the rules let only the admin write
+window.addHoliday = (a, b) => set(ref(db, 'holidays/' + a), b)
+  .catch(err => alert('Could not add the holiday: ' + err.message));
+window.removeHoliday = a => remove(ref(db, 'holidays/' + a))
+  .catch(err => console.error('[holidays] remove failed:', err));
+onValue(ref(db, 'holidays'), snap => window.renderHolidays(snap.val() || {}),
+  err => console.error('[holidays] read failed:', err));
 
 onValue(ref(db, 'cupDrawn'), snap => window.renderDrawn(snap.val() || {}),
   err => console.error('[cupDrawn] read failed:', err));

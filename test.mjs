@@ -3146,6 +3146,8 @@ const trees = await page.evaluate(s4 => {
     plantTwice: has(w([plant, again], D(6, 12)), again),
     replant: [has(w([plant, replant], D(9, 12)), replant), stage(w([plant, replant], D(9, 12)))],
     early: has(w([plant, early], D(6, 12)), early),
+    // the 20th to 21st are a holiday, the 22nd isn't: a sapling planted the day before, watered
+    holiday: (holidays = { '2026-10-20': '2026-10-21' }, [20, 21, 22].map(d => w([sp(D(d - 1), 'Sifat', 'plant'), sp(D(d), 'Sifat', 'water')], D(d, 15)).trees.Sifat.pay)),
   };
 }, String(seat4));
 assert.deepEqual(trees.built, [3, 15, true], 'plant and three grows on one day did not make an oak for 185, watered');
@@ -3162,6 +3164,7 @@ assert.deepEqual(trees.broke, [false, 0], 'a player on nought watered a tree');
 assert.equal(trees.plantTwice, false, 'a second tree was planted over a living one');
 assert.deepEqual(trees.replant, [true, 0], 'a dead sapling could not be planted over');
 assert.equal(trees.early, false, 'a tree grew without being watered that day');
+assert.deepEqual(trees.holiday, [4, 4, 2], "a holiday water did not pay the sapling's 2 double, or a plain day did");
 console.log('trees OK');
 
 /* Growing never shares the daily tap's spot: the row offers no Grow at all,

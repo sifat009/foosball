@@ -406,6 +406,11 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(await put('suggestions/k1/9_9', NEW, sug(NEW)), 'a player the admin added could not suggest');
   assert.ok(!await del(NEWKEY, B1), 'a player removed somebody from the list');
   assert.ok(await del(NEWKEY, ADMIN) && await del('suggestions/k1/9_9', ADMIN), 'the admin could not remove a player');
+  // holidays: only the admin sets them, as first day -> a last day not before it
+  assert.ok(!await put('holidays/2026-10-20', B1, '2026-10-21'), 'a player set a holiday');
+  assert.ok(!await put('holidays/2026-10-20', ADMIN, '2026-10-19'), 'a holiday ended before it began');
+  assert.ok(await put('holidays/2026-10-20', ADMIN, '2026-10-21'), 'the admin could not set a holiday');
+  assert.ok(await del('holidays/2026-10-20', ADMIN), 'the admin could not remove a holiday');
 
   // a player suggested: only the other side may approve
   let s = sug(B1);
