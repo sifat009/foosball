@@ -3839,7 +3839,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
           if (!cur || today || bal[who] < wc) return refuse(who, s, cur && !today);
           move(who, -wc, `Watered your ${TREE[cur.stage].name.toLowerCase()}`, s.at);
           // worth what the tree was when watered, whatever it grows into after
-          trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), pay: TREE[cur.stage].pay * (holiday(+s.at) ? 2 : 1), got: false };
+          trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), paidStage: cur.stage, pay: TREE[cur.stage].pay * (holiday(+s.at) ? 2 : 1), got: false };
         } else if (s.kind === 'collect') {
           // ripe, the same day, once: midnight takes what wasn't picked
           if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return refuse(who, s, false);
@@ -4002,7 +4002,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const t = treeAt(tr, now);
     if (!t) return;
     const watered = +t.day === +dayStart(now), coins = watered && tr.ripe;
-    treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, got: !!(coins && tr.got),
+    treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, paidStage: coins ? tr.paidStage : 0, got: !!(coins && tr.got),
       from: coins ? tr.at : null };
   });
   return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track };
@@ -4262,7 +4262,7 @@ function treeRow(me, bal, sheet) {
      be picked, gone once they are. Drawn for the stage they were watered at. */
   if (t && t.ripe && !t.got && !off) {
     const box = part('tree-coins' + (ripe ? ' ripe' : ''));
-    TREE_COINS[TREE.findIndex(x => x.pay === t.pay)].forEach(([x, y]) => {
+    TREE_COINS[t.paidStage].forEach(([x, y]) => {
       const c = part('tree-coin', '', 'i'); c.style.left = x + '%'; c.style.top = y + '%'; box.append(c);
     });
     pic.className += ' tree-' + t.stage;
