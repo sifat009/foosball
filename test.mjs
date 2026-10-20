@@ -3470,15 +3470,19 @@ const letter = await page.evaluate(f => {
   window.renderChallenges(f);
   const card = $('coinYou').querySelector('.gift-card');
   const before = [$('coinN').textContent, card && card.textContent, $('coins').classList.contains('coin-thirsty')];
+  const spendSealed = chalFree; // a sealed gift can't be spent, or the pill would go below nought
   card.querySelector('[data-gift]').click();
   const log = $('coinYou').querySelector('.gift-log');
   const after = [$('coinN').textContent, !!$('coinYou').querySelector('.gift-card'), log && log.textContent];
+  window.renderChallenges(f);
+  const spendOpen = chalFree;
   window.renderSpends({});
-  return { before, after };
+  return { before, after, spendSealed, spendOpen };
 }, BET);
 assert.deepEqual(letter.before, ['0', 'Sifat sent you 3 coins“Happy birthday!”Open', true],
   'a gift did not wait as a sealed letter: ' + JSON.stringify(letter.before));
 assert.equal(letter.after[0], '3', 'opening the letter did not count the gift in');
+assert.deepEqual([letter.spendSealed, letter.spendOpen], [0, 3], 'an unopened gift could be spent, taking the pill below zero');
 assert.equal(letter.after[1], false, 'an opened letter stayed sealed');
 assert.ok(/Sifat · \+3 · “Happy birthday!”/.test(letter.after[2]), 'the opened gift is not under Gifts: ' + letter.after[2]);
 await page.emulateMedia({ reducedMotion: null });

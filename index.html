@@ -4258,7 +4258,7 @@ function treeGrowPage(t, free, off) {
    that one gets the growth path and the page behind it. */
 function treeRow(me, bal, sheet) {
   const t = chalTrees[me], now = Date.now(), off = weekend(new Date(now)), st = t && TREE[t.stage];
-  const free = bal - chalHeld(me), dry = !!t && !t.watered && !off;
+  const free = bal - chalHeld(me) - sealedAmt(), dry = !!t && !t.watered && !off;
   if (sheet && treeOpen && t && TREE[t.stage + 1]) return treeGrowPage(t, free, off);
   const ripe = !!t && !!t.ripe && !t.got && now >= t.ripe;
   const row = part('coin-tree'), pic = part('tree-pic');
@@ -4347,8 +4347,11 @@ function treeRow(me, bal, sheet) {
 }
 
 // what the pill shows: a gift you sealed is gone from your purse until it's opened
-const myFree = () => myCoins() === null ? null
-  : myCoins() - sealedGifts().reduce((t, g) => t + g.amt, 0);
+const sealedAmt = () => sealedGifts().reduce((t, g) => t + g.amt, 0);
+const myFree = () => myCoins() === null ? null : myCoins() - sealedAmt();
+/* What the reader can spend: off the table, and not a gift they haven't opened —
+   the pill hides that one, so spending it would take the pill below nought. */
+const mySpendable = me => (coinBal()[me] || 0) - chalHeld(me) - sealedAmt();
 
 /* player -> their history lines from the walk; set where the flair is. */
 var coinLog = {}, histShown = 30;
@@ -4568,7 +4571,7 @@ function renderTrack() {
       const go = part('trk-go'), bar = part('trk-bar'), fill = part('', '', 'i');
       fill.style.width = (100 * mine.count / g.n) + '%';
       bar.append(fill);
-      const free = (coinBal()[me] || 0) - chalHeld(me);
+      const free = mySpendable(me);
       const skip = part('btn btn-gold trk-skip', `Skip · ${TRACK_PRIZE[sel]}`, 'button');
       skip.type = 'button'; skip.dataset.skip = TRACK_PRIZE[sel]; skip.disabled = free < TRACK_PRIZE[sel];
       if (skip.disabled) skip.title = `You have ${free} to spend`;
@@ -4667,7 +4670,7 @@ window.renderCoins = renderCoins;
 function spendCheck() {
   const me = myName(), kind = spKind, item = spItem();
   const amt = Math.round(+$('spAmt').value);
-  const free = (coinBal()[me] || 0) - chalHeld(me);
+  const free = mySpendable(me);
   // an icon is a flair row; the form only splits them to price and list them
   const row = { kind: kind === 'icon' ? 'flair' : kind };
   if (kind === 'flair') row.item = item;
@@ -5379,7 +5382,7 @@ function renderChal() {
   renderCoins(); // same inputs: the lobbies, and who is signed in
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
-  chalFree = name ? (coinBal()[name] || 0) - chalHeld(name) : null;
+  chalFree = name ? mySpendable(name) : null;
   renderCupBets(); // the same walk, and the free coins it bets from
 
   const hunts = $('chalHunts');
