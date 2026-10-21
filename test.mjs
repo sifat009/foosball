@@ -3229,6 +3229,43 @@ assert.deepEqual(growFlow, { rowGrow: false, page: true, back: true, offer: true
   'Grow sits in the tree row again, where a habit tap lands, or the path does not open and close its page');
 console.log('grow page OK');
 
+/* A card the admin wrote pays once to each player, claimed inside its days.
+   It pops up once on a device; closed unclaimed, a box waits until the claim. */
+const cardRun = await page.evaluate(() => {
+  const D = d => new Date(2026, 9, d, 10).getTime(), em = n => n.toLowerCase() + '@x.com';
+  const claim = (d, n, card = 'c1') => ({ at: D(d), by: em(n), kind: 'claim', card });
+  const fri = { title: 'Jumu’ah Mubarak', coins: 2, from: '2026-10-23', to: '2026-10-23' };
+  cards = { c1: fri };
+  const w = s => { const r = window.coinWalk([], [], s, D(30)); return [r.bal.Sifat, r.bal.Nur]; };
+  const out = {
+    once: w([claim(23, 'Sifat'), claim(23, 'Sifat'), claim(23, 'Nur')]),
+    early: w([claim(22, 'Sifat')]), late: w([claim(24, 'Sifat')]),
+    gone: w([claim(23, 'Sifat', 'nope')]),
+  };
+  // live today: the popup opens once, closes into the box, and the claim takes both away
+  const today = isoDay(Date.now());
+  try { localStorage.removeItem('cardSeen:c2'); } catch {}
+  window.setAccount(em('Sifat'));
+  window.renderSpends({});
+  window.renderCards({ c2: { title: 'Bonus', text: 'Hi', coins: 3, from: today, to: today } });
+  out.pop = [$('card').classList.contains('open'), $('cardBox').hidden, $('cardGo').textContent];
+  $('card').querySelector('.card-x').click();
+  out.box = [$('card').classList.contains('open'), $('cardBox').hidden];
+  window.renderChal();
+  out.again = $('card').classList.contains('open');
+  window.renderSpends({ k: { at: Date.now(), by: em('Sifat'), kind: 'claim', card: 'c2' } });
+  out.claimed = [$('card').classList.contains('open'), $('cardBox').hidden, walkNow().bal.Sifat];
+  window.renderCards({}); window.renderSpends({}); window.setAccount(null);
+  return out;
+});
+assert.deepEqual(cardRun.once, [2, 2], 'a card paid twice to one player, or not once to each');
+assert.deepEqual([cardRun.early, cardRun.late, cardRun.gone], [[0, 0], [0, 0], [0, 0]], 'a card paid outside its days, or one that is gone paid');
+assert.deepEqual(cardRun.pop, [true, true, 'Claim 3 coins'], 'a live card did not pop up with its claim');
+assert.deepEqual(cardRun.box, [false, false], 'closing a card unclaimed did not leave the box');
+assert.equal(cardRun.again, false, 'a card seen on this device popped up again');
+assert.deepEqual(cardRun.claimed, [false, true, 3], 'a claimed card still showed, or did not pay');
+console.log('cards OK');
+
 /* At the table: a seat facing the target needs a free coin; the target's
    partner needs nothing. Rashed has none. */
 const huntBoard = await page.evaluate(() => {

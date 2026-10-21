@@ -411,6 +411,15 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('holidays/2026-10-20', ADMIN, '2026-10-19'), 'a holiday ended before it began');
   assert.ok(await put('holidays/2026-10-20', ADMIN, '2026-10-21'), 'the admin could not set a holiday');
   assert.ok(await del('holidays/2026-10-20', ADMIN), 'the admin could not remove a holiday');
+  // cards: only the admin writes them, and a claim names one that exists
+  const CARD = { title: 'Jumu’ah Mubarak', text: 'Hi', coins: 2, from: '2026-10-23', to: '2026-10-23' };
+  assert.ok(!await put('cards/1', B1, CARD), 'a player wrote a card');
+  assert.ok(!await put('cards/1', ADMIN, { ...CARD, coins: 21 }), 'a card paid more than 20');
+  assert.ok(!await put('cards/1', ADMIN, { ...CARD, to: '2026-10-22' }), 'a card ended before it began');
+  assert.ok(await put('cards/1', ADMIN, CARD), 'the admin could not write a card');
+  assert.ok(!await put('spends/cl0', B1, { by: B1, at: NOW, kind: 'claim', card: '2' }), 'a claim on a card that does not exist');
+  assert.ok(await put('spends/cl1', B1, { by: B1, at: NOW, kind: 'claim', card: '1' }), 'a player could not claim a card');
+  assert.ok(await del('cards/1', ADMIN) && await del('spends/cl1', ADMIN), 'the admin could not remove a card');
 
   // a player suggested: only the other side may approve
   let s = sug(B1);
