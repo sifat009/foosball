@@ -1137,11 +1137,35 @@
   .pr-add textarea { flex: 1 1 100%; min-width: 0; height: 84px; background: #fff; line-height: 1.5; font: inherit; font-size: 0.9rem; padding: 8px 12px;
     border: 2px solid #e7ecf3; border-radius: 10px; color: #16233a; resize: vertical; }
   .pr-add textarea:focus { border-color: #17854a; outline: none; }
+  #prCardStyle { flex: 1 1 100%; font: inherit; font-size: 0.9rem; padding: 8px 12px;
+    border: 2px solid #e7ecf3; border-radius: 10px; color: #16233a; background: #fff; }
   #prCardCoins { flex: 0 1 70px; }
   #prCards { margin-bottom: 22px; }
   /* a card the admin wrote: each line finds its own direction, so Arabic reads right to left */
   #card .hall-card { max-width: 380px; text-align: center; }
-  #cardText { white-space: pre-line; unicode-bidi: plaintext; font-size: 1rem; line-height: 1.7; color: #172b4d; margin: 0; }
+  #cardText { font-size: 1rem; line-height: 1.7; color: #172b4d; }
+  #cardText .ar { font-size: 1.5em; line-height: 1.8; }
+  /* the styles the admin picks from: gold is the default, and every older card */
+  #card .card-x { box-shadow: none; }
+  #card .hall-card { position: relative; }
+  #card[data-style="jumuah"] .hall-card { background: linear-gradient(180deg, #0f5132, #17854a); }
+  #card[data-style="jumuah"] .hall-card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+    background: radial-gradient(circle at 18% 14%, rgba(255,255,255,0.2) 0 2px, transparent 3px),
+      radial-gradient(circle at 82% 30%, rgba(255,255,255,0.2) 0 2px, transparent 3px),
+      radial-gradient(circle at 62% 7%, rgba(255,255,255,0.3) 0 1.5px, transparent 2.5px),
+      radial-gradient(circle at 10% 70%, rgba(255,255,255,0.15) 0 1.5px, transparent 2.5px); }
+  #card[data-style="jumuah"] .hall-title, #card[data-style="jumuah"] #cardText { color: #fff; }
+  #card[data-style="jumuah"] #cardText { font-size: 1.1rem; }
+  #card[data-style="jumuah"] .card-x { background: rgba(255,255,255,0.15); color: #fff; }
+  #card[data-style="jumuah"] #cardGo { background: #f7d878; color: #5a3d00; border-color: #f7d878; box-shadow: none; }
+  #card[data-style="party"] .hall-card { background: linear-gradient(160deg, #fff7e0, #ffe2ef); }
+  #card[data-style="party"] .hall-card::before { content: '\2726  \2727  \2726  \2727  \2726'; display: block; color: #e0a526; font-size: 1.2rem; margin-bottom: 4px; }
+  #card[data-style="party"] .hall-title { color: #b0306a; }
+  #card[data-style="party"] .card-x { background: rgba(255,255,255,0.7); }
+  #card[data-style="party"] #cardGo { background: linear-gradient(135deg, #e85d9a, #b0306a); color: #fff; border: 0; box-shadow: none; }
+  #card[data-style="notice"] .hall-card { border-top: 6px solid #2563eb; }
+  #card[data-style="notice"] .hall-title { color: #1e3a8a; }
+  #card[data-style="notice"] #cardGo { background: #2563eb; color: #fff; border: 0; box-shadow: none; }
   #cardGo { width: 100%; margin-top: 18px; padding: 13px; font-size: 0.95rem; }
   /* closed without claiming: the coins wait in a box over the tab bar */
   #cardBox {
@@ -2022,6 +2046,10 @@
       <form class="pr-add" id="prCardForm">
         <input id="prCardTitle" placeholder="Title" maxlength="40" required>
         <input id="prCardCoins" type="number" min="0" max="20" value="2" aria-label="Coins" required>
+        <select id="prCardStyle" aria-label="Style">
+          <option value="gold">Gold</option><option value="jumuah">Jumu'ah</option>
+          <option value="party">Celebration</option><option value="notice">Notice</option>
+        </select>
         <textarea id="prCardText" placeholder="Text" maxlength="500" rows="3"></textarea>
         <input id="prCardFrom" type="date" aria-label="First day" required>
         <input id="prCardTo" type="date" aria-label="Last day" required>
@@ -2347,7 +2375,7 @@ Nur</textarea>
 <div id="card">
   <div class="hall-card">
     <div class="hall-title" id="cardTitle"></div>
-    <div class="sheet-body"><p id="cardText"></p></div>
+    <div class="sheet-body"><div id="cardText"></div></div>
     <button type="button" class="btn btn-gold" id="cardGo"></button>
   </div>
 </div>
@@ -3511,7 +3539,7 @@ $('prCardForm').onsubmit = e => {
   $('prCardNote').textContent = b < a ? 'The last day is before the first.' : '';
   if (b < a || !window.addCard) return;
   const text = $('prCardText').value.trim();
-  window.addCard({ title: $('prCardTitle').value.trim(), coins: n, from: a, to: b, ...(text && { text }) });
+  window.addCard({ title: $('prCardTitle').value.trim(), coins: n, from: a, to: b, style: $('prCardStyle').value, ...(text && { text }) });
   $('prCardForm').reset();
 };
 $('prHolForm').onsubmit = e => {
@@ -4307,7 +4335,13 @@ function paintCard() {
   if (!c) { $('card').classList.remove('open'); return; }
   $('cardAmt').textContent = '+' + c.coins;
   $('cardTitle').textContent = c.title; // textContent: the admin typed it
-  $('cardText').textContent = c.text || '';
+  $('card').dataset.style = c.style || 'gold';
+  // a line each, finding its own direction; an Arabic line is set larger
+  $('cardText').replaceChildren(...(c.text || '').split('\n').map(l => {
+    const d = part(/[\u0600-\u06ff]/.test(l) ? 'ar' : '', l || '\u00a0');
+    d.dir = 'auto';
+    return d;
+  }));
   $('cardGo').textContent = c.coins > 0 ? `Claim ${c.coins} coin${c.coins === 1 ? '' : 's'}` : 'OK';
   $('cardGo').dataset.card = c.id;
   if (!cardSeen(c.id)) { setCardSeen(c.id); $('card').classList.add('open'); $('cardBox').hidden = true; }

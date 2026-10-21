@@ -416,7 +416,8 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('cards/1', B1, CARD), 'a player wrote a card');
   assert.ok(!await put('cards/1', ADMIN, { ...CARD, coins: 21 }), 'a card paid more than 20');
   assert.ok(!await put('cards/1', ADMIN, { ...CARD, to: '2026-10-22' }), 'a card ended before it began');
-  assert.ok(await put('cards/1', ADMIN, CARD), 'the admin could not write a card');
+  assert.ok(!await put('cards/1', ADMIN, { ...CARD, style: 'neon' }), 'a card took a style there is none of');
+  assert.ok(await put('cards/1', ADMIN, { ...CARD, style: 'jumuah' }), 'the admin could not write a card');
   assert.ok(!await put('spends/cl0', B1, { by: B1, at: NOW, kind: 'claim', card: '2' }), 'a claim on a card that does not exist');
   assert.ok(await put('spends/cl1', B1, { by: B1, at: NOW, kind: 'claim', card: '1' }), 'a player could not claim a card');
   assert.ok(await del('cards/1', ADMIN) && await del('spends/cl1', ADMIN), 'the admin could not remove a card');

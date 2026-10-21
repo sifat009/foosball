@@ -3247,8 +3247,9 @@ const cardRun = await page.evaluate(() => {
   try { localStorage.removeItem('cardSeen:c2'); } catch {}
   window.setAccount(em('Sifat'));
   window.renderSpends({});
-  window.renderCards({ c2: { title: 'Bonus', text: 'Hi', coins: 3, from: today, to: today } });
+  window.renderCards({ c2: { title: 'Bonus', text: 'Hi\n\u0633\u0644\u0627\u0645', coins: 3, from: today, to: today, style: 'jumuah' } });
   out.pop = [$('card').classList.contains('open'), $('cardBox').hidden, $('cardGo').textContent];
+  out.look = [$('card').dataset.style, [...$('cardText').children].map(d => d.className)];
   $('card').querySelector('.card-x').click();
   out.box = [$('card').classList.contains('open'), $('cardBox').hidden];
   window.renderChal();
@@ -3261,6 +3262,7 @@ const cardRun = await page.evaluate(() => {
 assert.deepEqual(cardRun.once, [2, 2], 'a card paid twice to one player, or not once to each');
 assert.deepEqual([cardRun.early, cardRun.late, cardRun.gone], [[0, 0], [0, 0], [0, 0]], 'a card paid outside its days, or one that is gone paid');
 assert.deepEqual(cardRun.pop, [true, true, 'Claim 3 coins'], 'a live card did not pop up with its claim');
+assert.deepEqual(cardRun.look, ['jumuah', ['', 'ar']], 'a card did not wear its style, or its Arabic line was not set larger');
 assert.deepEqual(cardRun.box, [false, false], 'closing a card unclaimed did not leave the box');
 assert.equal(cardRun.again, false, 'a card seen on this device popped up again');
 assert.deepEqual(cardRun.claimed, [false, true, 3], 'a claimed card still showed, or did not pay');
