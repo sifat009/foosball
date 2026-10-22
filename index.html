@@ -1750,7 +1750,13 @@
   .ch-rhunt { flex-basis: 100%; order: 9; font-size: 0.72rem; font-weight: 800; color: #96660a; }
   .ch-rhunt.claimed { color: #17854a; }
   /* the side bets on a result, a tap on it away: hidden until then */
-  .ch-rrow.bets { cursor: pointer; }
+  .ch-rrow.bets { cursor: pointer; -webkit-tap-highlight-color: transparent; border-radius: 8px; }
+  .ch-rrow.bets:active { background: #f4f6fa; }
+  /* the pill that says a row opens, and how many bets are in it */
+  .ch-rmore { flex: none; align-self: center; font-size: 0.68rem; font-weight: 800; color: #5b6a7d; background: #eef1f6; border-radius: 999px; padding: 3px 8px 3px 9px; white-space: nowrap; }
+  .ch-rmore::after { content: ""; display: inline-block; width: 5px; height: 5px; margin: 0 0 2px 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); transition: transform 0.15s; }
+  .ch-rrow.open .ch-rmore { background: #172b4d; color: #fff; }
+  .ch-rrow.open .ch-rmore::after { transform: rotate(-135deg); margin-bottom: -1px; }
   .ch-rbl { flex-basis: 100%; order: 10; display: none; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: #5b6a7d; }
   .ch-rrow.open .ch-rbl { display: flex; }
   .ch-rbl .coin-disc { width: 13px; height: 13px; flex: none; }
@@ -5637,6 +5643,7 @@ function renderChal() {
         l.append(part('coin-disc', '', 'span'), t, part('', x.won ? `won +${x.amt}` : `lost ${x.amt}`, 'i'));
         row.append(l);
       });
+      row.append(part('ch-rmore', `${bets.length} bet${bets.length > 1 ? 's' : ''}`, 'span'));
       const show = on => { row.classList.toggle('open', on); row.setAttribute('aria-expanded', on); };
       const flip = () => { betsOpen.has(c.id) ? betsOpen.delete(c.id) : betsOpen.add(c.id); show(betsOpen.has(c.id)); };
       row.classList.add('bets');

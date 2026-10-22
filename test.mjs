@@ -3848,7 +3848,8 @@ const revealed = await page.evaluate(() => {
     x2: { at: 160, by: em('Toufiq'), kind: 'bet', game: 'g', side: 'b', amt: 3 } });
   const row = [...$('chalRecent').querySelectorAll('.ch-rrow')].find(r => /Sifat/.test(r.textContent));
   const vis = () => [...row.querySelectorAll('.ch-rbl')].filter(l => getComputedStyle(l).display !== 'none').map(l => l.textContent);
-  const out = { before: vis(), others: $('chalRecent').querySelectorAll('.ch-rrow.bets').length };
+  const out = { before: vis(), others: $('chalRecent').querySelectorAll('.ch-rrow.bets').length,
+    pills: [...$('chalRecent').querySelectorAll('.ch-rmore')].map(p => p.textContent) };
   row.click();
   out.after = vis();
   window.renderSpends(allSpends); // a live repaint keeps it open
@@ -3857,6 +3858,7 @@ const revealed = await page.evaluate(() => {
   return out;
 });
 assert.deepEqual(revealed.before, [], 'the bets showed before the result was tapped');
+assert.deepEqual(revealed.pills, ['2 bets'], 'the tappable result has no pill saying so');
 assert.equal(revealed.others, 1, 'a result with no bets on it became tappable');
 assert.deepEqual(revealed.after, ['You on Sifat & Ofiwon +3', 'Shewa on Nur & Rashedlost 4'], 'the tapped result did not list its bets');
 assert.equal(revealed.kept, 1, 'a repaint closed the opened result');
