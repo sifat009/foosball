@@ -3836,6 +3836,30 @@ assert.deepEqual(hid.nur.chips, [], 'a player can see who bet on their game');
 assert.doesNotMatch(hid.nur.text, /Shewa|10 coins on/, 'a player can see where the money is');
 assert.deepEqual(hid.shewa.chips, ['You 10'], 'a bettor does not see their own bet');
 assert.doesNotMatch(hid.shewa.text, /Toufiq/, 'a bettor can see somebody else\'s bet');
+// once the game is agreed, a tap on its result shows who bet on which pair
+const revealed = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (at, ...ns) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), at: at[i] }]));
+  const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { at: i, slots: S([], 'Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'), score: { b: 1, r: 0, at: i } }]));
+  rows.g = { at: 50, slots: S([90, 95, 99, 100], 'Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 500 } };
+  window.setAccount(em('Toufiq'));
+  window.renderChallenges(rows);
+  window.renderSpends({ x1: { at: 150, by: em('Shewa'), kind: 'bet', game: 'g', side: 'r', amt: 4 },
+    x2: { at: 160, by: em('Toufiq'), kind: 'bet', game: 'g', side: 'b', amt: 3 } });
+  const row = [...$('chalRecent').querySelectorAll('.ch-rrow')].find(r => /Sifat/.test(r.textContent));
+  const vis = () => [...row.querySelectorAll('.ch-rbl')].filter(l => getComputedStyle(l).display !== 'none').map(l => l.textContent);
+  const out = { before: vis(), others: $('chalRecent').querySelectorAll('.ch-rrow.bets').length };
+  row.click();
+  out.after = vis();
+  window.renderSpends(allSpends); // a live repaint keeps it open
+  out.kept = [...$('chalRecent').querySelectorAll('.ch-rrow.open')].length;
+  window.setAccount(null); window.renderChallenges({}); window.renderSpends({});
+  return out;
+});
+assert.deepEqual(revealed.before, [], 'the bets showed before the result was tapped');
+assert.equal(revealed.others, 1, 'a result with no bets on it became tappable');
+assert.deepEqual(revealed.after, ['You on Sifat & Ofiwon +3', 'Shewa on Nur & Rashedlost 4'], 'the tapped result did not list its bets');
+assert.equal(revealed.kept, 1, 'a repaint closed the opened result');
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); window.renderSpends({}); });
 console.log('side bets OK');
 

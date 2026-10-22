@@ -1749,6 +1749,15 @@
   .ch-rrow:last-child { border-bottom: 0; }
   .ch-rhunt { flex-basis: 100%; order: 9; font-size: 0.72rem; font-weight: 800; color: #96660a; }
   .ch-rhunt.claimed { color: #17854a; }
+  /* the side bets on a result, a tap on it away: hidden until then */
+  .ch-rrow.bets { cursor: pointer; }
+  .ch-rbl { flex-basis: 100%; order: 10; display: none; align-items: center; gap: 6px; font-size: 0.72rem; font-weight: 700; color: #5b6a7d; }
+  .ch-rrow.open .ch-rbl { display: flex; }
+  .ch-rbl .coin-disc { width: 13px; height: 13px; flex: none; }
+  .ch-rbl b { color: #172b4d; font-weight: 800; }
+  .ch-rbl i { margin-left: auto; font-style: normal; font-weight: 900; color: #17854a; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ch-rbl.bad i { color: #b3bdcc; }
+  .ch-rbl.bad .coin-disc { opacity: 0.35; filter: grayscale(1); }
   .ch-rt { flex: 1; min-width: 0; font-size: 0.82rem; font-weight: 700; color: #5b6a7d; overflow-wrap: anywhere; }
   .ch-rt b { color: #172b4d; }
   .ch-rs { font-size: 0.86rem; font-weight: 900; color: #172b4d; white-space: nowrap; }
@@ -4199,6 +4208,8 @@ const chalHeld = name => !name ? 0 : Object.values(allChal || {})
   + (cupLive() ? (cupWagers[cupId] || []).filter(x => x.who === name).reduce((m, x) => m + x.amt, 0) : 0);
 /* game id -> the bets from the side the walk let stand; set where the flair is. */
 var chalWagers = {};
+// the results somebody tapped open, kept across the repaints a live board does
+const betsOpen = new Set();
 /* cup id -> the bets on who wins it, likewise. A cup abandoned before a champion
    stops holding them once the screen leaves it: Start Over lands on setup. */
 var cupWagers = {};
@@ -5268,7 +5279,7 @@ function wagerPanel(c) {
     box.append(n);
   } else if (pick) box.append(wagerDrawer(c, pick));
   else box.append(part('ch-note', (can ? 'Tap the pair you think will win. ' : '')
-    + 'Who bet on which pair stays hidden until the score is in.'));
+    + 'Who bet on which pair stays hidden until the score is in. Then tap the result to see.'));
   return box;
 }
 function wagerDrawer(c, side) {
@@ -5613,6 +5624,29 @@ function renderChal() {
     (chalTags[c.id] || []).forEach(g => row.append(part('ch-rhunt' + (g.won ? '' : ' claimed'),
       g.won ? `${g.on} survived the bounty \u00b7 ${g.paid} to ${g.by}`
         : `Bounty on ${g.on} claimed \u00b7 +${g.paid} each`)));
+    /* Who bet on which pair, now the game can't be thrown against them: a tap
+       on the result shows it. Winners first. A bet that couldn't be covered
+       when it settled was never won or lost, so it isn't here. */
+    const bets = (chalWagers[c.id] || []).filter(x => x.won !== undefined).sort((x, y) => y.won - x.won);
+    if (bets.length) {
+      const me = myName();
+      bets.forEach(x => {
+        const l = part('ch-rbl' + (x.won ? '' : ' bad'));
+        const t = part('', '', 'span');
+        t.append(part('', x.who === me ? 'You' : x.who, 'b'), ` on ${x.on}`); // textContent: names are user input
+        l.append(part('coin-disc', '', 'span'), t, part('', x.won ? `won +${x.amt}` : `lost ${x.amt}`, 'i'));
+        row.append(l);
+      });
+      const show = on => { row.classList.toggle('open', on); row.setAttribute('aria-expanded', on); };
+      const flip = () => { betsOpen.has(c.id) ? betsOpen.delete(c.id) : betsOpen.add(c.id); show(betsOpen.has(c.id)); };
+      row.classList.add('bets');
+      row.tabIndex = 0;
+      row.setAttribute('role', 'button');
+      show(betsOpen.has(c.id));
+      // the Wrong winner? link is its own control
+      row.onclick = e => { if (!e.target.closest('button')) flip(); };
+      row.onkeydown = e => { if (e.target === row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); flip(); } };
+    }
     const said = w ? (w === 'b' ? pairName(c, 'bf', 'bd') : pairName(c, 'rf', 'rd')) + ' won' + (c.score.nil ? ' to nil' : '') : 'Drawn';
     row.title = b + r > 1 ? `${said} ${b}\u2013${r}` : said; // an old row still has its score
     rec.append(row);
