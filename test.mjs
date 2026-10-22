@@ -3256,9 +3256,19 @@ const cardRun = await page.evaluate(() => {
   out.again = $('card').classList.contains('open');
   window.renderSpends({ k: { at: Date.now(), by: em('Sifat'), kind: 'claim', card: 'c2' } });
   out.claimed = [$('card').classList.contains('open'), $('cardBox').hidden, walkNow().bal.Sifat];
+  // the admin's preview: the form's card, and its button spends nothing
+  let spent = 0; const sc = window.spendCoins; window.spendCoins = () => spent++;
+  $('prCardTitle').value = 'Eid'; $('prCardCoins').value = 5; $('prCardStyle').value = 'party';
+  $('prCardPeek').click();
+  out.peek = [$('card').classList.contains('open'), $('cardTitle').textContent, $('card').dataset.style, $('cardGo').textContent];
+  $('cardGo').click();
+  out.peekShut = [$('card').classList.contains('open'), spent];
+  window.spendCoins = sc; $('prCardForm').reset();
   window.renderCards({}); window.renderSpends({}); window.setAccount(null);
   return out;
 });
+assert.deepEqual(cardRun.peek, [true, 'Eid', 'party', 'Claim 5 coins'], 'the preview did not show the card from the form');
+assert.deepEqual(cardRun.peekShut, [false, 0], 'the preview did not close, or its button spent coins');
 assert.deepEqual(cardRun.once, [2, 2], 'a card paid twice to one player, or not once to each');
 assert.deepEqual([cardRun.early, cardRun.late, cardRun.gone], [[0, 0], [0, 0], [0, 0]], 'a card paid outside its days, or one that is gone paid');
 assert.deepEqual(cardRun.pop, [true, true, 'Claim 3 coins'], 'a live card did not pop up with its claim');

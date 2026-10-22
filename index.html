@@ -2053,6 +2053,7 @@
         <textarea id="prCardText" placeholder="Text" maxlength="500" rows="3"></textarea>
         <input id="prCardFrom" type="date" aria-label="First day" required>
         <input id="prCardTo" type="date" aria-label="Last day" required>
+        <button type="button" id="prCardPeek">Preview</button>
         <button>Add</button>
       </form>
       <div id="prCardNote"></div>
@@ -4329,11 +4330,7 @@ const liveCard = () => {
   });
   return id ? Object.assign({ id }, cards[id]) : null;
 };
-function paintCard() {
-  const c = liveCard(), open = $('card').classList.contains('open');
-  $('cardBox').hidden = !c || !(c.coins > 0) || open;
-  if (!c) { $('card').classList.remove('open'); return; }
-  $('cardAmt').textContent = '+' + c.coins;
+function fillCard(c) {
   $('cardTitle').textContent = c.title; // textContent: the admin typed it
   $('card').dataset.style = c.style || 'gold';
   // a line each, finding its own direction; an Arabic line is set larger
@@ -4344,9 +4341,25 @@ function paintCard() {
   }));
   $('cardGo').textContent = c.coins > 0 ? `Claim ${c.coins} coin${c.coins === 1 ? '' : 's'}` : 'OK';
   $('cardGo').dataset.card = c.id;
+}
+function paintCard() {
+  if ($('card').dataset.preview) return; // the admin's preview is up; closing it repaints
+  const c = liveCard(), open = $('card').classList.contains('open');
+  $('cardBox').hidden = !c || !(c.coins > 0) || open;
+  if (!c) { $('card').classList.remove('open'); return; }
+  $('cardAmt').textContent = '+' + c.coins;
+  fillCard(c);
   if (!cardSeen(c.id)) { setCardSeen(c.id); $('card').classList.add('open'); $('cardBox').hidden = true; }
 }
-const closeCard = () => { $('card').classList.remove('open'); paintCard(); };
+const closeCard = () => { $('card').classList.remove('open'); delete $('card').dataset.preview; paintCard(); };
+// the card as players will see it, from the form; no id, so its button claims nothing
+$('prCardPeek').onclick = () => {
+  fillCard({ id: '', title: $('prCardTitle').value.trim() || 'Title', text: $('prCardText').value.trim(),
+    coins: +$('prCardCoins').value, style: $('prCardStyle').value });
+  $('card').dataset.preview = 1;
+  $('card').classList.add('open');
+  $('cardBox').hidden = true;
+};
 $('cardBox').onclick = () => { $('card').classList.add('open'); $('cardBox').hidden = true; };
 $('cardGo').onclick = () => {
   const id = $('cardGo').dataset.card, c = cards[id];
