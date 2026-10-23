@@ -272,7 +272,12 @@ async function main() {
          the first letter of the domain in it, which reads as a stray "S".
          Built with the URL constructor so a SITE_URL without a trailing slash
          can't silently produce a 404 and put the "S" back. */
+      /* Urgency high: at the default (normal) an idle Android phone in Doze
+         holds the push until it next wakes, so "Challenge on" arrived after
+         the betting window, or not at all. Every send here is a visible
+         notification, which is what FCM asks of high priority. */
       webpush: {
+        headers: { Urgency: 'high' },
         notification: { icon: new URL('icons/icon-192.png', SITE_URL).href },
         fcmOptions: { link: SITE_URL },
       },
