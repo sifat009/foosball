@@ -3178,6 +3178,17 @@ const trees = await page.evaluate(s4 => {
     early: has(w([plant, early], D(6, 12)), early),
     // the 20th to 21st are a holiday, the 22nd isn't: a sapling planted the day before, watered
     holiday: (holidays = { '2026-10-20': '2026-10-21' }, [20, 21, 22].map(d => w([sp(D(d - 1), 'Sifat', 'plant'), sp(D(d), 'Sifat', 'water')], D(d, 15)).trees.Sifat.pay)),
+    // before the 24th a holiday was missed like any weekday: the 6th off, the oak still drops by the 9th
+    oldHoliday: (holidays = { '2026-10-06': '2026-10-06' }, stage(w(oak, D(9)))),
+    /* From Saturday the 24th weekends and holidays are bonus days. A sapling
+       planted on Friday the 23rd waters on the Saturday for 4; a Saturday that
+       is also a holiday still pays 4, not 8. */
+    bonusSat: (holidays = {}, ((r, x) => [has(r = w([sp(D(23), 'Sifat', 'plant'), x], D(24, 15)), x), r.trees.Sifat.pay])(null, sp(D(24), 'Sifat', 'water'))),
+    bonusBoth: (holidays = { '2026-10-31': '2026-10-31' }, w([sp(D(30), 'Sifat', 'plant'), sp(D(31), 'Sifat', 'water')], D(31, 15)).trees.Sifat.pay),
+    // an oak made on the 23rd, left alone: by Thursday the 29th it has missed the 26th to 28th, unless the 27th is a holiday
+    bonusMiss: [(holidays = {}, stage(w(oak.map(x => ({ ...x, at: x.at + 18 * 864e5 })), D(29)))),
+      (holidays = { '2026-10-27': '2026-10-27' }, stage(w(oak.map(x => ({ ...x, at: x.at + 18 * 864e5 })), D(29))))],
+    _: (holidays = {}),
   };
 }, String(seat4));
 assert.deepEqual(trees.built, [3, 15, true], 'plant and three grows on one day did not make an oak for 185, watered');
@@ -3195,6 +3206,10 @@ assert.equal(trees.plantTwice, false, 'a second tree was planted over a living o
 assert.deepEqual(trees.replant, [true, 0], 'a dead sapling could not be planted over');
 assert.equal(trees.early, false, 'a tree grew without being watered that day');
 assert.deepEqual(trees.holiday, [4, 4, 2], "a holiday water did not pay the sapling's 2 double, or a plain day did");
+assert.equal(trees.oldHoliday, 2, 'a holiday before the 24th stopped counting as missed, so a past tree changed');
+assert.deepEqual(trees.bonusSat, [true, 4], 'a Saturday water after the 24th was refused, or did not pay double');
+assert.equal(trees.bonusBoth, 4, 'a holiday on a Saturday paid more than double');
+assert.deepEqual(trees.bonusMiss, [2, 3], 'three missed workdays did not drop the oak, or a holiday after the 24th counted as missed');
 console.log('trees OK');
 
 /* Growing never shares the daily tap's spot: the row offers no Grow at all,
@@ -3218,7 +3233,7 @@ const growFlow = await page.evaluate(() => {
   // a holiday says so before the water, and a water then draws its doubled coins
   window.renderHolidays({ [isoDay(now)]: isoDay(now) });
   window.renderSpends({ tp: { at: +d, by: 'sifat@x.com', kind: 'plant' } });
-  out.offer = weekend(new Date(now)) || you.querySelector('.tree-state').textContent === 'Holiday · get 4 coins';
+  out.offer = you.querySelector('.tree-state').textContent === 'Holiday · get 4 coins';
   window.renderSpends({ tp: { at: +d, by: 'sifat@x.com', kind: 'plant' }, tw: { at: now - 1000, by: 'sifat@x.com', kind: 'water' } });
   out.holiday = !!you.querySelector('.coin-tree');
   window.renderHolidays({});

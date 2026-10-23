@@ -520,7 +520,7 @@ the two things the relay watches directly — opening the node to every signed-i
 account would let any Google user push to every phone in the office.
 
 Trees are the third: the relay watches `/spends` and repeats the tree half of
-`coinWalk` (no balances) to ping each owner alone — at 11am on a weekday if
+`coinWalk` (no balances) to ping each owner alone — at 11am on a workday (not a weekend or holiday) if
 today's water isn't in, and when today's coins ripen. Its day is the office's,
 so it runs on `TZ=Asia/Dhaka` unless the environment says otherwise. Both sit
 behind the **Your tree** switch in the alerts drawer.

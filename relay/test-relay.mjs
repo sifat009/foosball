@@ -222,4 +222,16 @@ assert.equal(nextRemind(at(6, 9)), at(6, 11));
 assert.equal(nextRemind(at(6, 12)), at(7, 11));
 assert.equal(nextRemind(at(9, 15)), at(12, 11)); // Friday afternoon -> Monday
 
+/* From Saturday the 24th, weekends and holidays are bonus days: a Saturday water
+   counts, nobody is nagged on a holiday, and a holiday is never missed. */
+tr = treesOf(sp([{ by: me, at: at(23), kind: 'plant' }, { by: me, at: at(24), kind: 'water' }]), at(24, 12));
+assert.equal(tr[me].ripe, at(24, 13));
+const hols = { '2026-10-27': '2026-10-27' };
+const planted = sp([{ by: me, at: at(23), kind: 'plant' }]);
+assert.deepEqual(thirsty(treesOf(planted, at(27), hols), at(27), hols), []);
+// the sapling planted on Friday the 23rd has missed the 26th to 28th by the 29th, unless the 27th is a holiday
+assert.deepEqual(treesOf(planted, at(29)), {});
+assert.equal(treesOf(planted, at(29), hols)[me].stage, 0);
+assert.equal(nextRemind(at(26, 12), hols), at(28, 11)); // Monday afternoon, Tuesday off -> Wednesday
+
 console.log('ok');

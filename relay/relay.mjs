@@ -182,42 +182,51 @@ export const chalNews = (prev, c) => {
 export const TREE_MISS = 3, TREE_TOP = 3, RIPEN_MS = 3 * 36e5, RIPE_BY_HOUR = 21, REMIND_HOUR = 11;
 export const dayOf = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return +d; };
 const offDay = t => [0, 6].includes(new Date(t).getDay());
+/* From BONUS_FROM (midnight into 2026-10-24, Dhaka) weekends and the admin's
+   holidays are bonus days: a tree can be watered then, and a bonus day left
+   alone is never missed. Holidays are /holidays: first day -> last day, local
+   YYYY-MM-DD. */
+export const BONUS_FROM = 1792778400000;
+const isoDay = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const holiday = (t, hols) => { const k = isoDay(t); return Object.entries(hols || {}).some(([a, b]) => a <= k && k <= b); };
+const bonusDay = (t, hols) => t >= BONUS_FROM && (offDay(t) || holiday(t, hols));
 export const ripeAt = t => Math.min(t + RIPEN_MS, dayOf(t) + RIPE_BY_HOUR * 36e5);
-const weekdaysBetween = (a, b) => {
+const weekdaysBetween = (a, b, hols) => {
   let n = 0;
-  for (const d = new Date(a); d.setDate(d.getDate() + 1), +d < b;) if (!offDay(+d)) n++;
+  for (const d = new Date(a); d.setDate(d.getDate() + 1), +d < b;) if (!offDay(+d) && !bonusDay(+d, hols)) n++;
   return n;
 };
-const treeAt = (tr, t) => {
+const treeAt = (tr, t, hols) => {
   if (!tr) return null;
-  const stage = tr.stage - Math.floor(weekdaysBetween(tr.day, dayOf(t)) / TREE_MISS);
+  const stage = tr.stage - Math.floor(weekdaysBetween(tr.day, dayOf(t), hols) / TREE_MISS);
   return stage < 0 ? null : { ...tr, stage };
 };
 
 // email -> { stage, day, ripe } as of now; a dead tree is left out
-export const treesOf = (spends, now = Date.now()) => {
+export const treesOf = (spends, now = Date.now(), hols = {}) => {
   const trees = {};
   Object.values(spends || {}).filter(s => s && s.at && s.by && ['plant', 'water', 'grow'].includes(s.kind))
     .sort((a, b) => a.at - b.at).forEach(s => {
-      const t = +s.at, day = dayOf(t), cur = treeAt(trees[s.by], t), today = cur && cur.day === day;
-      if (offDay(t)) return;
+      const t = +s.at, day = dayOf(t), cur = treeAt(trees[s.by], t, hols), today = cur && cur.day === day;
+      if (offDay(t) && t < BONUS_FROM) return;
       if (s.kind === 'plant' && !cur) trees[s.by] = { stage: 0, day, ripe: null };
       else if (s.kind === 'water' && cur && !today) trees[s.by] = { stage: cur.stage, day, ripe: ripeAt(t) };
       else if (s.kind === 'grow' && today && cur.stage < TREE_TOP) trees[s.by] = { ...cur, stage: cur.stage + 1 };
     });
   const out = {};
-  Object.entries(trees).forEach(([e, tr]) => { const t = treeAt(tr, now); if (t) out[e] = t; });
+  Object.entries(trees).forEach(([e, tr]) => { const t = treeAt(tr, now, hols); if (t) out[e] = t; });
   return out;
 };
 
-// who to nag: a living tree with no water (or planting) today, on a weekday
-export const thirsty = (trees, now = Date.now()) =>
-  offDay(now) ? [] : Object.keys(trees).filter(e => trees[e].day !== dayOf(now));
+// who to nag: a living tree with no water (or planting) today, on a workday:
+// a weekend or holiday water is optional
+export const thirsty = (trees, now = Date.now(), hols = {}) =>
+  offDay(now) || holiday(now, hols) ? [] : Object.keys(trees).filter(e => trees[e].day !== dayOf(now));
 
-// the next weekday REMIND_HOUR strictly after now
-export const nextRemind = (now = Date.now()) => {
+// the next workday REMIND_HOUR strictly after now
+export const nextRemind = (now = Date.now(), hols = {}) => {
   const d = new Date(now); d.setHours(REMIND_HOUR, 0, 0, 0);
-  while (+d <= now || offDay(+d)) d.setDate(d.getDate() + 1);
+  while (+d <= now || offDay(+d) || holiday(+d, hols)) d.setDate(d.getDate() + 1);
   return +d;
 };
 
@@ -365,10 +374,13 @@ async function main() {
      nudge if today's water isn't in, and one when today's coins ripen. A ripe
      time already past is skipped rather than sent, so a restart can't repeat
      one; a restart past REMIND_HOUR waits for tomorrow's nudge the same way. */
-  let trees = {};
+  let trees = {}, spends = {}, holidays = {};
   const ripeTimers = new Map(); // email -> [ripe, timer]
+  // a holiday added or removed changes which trees are alive, so it redoes them
+  db.ref('holidays').on('value', s => { holidays = s.val() || {}; trees = treesOf(spends, Date.now(), holidays); });
   db.ref('spends').on('value', s => {
-    trees = treesOf(s.val());
+    spends = s.val() || {};
+    trees = treesOf(spends, Date.now(), holidays);
     Object.entries(trees).forEach(([email, tr]) => {
       const armed = ripeTimers.get(email);
       if (!tr.ripe || tr.ripe <= Date.now() || (armed && armed[0] === tr.ripe)) return;
@@ -381,11 +393,11 @@ async function main() {
     });
   });
   const remind = () => setTimeout(() => {
-    const list = thirsty(trees);
+    const list = thirsty(trees, Date.now(), holidays);
     if (list.length) send('Your tree wants water', 'Water it now and its coins ripen before the day is out.',
       false, 'tree', null, list).catch(e => console.error('[send] failed:', e));
     remind();
-  }, nextRemind() - Date.now());
+  }, nextRemind(Date.now(), holidays) - Date.now());
   remind();
 
   console.log('[relay] listening');
