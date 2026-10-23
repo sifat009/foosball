@@ -1146,7 +1146,10 @@
   #cardText { font-size: 1rem; line-height: 1.7; color: #172b4d; }
   #cardText .ar { font-size: 1.5em; line-height: 1.8; }
   /* the styles the admin picks from: gold is the default, and every older card */
-  #card .card-x { box-shadow: none; }
+  /* a zero-width float, as on the profile, so the title centres on the card;
+     the padding on both sides keeps a long title clear of the X */
+  #card .card-x { box-shadow: none; margin-left: -40px; }
+  #cardTitle { padding: 0 34px; }
   #card .hall-card { position: relative; }
   #card[data-style="jumuah"] .hall-card { background: linear-gradient(180deg, #0f5132, #17854a); }
   #card[data-style="jumuah"] .hall-card::before { content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
