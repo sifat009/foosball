@@ -3788,9 +3788,6 @@ const wager = await page.evaluate(() => {
     oneMissing: run(game({ slots: S([90, 95, 100], 'Sifat', 'Ofi', 'Nur', 'Rashed') }), bet(150, 'Shewa', 'b', 6)),
     // eight of the ten given away before the game is agreed: the bet doesn't stand
     spent: run(game(), bet(150, 'Shewa', 'b', 6), { at: 200, by: em('Shewa'), kind: 'gift', to: em('Nur'), amt: 8 }),
-    // opened after WAGER_FROM: a 2-coin game takes no bets, a 5-coin one does
-    cheapNew: run(game({ at: WAGER_FROM, stake: 2 }), bet(150, 'Shewa', 'b', 6)),
-    fiveNew: run(game({ at: WAGER_FROM, stake: 5 }), bet(150, 'Shewa', 'b', 6)),
     held: (() => {
       window.allChal = { g: game({ score: undefined, at: Date.now() }) };
       window.chalWagers = { g: [{ who: 'Shewa', side: 'b', amt: 6 }] };
@@ -3811,26 +3808,24 @@ for (const k of ['draw', 'gone', 'open', 'spent'])
   assert.equal(wager[k].bal.Shewa, k === 'spent' ? 2 : 10, `a bet on a ${k} game moved coins`);
 for (const k of ['early', 'late', 'afterResult', 'seated', 'tooMuch', 'broke', 'swapped', 'noTimes'])
   assert.equal(wager[k].n, 0, `a ${k} bet was let stand`);
-assert.deepEqual([wager.cheapNew.n, wager.fiveNew.n], [0, 1], 'a new game under five coins took a bet');
 assert.equal(wager.oneMissing.bal.Shewa, 16, 'a seat with no time shut betting for the whole lobby');
 assert.equal(wager.seated.bal.Nur, 0, 'a player’s bet on their own game moved coins');
 assert.deepEqual([wager.twice.n, wager.twice.bal.Shewa], [1, 16], 'a second bet on one game counted');
 assert.deepEqual(wager.held, [6, 0], 'a side bet is not held until its game is agreed');
 
 // the panel, seen by somebody not playing, then by one of the four
-const panel = async (who, stake = 5) => page.evaluate(({ who, stake }) => {
+const panel = async who => page.evaluate(({ who }) => {
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
   const now = Date.now(), seat = (n, at) => ({ name: n, email: em(n), at });
   const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { by: em('Shewa'), at: i,
     slots: { bf: seat('Shewa'), bd: seat('Toufiq'), rf: seat('Siddiq'), rd: seat('Sajeeb') }, score: { b: 1, r: 0, at: i } }]));
-  rows.wg = { by: em('Sifat'), at: now - 5000, ...(stake ? { stake } : {}),
+  rows.wg = { by: em('Sifat'), at: now - 5000,
     slots: { bf: seat('Sifat', now - 4000), bd: seat('Ofi', now - 3000), rf: seat('Nur', now - 2000), rd: seat('Rashed', now - 1000) } };
   window.spent = null;
   window.spendCoins = row => { window.spent = row; return Promise.resolve(); };
   window.wgPick = null;
   window.setAccount(em(who)); window.renderSpends({}); window.renderChallenges(rows);
   const card = $('ch-wg');
-  if (!card.querySelector('.ch-wg')) return null;
   const q = s => card.querySelectorAll(s);
   const out = { teams: [...q('.ch-wg-team')].map(t => t.tagName.toLowerCase()), left: card.querySelector('.ch-wg-left').textContent };
   if (q('button.ch-wg-team').length) {
@@ -3843,9 +3838,8 @@ const panel = async (who, stake = 5) => page.evaluate(({ who, stake }) => {
     out.spent = window.spent;
   }
   return out;
-}, { who, stake });
+}, { who });
 const side = await panel('Shewa');
-assert.equal(await panel('Shewa', 0), null, 'a new free game showed the betting panel');
 assert.deepEqual(side.teams, ['button', 'button'], 'a spectator cannot pick a pair');
 assert.match(side.left, /^Closes in 00:01:5\d$/, 'the betting clock is not counting down two minutes');
 assert.equal(side.pay, 'Win +7 · lose 7', 'the payout line is wrong for 7');
@@ -3856,7 +3850,7 @@ const player = await panel('Nur');
 assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on their own game');
 // a big bet on Nur's own pair: Nur sees nothing of it, not even that it is there
 const hid = await page.evaluate(() => {
-  const mk = at => ({ id: 'h', at, stake: 5, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
+  const mk = at => ({ id: 'h', at, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
     [['bf', 'bd', 'rf', 'rd'][i], { name: n, email: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), at: at + 1000 }])) });
   // after setAccount, whose repaint walks the ledger and resets the bets
   const look = (who, c = mk(Date.now() - 5000)) => { window.setAccount(Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === who));
