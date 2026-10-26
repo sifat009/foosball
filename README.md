@@ -337,7 +337,7 @@ The coins sheet now sells these, all on the challenge board:
 - **Name icon, 15.** A crown, flame, star, bolt, shield or target in front of your
   name on the board's seats and the bounty strip, in your colour if you have one.
   Stored as a flair with an `icon:` item, so the rules didn't change.
-- **Extra game, 5.** One more challenge today past the five, at most three extra a day.
+- **Extra game, 3** (5 before 26 October). One more challenge today past the five, as many as you buy.
 - **Gift, 1–50.** Sent straight to another player.
 - **Bounty, an even 2–50.** Paid now, and open on that player for two days, one
   bounty per player at a time. The next pair to beat them split it. Each player who
