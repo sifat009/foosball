@@ -290,13 +290,13 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/w12', NUR, bet(fresh, { to: B1 })), 'a bet carrying a recipient');
   assert.ok(!await put('spends/w13', NUR, sp(NUR, { kind: 'bet', game: fresh, amt: 6 })), 'a bet naming no side');
   assert.ok(!await put('spends/w14', NUR, sp(NUR, { kind: 'gift', to: B1, amt: 5, side: 'b' })), 'a gift carrying a side');
-  // a lobby opened from 2026-10-26 takes bets only if it is played for more than five
-  const cheap = await lobby({ at: Date.now(), stake: 5, slots: seated(Date.now()) });
+  // a lobby opened from 2026-10-26 takes bets only if it is played for five or more
+  const cheap = await lobby({ at: Date.now(), stake: 2, slots: seated(Date.now()) });
   const free = await lobby({ at: Date.now(), slots: seated(Date.now()) });
-  const six = await lobby({ at: Date.now(), stake: 6, slots: seated(Date.now()) });
-  assert.ok(!await put('spends/w15', NUR, bet(cheap)), 'a bet landed on a new 5-coin game');
+  const five = await lobby({ at: Date.now(), stake: 5, slots: seated(Date.now()) });
+  assert.ok(!await put('spends/w15', NUR, bet(cheap)), 'a bet landed on a new 2-coin game');
   assert.ok(!await put('spends/w16', NUR, bet(free)), 'a bet landed on a new free game');
-  assert.ok(await put('spends/w17', NUR, bet(six)), 'a spectator could not bet on a new 6-coin game');
+  assert.ok(await put('spends/w17', NUR, bet(five)), 'a spectator could not bet on a new 5-coin game');
 
   // a seat stamps when it was taken, on the server's clock, once, and only its own
   const open = await lobby({ slots: { bf: SLOTS.bf } });

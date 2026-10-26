@@ -3747,11 +3747,11 @@ const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
    cancelled lobby or a game the walk doesn't pay costs nobody anything. What a
    loser stakes is gone, not paid to anyone. */
 const WAGER_MAX = 10, WAGER_MS = 2 * 6e4;
-/* From WAGER_FROM (2026-10-26, Dhaka) only a lobby opened for more than
-   WAGER_STAKE takes bets from the side; a game for 5 or less takes none. A lobby
+/* From WAGER_FROM (2026-10-26, Dhaka) only a lobby opened for WAGER_STAKE or
+   more takes bets from the side; a free or 2-coin game takes none. A lobby
    opened before then keeps the betting it was opened with. */
 const WAGER_STAKE = 5, WAGER_FROM = 1793006410000;
-const chalBettable = c => !(c.at >= WAGER_FROM) || chalBet(c) > WAGER_STAKE;
+const chalBettable = c => !(c.at >= WAGER_FROM) || chalBet(c) >= WAGER_STAKE;
 /* A bet on who wins the cup: anyone on the list, their own team included, puts
    1 to 10 on one team in the five minutes after the draw, while the admin's
    Kick Off waits. A win gains the bet times two less than the number of teams
@@ -4010,7 +4010,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         const c = byId[s.game], fill = c && chalFillAt(c), amt = +s.amt, w = wagers[s.game] || [];
         if (who === undefined) return;
         if (!c) return refuse(who, s, false, 'the challenge was cancelled');
-        if (!chalBettable(c)) return refuse(who, s, false, `only a game for more than ${WAGER_STAKE} coins takes bets`);
+        if (!chalBettable(c)) return refuse(who, s, false, `only a game for ${WAGER_STAKE} coins or more takes bets`);
         if (!fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
         if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return refuse(who, s, false);
         if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
