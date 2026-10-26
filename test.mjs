@@ -3842,21 +3842,24 @@ assert.deepEqual({ ...side.spent }, { kind: 'bet', game: 'wg', side: 'r', amt: 7
   'the bet written is not the one shown');
 const player = await panel('Nur');
 assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on their own game');
-// a big bet on Nur's own pair: Nur sees the pot, not which pair it is on
+// a big bet on Nur's own pair: Nur sees nothing of it, not even that it is there
 const hid = await page.evaluate(() => {
-  const c = { id: 'h', at: Date.now() - 5000, stake: 5, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
-    [['bf', 'bd', 'rf', 'rd'][i], { name: n, email: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), at: Date.now() - 4000 }])) };
+  const mk = at => ({ id: 'h', at, stake: 5, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
+    [['bf', 'bd', 'rf', 'rd'][i], { name: n, email: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), at: at + 1000 }])) });
   // after setAccount, whose repaint walks the ledger and resets the bets
-  const look = who => { window.setAccount(Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === who));
+  const look = (who, c = mk(Date.now() - 5000)) => { window.setAccount(Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === who));
     chalWagers = { h: [{ who: 'Shewa', side: 'r', amt: 10 }, { who: 'Toufiq', side: 'b', amt: 3 }] };
-    const p = wagerPanel(c); return { pot: p.querySelector('.ch-wg-pot').textContent, chips: [...p.querySelectorAll('.ch-wg-chip')].map(x => x.textContent), text: p.textContent }; };
-  const out = { nur: look('Nur'), shewa: look('Shewa') };
+    const p = wagerPanel(c); return p && { pot: !!p.querySelector('.ch-wg-pot'), chips: [...p.querySelectorAll('.ch-wg-chip')].map(x => x.textContent), text: p.textContent }; };
+  // betting closed three minutes ago
+  const out = { nur: look('Nur'), shewa: look('Shewa'), nurShut: look('Nur', mk(Date.now() - 200000)), shewaShut: look('Shewa', mk(Date.now() - 200000)) };
   chalWagers = {}; window.setAccount(null);
   return out;
 });
-assert.equal(hid.nur.pot, '2 bets · 13 coins in', 'the pot is not shown');
+assert.equal(hid.nur.pot, false, 'the pot shows while the game is on');
 assert.deepEqual(hid.nur.chips, [], 'a player can see who bet on their game');
-assert.doesNotMatch(hid.nur.text, /Shewa|10 coins on/, 'a player can see where the money is');
+assert.doesNotMatch(hid.nur.text, /Shewa|13|coins in/, 'a player can see there is money on the game');
+assert.equal(hid.nurShut, null, 'a closed panel left up for a non-bettor says somebody bet');
+assert.deepEqual(hid.shewaShut && hid.shewaShut.chips, ['You 10'], 'a bettor lost sight of their bet once betting closed');
 assert.deepEqual(hid.shewa.chips, ['You 10'], 'a bettor does not see their own bet');
 assert.doesNotMatch(hid.shewa.text, /Toufiq/, 'a bettor can see somebody else\'s bet');
 // once the game is agreed, a tap on its result shows who bet on which pair
@@ -3973,6 +3976,11 @@ const cupPanel = await page.evaluate(() => {
   out.go = box().querySelector('.ch-wg-go').textContent;
   box().querySelector('.ch-wg-go').click();
   out.spent = { ...window.spent };
+  // somebody else's bet shows to nobody but them
+  window.cupWagers = { kp: [{ who: 'Nur', team: 'Sifat + Ofi', amt: 9, n: 3 }] };
+  window.renderDrawn({ kp: { at: Date.now() - 1000, teams: ['Sifat + Ofi', 'Nur + Rashed', 'Rifat + Toufiq'] } });
+  out.other = box().textContent;
+  window.cupWagers = {};
   // five minutes on: closed, and Kick Off is a button again
   window.renderDrawn({ kp: { at: Date.now() - 301000, teams: ['Sifat + Ofi', 'Nur + Rashed', 'Rifat + Toufiq'] } });
   out.after = [box().style.display, $('tourneyBtn').disabled, $('tourneyBtn').textContent.trim()];
@@ -3993,6 +4001,8 @@ assert.equal(cupPanel.go, 'Bet 7 on Nur + Rashed', 'the bet button does not name
 assert.deepEqual(cupPanel.spent, { kind: 'cupbet', cup: 'kp', team: 1, amt: 7,
   by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) }, 'the cup bet written is not the one shown');
 assert.deepEqual(cupPanel.after, ['none', false, 'Kick Off the Cup'], 'the window closing did not hand Kick Off back');
+assert.doesNotMatch(cupPanel.other, /Nur 9|coins on them/, 'the cup panel shows somebody else\'s bet');
+assert.match(cupPanel.other, /stays hidden until the cup is won/, 'the cup panel does not say bets are hidden');
 assert.deepEqual(cupPanel.two, ['none', false], 'a 2-team cup was opened for betting');
 // the celebration lists what the bets came to, winners first
 const cheer = await page.evaluate(() => {

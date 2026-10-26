@@ -1698,12 +1698,6 @@
   .ch-wg-h .ch-flbl { margin: 0; }
   .ch-wg-left { margin-left: auto; font-size: 0.72rem; font-weight: 800; color: #96660a; font-variant-numeric: tabular-nums; }
   .ch-wg-left.done { color: #8fa0b8; }
-  .ch-wg-pot {
-    display: flex; align-items: center; gap: 6px; border-radius: 10px; padding: 7px 10px;
-    background: #fff8e8; border: 1px solid #f3e0b0; color: #96660a;
-    font-size: 0.74rem; font-weight: 900; font-variant-numeric: tabular-nums;
-  }
-  .ch-wg-pot .coin-disc { display: inline-block; width: 12px; height: 12px; }
   .ch-wg-teams { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   .ch-wg-team {
     display: flex; flex-direction: column; align-items: flex-start; gap: 5px; min-width: 0;
@@ -1720,8 +1714,6 @@
   .ch-wg-team.cup.on { border-color: #17854a; background: #f2faf5; }
   .cup-bets { max-width: 640px; margin: 14px auto; padding: 4px 16px 16px; text-align: left; }
   button.ch-wg-team { cursor: pointer; transition: border-color 0.15s, background 0.15s; }
-  .ch-wg-tot { font-size: 0.72rem; font-weight: 900; color: #96660a; line-height: 1.35; }
-  .ch-wg-tot .coin-disc { display: inline-block; width: 12px; height: 12px; margin-right: 4px; vertical-align: -2px; }
   .ch-wg-who { display: flex; flex-wrap: wrap; gap: 4px; }
   .ch-wg-chip { font-size: 0.68rem; font-weight: 800; color: #5b6a7d; background: #f4f7fb; border-radius: 999px; padding: 2px 8px; }
   .ch-wg-chip.you { color: #17854a; background: #eef7f2; }
@@ -5254,9 +5246,10 @@ function wagerPanel(c) {
   if (!fill || chalDone(c) || !chalBettable(c)) return null;
   const bets = chalWagers[c.id] || [], me = myName();
   const open = !chalPending(c) && Date.now() < fill + WAGER_MS;
-  if (!open && !bets.length) return null;
-  const playing = SEATS.some(([x]) => seatName(c.slots[x]) === me);
   const mine = bets.find(x => x.who === me);
+  // closed, it stays up only for a bettor: left standing it would say somebody bet
+  if (!open && !mine) return null;
+  const playing = SEATS.some(([x]) => seatName(c.slots[x]) === me);
   const can = open && !!me && !playing && !mine;
   const pick = can && wgPick && wgPick.id === c.id ? wgPick.side : null;
   const box = part('ch-wg');
@@ -5268,14 +5261,9 @@ function wagerPanel(c) {
     head.append(left);
   } else head.append(part('ch-wg-left done', 'Betting closed', 'span'));
   box.append(head);
-  /* Which pair a bet is on is nobody's but the bettor's while the game is on:
-     a player who could see a big bet on their own pair could throw the game to
-     wipe it out. The pot shows there is money on it, not where. */
-  if (bets.length) {
-    const pot = part('ch-wg-pot');
-    pot.append(part('coin-disc', '', 'span'), `${bets.length} ${bets.length === 1 ? 'bet' : 'bets'} · ${bets.reduce((n, x) => n + x.amt, 0)} coins in`);
-    box.append(pot);
-  }
+  /* A bet is nobody's but the bettor's while the game is on, not even that it
+     exists: a player who could see a big bet on their own pair could throw the
+     game to wipe it out. */
   const teams = part('ch-wg-teams');
   [['b', 'Blue'], ['r', 'Red']].forEach(([side, team]) => {
     const p = document.createElement(can ? 'button' : 'div');
@@ -5353,17 +5341,18 @@ function betDrawer(key, name, pay0, place) {
   return box;
 }
 
-/* Betting on the cup: every team as a panel, with who has bet on it. Open to
-   anyone on the list for five minutes from the draw, their own team included;
-   after that it stays up, read-only, until the cup ends. */
+/* Betting on the cup: every team as a panel. Open to anyone on the list for
+   five minutes from the draw, their own team included; after that it stays up,
+   read-only, for a bettor until the cup ends. Like a game, nobody sees anyone
+   else's bet until the cup is won. */
 var cbPick = null; // the team the reader has tapped, by its place in the draw
 function cupBetPanel() {
   const d = cupId && allDrawn[cupId], ts = (d && d.teams) || [];
   if (ts.length < 3 || !(curScreen === 'draw' || curScreen === 'tourney')) return null;
   const bets = cupWagers[cupId] || [], me = myName(), until = +d.at + CUPBET_MS;
   const over = histIds.has(cupId), open = !over && Date.now() < until;
-  if (!open && !bets.length) return null;
   const mine = bets.find(x => x.who === me);
+  if (!open && !mine) return null;
   const can = open && !!me && !mine;
   const pick = can ? cbPick : null;
   const box = part('ch-wg cb');
@@ -5377,21 +5366,16 @@ function cupBetPanel() {
   box.append(head);
   const grid = part('ch-wg-teams');
   ts.forEach((name, i) => {
-    const on = bets.filter(x => x.team === name);
     const p = document.createElement(can ? 'button' : 'div');
     p.className = 'ch-wg-team cup' + (pick === i || (mine && mine.team === name) ? ' on' : '');
     const nm = part('', '', 'b');
     nm.append(...pairNodes(name));
     p.append(part('', 'Team ' + (i + 1), 'u'), nm);
-    const tot = part('ch-wg-tot', '', 'span');
-    tot.append(part('coin-disc', '', 'span'), `${on.reduce((n, x) => n + x.amt, 0)} coins on them`);
-    const who = part('ch-wg-who', '', 'span');
-    on.forEach(x => {
-      const chip = part('ch-wg-chip' + (x.who === me ? ' you' : ''), '', 'span');
-      chip.append(x.who === me ? 'You' : flairName(x.who), ' ' + x.amt);
-      who.append(chip);
-    });
-    p.append(tot, who);
+    if (mine && mine.team === name) {
+      const who = part('ch-wg-who', '', 'span');
+      who.append(part('ch-wg-chip you', 'You ' + mine.amt, 'span'));
+      p.append(who);
+    }
     if (can) {
       p.type = 'button';
       p.append(part('ch-wg-cta', pick === i ? 'Your pick \u2713' : 'Bet on them', 'span'));
@@ -5407,7 +5391,7 @@ function cupBetPanel() {
       ...(mine.won ? [part('', '+' + win, 'b'), '.'] : []));
     else n.append(`You bet ${mine.amt} on ${mine.team}. If they win the cup you get `, part('', '+' + win, 'b'), '.');
     box.append(n);
-  } else if (can && pick === null) box.append(part('ch-note', 'Tap the team you think will win the cup.'));
+  } else if (can && pick === null) box.append(part('ch-note', 'Tap the team you think will win the cup. Who bet on which team stays hidden until the cup is won.'));
   else if (pick !== null) box.append(betDrawer('cup', ts[pick], a => `Win +${cupBetWin(a, ts.length)} \u00b7 lose ${a}`, amt => {
     cbPick = null;
     window.spendCoins({ kind: 'cupbet', cup: cupId, team: pick, amt, by: acctEmail });
