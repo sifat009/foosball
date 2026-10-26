@@ -2910,6 +2910,7 @@ const spendCheck = await page.evaluate(s4 => {
     gift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Nur'), amt: 4 })),
     selfGift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Sifat'), amt: 4 })),
     slot: w(sp(9, 'Ofi', { kind: 'slot' })),
+    slotNew: w(sp(SLOT_CHEAP_FROM, 'Ofi', { kind: 'slot' })),
     // Sifat puts 6 on Nur, then Ofi & Sifat beat Nur & Rashed again
     bounty: window.coinWalk([...seed, { at: 864e5, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 12 } }], [],
       [sp(9, 'Sifat', { kind: 'bounty', to: em('Nur'), amt: 6 })]),
@@ -3079,6 +3080,7 @@ assert.equal(spendCheck.early.bal.Nur, 0, 'a gift dated before its coins were ea
 assert.deepEqual([spendCheck.gift.bal.Sifat, spendCheck.gift.bal.Nur], [6, 4], 'a gift did not move four coins');
 assert.equal(spendCheck.selfGift.ok.length, 0, 'a player gifted themselves');
 assert.deepEqual([spendCheck.slot.bal.Ofi, spendCheck.slot.ok.length], [5, 1], 'an extra game did not cost five');
+assert.deepEqual([spendCheck.slotNew.bal.Ofi, spendCheck.slotNew.ok.length], [7, 1], 'an extra game bought after the cut did not cost three');
 // 10 - 6 bounty + 2 win + 3 half the bounty
 assert.equal(spendCheck.bounty.bal.Sifat, 9, 'the poster, winning, did not take half the bounty back');
 assert.equal(spendCheck.bounty.bal.Ofi, 15, 'the other winner did not take half the bounty');

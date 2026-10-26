@@ -2450,7 +2450,7 @@ Nur</textarea>
         <div id="spKind" class="sp-shelf" role="group" aria-label="What to buy">
           <button type="button" data-kind="flair" aria-pressed="true"><span class="sp-dots"></span>Colour<small>20</small></button>
           <button type="button" data-kind="icon" aria-pressed="false"><svg class="sp-g" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18l-1.5-10-5 4L12 5l-2.5 7-5-4z"/></svg>Icon<small>15</small></button>
-          <button type="button" data-kind="slot" aria-pressed="false"><svg class="ico"><use href="#i-ball"/></svg>Extra game<small>5</small></button>
+          <button type="button" data-kind="slot" aria-pressed="false"><svg class="ico"><use href="#i-ball"/></svg>Extra game<small>3</small></button>
           <button type="button" data-kind="gift" aria-pressed="false"><svg class="ico"><use href="#i-coin"/></svg>Gift<small>any</small></button>
           <button type="button" data-kind="bounty" aria-pressed="false"><svg class="sp-g" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2a10 10 0 110 20 10 10 0 010-20zm0 4a6 6 0 100 12 6 6 0 000-12zm0 3a3 3 0 110 6 3 3 0 010-6z"/></svg>Bounty<small>any</small></button>
         </div>
@@ -2471,7 +2471,7 @@ Nur</textarea>
         <li><b>Name icon &mdash; 15 coins.</b> A crown, flame, star, bolt, shield or
         target in front of your name on the board, in the cup and in the Hall, in your colour if you have one,
         until you buy another.</li>
-        <li><b>Extra game &mdash; 5 coins.</b> One more challenge today on top of the
+        <li><b>Extra game &mdash; 3 coins.</b> One more challenge today on top of the
         five, up to three extra a day.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player, with a note
         if you like. It waits for them as a letter on this sheet until they open it.
@@ -3734,7 +3734,11 @@ const hexOf = item => {
   return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05) >= 3 ? m[1] : null;
 };
 const colourOf = item => FLAIR[item] || hexOf(item);
-const FLAIR_COST = 20, ICON_COST = 15, SLOT_COST = 5, SLOT_MAX = 3;
+const FLAIR_COST = 20, ICON_COST = 15, SLOT_MAX = 3;
+/* An extra game went from 5 to 3 at SLOT_CHEAP_FROM (2026-10-26, Dhaka); one
+   bought before then still cost 5. A row not yet written (no `at`) is priced now. */
+const SLOT_CHEAP_FROM = 1793008539000;
+const slotCost = t => t < SLOT_CHEAP_FROM ? 5 : 3;
 const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
 /* A bet from the side of the table: anyone not playing puts 1 to 10 on a pair in
    the two minutes after the lobby fills, at even money: a win gains the bet, a
@@ -3766,7 +3770,7 @@ const chalFillAt = c => {
   const ts = chalFull(c) ? SEATS.map(([x]) => +c.slots[x].at).filter(t => t > 0) : [];
   return ts.length ? Math.max(...ts) : null;
 };
-const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? SLOT_COST : +s.amt || 0;
+const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? slotCost(s.at == null ? Date.now() : +s.at) : +s.amt || 0;
 
 /* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
    Stage i costs TREE[i].cost to reach. A water costs waterCost up front and
