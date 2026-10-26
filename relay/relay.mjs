@@ -187,6 +187,8 @@ const offDay = t => [0, 6].includes(new Date(t).getDay());
    alone is never missed. Holidays are /holidays: first day -> last day, local
    YYYY-MM-DD. */
 export const BONUS_FROM = 1792778400000;
+// from here (midnight into 2026-10-27, Dhaka) ripe coins land by themselves, as in index.html
+export const AUTO_PICK_FROM = 1793037600000;
 const isoDay = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const holiday = (t, hols) => { const k = isoDay(t); return Object.entries(hols || {}).some(([a, b]) => a <= k && k <= b); };
 const bonusDay = (t, hols) => t >= BONUS_FROM && (offDay(t) || holiday(t, hols));
@@ -392,7 +394,9 @@ async function main() {
       if (armed) clearTimeout(armed[1]);
       ripeTimers.set(email, [tr.ripe, setTimeout(() => {
         ripeTimers.delete(email);
-        send('Coins are ripe', 'Your tree is ready — collect before midnight or they drop.',
+        const auto = tr.ripe >= AUTO_PICK_FROM;
+        send(auto ? 'Your tree paid out' : 'Coins are ripe',
+          auto ? 'Today’s coins are in your balance.' : 'Your tree is ready — collect before midnight or they drop.',
           false, 'tree', null, [email]).catch(e => console.error('[send] failed:', e));
       }, tr.ripe - Date.now())]);
     });

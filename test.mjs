@@ -3190,6 +3190,17 @@ const trees = await page.evaluate(s4 => {
     // an oak made on the 23rd, left alone: by Thursday the 29th it has missed the 26th to 28th, unless the 27th is a holiday
     bonusMiss: [(holidays = {}, stage(w(oak.map(x => ({ ...x, at: x.at + 18 * 864e5 })), D(29)))),
       (holidays = { '2026-10-27': '2026-10-27' }, stage(w(oak.map(x => ({ ...x, at: x.at + 18 * 864e5 })), D(29))))],
+    /* From the 27th a water's coins land by themselves once ripe: a sapling
+       planted on the 26th, watered at 9am on the 27th, has 2 more at noon than
+       at 11, with no collect row; a tap from a page that hasn't caught up
+       neither pays twice nor shows as refused. The 26th still needs the tap. */
+    auto: (holidays = {}, ((plant, water, tap) => [
+      w([plant, water], D(27, 11)).bal.Sifat, w([plant, water], D(27, 12)).bal.Sifat,
+      w([plant, water], D(27, 12)).trees.Sifat.got, w([plant, water], D(27, 12)).picked.Sifat,
+      w([plant, water, tap], D(27, 13)).bal.Sifat,
+      w([plant, water, tap], D(27, 13)).log.Sifat.some(x => /didn/.test(x.why)),
+      w([sp(D(23), 'Sifat', 'plant'), sp(D(26, 9), 'Sifat', 'water')], D(26, 23)).trees.Sifat.got,
+    ])(sp(D(26), 'Sifat', 'plant'), sp(D(27, 9), 'Sifat', 'water'), sp(D(27, 12, 30), 'Sifat', 'collect'))),
     _: (holidays = {}),
   };
 }, String(seat4));
@@ -3212,6 +3223,7 @@ assert.equal(trees.oldHoliday, 2, 'a holiday before the 24th stopped counting as
 assert.deepEqual(trees.bonusSat, [true, 4], 'a Saturday water after the 24th was refused, or did not pay double');
 assert.equal(trees.bonusBoth, 4, 'a holiday on a Saturday paid more than double');
 assert.deepEqual(trees.bonusMiss, [2, 3], 'three missed workdays did not drop the oak, or a holiday after the 24th counted as missed');
+assert.deepEqual(trees.auto, [189, 191, true, 2, 191, false, false], "a water from the 27th didn't pay by itself once ripe, paid twice with a tap, or one on the 26th paid without one");
 console.log('trees OK');
 
 /* Growing never shares the daily tap's spot: the row offers no Grow at all,

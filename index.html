@@ -2469,8 +2469,8 @@ Nur</textarea>
         if you like. It waits for them as a letter on this sheet until they open it.
         Anyone can read a note, so keep it to happy birthday.</li>
         <li><b>Tree.</b> Plant one for 10 and grow it for 25, 50 and 100. Water it for 1
-        each workday and its coins ripen three hours later: collect them before midnight
-        for 2, 3, 5 or 7 as it grows. Three workdays without water and it drops a stage;
+        each workday and three hours later its coins land in your balance on their own:
+        2, 3, 5 or 7 as it grows. Three workdays without water and it drops a stage;
         a sapling that drops dies. On weekends and holidays watering is optional and
         pays double.
         <!-- mirrors TREE and waterCost in the script: change them together -->
@@ -3791,6 +3791,10 @@ const holiday = t => { const k = isoDay(t); return Object.entries(holidays).some
 /* When weekends and holidays became bonus days (midnight into 2026-10-24, Dhaka):
    anything a tree did before it keeps the old rules, so nobody's past moves. */
 const BONUS_FROM = 1792778400000;
+/* When a tree's coins started landing by themselves (midnight into 2026-10-27,
+   Dhaka): a water from then on pays when its coins ripen, with no Collect tap.
+   A water before it still needed one, and midnight took what wasn't picked. */
+const AUTO_PICK_FROM = 1793037600000;
 /* Cards the admin writes from their profile: id -> { title, text, coins, from, to },
    the days local YYYY-MM-DD like a holiday's. Each pays its coins once to each
    player who claims it between those days. */
@@ -3848,7 +3852,7 @@ const TRACK_GOALS = [
   { tier: 1, text: 'Win a side bet', how: 'Bet on a pair in a full lobby you’re not playing in, within 2 minutes of it filling, and see that pair win.', n: 1, on: f => f.k === 'betwon' },
   { tier: 1, text: 'Win a challenge played for a bet', how: 'Open a lobby for coins (2, 5, 10 or more), or sit at one, and win it.', n: 1, on: f => f.k === 'win' && f.paid },
   { tier: 1, text: 'Water your tree 5 times', how: 'Tap Water under your tree at the top of this sheet, on five days.', n: 5, on: f => f.k === 'water' },
-  { tier: 1, text: 'Collect from your tree 3 times', how: 'Water your tree, wait for its coins to ripen, then tap Collect. Do it on three days.', n: 3, on: f => f.k === 'collect' },
+  { tier: 1, text: 'Collect from your tree 3 times', how: 'Water your tree and its coins land in your balance three hours later. Do it on three days.', n: 3, on: f => f.k === 'collect' },
   { tier: 2, text: 'Win 5 challenges', how: 'Win five 2v2 games on the Challenges board.', n: 5, on: f => f.k === 'win' },
   { tier: 2, text: 'Win with 3 different partners', how: 'Win three challenges, each with a different teammate.', n: 3, partners: true, on: f => f.k === 'win' },
   { tier: 2, text: 'Make a cup final', how: 'Reach a cup final with your team. Champion or runner-up, both count.', n: 1, on: f => f.k === 'final' },
@@ -3923,6 +3927,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     ev.push({ t: +s.at, spend: s });
     // the end of a bounty is an event too, once it has come
     if (s.kind === 'bounty' && +s.at + BOUNTY_MS <= now) ev.push({ t: +s.at + BOUNTY_MS, expire: s });
+    // so is a water's coins ripening, from AUTO_PICK_FROM: they land on their own
+    if (s.kind === 'water' && +s.at >= AUTO_PICK_FROM && ripeAt(+s.at) <= now) ev.push({ t: ripeAt(+s.at), pick: s });
   });
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
@@ -3983,6 +3989,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
           // worth what the tree was when watered, whatever it grows into after
           trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), paidStage: cur.stage, pay: TREE[cur.stage].pay * (doubleDay(+s.at) ? 2 : 1), got: false };
         } else if (s.kind === 'collect') {
+          // the walk picks them now; a tap from a page that hasn't caught up is no news
+          if (+s.at >= AUTO_PICK_FROM) return;
           // ripe, the same day, once: midnight takes what wasn't picked
           if (!today || !tr.ripe || tr.got || +s.at < tr.ripe) return refuse(who, s, false);
           move(who, tr.pay, 'Collected from your tree', s.at); tr.got = true;
@@ -4069,6 +4077,13 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       const h = bounties.find(x => x.s === e.expire);
       if (h) { move(h.by, h.amt, `Nobody beat ${h.on}: your bounty back`, e.t); bounties = bounties.filter(x => x !== h); }
       return;
+    }
+    if (e.pick) { // only the water that stood, and only once
+      const who = EMAIL_NAMES[e.pick.by], tr = trees[who];
+      if (!tr || tr.at !== +e.pick.at || tr.got) return;
+      move(who, tr.pay, 'Collected from your tree', e.t); tr.got = true;
+      picked[who] = (picked[who] || 0) + tr.pay;
+      return hit(who, { k: 'collect' }, e.t);
     }
     if (e.tenNil) return move(e.who, Math.max(e.tenNil, -bal[e.who]), e.why, e.t);
     if (e.cup) return e.up.forEach(n => { move(n, e.cup, e.why, e.t); hit(n, { k: e.award ? 'award' : 'final' }, e.t); });
