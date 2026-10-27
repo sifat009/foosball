@@ -2480,7 +2480,7 @@ Nur</textarea>
         target in front of your name on the board, in the cup and in the Hall, in your colour if you have one,
         until you buy another.</li>
         <li><b>Extra game &mdash; 3 coins.</b> One more challenge today on top of the
-        five, as many as you like.</li>
+        five, as many as you like. One you don't play comes back at midnight.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player, with a note
         if you like. It waits for them as a letter on this sheet until they open it.
         Anyone can read a note, so keep it to happy birthday.</li>
@@ -3896,6 +3896,7 @@ const trackOf = m => trackMemo[m] || (trackMemo[m] = (() => {
 function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   const bal = {}, ok = [], tags = {}; // tags: game id -> what a bounty did in it
   const played = {}, bought = {}; // player + day -> games paid, extra games bought
+  const extraPaid = {}; // player + day -> what each extra game cost, in the order bought
   let bounties = [];
   const trees = {}; // player -> { stage, day } as of its last watering
   const picked = {}; // player -> every coin they have collected off a tree
@@ -3940,6 +3941,10 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (s.kind === 'bounty' && +s.at + BOUNTY_MS <= now) ev.push({ t: +s.at + BOUNTY_MS, expire: s });
     // so is a water's coins ripening, from AUTO_PICK_FROM: they land on their own
     if (s.kind === 'water' && +s.at >= AUTO_PICK_FROM && ripeAt(+s.at) <= now) ev.push({ t: ripeAt(+s.at), pick: s });
+    // and so is the midnight after an extra game, which hands back one not played
+    const end = dayStart(+s.at); end.setDate(end.getDate() + 1);
+    if (s.kind === 'slot' && +end <= now && !ev.some(e => e.unplayed && e.by === s.by && +e.t === +end))
+      ev.push({ t: +end, unplayed: true, by: s.by, day: new Date(+s.at).toDateString() });
   });
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
@@ -4079,8 +4084,23 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         : s.kind === 'slot' ? 'Bought an extra game' : iconOf(s.item) ? 'Bought an icon' : 'Bought a name colour', s.at);
       if (s.kind === 'gift') { move(to, cost, `Gift from ${who}`, s.at); hit(who, { k: 'gift' }, +s.at); }
       if (s.kind === 'bounty') bounties.push({ s, by: who, on: to, amt: cost, until: +s.at + BOUNTY_MS, got: 0 });
-      if (s.kind === 'slot') { const k = who + new Date(+s.at).toDateString(); bought[k] = (bought[k] || 0) + 1; }
+      if (s.kind === 'slot') { const k = who + new Date(+s.at).toDateString(); bought[k] = (bought[k] || 0) + 1; (extraPaid[k] = extraPaid[k] || []).push(cost); }
       ok.push(s);
+      return;
+    }
+    /* An extra game nobody played comes back at midnight, at what it cost. The
+       day's free five go first, so a day of five or fewer played hands back
+       every one bought. Played is counted the way the page's limit counts it,
+       a draw included: a slot spent on a draw was used. */
+    if (e.unplayed) {
+      const who = EMAIL_NAMES[e.by], k = who + e.day, n = bought[k] || 0;
+      const games = (rows || []).filter(c => chalDone(c) && new Date(chalAt(c)).toDateString() === e.day
+        && SEATS.some(([x]) => c.slots && c.slots[x] && c.slots[x].email === e.by)).length;
+      const back = Math.min(n, CH_DAILY + n - games);
+      if (who === undefined || back <= 0) return;
+      bought[k] = n - back; // a game agreed late for that day can't use one handed back
+      move(who, extraPaid[k].splice(-back).reduce((a, b) => a + b, 0),
+        back > 1 ? `${back} extra games not played` : 'Extra game not played', e.t);
       return;
     }
     if (e.expire) { // nobody beat them: the creator has it back

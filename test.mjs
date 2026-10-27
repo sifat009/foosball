@@ -2909,8 +2909,17 @@ const spendCheck = await page.evaluate(s4 => {
     early: w(sp(0, 'Sifat', { kind: 'gift', to: em('Nur'), amt: 5 })),
     gift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Nur'), amt: 4 })),
     selfGift: w(sp(9, 'Sifat', { kind: 'gift', to: em('Sifat'), amt: 4 })),
-    slot: w(sp(9, 'Ofi', { kind: 'slot' })),
-    slotNew: w(sp(SLOT_CHEAP_FROM, 'Ofi', { kind: 'slot' })),
+    // looked at the same day, before midnight can hand an unplayed one back
+    slot: window.coinWalk(seed, [], [sp(9, 'Ofi', { kind: 'slot' })], 10),
+    slotNew: window.coinWalk(seed, [], [sp(SLOT_CHEAP_FROM, 'Ofi', { kind: 'slot' })], SLOT_CHEAP_FROM + 1),
+    // midnight on: five played, so the one bought comes back at the five it cost
+    slotBack: w(sp(9, 'Ofi', { kind: 'slot' })),
+    // a sixth game the same day used it: nothing back
+    slotUsed: window.coinWalk([...seed, { at: 10, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 0, r: 1, at: 10 } }], [],
+      [sp(9, 'Ofi', { kind: 'slot' })]),
+    // two bought, a sixth played: one back
+    slotHalf: window.coinWalk([...seed, { at: 10, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 0, r: 1, at: 10 } }], [],
+      [sp(8, 'Ofi', { kind: 'slot' }), sp(9, 'Ofi', { kind: 'slot' })]),
     // Sifat puts 6 on Nur, then Ofi & Sifat beat Nur & Rashed again
     bounty: window.coinWalk([...seed, { at: 864e5, slots: S('Ofi', 'Sifat', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: 12 } }], [],
       [sp(9, 'Sifat', { kind: 'bounty', to: em('Nur'), amt: 6 })]),
@@ -3081,6 +3090,13 @@ assert.deepEqual([spendCheck.gift.bal.Sifat, spendCheck.gift.bal.Nur], [6, 4], '
 assert.equal(spendCheck.selfGift.ok.length, 0, 'a player gifted themselves');
 assert.deepEqual([spendCheck.slot.bal.Ofi, spendCheck.slot.ok.length], [5, 1], 'an extra game did not cost five');
 assert.deepEqual([spendCheck.slotNew.bal.Ofi, spendCheck.slotNew.ok.length], [7, 1], 'an extra game bought after the cut did not cost three');
+const backLines = w => (w.log.Ofi || []).filter(l => /not played/.test(l.why)).map(l => [l.d, l.why]);
+assert.deepEqual([spendCheck.slotBack.bal.Ofi, backLines(spendCheck.slotBack)], [10, [[5, 'Extra game not played']]],
+  'an extra game nobody played did not come back at midnight');
+// the sixth game pays nothing, the other three being past their five
+assert.deepEqual([spendCheck.slotUsed.bal.Ofi, backLines(spendCheck.slotUsed)], [5, []], 'an extra game that was played came back');
+assert.deepEqual([spendCheck.slotHalf.bal.Ofi, backLines(spendCheck.slotHalf)], [5, [[5, 'Extra game not played']]],
+  'of two extra games with one played, the other did not come back');
 // 10 - 6 bounty + 2 win + 3 half the bounty
 assert.equal(spendCheck.bounty.bal.Sifat, 9, 'the poster, winning, did not take half the bounty back');
 assert.equal(spendCheck.bounty.bal.Ofi, 15, 'the other winner did not take half the bounty');
