@@ -2570,11 +2570,11 @@ await page.click('#chalTabs [data-tab="recent"]');
 // d1 is Sifat & Ofi over Nur & Rashed; Sifat played in it, so his row is correctable
 // the winning pair is the bold one, which is the whole of what a result says now
 assert.deepEqual(
-  await page.$$eval('#chalRecent .ch-rrow:nth-child(3) .ch-rt span',
+  await page.$$eval(':nth-match(#chalRecent .ch-rrow, 3) .ch-rt span',
     n => n.map(x => [x.textContent, x.className])),
   [['Sifat & Ofi', 'ch-wn'], ['Nur & Rashed', '']],
   'the recent row did not mark the pair that won');
-await page.click('#chalRecent .ch-rrow:nth-child(3) .ch-flip');
+await page.click(':nth-match(#chalRecent .ch-rrow, 3) .ch-flip');
 assert.deepEqual(await claims(),
   [['chalFile', 'd1', { b: 0, r: 1, by: 'sifat@x.com', side: 'b', at: 'number' }]],
   'correcting a settled result did not file the other side as a claim');
@@ -3894,6 +3894,43 @@ assert.deepEqual(revealed.pills, ['2 bets'], 'the tappable result has no pill sa
 assert.equal(revealed.others, 1, 'a result with no bets on it became tappable');
 assert.deepEqual(revealed.after, ['You on Sifat & Ofiwon +3', 'Shewa on Nur & Rashedlost 4'], 'the tapped result did not list its bets');
 assert.equal(revealed.kept, 1, 'a repaint closed the opened result');
+// the same game settled today: a heading for the day, and the day's bets board on top
+const dayBoard = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const T = Date.now() - 100000;
+  const S = (at, ...ns) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), at: at[i] }]));
+  const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { at: i, slots: S([], 'Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'), score: { b: 1, r: 0, at: i } }]));
+  rows.g = { at: T, slots: S([T + 90, T + 95, T + 99, T + 100], 'Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: T + 500 } };
+  window.setAccount(em('Toufiq'));
+  window.renderChallenges(rows);
+  window.renderSpends({ x1: { at: T + 150, by: em('Shewa'), kind: 'bet', game: 'g', side: 'r', amt: 4 },
+    x2: { at: T + 160, by: em('Toufiq'), kind: 'bet', game: 'g', side: 'b', amt: 3 } });
+  const rec = $('chalRecent'), rowsOf = b => [...b.querySelectorAll('.bb-row')].map(r => [r.className, r.textContent]);
+  const out = { heads: [...rec.querySelectorAll('.hall-season')].map(h => h.textContent), first: rec.firstElementChild.className,
+    rows: rowsOf(rec.querySelector('.bb')) };
+  // seven bettors: the best three, Show all, then the worst; a tap shows the rest
+  const now = Date.now();
+  chalWagers = { g: [['A', 9], ['B', 5], ['C', 5], ['D', 0], ['E', -2], ['F', -3], ['G', -8]].map(([who, v]) =>
+    ({ who, amt: Math.abs(v) || 1, won: v >= 0, t: now })) };
+  chalWagers.g.find(x => x.who === 'D').won = undefined; // never covered: not on the board
+  chalWagers.g.push({ who: 'C', amt: 1, won: true, t: now - 2 * 864e5 }); // another day
+  const b = betBoard();
+  out.many = [rowsOf(b), b.querySelector('.bb-more').textContent];
+  boardAll = true;
+  out.all = rowsOf(betBoard()).length;
+  boardAll = false;
+  window.setAccount(null); window.renderChallenges({}); window.renderSpends({});
+  out.none = betBoard();
+  return out;
+});
+assert.equal(dayBoard.first, 'bb', 'the day\'s bets board is not on top of Recent');
+assert.deepEqual(dayBoard.heads, ['Today1 game', 'Thu 1 Jan5 games'], 'the results are not headed by day');
+assert.deepEqual(dayBoard.rows, [['bb-row top', 'You+3'], ['bb-row spoon', 'Shewa\u22124']], 'the day\'s board is wrong');
+assert.deepEqual(dayBoard.many, [[['bb-row top', 'A+9'], ['bb-row', '2B+5'], ['bb-row', '3C+5'], ['bb-row spoon', 'G\u22128']], 'Show all 6'],
+  'a long board does not show the best three and the worst');
+assert.equal(dayBoard.all, 6, 'Show all does not show everyone');
+assert.equal(dayBoard.none, null, 'a day with no bets settled still shows a board');
+console.log('bets board OK');
 await page.evaluate(() => { window.setAccount(null); window.renderChallenges({}); window.renderSpends({}); });
 console.log('side bets OK');
 

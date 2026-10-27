@@ -1739,6 +1739,20 @@
     font-size: 0.72rem; font-weight: 900; color: #96660a; white-space: nowrap;
   }
   .ch-rbet .coin-disc { width: 13px; height: 13px; }
+  /* today's bets board, on top of Recent: the best three, the worst under a dashed line */
+  .bb { border: 1px solid #e7ecf3; border-radius: 14px; padding: 10px 10px 4px; margin: 12px 0 2px; display: flex; flex-direction: column; }
+  .bb-h { display: flex; align-items: center; gap: 7px; padding: 0 4px 6px; color: #5b6a7d; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+  .bb-h .coin-disc { width: 15px; height: 15px; }
+  .bb-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; }
+  .bb-row.spoon { border-top: 1px dashed #e7ecf3; }
+  .bb-i { width: 16px; flex: none; text-align: center; font-size: 0.72rem; font-weight: 800; color: #6b7a90; }
+  .bb-i .ico { width: 16px; height: 16px; display: block; }
+  .bb-row.top .bb-i .ico { fill: #c98a10; stroke: none; }
+  .bb-row.spoon .bb-i .ico { stroke: #b42318; fill: none; }
+  .bb-n { flex: 1; min-width: 0; font-size: 0.86rem; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
+  .bb-v { font-size: 0.86rem; font-weight: 900; color: #5b6a7d; font-variant-numeric: tabular-nums; }
+  .bb-v.up { color: #17854a; } .bb-v.down { color: #b42318; }
+  .bb-more { align-self: center; margin: 2px 0 4px; font: inherit; font-size: 0.72rem; font-weight: 800; color: #5b6a7d; background: #eef1f6; border: 0; border-radius: 999px; padding: 6px 14px; min-height: 30px; cursor: pointer; }
   .ch-rrow { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 9px 4px; border-bottom: 1px solid #eef1f6; }
   .ch-rrow:last-child { border-bottom: 0; }
   .ch-rhunt { flex-basis: 100%; order: 9; font-size: 0.72rem; font-weight: 800; color: #96660a; }
@@ -1920,6 +1934,8 @@
   <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
+  <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 18h18l-1.5-10-4.5 4-3-6-3 6-4.5-4z"/></symbol>
+  <symbol id="i-spoon" viewBox="0 0 24 24"><ellipse cx="8" cy="8" rx="4" ry="5" transform="rotate(-45 8 8)"/><path d="M11 11l9 9"/></symbol>
   <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3.4"/><path d="M4 7v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4V7"/><path d="M4 12v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4v-5"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></symbol>
 </defs></svg>
@@ -4084,7 +4100,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (e.cup) return e.up.forEach(n => { move(n, e.cup, e.why, e.t); hit(n, { k: e.award ? 'award' : 'final' }, e.t); });
     // the same line as a side bet: one that can't be covered any more doesn't stand
     if (e.settle) return (cupBets[e.settle] || []).forEach(x => {
-      x.settled = true;
+      x.settled = true; x.t = e.t;
       if (bal[x.who] < x.amt) return note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: couldn’t cover it by then`, e.t);
       x.won = x.team === e.champ;
       move(x.who, x.won ? cupBetWin(x.amt, x.n) : -x.amt, `Cup bet on ${x.team} ${x.won ? 'won' : 'lost'}`, e.t);
@@ -4143,7 +4159,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        went somewhere else first, doesn't stand either way: the same line a table
        bet draws for the two who lost. */
     (e.id && wagers[e.id] || []).forEach(x => {
-      x.settled = true;
+      x.settled = true; x.t = e.t;
       if (bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
       x.won = x.side === e.won;
       move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
@@ -4239,6 +4255,7 @@ const chalHeld = name => !name ? 0 : Object.values(allChal || {})
 var chalWagers = {};
 // the results somebody tapped open, kept across the repaints a live board does
 const betsOpen = new Set();
+var boardAll = false; // the day's bets board opened past its top three
 /* cup id -> the bets on who wins it, likewise. A cup abandoned before a champion
    stops holding them once the screen leaves it: Start Over lands on setup. */
 var cupWagers = {};
@@ -5617,7 +5634,22 @@ function renderChal() {
   const rec = $('chalRecent');
   rec.innerHTML = '';
   if (!done.length) rec.append(part('hall-empty', 'No results yet.'));
+  const board = betBoard();
+  if (board) rec.append(board);
+  /* A heading for each day, the Hall's season heading: today's games never
+     run on into yesterday's. The count is the day's, not just what's listed. */
+  const today = +dayStart(Date.now()), perDay = {};
+  done.forEach(c => { const d = +dayStart(c.at); perDay[d] = (perDay[d] || 0) + 1; });
+  let lastDay = null;
   done.slice(0, 10).forEach(c => {
+    const day = +dayStart(c.at);
+    if (day !== lastDay) {
+      lastDay = day;
+      const h = part('hall-season', day === today ? 'Today' : day === today - 864e5 ? 'Yesterday'
+        : new Date(day).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }));
+      h.append(part('', perDay[day] + (perDay[day] === 1 ? ' game' : ' games'), 'span'));
+      rec.append(h);
+    }
     const b = +c.score.b, r = +c.score.r, w = wonSide(c.score);
     const row = part('ch-rrow');
     const teams = part('ch-rt');
@@ -5670,6 +5702,49 @@ function renderChal() {
     row.title = b + r > 1 ? `${said} ${b}\u2013${r}` : said; // an old row still has its score
     rec.append(row);
   });
+}
+/* Today's bets: everyone with a bet settled since midnight, side bets and cup
+   bets alike, by what they came to. Every one of these is already on a result
+   for anyone to read, so adding them up gives no wallet away. Best first, a
+   tie to whoever needed fewer bets; the top three, then the worst, with the
+   middle a tap away. A crown only for a gain, a spoon only for a loss. */
+function betBoard() {
+  const from = +dayStart(Date.now()), net = {}, n = {};
+  const add = (who, v) => { net[who] = (net[who] || 0) + v; n[who] = (n[who] || 0) + 1; };
+  Object.values(chalWagers).flat().filter(x => x.won !== undefined && x.t >= from)
+    .forEach(x => add(x.who, x.won ? x.amt : -x.amt));
+  Object.values(cupWagers).flat().filter(x => x.won !== undefined && x.t >= from)
+    .forEach(x => add(x.who, x.won ? cupBetWin(x.amt, x.n) : -x.amt));
+  const rows = Object.keys(net).sort((a, b) => net[b] - net[a] || n[a] - n[b]);
+  if (!rows.length) return null;
+  const box = part('bb');
+  const h = part('bb-h');
+  h.append(part('coin-disc', '', 'span'), part('', 'Today\u2019s bets', 'span'));
+  box.append(h);
+  const me = myName(), last = rows.length - 1;
+  const line = (who, i) => {
+    const crown = i === 0 && net[who] > 0, spoon = i === last && i > 0 && net[who] < 0;
+    const l = part('bb-row' + (crown ? ' top' : '') + (i === last && i ? ' spoon' : ''));
+    const mark = part('bb-i', crown || spoon ? '' : String(i + 1), 'span');
+    if (crown || spoon) mark.innerHTML = svg(crown ? 'crown' : 'spoon');
+    const v = net[who];
+    // textContent: names are user input
+    l.append(mark, part('bb-n', who === me ? 'You' : who, 'span'),
+      part('bb-v' + (v > 0 ? ' up' : v < 0 ? ' down' : ''), v > 0 ? '+' + v : v < 0 ? '\u2212' + -v : '0', 'span'));
+    box.append(l);
+  };
+  if (boardAll || rows.length <= 4) rows.forEach(line);
+  else {
+    rows.slice(0, 3).forEach(line);
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'bb-more';
+    more.textContent = `Show all ${rows.length}`;
+    more.onclick = () => { boardAll = true; renderChal(); };
+    box.append(more);
+    line(rows[last], last);
+  }
+  return box;
 }
 window.renderChallenges = all => {
   allChal = all || {};
