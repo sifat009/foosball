@@ -4090,8 +4090,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     }
     /* An extra game nobody played comes back at midnight, at what it cost. The
        day's free five go first, so a day of five or fewer played hands back
-       every one bought. Played is counted the way the page's limit counts it,
-       a draw included: a slot spent on a draw was used. */
+       every one bought. Played is counted the way the page's limit counts it. */
     if (e.unplayed) {
       const who = EMAIL_NAMES[e.by], k = who + e.day, n = bought[k] || 0;
       const games = (rows || []).filter(c => chalDone(c) && new Date(chalAt(c)).toDateString() === e.day
