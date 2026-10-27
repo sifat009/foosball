@@ -1744,11 +1744,11 @@
   .bb-h { display: flex; align-items: center; gap: 7px; padding: 0 4px 6px; color: #5b6a7d; font-size: 0.68rem; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
   .bb-h .coin-disc { width: 15px; height: 15px; }
   .bb-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; }
-  .bb-row.spoon { border-top: 1px dashed #e7ecf3; }
+  .bb-i.fly { font-size: 1rem; line-height: 1; }
+  .bb-row.worst { border-top: 1px dashed #e7ecf3; }
   .bb-i { width: 16px; flex: none; text-align: center; font-size: 0.72rem; font-weight: 800; color: #6b7a90; }
   .bb-i .ico { width: 16px; height: 16px; display: block; }
   .bb-row.top .bb-i .ico { fill: #c98a10; stroke: none; }
-  .bb-row.spoon .bb-i .ico { stroke: #b42318; fill: none; }
   .bb-n { flex: 1; min-width: 0; font-size: 0.86rem; font-weight: 700; color: #172b4d; overflow-wrap: anywhere; }
   .bb-v { font-size: 0.86rem; font-weight: 900; color: #5b6a7d; font-variant-numeric: tabular-nums; }
   .bb-v.up { color: #17854a; } .bb-v.down { color: #b42318; }
@@ -1935,7 +1935,6 @@
   <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></symbol>
   <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v11"/><path d="m8 10 4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></symbol>
   <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 18h18l-1.5-10-4.5 4-3-6-3 6-4.5-4z"/></symbol>
-  <symbol id="i-spoon" viewBox="0 0 24 24"><ellipse cx="8" cy="8" rx="4" ry="5" transform="rotate(-45 8 8)"/><path d="M11 11l9 9"/></symbol>
   <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3.4"/><path d="M4 7v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4V7"/><path d="M4 12v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4v-5"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></symbol>
 </defs></svg>
@@ -5707,7 +5706,7 @@ function renderChal() {
    bets alike, by what they came to. Every one of these is already on a result
    for anyone to read, so adding them up gives no wallet away. Best first, a
    tie to whoever needed fewer bets; the top three, then the worst, with the
-   middle a tap away. A crown only for a gain, a spoon only for a loss. */
+   middle a tap away. A crown only for a gain, flying money only for a loss. */
 function betBoard() {
   const from = +dayStart(Date.now()), net = {}, n = {};
   const add = (who, v) => { net[who] = (net[who] || 0) + v; n[who] = (n[who] || 0) + 1; };
@@ -5723,10 +5722,10 @@ function betBoard() {
   box.append(h);
   const me = myName(), last = rows.length - 1;
   const line = (who, i) => {
-    const crown = i === 0 && net[who] > 0, spoon = i === last && i > 0 && net[who] < 0;
-    const l = part('bb-row' + (crown ? ' top' : '') + (i === last && i ? ' spoon' : ''));
-    const mark = part('bb-i', crown || spoon ? '' : String(i + 1), 'span');
-    if (crown || spoon) mark.innerHTML = svg(crown ? 'crown' : 'spoon');
+    const crown = i === 0 && net[who] > 0, flew = i === last && i > 0 && net[who] < 0;
+    const l = part('bb-row' + (crown ? ' top' : '') + (i === last && i ? ' worst' : ''));
+    const mark = part('bb-i' + (flew ? ' fly' : ''), flew ? '\u{1F4B8}' : crown ? '' : String(i + 1), 'span');
+    if (crown) mark.innerHTML = svg('crown');
     const v = net[who];
     // textContent: names are user input
     l.append(mark, part('bb-n', who === me ? 'You' : who, 'span'),

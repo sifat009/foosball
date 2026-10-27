@@ -3925,8 +3925,8 @@ const dayBoard = await page.evaluate(() => {
 });
 assert.equal(dayBoard.first, 'bb', 'the day\'s bets board is not on top of Recent');
 assert.deepEqual(dayBoard.heads, ['Today1 game', 'Thu 1 Jan5 games'], 'the results are not headed by day');
-assert.deepEqual(dayBoard.rows, [['bb-row top', 'You+3'], ['bb-row spoon', 'Shewa\u22124']], 'the day\'s board is wrong');
-assert.deepEqual(dayBoard.many, [[['bb-row top', 'A+9'], ['bb-row', '2B+5'], ['bb-row', '3C+5'], ['bb-row spoon', 'G\u22128']], 'Show all 6'],
+assert.deepEqual(dayBoard.rows, [['bb-row top', 'You+3'], ['bb-row worst', '\u{1F4B8}Shewa\u22124']], 'the day\'s board is wrong');
+assert.deepEqual(dayBoard.many, [[['bb-row top', 'A+9'], ['bb-row', '2B+5'], ['bb-row', '3C+5'], ['bb-row worst', '\u{1F4B8}G\u22128']], 'Show all 6'],
   'a long board does not show the best three and the worst');
 assert.equal(dayBoard.all, 6, 'Show all does not show everyone');
 assert.equal(dayBoard.none, null, 'a day with no bets settled still shows a board');
