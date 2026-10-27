@@ -3990,6 +3990,11 @@ const cupPanel = await page.evaluate(() => {
   // five minutes on: closed, and Kick Off is a button again
   window.renderDrawn({ kp: { at: Date.now() - 301000, teams: ['Sifat + Ofi', 'Nur + Rashed', 'Rifat + Toufiq'] } });
   out.after = [box().style.display, $('tourneyBtn').disabled, $('tourneyBtn').textContent.trim()];
+  // closed, a bettor sees only their own line, not the teams
+  window.cupWagers = { kp: [{ who: 'Shewa', team: 'Nur + Rashed', amt: 7, n: 3 }] };
+  renderCupBets(); // renderDrawn would walk the ledger and drop this bet
+  out.closed = [box().querySelectorAll('.ch-wg-team, .ch-wg-h').length, box().textContent];
+  window.cupWagers = {};
   // a 2-team draw has nothing to bet on and nothing to wait for
   window.renderDrawn({ kp: { at: Date.now() - 1000, teams: ['Sifat + Ofi', 'Nur + Rashed'] } });
   out.two = [box().style.display, $('tourneyBtn').disabled];
@@ -4007,6 +4012,7 @@ assert.equal(cupPanel.go, 'Bet 7 on Nur + Rashed', 'the bet button does not name
 assert.deepEqual(cupPanel.spent, { kind: 'cupbet', cup: 'kp', team: 1, amt: 7,
   by: await page.evaluate(() => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === 'Shewa')) }, 'the cup bet written is not the one shown');
 assert.deepEqual(cupPanel.after, ['none', false, 'Kick Off the Cup'], 'the window closing did not hand Kick Off back');
+assert.deepEqual(cupPanel.closed, [0, 'You bet 7 on Nur + Rashed. If they win the cup you get +7.'], 'a closed cup bet shows more than the bettor\'s line');
 assert.doesNotMatch(cupPanel.other, /Nur 9|coins on them/, 'the cup panel shows somebody else\'s bet');
 assert.match(cupPanel.other, /stays hidden until the cup is won/, 'the cup panel does not say bets are hidden');
 assert.deepEqual(cupPanel.two, ['none', false], 'a 2-team cup was opened for betting');

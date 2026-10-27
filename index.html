@@ -5352,9 +5352,9 @@ function betDrawer(key, name, pay0, place) {
 }
 
 /* Betting on the cup: every team as a panel. Open to anyone on the list for
-   five minutes from the draw, their own team included; after that it stays up,
-   read-only, for a bettor until the cup ends. Like a game, nobody sees anyone
-   else's bet until the cup is won. */
+   five minutes from the draw, their own team included; after that only a
+   bettor sees it, as their one line, until the cup ends. Like a game, nobody
+   sees anyone else's bet until the cup is won. */
 var cbPick = null; // the team the reader has tapped, by its place in the draw
 function cupBetPanel() {
   const d = cupId && allDrawn[cupId], ts = (d && d.teams) || [];
@@ -5366,34 +5366,35 @@ function cupBetPanel() {
   const can = open && !!me && !mine;
   const pick = can ? cbPick : null;
   const box = part('ch-wg cb');
-  const head = part('ch-wg-h');
-  head.append(part('ch-flbl', 'Who wins the cup?', 'span'));
+  // closed, it is up only for a bettor, and their own line says it all
   if (open) {
+    const head = part('ch-wg-h');
+    head.append(part('ch-flbl', 'Who wins the cup?', 'span'));
     const left = part('ch-wg-left', 'Closes in ', 'span');
     left.append(leftNode(until));
     head.append(left);
-  } else head.append(part('ch-wg-left done', 'Betting closed', 'span'));
-  box.append(head);
-  const grid = part('ch-wg-teams');
-  ts.forEach((name, i) => {
-    const p = document.createElement(can ? 'button' : 'div');
-    p.className = 'ch-wg-team cup' + (pick === i || (mine && mine.team === name) ? ' on' : '');
-    const nm = part('', '', 'b');
-    nm.append(...pairNodes(name));
-    p.append(part('', 'Team ' + (i + 1), 'u'), nm);
-    if (mine && mine.team === name) {
-      const who = part('ch-wg-who', '', 'span');
-      who.append(part('ch-wg-chip you', 'You ' + mine.amt, 'span'));
-      p.append(who);
-    }
-    if (can) {
-      p.type = 'button';
-      p.append(part('ch-wg-cta', pick === i ? 'Your pick \u2713' : 'Bet on them', 'span'));
-      p.onclick = () => { cbPick = pick === i ? null : i; renderCupBets(); };
-    }
-    grid.append(p);
-  });
-  box.append(grid);
+    box.append(head);
+    const grid = part('ch-wg-teams');
+    ts.forEach((name, i) => {
+      const p = document.createElement(can ? 'button' : 'div');
+      p.className = 'ch-wg-team cup' + (pick === i || (mine && mine.team === name) ? ' on' : '');
+      const nm = part('', '', 'b');
+      nm.append(...pairNodes(name));
+      p.append(part('', 'Team ' + (i + 1), 'u'), nm);
+      if (mine && mine.team === name) {
+        const who = part('ch-wg-who', '', 'span');
+        who.append(part('ch-wg-chip you', 'You ' + mine.amt, 'span'));
+        p.append(who);
+      }
+      if (can) {
+        p.type = 'button';
+        p.append(part('ch-wg-cta', pick === i ? 'Your pick \u2713' : 'Bet on them', 'span'));
+        p.onclick = () => { cbPick = pick === i ? null : i; renderCupBets(); };
+      }
+      grid.append(p);
+    });
+    box.append(grid);
+  }
   if (mine) {
     const n = part('ch-betnote bet'), win = cupBetWin(mine.amt, mine.n);
     if (over && mine.won !== undefined) n.append(mine.won
