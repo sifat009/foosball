@@ -4008,6 +4008,38 @@ assert.deepEqual([cupbet.twice.n, cupbet.twice.bal.Shewa], [1, 20], 'a second be
 assert.equal(cupbet.own.bal.Toufiq, 15, 'a player could not back their own team');
 assert.deepEqual(cupbet.held, [5, 0, 0], 'a cup bet is not held while its cup is in play, and only then');
 
+/* From CUP_KO_FROM a bet on a team its bettor's team met in the knockout comes
+   back, and a later cup caps a bet at 5. Shewa holds ten, on Shewa + Toufiq. */
+const cupko = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (...ns) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]) }]));
+  const seed = [1, 2, 3, 4, 5].map(i => ({ id: 's' + i, at: i, slots: S('Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'), score: { b: 1, r: 0, at: i } }));
+  const TS = ['Sifat + Ofi', 'Shewa + Toufiq', 'Nur + Rashed', 'Siddiq + Sajeeb'];
+  const run = (id, champ, runnerUp, ko, amt = 5) => {
+    const at = CUP_KO_FROM, drawn = { [id]: { at, teams: TS } };
+    const cups = [{ id: String(id), date: at + 1e6, champion: champ, runnerUp, ko }];
+    return window.coinWalk(seed, cups, [{ at: at + 1, by: em('Shewa'), kind: 'cupbet', cup: String(id), team: 0, amt }], at + 2e6, drawn).bal.Shewa;
+  };
+  const id = CUP_KO_FROM;
+  return {
+    thrownFinal: run(id, 'Sifat + Ofi', 'Shewa + Toufiq'),           // lost the final to the team backed
+    wonFinal: run(id, 'Shewa + Toufiq', 'Sifat + Ofi'),              // beat them in the final
+    semi: run(id, 'Nur + Rashed', 'Siddiq + Sajeeb', [['Shewa + Toufiq', 'Sifat + Ofi']]),
+    neverMet: run(id, 'Sifat + Ofi', 'Nur + Rashed', [['Shewa + Toufiq', 'Siddiq + Sajeeb']]),
+    before: run(id - 1, 'Sifat + Ofi', 'Shewa + Toufiq'),
+    six: run(id + 1, 'Sifat + Ofi', 'Nur + Rashed', [], 6),
+    sixNow: run(id, 'Sifat + Ofi', 'Nur + Rashed', [], 6),
+  };
+});
+// Shewa has 10 coins plus 5 from the runner-up or 10 from the cup where Shewa + Toufiq made the final
+assert.equal(cupko.thrownFinal, 15, 'losing the final to the team backed still paid the bet');
+assert.equal(cupko.wonFinal, 20, 'beating the team backed in the final still cost the bet');
+assert.equal(cupko.semi, 10, 'meeting the team backed in a semi did not hand the bet back');
+assert.equal(cupko.neverMet, 20, 'a bet on a team never met did not pay as usual');
+assert.equal(cupko.before, 15 + 10, 'a cup before the cutoff was settled the new way');
+assert.equal(cupko.six, 10, 'a bet of 6 on a cup after the cutoff stood');
+assert.equal(cupko.sixNow, 10 + 12, 'a bet of 6 on the running cup was refused');
+
 // the panel on the draw, and the admin's Kick Off held shut while it is open
 const cupPanel = await page.evaluate(() => {
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);

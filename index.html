@@ -2507,8 +2507,9 @@ Nur</textarea>
         win +6. If they lose, your bet is gone. A draw or a cancelled
         challenge costs you nothing.</li>
         <li><b>Bet on the cup.</b> For five minutes after the draw, anyone can put 1 to
-        10 coins on one team, their own included. If they win the cup you win your bet
-        times two less than the number of teams: bet 5 in a 4-team cup, win +10.</li>
+        5 coins on one team, their own included. If they win the cup you win your bet
+        times two less than the number of teams: bet 5 in a 4-team cup, win +10. If your
+        team meets the team you backed in the knockout, your bet comes back, whoever wins.</li>
         <li>You can only spend what isn't riding on an open table, and a spend
         can't be undone.</li>
       </ul>
@@ -3763,6 +3764,10 @@ const WAGER_MAX = 10, WAGER_MS = 2 * 6e4;
    the champion is saved; a cup that never gets one costs nobody anything. */
 const CUPBET_MS = 5 * 6e4;
 const cupBetWin = (a, n) => a * (n - 2);
+/* A player whose team meets the team they backed in the knockout gets the bet
+   back, whoever wins, so losing that match on purpose never pays. It counts
+   from the cup running on 28 Oct 2026; cups drawn after it also cap a bet at 5. */
+const CUP_KO_FROM = 1793089471591, CUPBET_MAX = 5;
 /* When the fourth seat was taken: the latest of the four times, so a swapped
    player fills the lobby again and starts a new window. The time is a second
    write after the seat, and one that never lands (a dropped connection, a tab
@@ -3979,7 +3984,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   });
   // a champion saved settles the bets on its cup, whether or not the cup pays prizes
   (cups || []).filter(e => e && e.id && e.champion && drawn[e.id])
-    .forEach(e => ev.push({ t: e.date || 0, settle: e.id, champ: e.champion }));
+    .forEach(e => ev.push({ t: e.date || 0, settle: e.id, champ: e.champion,
+      ko: +e.id >= CUP_KO_FROM ? [...(e.ko || []), [e.champion, e.runnerUp]] : [] }));
   ev.sort((a, b) => a.t - b.t);
 
   ev.forEach(e => {
@@ -4041,7 +4047,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       if (s.kind === 'cupbet') {
         const d = drawn[s.cup], ts = (d && d.teams) || [], amt = +s.amt, w = cupBets[s.cup] || [];
         if (who === undefined) return;
-        if (!d || ts.length < 3 || !ts[s.team] || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
+        if (!d || ts.length < 3 || !ts[s.team] || !(amt >= 1 && amt <= (+s.cup > CUP_KO_FROM ? CUPBET_MAX : WAGER_MAX)) || amt % 1) return refuse(who, s, false);
         if (+s.at < +d.at || +s.at > +d.at + CUPBET_MS) return refuse(who, s, false);
         if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
         cupBets[s.cup] = [...w, { who, team: ts[s.team], amt, n: ts.length, at: +s.at }];
@@ -4119,6 +4125,9 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     // the same line as a side bet: one that can't be covered any more doesn't stand
     if (e.settle) return (cupBets[e.settle] || []).forEach(x => {
       x.settled = true; x.t = e.t;
+      const own = (drawn[e.settle].teams || []).find(t => t.split(' + ').includes(x.who));
+      if (own && own !== x.team && e.ko.some(m => m.includes(own) && m.includes(x.team)))
+        return x.back = true, note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: your team met them in the knockout, so it came back`, e.t);
       if (bal[x.who] < x.amt) return note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: couldn’t cover it by then`, e.t);
       x.won = x.team === e.champ;
       move(x.who, x.won ? cupBetWin(x.amt, x.n) : -x.amt, `Cup bet on ${x.team} ${x.won ? 'won' : 'lost'}`, e.t);
@@ -5346,32 +5355,32 @@ function wagerDrawer(c, side) {
 }
 /* The amount picker and the button, for a bet on a game or on the cup: `pay`
    words the stake, `place` writes it. */
-function betDrawer(key, name, pay0, place) {
+function betDrawer(key, name, pay0, place, max = WAGER_MAX) {
   const free = Math.max(0, chalFree || 0);
   const box = part('ch-wg-drawer');
   if (free < 1) {
     box.append(part('ch-shy', `You need a coin free to bet \u2014 you have ${free}.`));
     return box;
   }
-  wgAmt = Math.max(1, Math.min(WAGER_MAX, free, wgAmt));
+  wgAmt = Math.max(1, Math.min(max, free, wgAmt));
   const row = part('ch-wg-row');
   const amt = part('ch-wg-amt');
   const input = document.createElement('input');
-  Object.assign(input, { type: 'number', min: 1, max: Math.min(WAGER_MAX, free), step: 1, value: wgAmt, inputMode: 'numeric', id: 'wgAmt-' + key });
+  Object.assign(input, { type: 'number', min: 1, max: Math.min(max, free), step: 1, value: wgAmt, inputMode: 'numeric', id: 'wgAmt-' + key });
   input.setAttribute('aria-label', 'How many coins');
   const pay = part('ch-wg-pay', pay0(wgAmt), 'span');
   const go = document.createElement('button');
   go.type = 'button';
   go.className = 'btn btn-green ch-wg-go';
   const show = () => { pay.textContent = pay0(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; input.value = wgAmt; };
-  const step = d => { wgAmt = Math.max(1, Math.min(WAGER_MAX, free, wgAmt + d)); show(); };
+  const step = d => { wgAmt = Math.max(1, Math.min(max, free, wgAmt + d)); show(); };
   const dn = document.createElement('button'), up = document.createElement('button');
   dn.type = up.type = 'button';
   dn.textContent = '\u2212'; up.textContent = '+';
   dn.setAttribute('aria-label', 'One less'); up.setAttribute('aria-label', 'One more');
   dn.onclick = () => step(-1); up.onclick = () => step(1);
   // as they type, without a repaint that would take the caret away
-  input.oninput = () => { const n = Math.round(+input.value); if (n >= 1) { wgAmt = Math.min(WAGER_MAX, free, n); pay.textContent = pay0(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; } };
+  input.oninput = () => { const n = Math.round(+input.value); if (n >= 1) { wgAmt = Math.min(max, free, n); pay.textContent = pay0(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; } };
   input.onchange = show;
   amt.append(dn, input, up);
   row.append(amt, pay);
@@ -5382,7 +5391,7 @@ function betDrawer(key, name, pay0, place) {
     place(wgAmt);
   };
   box.append(row, go);
-  if (free < WAGER_MAX) box.append(part('ch-note', `You have ${free} free to bet.`));
+  if (free < max) box.append(part('ch-note', `You have ${free} free to bet.`));
   return box;
 }
 
@@ -5432,7 +5441,8 @@ function cupBetPanel() {
   }
   if (mine) {
     const n = part('ch-betnote bet'), win = cupBetWin(mine.amt, mine.n);
-    if (over && mine.won !== undefined) n.append(mine.won
+    if (over && mine.back) n.append(`Your ${mine.amt} on ${mine.team} came back: your team met them in the knockout.`);
+    else if (over && mine.won !== undefined) n.append(mine.won
       ? `Your ${mine.amt} on ${mine.team} won you ` : `Your ${mine.amt} on ${mine.team} is gone.`,
       ...(mine.won ? [part('', '+' + win, 'b'), '.'] : []));
     else n.append(`You bet ${mine.amt} on ${mine.team}. If they win the cup you get `, part('', '+' + win, 'b'), '.');
@@ -5441,7 +5451,7 @@ function cupBetPanel() {
   else if (pick !== null) box.append(betDrawer('cup', ts[pick], a => `Win +${cupBetWin(a, ts.length)} \u00b7 lose ${a}`, amt => {
     cbPick = null;
     window.spendCoins({ kind: 'cupbet', cup: cupId, team: pick, amt, by: acctEmail });
-  }));
+  }, +cupId > CUP_KO_FROM ? CUPBET_MAX : WAGER_MAX));
   return box;
 }
 /* The panel on the draw and on the cup, and the admin's Kick Off held shut
@@ -7489,7 +7499,9 @@ function syncChampion(w) {
     champSaving = true;
     renderChampSave();
     Promise.resolve(window.recordChampion(cupId, teamName(w), P, indivGoals() ? cupAwards(P, defNames()) : null, teams,
-      lost ? teamName(lost) : null))
+      lost ? teamName(lost) : null,
+      // every knockout pairing, for the cup bets a meeting hands back
+      koRounds.flat().filter(m => m.a && m.b).map(m => [teamName(m.a), teamName(m.b)])))
       .finally(() => { champSaving = false; renderChampSave(); });
   }
   else window.clearChampion(cupId);
@@ -8269,9 +8281,9 @@ const cupRef = ref(db, 'cup');
 const historyRef = ref(db, 'history');
 const $ = id => document.getElementById(id);
 
-window.recordChampion = (id, champion, players, awards, teams, runnerUp) => set(ref(db, 'history/' + id),
+window.recordChampion = (id, champion, players, awards, teams, runnerUp, ko) => set(ref(db, 'history/' + id),
   { champion, date: Date.now(), players: players || null, awards: awards || null, teams: teams || null,
-    runnerUp: runnerUp || null })
+    runnerUp: runnerUp || null, ko: ko || null })
   .catch(err => {
     console.error('[history] write rejected:', err);
     alert('Could not record the champion: ' + err.message);
