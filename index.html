@@ -1692,6 +1692,7 @@
   .ch-betnote.bet { background: #fff8e8; border: 1px solid #f3e0b0; color: #96660a; }
   .ch-betnote.no { background: #fdf6e6; border: 1px solid #f0dfb4; color: #96660a; }
   .ch-betnote b { color: #17854a; }
+  .ch-betnote .cb-back { display: block; margin-top: 3px; font-size: 0.7rem; font-weight: 700; }
   /* betting from the side: the two pairs as panels, each with who is on them */
   .ch-wg { margin-top: 11px; display: grid; gap: 8px; }
   .ch-wg-h { display: flex; align-items: baseline; gap: 8px; }
@@ -5445,7 +5446,11 @@ function cupBetPanel() {
     else if (over && mine.won !== undefined) n.append(mine.won
       ? `Your ${mine.amt} on ${mine.team} won you ` : `Your ${mine.amt} on ${mine.team} is gone.`,
       ...(mine.won ? [part('', '+' + win, 'b'), '.'] : []));
-    else n.append(`You bet ${mine.amt} on ${mine.team}. If they win the cup you get `, part('', '+' + win, 'b'), '.');
+    else {
+      n.append(`You bet ${mine.amt} on ${mine.team}. If they win the cup you get `, part('', '+' + win, 'b'), '.');
+      const own = +cupId >= CUP_KO_FROM && ts.find(t => t.split(' + ').includes(me));
+      if (own && own !== mine.team) n.append(part('cb-back', `If your team plays them in the knockout, your ${mine.amt} comes back, whoever wins.`, 'small'));
+    }
     box.append(n);
   } else if (can && pick === null) box.append(part('ch-note', 'Tap the team you think will win the cup. Who bet on which team stays hidden until the cup is won.'));
   else if (pick !== null) box.append(betDrawer('cup', ts[pick], a => `Win +${cupBetWin(a, ts.length)} \u00b7 lose ${a}`, amt => {
