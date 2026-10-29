@@ -3534,12 +3534,13 @@ assert.equal(poor.ten.takeable, 0, 'a seat was offered to somebody who cannot co
 assert.equal(poor.free.why, null, 'a game with no bet was refused to somebody with no coins');
 assert.ok(poor.free.takeable > 0, 'somebody with nothing was locked out of a game costing nothing');
 
-/* Coins already on a table do not count. Sitting at one ten-coin table spends
-   the ten, so the second one is refused — otherwise one ten is bet at two
+/* Sitting at a ten-coin table takes the ten there and then, so the second one
+   is refused — otherwise one ten is bet at two
    tables and only the first of them could ever be paid. The first is played and
    filed but not yet confirmed — filing frees the seat, but not the coins. */
 const held = await page.evaluate(f => {
-  const sat = { ...f, ten: { ...f.ten, slots: { ...f.ten.slots, bf: { name: 'Sifat', email: 'sifat@x.com' } },
+  // after HOLD_FROM, when a seat takes its stake there and then
+  const sat = { ...f, ten: { ...f.ten, at: Math.max(f.ten.at, HOLD_FROM), slots: { ...f.ten.slots, bf: { name: 'Sifat', email: 'sifat@x.com' } },
     pending: { b: 1, r: 0, by: 'sifat@x.com', side: 'b', at: 1 } } };
   window.setAccount('sifat@x.com'); window.renderChallenges(sat);
   const el = $('ch-tenB');
@@ -3549,8 +3550,8 @@ const held = await page.evaluate(f => {
     bal: window.myCoins(),
   };
 }, BET);
-assert.equal(held.bal, 10, 'taking a seat moved coins — nothing moves until both sides agree');
-assert.equal(held.why, '10 coins to bet here — 10 of your 10 is on other tables.',
+assert.equal(held.bal, 0, 'taking a seat at a ten-coin table left the ten in the wallet');
+assert.equal(held.why, '10 coins to bet here — you have 0.',
   'a second ten-coin seat was offered on one ten: ' + held.why);
 assert.equal(held.takeable, 0, 'one ten was good for two ten-coin tables at once');
 
@@ -4039,6 +4040,56 @@ assert.equal(cupko.neverMet, 20, 'a bet on a team never met did not pay as usual
 assert.equal(cupko.before, 15 + 10, 'a cup before the cutoff was settled the new way');
 assert.equal(cupko.six, 10, 'a bet of 6 on a cup after the cutoff stood');
 assert.equal(cupko.sixNow, 10 + 12, 'a bet of 6 on the running cup was refused');
+
+/* From HOLD_FROM a stake leaves the wallet when it's put down: a seat at a
+   five-coin table, a bet from the side, a cup bet. A win hands it back with the
+   winnings, a loss keeps it, and a game or cup that pays nothing hands it back.
+   Everyone starts on ten. */
+const hold = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (ns, at) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), ...(at && { at: at + i }) }]));
+  const A = ['Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'], B = ['Nur', 'Rashed', 'Ofi', 'Sifat'];
+  const seed = [A, B].flatMap((g, j) => [0, 1, 2, 3, 4].flatMap(i => [
+    { id: `s${j}b${i}`, at: i + 1, slots: S(g), score: { b: 1, r: 0, at: i + 1 } },
+    { id: `s${j}r${i}`, at: i + 1, slots: S(g), score: { b: 0, r: 1, at: i + 1 } }]));
+  const H = HOLD_FROM, end = dayStart(H); end.setDate(end.getDate() + 1);
+  const game = o => ({ id: 'g', at: H + 10, stake: 5, slots: S(A, H + 10), ...o });
+  const side = { at: H + 20, by: em('Nur'), kind: 'bet', game: 'g', side: 'b', amt: 4 };
+  const run = (o, now = H + 1000) => {
+    const w = window.coinWalk([...seed, game(o)], [], [side], now);
+    return [w.bal.Shewa, w.bal.Siddiq, w.bal.Nur];
+  };
+  const id = String(CUP_KO_FROM + 5), TS = ['Sifat + Ofi', 'Shewa + Toufiq', 'Nur + Rashed', 'Siddiq + Sajeeb'];
+  const cup = (cups, drawn, now = H + 1e6, at = H + 1) => window.coinWalk(seed, cups,
+    [{ at: at + 1, by: em('Shewa'), kind: 'cupbet', cup: id, team: 0, amt: 5 }], now, { [id]: { at, teams: TS }, ...drawn });
+  return {
+    open: run({}),
+    won: run({ score: { b: 1, r: 0, at: H + 500 } }),
+    lost: run({ score: { b: 0, r: 1, at: H + 500 } }),
+    draw: run({ score: { b: 1, r: 1, at: H + 500 } }),
+    unplayed: run({}, +end + 1),
+    filed: run({ pending: { b: 1, r: 0, by: em('Shewa'), side: 'b', at: H + 500 } }, +end + 1),
+    cupOpen: cup([], {}).bal.Shewa,
+    cupWon: cup([{ id, date: H + 5e5, champion: 'Sifat + Ofi', runnerUp: 'Nur + Rashed' }], {}).bal.Shewa,
+    cupLost: cup([{ id, date: H + 5e5, champion: 'Nur + Rashed', runnerUp: 'Sifat + Ofi' }], {}).bal.Shewa,
+    cupDropped: cup([], { [CUP_KO_FROM + 9]: { at: H + 5e5, teams: TS } }).bal.Shewa,
+    line: cup([], {}).log.Shewa.at(-1),
+    // the cup running at HOLD_FROM: its bets are taken then, not when placed
+    H,
+    early: [cup([], {}, H - 1, H - 1e5).bal.Shewa, cup([], {}, H + 1, H - 1e5).log.Shewa.at(-1)],
+  };
+});
+assert.deepEqual(hold.open, [5, 5, 6], 'a seat or a bet from the side left its stake in the wallet');
+assert.deepEqual(hold.won, [15, 5, 14], 'a win did not hand the stake back with the winnings');
+assert.deepEqual(hold.lost, [5, 15, 6], 'a loss took more than the stake already gone');
+assert.deepEqual(hold.draw, [10, 10, 10], 'a draw kept stakes');
+assert.deepEqual(hold.unplayed, [10, 10, 10], 'a lobby nobody played kept its stakes past midnight');
+assert.deepEqual(hold.filed, [5, 5, 6], 'a result waiting on the other side handed the stakes back');
+assert.deepEqual([hold.cupOpen, hold.cupWon, hold.cupLost, hold.cupDropped], [5, 20, 5, 10],
+  'a cup bet was not taken when placed, paid back with its winnings, or handed back by a cup with no champion');
+assert.deepEqual([hold.line.d, hold.line.why], [-5, 'Cup bet on Sifat + Ofi'], 'the history has no line for the stake taken');
+assert.deepEqual([hold.early[0], hold.early[1].d, hold.early[1].t], [10, -5, hold.H],
+  'a bet on the running cup was not taken at HOLD_FROM, or was taken before it');
 
 // the panel on the draw, and the admin's Kick Off held shut while it is open
 const cupPanel = await page.evaluate(() => {

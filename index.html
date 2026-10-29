@@ -3769,6 +3769,15 @@ const cupBetWin = (a, n) => a * (n - 2);
    back, whoever wins, so losing that match on purpose never pays. It counts
    from the cup running on 28 Oct 2026; cups drawn after it also cap a bet at 5. */
 const CUP_KO_FROM = 1793089471591, CUPBET_MAX = 5;
+/* From HOLD_FROM (29 Oct 2026, 17:06 Dhaka) a stake leaves the wallet the
+   moment it's put down: a seat at a lobby with a bet, a bet from the side, and a
+   cup bet from the cup running then on. A win pays it back with the winnings, a
+   loss keeps it, and a game or cup that pays nothing hands it back. Before
+   then a stake only moved at the result, and those rows still walk that way.
+   The running cup's bets placed before it are taken at HOLD_FROM rather than
+   when placed, so no game already settled walks any differently. */
+const HOLD_FROM = 1793271960000;
+const cutCup = id => +id >= CUP_KO_FROM;
 /* When the fourth seat was taken: the latest of the four times, so a swapped
    player fills the lobby again and starts a new window. The time is a second
    write after the seat, and one that never lands (a dropped connection, a tab
@@ -3908,6 +3917,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   const picked = {}; // player -> every coin they have collected off a tree
   const byId = {}, wagers = {}; // game id -> the lobby, the bets on it
   const cupBets = {}; // cup id -> the bets on who wins it
+  const stakes = {}; // game id -> [{ who, amt }], the seats' stakes taken and not yet paid back
   const claimed = {}; // player + card id -> true once its coins are in
   (rows || []).forEach(c => { if (c && c.id) byId[c.id] = c; });
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
@@ -3947,6 +3957,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (s.kind === 'bounty' && +s.at + BOUNTY_MS <= now) ev.push({ t: +s.at + BOUNTY_MS, expire: s });
     // so is a water's coins ripening, from AUTO_PICK_FROM: they land on their own
     if (s.kind === 'water' && +s.at >= AUTO_PICK_FROM && ripeAt(+s.at) <= now) ev.push({ t: ripeAt(+s.at), pick: s });
+    // and the running cup's bets from before HOLD_FROM are taken at it
+    if (s.kind === 'cupbet' && cutCup(s.cup) && +s.at < HOLD_FROM && HOLD_FROM <= now) ev.push({ t: HOLD_FROM, cutBet: s });
     // and so is the midnight after an extra game, which hands back one not played
     const end = dayStart(+s.at); end.setDate(end.getDate() + 1);
     if (s.kind === 'slot' && +end <= now && !ev.some(e => e.unplayed && e.by === s.by && +e.t === +end))
@@ -3966,7 +3978,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const bet = chalBet(c), t = chalAt(c);
     /* One event, not four: a bet is honoured or it is not, and that is a
        question about the table rather than about any one player. */
-    ev.push({ t, bet, id: c.id, nil: c.score.nil === true, won: b > r ? 'b' : 'r',
+    ev.push({ t, bet, id: c.id, nil: c.score.nil === true, won: b > r ? 'b' : 'r', cut: +c.at >= HOLD_FROM,
       day: (c.at || 0) >= CH_DAILY_FROM ? new Date(c.at).toDateString() : null,
       up: up.map(s => seatName(c.slots[s])), down: down.map(s => seatName(c.slots[s])) });
   });
@@ -3987,6 +3999,20 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   (cups || []).filter(e => e && e.id && e.champion && drawn[e.id])
     .forEach(e => ev.push({ t: e.date || 0, settle: e.id, champ: e.champion,
       ko: +e.id >= CUP_KO_FROM ? [...(e.ko || []), [e.champion, e.runnerUp]] : [] }));
+  /* A stake taken at the seat, and the moment whatever the result left of it
+     comes back: the agreed result, or the midnight that drops a lobby nobody
+     finished. Pushed after the results so the result at that moment pays first. */
+  (rows || []).filter(c => c && c.id && +c.at >= HOLD_FROM).forEach(c => {
+    if (chalBet(c)) SEATS.forEach(([s]) => c.slots && c.slots[s]
+      && ev.push({ t: +c.slots[s].at || +c.at, stake: c, who: seatName(c.slots[s]) }));
+    const end = dayStart(+c.at); end.setDate(end.getDate() + 1);
+    const t = chalDone(c) ? chalAt(c) : !chalPending(c) && +end <= now ? +end : null;
+    if (t) ev.push({ t, release: c });
+  });
+  // a cup that never got a champion hands its bets back when the next one is drawn
+  const draws = Object.keys(drawn).filter(cutCup).sort((a, b) => +drawn[a].at - +drawn[b].at);
+  draws.slice(0, -1).forEach((id, i) => (cups || []).some(e => e && e.id === id && e.champion)
+    || ev.push({ t: +drawn[draws[i + 1]].at, cupBack: id }));
   ev.sort((a, b) => a.t - b.t);
 
   ev.forEach(e => {
@@ -4037,7 +4063,9 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return refuse(who, s, false);
         if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
         if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
-        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on: pairOf(c, s.side) }];
+        const cut = +c.at >= HOLD_FROM, on = pairOf(c, s.side);
+        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on, cut }];
+        if (cut) move(who, -amt, `Bet on ${on}`, s.at);
         ok.push(s);
         hit(who, { k: 'bet' }, +s.at);
         return;
@@ -4051,7 +4079,9 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if (!d || ts.length < 3 || !ts[s.team] || !(amt >= 1 && amt <= (+s.cup > CUP_KO_FROM ? CUPBET_MAX : WAGER_MAX)) || amt % 1) return refuse(who, s, false);
         if (+s.at < +d.at || +s.at > +d.at + CUPBET_MS) return refuse(who, s, false);
         if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
-        cupBets[s.cup] = [...w, { who, team: ts[s.team], amt, n: ts.length, at: +s.at }];
+        const cut = cutCup(s.cup) && +s.at >= HOLD_FROM;
+        cupBets[s.cup] = [...w, { who, team: ts[s.team], amt, n: ts.length, at: +s.at, cut }];
+        if (cut) move(who, -amt, `Cup bet on ${ts[s.team]}`, s.at);
         ok.push(s);
         return;
       }
@@ -4121,6 +4151,32 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       picked[who] = (picked[who] || 0) + tr.pay;
       return hit(who, { k: 'collect' }, e.t);
     }
+    if (e.stake) { // a seat at a lobby with a bet: the stake goes now, if it's there
+      const bet = chalBet(e.stake), who = e.who;
+      if (bal[who] === undefined) return;
+      if (bal[who] < bet) return note(who, 0, `Seat at a ${bet}-coin game: not enough coins`, e.t);
+      move(who, -bet, `Sat down at a ${bet}-coin game`, e.t);
+      return (stakes[e.stake.id] = stakes[e.stake.id] || []).push({ who, amt: bet });
+    }
+    if (e.release) { // whatever the result didn't settle comes back
+      const c = e.release, why = chalDone(c) ? 'the game paid nothing' : 'the game wasn’t played';
+      (stakes[c.id] || []).forEach(x => move(x.who, x.amt, `Your ${x.amt} back: ${why}`, e.t));
+      delete stakes[c.id];
+      return (wagers[c.id] || []).filter(x => x.cut && !x.settled).forEach(x => {
+        x.settled = true; x.t = e.t;
+        move(x.who, x.amt, `Bet of ${x.amt} on ${x.on} came back: ${why}`, e.t);
+      });
+    }
+    if (e.cutBet) { // a bet that stood, still open, and still covered
+      const x = (cupBets[e.cutBet.cup] || []).find(x => x.at === +e.cutBet.at && x.who === EMAIL_NAMES[e.cutBet.by]);
+      if (!x || x.settled || bal[x.who] < x.amt) return;
+      x.cut = true;
+      return move(x.who, -x.amt, `Cup bet on ${x.team}`, e.t);
+    }
+    if (e.cupBack) return (cupBets[e.cupBack] || []).filter(x => x.cut && !x.settled).forEach(x => {
+      x.settled = true; x.t = e.t;
+      move(x.who, x.amt, `Cup bet of ${x.amt} on ${x.team} came back: the cup had no champion`, e.t);
+    });
     if (e.tenNil) return move(e.who, Math.max(e.tenNil, -bal[e.who]), e.why, e.t);
     if (e.cup) return e.up.forEach(n => { move(n, e.cup, e.why, e.t); hit(n, { k: e.award ? 'award' : 'final' }, e.t); });
     // the same line as a side bet: one that can't be covered any more doesn't stand
@@ -4128,9 +4184,11 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       x.settled = true; x.t = e.t;
       const own = (drawn[e.settle].teams || []).find(t => t.split(' + ').includes(x.who));
       if (own && own !== x.team && e.ko.some(m => m.includes(own) && m.includes(x.team)))
-        return x.back = true, note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: your team met them in the knockout, so it came back`, e.t);
-      if (bal[x.who] < x.amt) return note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: couldn’t cover it by then`, e.t);
+        return x.back = true, (x.cut ? move : note)(x.who, x.cut ? x.amt : 0, `Cup bet of ${x.amt} on ${x.team}: your team met them in the knockout, so it came back`, e.t);
+      if (!x.cut && bal[x.who] < x.amt) return note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: couldn’t cover it by then`, e.t);
       x.won = x.team === e.champ;
+      // a stake already taken: a win hands it back with the winnings, a loss keeps it
+      if (x.cut) return x.won && move(x.who, x.amt + cupBetWin(x.amt, x.n), `Cup bet on ${x.team} won`, e.t);
       move(x.who, x.won ? cupBetWin(x.amt, x.n) : -x.amt, `Cup bet on ${x.team} ${x.won ? 'won' : 'lost'}`, e.t);
     });
     /* The day's five, plus what was bought, are the page's rule — and the page
@@ -4145,11 +4203,12 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     }
     /* Which bounties this game touches, decided on what the hunters held going
        in: a bet lost in this same game can't be what shuts them out of it. */
+    const staked = n => (stakes[e.id] || []).filter(x => x.who === n).reduce((m, x) => m + x.amt, 0);
     const hunts = bounties.map(h => {
       const won = e.up.includes(h.on);
       if (!won && !e.down.includes(h.on)) return null;
       const hunters = won ? e.down : e.up;
-      return hunters.every(n => bal[n] >= BOUNTY_FEE) ? { h, won } : null;
+      return hunters.every(n => bal[n] + staked(n) >= BOUNTY_FEE) ? { h, won } : null;
     }).filter(Boolean);
     /* The two who lost are the two who pay, so they are the two who have to
        cover it. A seat is refused at the table to anybody who cannot — see
@@ -4157,14 +4216,19 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        went round the page; either way the bet is not honoured and the game
        falls back to paying as one played for nothing. Nobody is charged for a
        bet that did not move. */
-    const paid = e.bet && e.down.every(n => bal[n] >= e.bet);
+    /* A stake taken at the seat counts only if all four were: then the winners
+       get theirs back with the bet, and the losers' is already gone. Otherwise
+       the game is played for nothing and the release hands the stakes back. */
+    const paid = e.cut ? e.bet && (stakes[e.id] || []).length === 4 : e.bet && e.down.every(n => bal[n] >= e.bet);
+    const back = e.cut && paid ? e.bet : 0;
+    if (back) delete stakes[e.id];
     const x = e.nil ? 2 : 1;
     // "Won with Nur vs Ofi & Rashed, bet 3, to nil"
     const game = (n, side, vs) => `${side} with ${side === 'Won' ? e.up.find(m => m !== n) : e.down.find(m => m !== n)} vs ${vs.join(' & ')}`
       + (paid ? `, bet ${e.bet}` : '') + (e.nil ? ', to nil' : '');
-    e.up.forEach(n => move(n, (paid ? e.bet : COIN_WIN) * x, game(n, 'Won', e.down), e.t));
+    e.up.forEach(n => move(n, back + (paid ? e.bet : COIN_WIN) * x, game(n, 'Won', e.down), e.t));
     // a free loss costs nothing, unless it was to nil — then the two a win pays
-    const cost = paid ? e.bet * x : e.nil ? COIN_WIN : 0;
+    const cost = (paid ? e.bet * x : e.nil ? COIN_WIN : 0) - back;
     e.down.forEach(n => move(n, -Math.min(bal[n], cost), game(n, 'Lost', e.up), e.t));
     e.up.forEach(n => hit(n, { k: 'win', partner: e.up.find(m => m !== n), nil: e.nil, paid }, e.t));
     e.down.forEach(n => hit(n, { k: 'loss' }, e.t));
@@ -4188,19 +4252,21 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        bet draws for the two who lost. */
     (e.id && wagers[e.id] || []).forEach(x => {
       x.settled = true; x.t = e.t;
-      if (bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
+      if (!x.cut && bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
       x.won = x.side === e.won;
-      move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
+      // taken when it was placed: a win hands it back doubled, a loss keeps it
+      if (x.cut) x.won && move(x.who, 2 * x.amt, `Bet on ${x.on} won`, e.t);
+      else move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
       if (x.won) hit(x.who, { k: 'betwon' }, e.t);
     });
   });
   /* Bets nothing has settled: waiting on their game or champion, or on one that
-     never came, which takes nothing either. */
+     never came, which takes nothing either. A stake already taken has its own line. */
   const lastCup = Object.keys(drawn).sort((a, b) => +drawn[b].at - +drawn[a].at)[0];
-  Object.entries(wagers).forEach(([id, w]) => w.filter(x => !x.settled).forEach(x =>
+  Object.entries(wagers).forEach(([id, w]) => w.filter(x => !x.settled && !x.cut).forEach(x =>
     chalDone(byId[id]) ? note(x.who, 0, `Bet of ${x.amt} on ${x.on}: the game paid nothing, so nor did the bet`, x.at)
       : note(x.who, 0, `Bet of ${x.amt} on ${x.on}: waiting for the result`, x.at, true)));
-  Object.entries(cupBets).forEach(([id, w]) => w.filter(x => !x.settled).forEach(x =>
+  Object.entries(cupBets).forEach(([id, w]) => w.filter(x => !x.settled && !x.cut).forEach(x =>
     id === lastCup ? note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: waiting for the champion`, x.at, true)
       : note(x.who, 0, `Cup bet of ${x.amt} on ${x.team}: the cup had no champion, nothing taken`, x.at)));
   /* The trees as they stand now: stage, whether today's water is in, and
@@ -4269,16 +4335,17 @@ window.myCoins = myCoins;
    is spent until it settles, so three ten-coin seats need thirty — otherwise one
    ten could be bet at three tables at once and only the first of them could ever
    be paid. Held here rather than in the rules for the same reason the balance is:
-   a rule can read a stored number, but it cannot walk every row to derive one. */
+   a rule can read a stored number, but it cannot walk every row to derive one.
+   Only stakes from before HOLD_FROM: one after it has already left the balance. */
 const chalHeld = name => !name ? 0 : Object.values(allChal || {})
-  .filter(c => c && c.at && chalBet(c) && !chalDone(c) && chalLive(c)
+  .filter(c => c && c.at && +c.at < HOLD_FROM && chalBet(c) && !chalDone(c) && chalLive(c)
     && SEATS.some(([s]) => c.slots && seatName(c.slots[s]) === name))
   .reduce((n, c) => n + chalBet(c), 0)
   // and a bet from the side on a game still to be agreed
   + Object.entries(chalWagers).filter(([id]) => allChal[id] && !chalDone(allChal[id]) && chalLive(allChal[id]))
-    .reduce((n, [, w]) => n + w.filter(x => x.who === name).reduce((m, x) => m + x.amt, 0), 0)
+    .reduce((n, [, w]) => n + w.filter(x => x.who === name && !x.cut).reduce((m, x) => m + x.amt, 0), 0)
   // and a bet on the cup in play, until its champion is saved
-  + (cupLive() ? (cupWagers[cupId] || []).filter(x => x.who === name).reduce((m, x) => m + x.amt, 0) : 0);
+  + (cupLive() ? (cupWagers[cupId] || []).filter(x => x.who === name && !x.cut).reduce((m, x) => m + x.amt, 0) : 0);
 /* game id -> the bets from the side the walk let stand; set where the flair is. */
 var chalWagers = {};
 // the results somebody tapped open, kept across the repaints a live board does
