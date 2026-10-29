@@ -41,7 +41,7 @@
         ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'",
         ".validate": "newData.hasChildren(['title', 'coins', 'from', 'to']) && newData.child('to').val() >= newData.child('from').val()",
         "title": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 40" },
-        "text": { ".validate": "newData.isString() && newData.val().length <= 500" },
+        "text": { ".validate": "newData.isString()" },
         "style": { ".validate": "newData.val() === 'gold' || newData.val() === 'jumuah' || newData.val() === 'party' || newData.val() === 'notice'" },
         "coins": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 20" },
         "from": { ".validate": "newData.isString() && newData.val().matches(/^\\d{4}-\\d{2}-\\d{2}$/)" },

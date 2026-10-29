@@ -1169,6 +1169,20 @@
   #card[data-style="notice"] .hall-title { color: #1e3a8a; }
   #card[data-style="notice"] #cardGo { background: #2563eb; color: #fff; border: 0; box-shadow: none; }
   #cardGo { width: 100%; margin-top: 18px; padding: 13px; font-size: 0.95rem; }
+  /* a card in parts: a bar a part, lit up to the one showing; a tap on the
+     card's left third goes back, anywhere else forward */
+  #cardBars { display: flex; gap: 4px; margin: 0 34px 16px; }
+  #cardBars[hidden] { display: none; }
+  #cardBars div { flex: 1; height: 3px; border-radius: 999px; background: rgba(23,43,77,0.15); }
+  #cardBars .on { background: #e0a526; }
+  #cardNext { display: block; margin: 18px auto 0; padding: 10px 14px; border: 0; background: none;
+    font: inherit; font-size: 0.85rem; font-weight: 700; color: #5b6a7d; cursor: pointer; }
+  #cardNext[hidden] { display: none; }
+  #card[data-style="jumuah"] #cardBars div { background: rgba(255,255,255,0.3); }
+  #card[data-style="jumuah"] #cardBars .on { background: #f7d878; }
+  #card[data-style="jumuah"] #cardNext { color: rgba(255,255,255,0.8); }
+  #card[data-style="party"] #cardBars .on { background: #b0306a; }
+  #card[data-style="notice"] #cardBars .on { background: #2563eb; }
   /* closed without claiming: the coins wait in a box over the tab bar */
   #cardBox {
     position: fixed; right: 16px; bottom: calc(96px + env(safe-area-inset-bottom)); z-index: 30;
@@ -2075,7 +2089,7 @@
           <option value="gold">Gold</option><option value="jumuah">Jumu'ah</option>
           <option value="party">Celebration</option><option value="notice">Notice</option>
         </select>
-        <textarea id="prCardText" placeholder="Text" maxlength="500" rows="3"></textarea>
+        <textarea id="prCardText" placeholder="Text · a line of --- starts the next part" rows="3"></textarea>
         <input id="prCardFrom" type="date" aria-label="First day" required>
         <input id="prCardTo" type="date" aria-label="Last day" required>
         <button type="button" id="prCardPeek">Preview</button>
@@ -2402,8 +2416,10 @@ Nur</textarea>
 <!-- A card the admin wrote: pops up once a device, then waits as #cardBox until claimed -->
 <div id="card">
   <div class="hall-card">
+    <div id="cardBars" hidden></div>
     <div class="hall-title" id="cardTitle"></div>
     <div class="sheet-body"><div id="cardText"></div></div>
+    <button type="button" id="cardNext">Tap to continue →</button>
     <button type="button" class="btn btn-gold" id="cardGo"></button>
   </div>
 </div>
@@ -4483,18 +4499,42 @@ const liveCard = () => {
   });
   return id ? Object.assign({ id }, cards[id]) : null;
 };
+/* a card's text in parts, a line of just --- between them; the button that
+   claims shows on the last. A card that opens again starts at the first. */
+var cardParts = [''], cardAt = 0;
 function fillCard(c) {
   $('cardTitle').textContent = c.title; // textContent: the admin typed it
   $('card').dataset.style = c.style || 'gold';
+  const parts = (c.text || '').split(/^[ \t]*---[ \t]*$/m).map(t => t.replace(/^\s*\n|\n\s*$/g, '')).filter(t => t.trim());
+  // a repaint while it is open (anything in the db moved) keeps the part it is on
+  if (c.id !== $('cardGo').dataset.card || !$('card').classList.contains('open')) cardAt = 0;
+  cardParts = parts.length ? parts : [''];
+  cardAt = Math.min(cardAt, cardParts.length - 1);
+  $('cardGo').textContent = c.coins > 0 ? `Claim ${c.coins} coin${c.coins === 1 ? '' : 's'}` : 'OK';
+  $('cardGo').dataset.card = c.id;
+  showPart();
+}
+function showPart() {
   // a line each, finding its own direction; an Arabic line is set larger
-  $('cardText').replaceChildren(...(c.text || '').split('\n').map(l => {
+  $('cardText').replaceChildren(...cardParts[cardAt].split('\n').map(l => {
     const d = part(/[\u0600-\u06ff]/.test(l) ? 'ar' : '', l || '\u00a0');
     d.dir = 'auto';
     return d;
   }));
-  $('cardGo').textContent = c.coins > 0 ? `Claim ${c.coins} coin${c.coins === 1 ? '' : 's'}` : 'OK';
-  $('cardGo').dataset.card = c.id;
+  const last = cardAt === cardParts.length - 1;
+  $('cardBars').hidden = cardParts.length < 2;
+  $('cardBars').replaceChildren(...cardParts.map((_, k) => part(k <= cardAt ? 'on' : '')));
+  $('cardNext').hidden = last;
+  $('cardGo').hidden = !last;
+  $('card').querySelector('.hall-card').scrollTop = 0; // a long part scrolled down; the next starts at its top
 }
+const stepCard = d => { cardAt = Math.max(0, Math.min(cardParts.length - 1, cardAt + d)); showPart(); };
+$('cardNext').onclick = () => stepCard(1);
+$('card').querySelector('.hall-card').onclick = e => {
+  if (e.target.closest('button') || cardParts.length < 2) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  stepCard(e.clientX < r.left + r.width * 0.35 ? -1 : 1);
+};
 function paintCard() {
   if ($('card').dataset.preview) return; // the admin's preview is up; closing it repaints
   const c = liveCard(), open = $('card').classList.contains('open');
@@ -4513,7 +4553,7 @@ $('prCardPeek').onclick = () => {
   $('card').classList.add('open');
   $('cardBox').hidden = true;
 };
-$('cardBox').onclick = () => { $('card').classList.add('open'); $('cardBox').hidden = true; };
+$('cardBox').onclick = () => { cardAt = 0; showPart(); $('card').classList.add('open'); $('cardBox').hidden = true; };
 $('cardGo').onclick = () => {
   const id = $('cardGo').dataset.card, c = cards[id];
   if (c && c.coins > 0 && window.spendCoins) window.spendCoins({ kind: 'claim', card: id, by: acctEmail });
