@@ -8669,6 +8669,18 @@ onValue(ref(db, '.info/connected'), s => {
   watchConnection();
 });
 document.addEventListener('visibilitychange', watchConnection);
+/* Back from the background, the socket can be dead while .info/connected still
+   reads true, and nothing above ever retries: the page sits on old data that
+   looks live. So a wake after half a minute always bounces it, and the
+   listeners resync. After half an hour, reload: that also picks up a deploy
+   and a new day, which an iPhone home-screen app otherwise keeps for days. */
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  const away = hiddenAt ? Date.now() - hiddenAt : 0;
+  if (away > 30 * 6e4) location.reload();
+  else if (away > 30e3) { goOffline(db); goOnline(db); }
+});
 addEventListener('offline', paintConnected);
 addEventListener('online', () => { goOffline(db); goOnline(db); paintConnected(); });
 
