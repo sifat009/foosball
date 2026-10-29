@@ -21,12 +21,14 @@ const B1 = 'rifathaque93@gmail.com', B2 = 'rashedcse18@gmail.com';
 const R1 = 'siddikcoder@gmail.com', R2 = 'shewa.ollyo@gmail.com';
 const OUT = 'stranger@gmail.com';
 
+// a uid has to be a database key, which an email can't be
+const uid = who => who.replace(/[.@]/g, '_');
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
 /* `owner` is the emulator's admin bypass, used only to plant a fixture. Anyone
    else gets a token the rules read the way they read a real one. */
 const token = who => who === 'owner' ? 'owner'
   : `${b64({ alg: 'none', typ: 'JWT' })}.${b64({
-      sub: who, user_id: who, email: who, email_verified: true,
+      sub: uid(who), user_id: uid(who), email: who, email_verified: true,
       iat: 0, exp: 9999999999, firebase: { sign_in_provider: 'google.com' },
     })}.`;
 
@@ -460,6 +462,14 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('cupRoster/k1/2', B1, { fwd: B1 }), 'a player wrote themselves onto the roster');
   assert.ok(await del('cupResults/k1/0_1', ADMIN), 'the admin could not clear a merged result');
   assert.ok(await del('cupResults', ADMIN) && await del('cupRoster', ADMIN), 'Start Over could not wipe the cup’s side nodes');
+}
+// the last gift opened is the account's own: nobody else reads or moves it
+{
+  assert.ok(await put('giftSeen/' + uid(B1), B1, 5), 'a player could not mark their gifts opened');
+  assert.ok(await send('GET', 'giftSeen/' + uid(B1), B1), 'a player could not read their own gifts opened');
+  assert.ok(!await send('GET', 'giftSeen/' + uid(B1), B2), 'a player read somebody else’s gifts opened');
+  assert.ok(!await put('giftSeen/' + uid(B1), B2, 9), 'a player marked somebody else’s gifts opened');
+  assert.ok(!await put('giftSeen/' + uid(B1), B1, 9999999999999), 'a gift was marked opened in the future');
 }
 // the rules carry their own copy of EMAIL_NAMES — they can't read the page — so
 // adding a player means both; this fails the moment the two drift apart

@@ -4466,17 +4466,23 @@ var chalTrees = {}, chalPicked = {};
 var chalGifts = [];
 /* Gifts to you arrive as letters: one still sealed waits on the sheet with its
    coins inside, and the balance shown leaves them out until it is opened. Which
-   are opened is this device's to remember, and only the last week's can be
-   sealed, so a new phone doesn't open on a pile of old post. */
+   are opened the account remembers in /giftSeen, so a letter opened on the
+   phone is open in the browser too; this device's copy covers the wait for it.
+   Only the last week's can be sealed, so a new phone doesn't open on a pile of
+   old post. */
 const GIFT_SEALED_MS = 7 * 864e5;
 const giftsToMe = () => chalGifts.filter(g => EMAIL_NAMES[g.to] === myName());
 var giftSeenMem = 0; // for a browser that won't keep localStorage
 const giftSeen = () => {
   let v = 0;
   try { v = +localStorage.getItem('giftSeen:' + myName()) || 0; } catch {}
-  return Math.max(v, giftSeenMem);
+  return Math.max(v, giftSeenMem, window.giftSeenDb || 0);
 };
-const setGiftSeen = at => { giftSeenMem = at; try { localStorage.setItem('giftSeen:' + myName(), at); } catch {} };
+const setGiftSeen = at => {
+  giftSeenMem = at;
+  try { localStorage.setItem('giftSeen:' + myName(), at); } catch {}
+  if (window.saveGiftSeen) window.saveGiftSeen(at);
+};
 const sealedGifts = () => {
   const seen = giftSeen(), from = Date.now() - GIFT_SEALED_MS;
   return giftsToMe().filter(g => +g.at > seen && +g.at > from);
@@ -8539,6 +8545,21 @@ window.spendCoins = row => push(ref(db, 'spends'), { ...row, at: serverTimestamp
 onValue(ref(db, 'spends'), snap => window.renderSpends(snap.val() || {}),
   err => console.error('[spend] read failed:', err));
 
+/* The last gift this account opened, under its uid so only it reads or writes
+   it; a letter opened on one device stays open on the others. */
+let giftSeenOff = null;
+window.saveGiftSeen = at => auth.currentUser && +at > (window.giftSeenDb || 0)
+  && set(ref(db, 'giftSeen/' + auth.currentUser.uid), +at)
+    .catch(err => console.error('[gift] seen write failed:', err));
+const watchGiftSeen = user => {
+  if (giftSeenOff) giftSeenOff();
+  giftSeenOff = null; window.giftSeenDb = 0;
+  if (user) giftSeenOff = onValue(ref(db, 'giftSeen/' + user.uid), snap => {
+    window.giftSeenDb = +snap.val() || 0;
+    window.renderCoins();
+  }, err => console.error('[gift] seen read failed:', err));
+};
+
 window.suggestScore = (cup, key, sa, sb, pa, pb, by, email, ta, tb, ia, ib) =>
   set(ref(db, `suggestions/${cup}/${key}`),
     { sa, sb, pa: pa || null, pb: pb || null, ta: ta || null, tb: tb || null, ia: ia ?? null, ib: ib ?? null,
@@ -8812,6 +8833,7 @@ onAuthStateChanged(auth, user => {
   // who may edit the cup and who is sitting at the table are different
   // questions — the admin plays casual games like everybody else
   window.setAccount(user && user.emailVerified ? user.email : null);
+  watchGiftSeen(user);
   paintAuthBtn();
 });
 
