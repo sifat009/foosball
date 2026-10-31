@@ -75,7 +75,8 @@ with a shopping-bag icon drawn in the same line style as the others. It shows
 only to a signed-in player. On a phone it opens as a sheet from the bottom, the
 way Alerts does, with the balance at the top. On a desktop it's one more corner
 button. An amber dot on the tab means one of your power-ups has less than a
-day left.
+day left. The phone bar holds five tabs at most, so the Install tab hides
+while Market shows; the browser's own menu still installs the app.
 
 - **Listing.** From under the tree, the owner picks a dropped power-up, which
   one it becomes, and a price from 1 to 20. They can take it down any time. To
