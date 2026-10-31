@@ -51,7 +51,8 @@ used, with no new market code.
   raises today's cap, so the best time is when you've run out. A player who
   has run out and holds one gets "You've played 5 challenges today. Use your
   Extra Game to play one more?" with a Use button where the cap message shows,
-  and joins on one tap. Use in My power-ups still works earlier in the day.
+  and the seat is free to take once it lands. Use in My power-ups still works
+  earlier in the day.
 
 ## Items
 
@@ -109,8 +110,8 @@ table:
   point so they don't all reset together. At the end of a cycle a fresh
   listing with a new countdown takes its place.
 - **Selling to one player doesn't use it up.** It stays for everybody else.
-- **Each player can buy 1 bank item a workday**, whatever its family. After
-  that, the bank's listings drop out of their market until the next workday.
+- **Each player can buy 1 bank item a day**, whatever its family. After
+  that, the bank's listings drop out of their market until the next day.
   Nothing says why.
 - **A bank item is the same as a player's** once bought. Coins paid for it
   leave the game.
@@ -173,7 +174,7 @@ New `spends` kinds, replayed by `coinWalk` like the tree's:
 - **The walk refuses** a row that breaks a rule, at no cost: listing a drop
   that isn't yours, is listed already or has expired; buying your own listing,
   a sold or expired one, with that family full, without the coins, or a second
-  bank item that workday; using an item you don't hold, one used the other way
+  bank item that day; using an item you don't hold, one used the other way
   (a bet item with Use), or an Auto Water without a tree.
 - **`database.rules.json`** accepts the new kinds and fields with their types
   and ranges: `type` and `bank` are short strings, `price` is a whole number
@@ -199,8 +200,7 @@ New `spends` kinds, replayed by `coinWalk` like the tree's:
 - When two players buy one listing, the second is refused.
 - Buying your own listing, or a 4th power-up, is refused.
 - A listing at 21 is refused.
-- A second bank buy on the same workday is refused, and the next workday's is
-  allowed.
+- A second bank buy on the same day is refused, and the next day's is allowed.
 - Expiry skips a weekend and a holiday.
 - Win Boost on a won bet, on a lost one, and on a draw.
 - Shield on a lost bet, and on a won one.

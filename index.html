@@ -907,14 +907,14 @@
   }
   /* past champions — an overlay, not a .screen, because applyState() calls
      show() on every remote snapshot and would close a screen mid-read */
-  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who, #card {
+  #hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who, #card, #market {
     position: fixed; inset: 0; z-index: 40; display: none;
     align-items: center; justify-content: center; padding: 24px;
     background: rgba(10, 16, 28, 0.85); backdrop-filter: blur(4px);
     animation: fade-in 0.3s ease;
   }
   #hall.open, #rules.open, #toss.open, #alerts.open, #profile.open, #chal.open,
-  #coinInfo.open, #who.open, #card.open { display: flex; }
+  #coinInfo.open, #who.open, #card.open, #market.open { display: flex; }
   /* it opens off a row of the Hall, so it has to sit over the Hall */
   #profile { z-index: 45; }
   /* the seats that ask you to sign in live inside the Challenges overlay, so
@@ -1260,6 +1260,70 @@
   .pr-run .pl-best { flex: 1; } /* the finish reuses the board's round colours */
   .pr-line { color: #5b6a7d; font-size: 0.76rem; font-weight: 600; white-space: nowrap; }
 
+  /* the market: a sheet like the alerts drawer. A power-up is a coloured disc
+     with a white mark, the colour from ITEMS. */
+  .mk-sheet { display: grid; gap: 12px; align-content: start; }
+  .mk-sheet .hall-title { margin-bottom: 0; }
+  .mk-bal { justify-self: center; margin-top: -6px; font-size: 0.8rem; font-weight: 800; color: #96660a; background: #fff8e6; border: 1px solid #ecc45c; border-radius: 999px; padding: 3px 10px; }
+  .mk-h { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #7a879c; }
+  .pu { flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-grid; place-items: center; background: var(--pu); }
+  .pu svg { width: 62%; height: 62%; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+  .pu.sm { width: 22px; height: 22px; }
+  .mk-mine { display: flex; gap: 8px; flex-wrap: wrap; }
+  .mk-own { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border: 1px solid #dfe6f0; border-radius: 999px; background: #fff;
+    font: inherit; font-size: 0.76rem; font-weight: 700; color: #172b4d; cursor: pointer; }
+  .mk-own.soon { border-color: #ecc45c; background: #fff8e6; }
+  .mk-own.on { border-color: #17854a; box-shadow: 0 0 0 3px #e3f5ea; }
+  .mk-left { font-size: 0.72rem; font-weight: 600; color: #5b6b85; font-variant-numeric: tabular-nums; }
+  .mk-left.soon { color: #b7791f; font-weight: 700; }
+  .mk-use { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 14px; background: #f4fbf7; border: 1px solid #bfe3cf; font-size: 0.8rem; color: #3d4a5c; }
+  .mk-use span { flex: 1; min-width: 0; }
+  .mk-use .btn { padding: 8px 16px; font-size: 0.8rem; box-shadow: none; }
+  .mk-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+  .mk-chips::-webkit-scrollbar { display: none; }
+  .mk-chip { flex: none; display: inline-flex; gap: 4px; align-items: center; border: 1px solid #dfe6f0; background: #fff; border-radius: 999px; padding: 4px 10px 4px 6px;
+    font: inherit; font-size: 0.74rem; font-weight: 700; color: #5b6b85; cursor: pointer; }
+  .mk-chip.on { background: #172b4d; border-color: #172b4d; color: #fff; }
+  .mk-chip:first-child { padding-left: 10px; }
+  .mk-sort { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 700; color: #7a879c; }
+  .mk-seg { display: flex; gap: 2px; background: #f2f5f9; border-radius: 999px; padding: 3px; flex: 1; min-width: 0; }
+  .mk-seg button { flex: 1; border: 0; background: none; border-radius: 999px; padding: 5px 4px; font: inherit; font-size: 0.7rem; font-weight: 700; color: #5b6b85; cursor: pointer; white-space: nowrap; }
+  .mk-seg button.on { background: #fff; color: #172b4d; box-shadow: 0 2px 6px rgba(23,43,77,0.1); }
+  .mk-list { display: grid; gap: 6px; }
+  .mk-row { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: center; padding: 9px 12px; border-radius: 14px; border: 1px solid #dfe6f0; }
+  .mk-row b { font-size: 0.86rem; color: #172b4d; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .mk-row > div { min-width: 0; }
+  .mk-does { font-size: 0.74rem; color: #5b6b85; }
+  .mk-tag { font-size: 0.64rem; font-weight: 800; border-radius: 999px; padding: 2px 7px; color: #17854a; background: #eef7f2; }
+  .mk-tag.bank { color: #96660a; background: #fff8e6; }
+  .mk-buy { border: 0; border-radius: 999px; padding: 7px 13px; font: inherit; font-weight: 800; font-size: 0.8rem; color: #fff; white-space: nowrap; cursor: pointer;
+    background: linear-gradient(135deg, #22ab5f, #17854a); }
+  .mk-buy:disabled { background: #eef1f6; color: #8fa0b8; cursor: default; }
+  .mk-own:focus-visible, .mk-chip:focus-visible, .mk-seg button:focus-visible, .mk-buy:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
+  .mk-note { font-size: 0.76rem; color: #5b6b85; }
+  .mk-empty { padding: 18px 8px; text-align: center; font-size: 0.82rem; color: #7a879c; }
+  /* under the oak: its count to the next drop, and the drops to sell */
+  .oak-drops { flex-basis: 100%; display: grid; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed #dfe6f0; }
+  .oak-drops > b { font-size: 0.8rem; color: #172b4d; }
+  .oak-drop { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #5b6b85; }
+  .oak-drop > span:nth-child(2) { flex: 1; min-width: 0; }
+  .oak-drop .btn { padding: 6px 12px; font-size: 0.76rem; box-shadow: none; }
+  .pu.blank { background: #dfe6f0; }
+  .pu.blank svg { stroke: #8fa0b8; }
+  .oak-pick { display: grid; gap: 6px; }
+  .oak-opt { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1.5px solid #dfe6f0; border-radius: 12px; background: #fff; font: inherit; text-align: left; cursor: pointer; }
+  .oak-opt[aria-pressed="true"] { border-color: #17854a; background: #f4fbf7; }
+  .oak-opt b { display: block; font-size: 0.84rem; color: #172b4d; }
+  .oak-opt span { font-size: 0.74rem; color: #5b6b85; }
+  .oak-price { display: flex; align-items: center; gap: 10px; font-size: 0.8rem; font-weight: 700; color: #5b6b85; }
+  /* a Win Boost or Shield to add to a bet */
+  .ch-wg-pu { display: flex; gap: 6px; flex-wrap: wrap; }
+  .ch-wg-pu button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #dfe6f0; background: #fff; border-radius: 999px; padding: 4px 10px 4px 5px;
+    font: inherit; font-size: 0.74rem; font-weight: 700; color: #5b6b85; cursor: pointer; }
+  .ch-wg-pu button[aria-pressed="true"] { border-color: #17854a; color: #17854a; background: #f4fbf7; }
+  .ch-cap-use { margin-top: 6px; padding: 8px 16px; font-size: 0.8rem; box-shadow: none; }
+
   /* alerts drawer: the same overlay as the Hall, but on a phone the card
      becomes a sheet that comes up from the bottom, off the Alerts tab */
   .al-sheet { padding-top: 14px; }
@@ -1429,7 +1493,7 @@
   }
   #hallBtn:hover { color: #b8860b; border-color: #f0d79a; }
   #resetBtn {
-    position: fixed; top: 110px; right: 18px; z-index: 5;
+    position: fixed; top: 156px; right: 18px; z-index: 5;
     background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
     border-radius: 999px; padding: 9px 18px; font-family: inherit;
     font-size: 0.82rem; font-weight: 700; cursor: pointer;
@@ -1491,6 +1555,17 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #chalBtn:hover { color: #2563eb; border-color: #bcd3f7; }
+  #marketBtn {
+    position: fixed; top: 110px; right: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #marketBtn:hover { color: #17854a; border-color: #b6e3c9; }
+  /* one of your power-ups has under a day left */
+  #marketBtn .mk-dot { display: none; width: 8px; height: 8px; border-radius: 50%; background: #d99a12; margin-left: 6px; vertical-align: 0.1em; }
+  #marketBtn.due .mk-dot { display: inline-block; }
   /* a standing count of what is open, so the board is worth opening */
   #chalBtn[data-n]::before {
     content: attr(data-n); display: inline-flex; align-items: center; justify-content: center;
@@ -1859,7 +1934,7 @@
       bottom: calc(-10px - env(safe-area-inset-bottom));
       background: linear-gradient(to top, #e4eaf3 55%, rgba(228,234,243,0));
     }
-    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn, #chalBtn {
+    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn, #chalBtn, #marketBtn {
       position: static; top: auto; right: auto; bottom: auto; left: auto;
       flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 4px;
@@ -1876,16 +1951,20 @@
     }
     /* the alerts panel is a drawer on a phone: full width, off the bottom edge,
        rounded at the top only, with the grip a sheet is expected to have */
-    #alerts { align-items: flex-end; padding: 0; }
-    #alerts .al-sheet {
+    #alerts, #market { align-items: flex-end; padding: 0; }
+    #alerts .al-sheet, #market .al-sheet {
       width: 100%; border-radius: 22px 22px 0 0; max-height: 86vh;
       padding: 14px 20px calc(20px + env(safe-area-inset-bottom));
       animation: sheet-up 0.26s cubic-bezier(0.32, 0.72, 0, 1);
     }
-    #alerts .al-grip { display: block; }
+    #alerts .al-grip, #market .al-grip { display: block; }
+    body.market-on #installBtn { display: none !important; }
+    #btnBar #marketBtn { position: relative; }
+    #btnBar #marketBtn .mk-dot { position: absolute; top: 4px; left: 50%; margin-left: 6px; border: 2px solid #fff; width: 10px; height: 10px; }
     /* pressed state only — these are actions, not a "you are here" nav */
     #hallBtn:active, #resetBtn:active, #authBtn:active,
-    #installBtn:active, #notifyBtn:active, #chalBtn:active { background: #eef2f8; }
+    #installBtn:active, #notifyBtn:active, #chalBtn:active, #marketBtn:active { background: #eef2f8; }
+    #marketBtn:active { color: #17854a; }
     #chalBtn:active { color: #2563eb; }
     /* the count rides above the icon on a tab, not inline beside a label */
     #btnBar #chalBtn[data-n]::before {
@@ -1926,7 +2005,7 @@
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
   body.booting #resetBtn, body.booting #hallBtn, body.booting #installBtn,
-  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar,
+  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar, body.booting #marketBtn,
   body.booting #coins { display: none !important; }
 </style>
 </head>
@@ -1954,6 +2033,7 @@
   <symbol id="i-crown" viewBox="0 0 24 24"><path d="M3 18h18l-1.5-10-4.5 4-3-6-3 6-4.5-4z"/></symbol>
   <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="8" ry="3.4"/><path d="M4 7v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4V7"/><path d="M4 12v5c0 1.88 3.58 3.4 8 3.4s8-1.52 8-3.4v-5"/></symbol>
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 6-2 7-2 7h16s-2-1-2-7z"/><path d="M13.7 20a2 2 0 0 1-3.4 0"/></symbol>
+  <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1.2 12.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/></symbol>
 </defs></svg>
 
 <!-- The wallet rides in the eyebrow rather than in a card of its own: it belongs
@@ -1978,6 +2058,7 @@
 <div id="btnBar">
   <button id="hallBtn" data-lbl="Hall" aria-label="Hall of Fame"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Hall of Fame</span></button>
   <button id="chalBtn" data-lbl="Games" aria-label="Challenges"><svg class="ico"><use href="#i-swords"/></svg><span class="lbl"> Challenges</span></button>
+  <button id="marketBtn" data-lbl="Market" aria-label="Market" style="display:none"><svg class="ico"><use href="#i-bag"/></svg><span class="lbl"> Market</span><span class="mk-dot" aria-hidden="true"></span></button>
   <button id="authBtn" data-lbl="Account"><svg class="ico"><use href="#i-user"/></svg><span class="lbl"> Sign in</span></button>
   <button id="resetBtn" data-lbl="Reset" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg><span class="lbl"> Start Over</span></button>
   <button id="installBtn" data-lbl="Install" style="display:none"><svg class="ico"><use href="#i-download"/></svg><span class="lbl"> Install app</span></button>
@@ -2517,6 +2598,17 @@ Nur</textarea>
         </div>
         A day's coins are worth the stage it was watered at, so growing after the
         water pays the new amount from the next day.</li>
+        <li><b>Power-ups.</b> An old oak drops one every 5th water, up to 3 at a time.
+        Its owner can't use them, only sell them: pick which one it becomes and a price
+        from 1 to 20, from under the tree. <b>Win Boost</b>: a won game bet pays half
+        again. <b>Shield</b>: a lost game bet gives half back. <b>Auto Water</b>: your
+        tree is watered at 9am, 3 times, for the usual 1 each; a day you water it
+        yourself doesn't use one. <b>Extra Game</b>: one more challenge today.
+        <!-- mirrors ITEMS, FAMILIES and DROP_EVERY in the script: change them together --></li>
+        <li><b>Market.</b> The Market tab sells power-ups, and nobody sees who is
+        selling. Buy one and it's yours for 7 workdays; you can hold 3. Add a Win Boost
+        or Shield as you place a bet, and Use the other two from the Market. A draw or
+        a cancelled game hands it back.</li>
         <li><b>Bounty.</b> Put an even number of coins on a player for two days.
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
@@ -2552,6 +2644,15 @@ Nur</textarea>
     <div class="hall-title"><svg class="ico"><use href="#i-user"/></svg> Select your name</div>
     <div id="whoGrid" class="who-grid"></div>
     <p class="who-foot">Not on the list? Ask the admin to add you.</p>
+  </div>
+</div>
+
+<!-- the market: power-ups for sale, players' and the bank's alike, and your own -->
+<div id="market">
+  <div class="hall-card al-sheet">
+    <div class="al-grip"></div>
+    <div class="hall-title">Market</div>
+    <div id="mkBody" class="mk-sheet"></div>
   </div>
 </div>
 
@@ -3685,10 +3786,21 @@ const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(
       : chalPending(c) ? sameDay(+chalPending(c).at || 0, now)
       : sameDay(c.at, now)))
   .length;
-const slotsToday = (email, now = Date.now()) => !email ? 0 : walkNow().ok
-  .filter(s => s.kind === 'slot' && s.by === email && sameDay(+s.at, now)).length;
+// extra games bought today, and Extra Games used: the walk counts both
+const slotsToday = (email, now = Date.now()) => !EMAIL_NAMES[email] ? 0
+  : walkNow().bought[EMAIL_NAMES[email] + new Date(now).toDateString()] || 0;
 const dayCap = email => CH_DAILY + slotsToday(email);
-const capMsg = () => `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game from the coins sheet.`;
+const capMsg = () => myExtraGame() ? `You’ve played ${chalMax} challenges today. Use your Extra Game to play one more?`
+  : `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game from the coins sheet.`;
+// the one tap that turns that message into a seat: an Extra Game used on the spot
+const capUse = () => {
+  const x = myExtraGame();
+  if (!x) return null;
+  const b = part('btn btn-gold ch-cap-use', 'Use your Extra Game', 'button');
+  b.type = 'button';
+  b.onclick = () => { b.disabled = true; window.spendCoins && window.spendCoins({ kind: 'use', own: x.id, by: acctEmail }); };
+  return b;
+};
 var chalUsed = 0, chalMax = CH_DAILY; // worked out once a render, like chalFree
 
 /* ================= COINS =================
@@ -3869,6 +3981,41 @@ const treeAt = (tr, t) => {
   return stage < 0 ? null : { stage, day: tr.day };
 };
 
+/* The market: items players sell each other, and the game sells too. Every rule
+   reads ITEMS and FAMILIES, so a new family is a row in each plus what it does
+   when used. Power-ups are the first: an old oak drops a blank one every
+   DROP_EVERY waters, its owner picks which one it becomes when listing it, and
+   only a buyer can use it. A bank row looks like anybody's listing. */
+const FAMILIES = { power: { name: 'Power-ups', hold: 3, lasts: 7, price: [1, 20] } };
+const ITEMS = {
+  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'A won bet pays half again', on: 'bet', bank: 6, color: '#e5a922', icon: 'M12 18V7M7 11l5-5 5 5' },
+  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'A lost bet gives half back', on: 'bet', bank: 6, color: '#7cb342', icon: 'M12 4l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5z' },
+  water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree 3 times', on: 'use', bank: 10, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
+  game: { fam: 'power', name: 'Extra Game', a: 'an Extra Game', does: 'One more challenge today', on: 'use', bank: 3, color: '#e4572e', icon: 'M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 5.5v3M12 15.5v3M5.5 12h3M15.5 12h3' },
+};
+const DROP_EVERY = 5, DROP_HOLD = 3, AUTO_WATERS = 3, AUTO_HOUR = 9;
+/* When oaks started counting waters (midnight into 2026-11-01, Dhaka): a water
+   before it drops nothing. */
+const MARKET_FROM = 1793469600000;
+const workday = d => !weekend(d) && !holiday(+d);
+/* The midnight that ends the nth workday from t's day, t's day counting as the
+   first when it is one. A holiday added later moves it on by itself. */
+const workdaysEnd = (t, n) => {
+  const d = dayStart(t);
+  for (let i = 0; i < 400; i++, d.setDate(d.getDate() + 1)) if (workday(d) && !--n) break;
+  d.setDate(d.getDate() + 1);
+  return +d;
+};
+/* A bank listing's countdown: each item runs its own 7-workday cycle from
+   MARKET_FROM, the four two workdays apart, so they never all turn over at once. */
+const bankUntil = (type, now) => {
+  const lasts = FAMILIES[ITEMS[type].fam].lasts, off = Object.keys(ITEMS).indexOf(type) * 2;
+  let n = 0;
+  // ponytail: a day-by-day count from launch, a few hundred steps a year in
+  for (const d = dayStart(MARKET_FROM); +d < +dayStart(now); d.setDate(d.getDate() + 1)) if (workday(d)) n++;
+  return workdaysEnd(now, lasts - (n + off) % lasts);
+};
+
 /* The month's track: ten stages, one goal each, and a prize for every stage
    cleared that grows as you climb. Kept nowhere but the walk, like a tree, so a
    corrected score corrects everybody's stage and prizes with it. */
@@ -3937,6 +4084,30 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   const cupBets = {}; // cup id -> the bets on who wins it
   const stakes = {}; // game id -> [{ who, amt }], the seats' stakes taken and not yet paid back
   const claimed = {}; // player + card id -> true once its coins are in
+  /* The market. oaks: player -> { n waters towards the next drop, drops: [{ id,
+     until, list, sold }] }. listings: list row id -> what's on sale. owned:
+     player -> [{ id, type, until }] bought and not used. bankDay: player + day ->
+     bank buys. autoW: player -> Auto Water waters still to come. */
+  const oaks = {}, listings = {}, owned = {}, bankDay = {}, autoW = {};
+  const fam = type => ITEMS[type] && FAMILIES[ITEMS[type].fam];
+  const holds = (who, f, t) => (owned[who] || []).filter(x => x.until > t && ITEMS[x.type].fam === f).length;
+  // an item of yours, unexpired, used the way it's for: taken off you, or null
+  const takeOwn = (who, id, on, t) => {
+    const x = (owned[who] || []).find(x => x.id === id && x.until > t && ITEMS[x.type].on === on);
+    if (x) owned[who] = owned[who].filter(y => y !== x);
+    return x || null;
+  };
+  /* A water at oak stage counts towards a drop; any other stage starts the
+     count again. A full oak doesn't count, so nothing is lost to a full hand. */
+  const oakTick = (who, stage, id, t) => {
+    const o = oaks[who] = oaks[who] || { n: 0, drops: [] };
+    o.drops = o.drops.filter(d => d.until > t && !d.sold);
+    if (stage !== TREE.length - 1 || t < MARKET_FROM) { o.n = 0; return; }
+    if (o.drops.length >= DROP_HOLD || ++o.n < DROP_EVERY) return;
+    o.n = 0;
+    o.drops.push({ id, at: t, until: workdaysEnd(t, FAMILIES.power.lasts), list: null });
+    note(who, 0, 'Your oak dropped a power-up', t);
+  };
   (rows || []).forEach(c => { if (c && c.id) byId[c.id] = c; });
   Object.values(EMAIL_NAMES).forEach(n => { bal[n] = 0; });
   /* The history: every change to a balance goes through `move`, so the lines
@@ -3979,8 +4150,18 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (s.kind === 'cupbet' && cutCup(s.cup) && +s.at < HOLD_FROM && HOLD_FROM <= now) ev.push({ t: HOLD_FROM, cutBet: s });
     // and so is the midnight after an extra game, which hands back one not played
     const end = dayStart(+s.at); end.setDate(end.getDate() + 1);
-    if (s.kind === 'slot' && +end <= now && !ev.some(e => e.unplayed && e.by === s.by && +e.t === +end))
+    if ((s.kind === 'slot' || s.kind === 'use') && +end <= now && !ev.some(e => e.unplayed && e.by === s.by && +e.t === +end))
       ev.push({ t: +end, unplayed: true, by: s.by, day: new Date(+s.at).toDateString() });
+    /* An Auto Water may water at 9 on any day from the one it's used, or straight
+       away when used later on a day not yet watered; each try, and the coins it
+       would ripen, is an event. Which of them water is the walk's to decide. */
+    if (s.kind === 'use') for (let k = 0; k < 90; k++) {
+      const d = dayStart(+s.at); d.setDate(d.getDate() + k);
+      const t = Math.max(+d + AUTO_HOUR * 36e5, +s.at);
+      if (t > now) break;
+      ev.push({ t, autoW: s });
+      if (ripeAt(t) <= now) ev.push({ t: ripeAt(t), pick: { by: s.by, at: t } });
+    }
   });
   (rows || []).filter(c => chalDone(c) && chalFull(c)).forEach(c => {
     const b = +c.score.b, r = +c.score.r;
@@ -4055,6 +4236,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
           move(who, -wc, `Watered your ${TREE[cur.stage].name.toLowerCase()}`, s.at);
           // worth what the tree was when watered, whatever it grows into after
           trees[who] = { stage: cur.stage, day, at: +s.at, ripe: ripeAt(+s.at), paidStage: cur.stage, pay: TREE[cur.stage].pay * (doubleDay(+s.at) ? 2 : 1), got: false };
+          oakTick(who, cur.stage, s.id || 'w' + s.at, +s.at);
         } else if (s.kind === 'collect') {
           // the walk picks them now; a tap from a page that hasn't caught up is no news
           if (+s.at >= AUTO_PICK_FROM) return;
@@ -4082,8 +4264,10 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
         if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
         const cut = +c.at >= HOLD_FROM, on = pairOf(c, s.side);
-        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on, cut }];
-        if (cut) move(who, -amt, `Bet on ${on}`, s.at);
+        // a Win Boost or Shield rides on a bet whose stake is taken, the only kind settled with one
+        const pu = cut && s.own ? takeOwn(who, s.own, 'bet', +s.at) : null;
+        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on, cut, pu }];
+        if (cut) move(who, -amt, `Bet on ${on}` + (pu ? `, with ${ITEMS[pu.type].a}` : ''), s.at);
         ok.push(s);
         hit(who, { k: 'bet' }, +s.at);
         return;
@@ -4124,6 +4308,63 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if (!c || !(c.coins > 0) || k < c.from || k > c.to || claimed[who + ' ' + s.card]) return refuse(who, s, false);
         claimed[who + ' ' + s.card] = true;
         move(who, +c.coins, c.title, s.at);
+        ok.push(s);
+        return;
+      }
+      /* The market. A listing is a drop of yours, unexpired and not already up,
+         turned into an item at a price its family allows. */
+      if (s.kind === 'list') {
+        const t = +s.at, o = oaks[who], d = o && o.drops.find(x => x.id === s.src && !x.sold), f = fam(s.type), p = +s.price;
+        if (who === undefined) return;
+        if (!d || d.until <= t || d.list || !f || ITEMS[s.type].fam !== 'power' || !(p >= f.price[0] && p <= f.price[1]) || p % 1)
+          return refuse(who, s, false);
+        d.list = s.id;
+        listings[s.id] = { id: s.id, who, type: s.type, price: p, at: t, until: d.until, drop: d };
+        ok.push(s);
+        return;
+      }
+      if (s.kind === 'unlist') {
+        const l = listings[s.list];
+        if (who === undefined) return;
+        if (!l || l.who !== who) return refuse(who, s, false);
+        l.drop.list = null;
+        delete listings[s.list];
+        ok.push(s);
+        return;
+      }
+      /* A buy from a player pays them; one from the bank pays nobody, once a day
+         each. Either lands in the buyer's hand for its family's workdays. The
+         first buy of a listing wins it, and a later one buys nothing. */
+      if (s.kind === 'buy') {
+        const t = +s.at, l = s.list != null ? listings[s.list] : null, type = l ? l.type : s.bank, f = fam(type);
+        if (who === undefined) return;
+        if (!f || (s.list != null ? !l || l.until <= t || l.who === who : s.bank == null || (bankDay[who + isoDay(t)] || 0) >= 1)
+          || holds(who, ITEMS[type].fam, t) >= f.hold) return refuse(who, s, false);
+        const price = l ? l.price : ITEMS[type].bank;
+        if (bal[who] < price) return refuse(who, s, true);
+        move(who, -price, `Bought ${ITEMS[type].a} at the market`, t);
+        if (l) {
+          move(l.who, price, `Sold ${ITEMS[type].a} at the market`, t);
+          l.drop.sold = true;
+          delete listings[s.list];
+        } else bankDay[who + isoDay(t)] = 1;
+        (owned[who] = owned[who] || []).push({ id: s.id, type, at: t, until: workdaysEnd(t, f.lasts) });
+        ok.push(s);
+        return;
+      }
+      // an item used with Use: an Auto Water sets 3 waters going, an Extra Game is a free one for today
+      if (s.kind === 'use') {
+        const t = +s.at, x = (owned[who] || []).find(x => x.id === s.own && x.until > t && ITEMS[x.type].on === 'use');
+        if (who === undefined) return;
+        if (!x || (x.type === 'water' && !treeAt(trees[who], t))) return refuse(who, s, false);
+        takeOwn(who, s.own, 'use', t);
+        if (x.type === 'water') autoW[who] = (autoW[who] || 0) + AUTO_WATERS;
+        if (x.type === 'game') {
+          const k = who + new Date(t).toDateString();
+          bought[k] = (bought[k] || 0) + 1;
+          (extraPaid[k] = extraPaid[k] || []).push(0);
+        }
+        note(who, 0, `Used ${ITEMS[x.type].a}`, t);
         ok.push(s);
         return;
       }
@@ -4169,6 +4410,20 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       picked[who] = (picked[who] || 0) + tr.pay;
       return hit(who, { k: 'collect' }, e.t);
     }
+    /* An Auto Water's try: it waters a living tree nobody has watered today, at
+       the usual price. A day already watered, or one it can't pay for, isn't one
+       of its three. */
+    if (e.autoW) {
+      const who = EMAIL_NAMES[e.autoW.by], t = e.t, cur = treeAt(trees[who], t), day = dayStart(t);
+      if (!autoW[who] || !cur || +cur.day === +day) return;
+      const wc = waterCost(t);
+      if (bal[who] < wc) return note(who, 0, 'Auto Water: not enough coins to water today', t);
+      autoW[who]--;
+      move(who, -wc, `Auto Water watered your ${TREE[cur.stage].name.toLowerCase()}`, t);
+      trees[who] = { stage: cur.stage, day, at: t, ripe: ripeAt(t), paidStage: cur.stage, pay: TREE[cur.stage].pay * (doubleDay(t) ? 2 : 1), got: false };
+      oakTick(who, cur.stage, `${e.autoW.id || 'u' + e.autoW.at}~${isoDay(t)}`, t);
+      return hit(who, { k: 'water' }, t);
+    }
     if (e.stake) { // a seat at a lobby with a bet: the stake goes now, if it's there
       const bet = chalBet(e.stake), who = e.who;
       if (bal[who] === undefined) return;
@@ -4183,6 +4438,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       return (wagers[c.id] || []).filter(x => x.cut && !x.settled).forEach(x => {
         x.settled = true; x.t = e.t;
         move(x.who, x.amt, `Bet of ${x.amt} on ${x.on} came back: ${why}`, e.t);
+        // and so does a power-up on it, its countdown where it was
+        if (x.pu) { (owned[x.who] = owned[x.who] || []).push(x.pu); x.pu = null; }
       });
     }
     if (e.cutBet) { // a bet that stood, still open, and still covered
@@ -4272,9 +4529,13 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       x.settled = true; x.t = e.t;
       if (!x.cut && bal[x.who] < x.amt) return note(x.who, 0, `Bet of ${x.amt} on ${x.on}: couldn’t cover it by then`, e.t);
       x.won = x.side === e.won;
-      // taken when it was placed: a win hands it back doubled, a loss keeps it
-      if (x.cut) x.won && move(x.who, 2 * x.amt, `Bet on ${x.on} won`, e.t);
-      else move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
+      /* taken when it was placed: a win hands it back doubled, a loss keeps it.
+         A Win Boost adds half the bet to a win, a Shield hands half back on a loss. */
+      const half = Math.floor(x.amt / 2), boost = x.pu && x.pu.type === 'win', shield = x.pu && x.pu.type === 'shield';
+      if (x.cut) {
+        if (x.won) move(x.who, 2 * x.amt + (boost ? half : 0), `Bet on ${x.on} won` + (boost ? ', with a Win Boost' : ''), e.t);
+        else if (shield) move(x.who, half, `Shield: half your bet on ${x.on} back`, e.t);
+      } else move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
       if (x.won) hit(x.who, { k: 'betwon' }, e.t);
     });
   });
@@ -4297,7 +4558,16 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     treesNow[n] = { stage: t.stage, watered, ripe: coins ? tr.ripe : null, pay: coins ? tr.pay : 0, paidStage: coins ? tr.paidStage : 0, got: !!(coins && tr.got),
       from: coins ? tr.at : null };
   });
-  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track };
+  // the market as it stands now: what's on sale, what each player holds, and each oak's count
+  const live = l => l.until > now;
+  const market = {
+    listings: Object.values(listings).filter(live).map(({ drop, ...l }) => l),
+    owned: Object.fromEntries(Object.entries(owned).map(([n, xs]) => [n, xs.filter(live)])),
+    oaks: Object.fromEntries(Object.entries(oaks).map(([n, o]) => [n, { n: o.n, drops: o.drops.filter(d => live(d) && !d.sold) }])),
+    bankToday: Object.fromEntries(Object.values(EMAIL_NAMES).map(n => [n, !!bankDay[n + isoDay(now)]])),
+    autoW,
+  };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought };
 }
 // what a spend row was for, in a history line that says it didn't go through
 const spendWhat = s => ({
@@ -4306,6 +4576,7 @@ const spendWhat = s => ({
   gift: `Gift of ${s.amt} to ${EMAIL_NAMES[s.to] || 'somebody'}`, bounty: `Bounty of ${s.amt} on ${EMAIL_NAMES[s.to] || 'somebody'}`,
   flair: iconOf(s.item) ? 'An icon' : 'A name colour', skip: 'Skip a track stage',
   claim: (cards[s.card] || {}).title || 'A card',
+  list: 'Put a power-up on sale', unlist: 'Take a power-up off sale', buy: 'Buy at the market', use: 'Use a power-up',
 })[s.kind] || 'A spend';
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
@@ -4317,9 +4588,10 @@ window.coinWalk = coinWalk;
    afford, and a wallet is the reader's own business — so the card answers one
    question, for whoever is looking at it. */
 var allSpends = {};
+// a spend carries its key as `id`: a listing, a buy and a drop are named by the row behind them
 const walkNow = () => coinWalk(Object.entries(allChal || {}).filter(([, c]) => c && c.at)
   .map(([id, c]) => Object.assign({ id }, c)), hallEntries,
-  Object.values(allSpends || {}), Date.now(), allDrawn);
+  Object.entries(allSpends || {}).map(([id, s]) => Object.assign({ id }, s)), Date.now(), allDrawn);
 /* cup id -> { at, teams }: when the admin's draw finished, on the server's clock,
    and the team names it drew. Bets on the cup are open for five minutes from it. */
 var allDrawn = {};
@@ -4437,7 +4709,7 @@ setInterval(() => {
   let over = false;
   document.querySelectorAll('[data-until]').forEach(el => {
     const ms = +el.dataset.until - Date.now();
-    el.textContent = el.dataset.short ? leftShort(ms) : leftIn(ms);
+    el.textContent = el.dataset.short ? leftShort(ms) : el.dataset.days ? leftDays(ms) : leftIn(ms);
     if (ms <= 0) over = true;
   });
   document.querySelectorAll('[data-from]').forEach(arcAt);
@@ -5020,6 +5292,8 @@ function renderCoins() {
     you.append(card);
   }
   you.append(treeRow(myName(), myCoins(), true), part('tree-note', '3 workdays without water drops a stage. Weekends and holidays pay double.'));
+  const oak = oakRow(myName());
+  if (oak) you.append(oak);
   const opened = giftsToMe().filter(g => !sealed.includes(g)).slice(-5).reverse();
   if (opened.length) {
     const log = part('gift-log');
@@ -5154,6 +5428,23 @@ $('coinYou').onclick = e => {
     if (!flyCoins(Array(Math.min(gift.amt, 10)).fill(g), gift.amt, shown)) renderCoins();
     return;
   }
+  // an oak's power-ups: open one to list, pick, price, list it, or take one down
+  const ok = e.target.closest('[data-oak], [data-oakpick], [data-oakstep], [data-oaklist], [data-unlist]');
+  if (ok && !ok.disabled) {
+    const d = ok.dataset;
+    if (d.oak !== undefined) oakListing = d.oak || null;
+    if (d.oakpick) oakPick = d.oakpick;
+    if (d.oakstep) oakPrice = Math.max(FAMILIES.power.price[0], Math.min(FAMILIES.power.price[1], oakPrice + +d.oakstep));
+    if ((d.oaklist || d.unlist) && myName() && window.spendCoins) {
+      if (d.unlist && !confirm('Take it off sale?')) return;
+      ok.disabled = true;
+      oakListing = null;
+      window.spendCoins(d.oaklist ? { kind: 'list', src: d.oaklist, type: oakPick, price: oakPrice, by: acctEmail }
+        : { kind: 'unlist', list: d.unlist, by: acctEmail });
+      return;
+    }
+    return renderCoins();
+  }
   const pth = e.target.closest('[data-path]');
   if (pth) {
     treeOpen = pth.dataset.path === 'open';
@@ -5217,6 +5508,187 @@ function flyCoins(coins, total, start) {
   return true;
 }
 window.renderSpends = v => { allSpends = v || {}; spendsIn = true; renderChal(); };
+
+/* ---- the market ----
+   What's on sale and what you hold, from the walk; set where the flair is. A
+   bank row is drawn exactly like a player's, so only the admin can tell them apart. */
+var chalMarket = { listings: [], owned: {}, oaks: {}, bankToday: {}, autoW: {} };
+var mkFilter = 'all', mkSel = null;
+let mkSort = 'cheap';
+try { mkSort = localStorage.getItem('mkSort') || 'cheap'; } catch (e) { /* private window: Cheapest it is */ }
+const MK_SORTS = { cheap: 'Cheapest', long: 'Most time left', soon: 'Ending soon' };
+const SOON_MS = 6 * 36e5;
+// a power-up's disc: static paths from ITEMS, never anything a player typed
+const puIcon = (type, sm) => {
+  const el = part('pu' + (sm ? ' sm' : '') + (type ? '' : ' blank'), '', 'span');
+  if (type) el.style.setProperty('--pu', ITEMS[type].color);
+  el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${type ? ITEMS[type].icon : 'M12 6v12M6 12h12'}"/></svg>`;
+  return el;
+};
+// "Gone in 2d 5h", amber in its last six hours; the clock interval keeps it ticking
+const leftDays = ms => ms >= 864e5 ? `${Math.floor(ms / 864e5)}d ${Math.floor(ms / 36e5) % 24}h` : leftShort(ms);
+const mkLeft = (until, pre = '') => {
+  const el = part('mk-left' + (until - Date.now() < SOON_MS ? ' soon' : ''), pre, 'span'), n = leftNode(until);
+  n.dataset.days = 1; n.textContent = leftDays(until - Date.now());
+  el.append(n);
+  return el;
+};
+const myOwned = () => (chalMarket.owned[myName()] || []).slice().sort((a, b) => a.until - b.until);
+const myExtraGame = () => myOwned().find(x => x.type === 'game');
+const useItem = x => {
+  if (!x || !myName() || !window.spendCoins) return;
+  if (!confirm(`Use ${ITEMS[x.type].a} now? ${ITEMS[x.type].does}.`)) return;
+  mkSel = null;
+  window.spendCoins({ kind: 'use', own: x.id, by: acctEmail });
+};
+function renderMarket() {
+  const me = myName(), now = Date.now(), box = $('mkBody'), btn = $('marketBtn');
+  btn.style.display = me ? '' : 'none';
+  document.body.classList.toggle('market-on', !!me);
+  const mine = me ? myOwned() : [];
+  btn.classList.toggle('due', mine.some(x => x.until - now < 864e5));
+  box.textContent = '';
+  if (!me) { $('market').classList.remove('open'); return; }
+  const free = mySpendable(me), full = mine.length >= FAMILIES.power.hold;
+  box.append(part('mk-bal', `${free} coin${free === 1 ? '' : 's'}`, 'span'));
+
+  // yours: tap one to use it, or to be told where it's used
+  box.append(part('mk-h', 'My power-ups'));
+  if (!mine.length) box.append(part('mk-note', 'Nothing yet. Buy one below; it lasts 7 workdays.'));
+  else {
+    const row = part('mk-mine');
+    mine.forEach(x => {
+      const b = part('mk-own' + (x.until - now < SOON_MS ? ' soon' : '') + (mkSel === x.id ? ' on' : ''), '', 'button');
+      b.type = 'button'; b.dataset.own = x.id;
+      b.append(puIcon(x.type, true), ITEMS[x.type].name, mkLeft(x.until));
+      row.append(b);
+    });
+    box.append(row);
+    const sel = mine.find(x => x.id === mkSel);
+    if (sel) {
+      const u = part('mk-use');
+      u.append(part('', ITEMS[sel.type].does + '.', 'span'));
+      if (ITEMS[sel.type].on === 'use') {
+        const b = part('btn btn-green', 'Use', 'button');
+        b.type = 'button'; b.dataset.use = sel.id;
+        if (sel.type === 'water' && !chalTrees[me]) { b.disabled = true; u.firstChild.textContent += ' Plant a tree first.'; }
+        u.append(b);
+      } else u.firstChild.textContent += ' Add it when you bet on a game.';
+      box.append(u);
+    }
+  }
+
+  const chips = part('mk-chips');
+  [['all', 'All'], ...Object.entries(ITEMS).map(([k, x]) => [k, x.name])].forEach(([k, label]) => {
+    const c = part('mk-chip' + (mkFilter === k ? ' on' : ''), '', 'button');
+    c.type = 'button'; c.dataset.filter = k; c.setAttribute('aria-pressed', mkFilter === k);
+    if (k !== 'all') c.append(puIcon(k, true));
+    c.append(label);
+    chips.append(c);
+  });
+  const sort = part('mk-sort'), seg = part('mk-seg');
+  Object.entries(MK_SORTS).forEach(([k, label]) => {
+    const b = part(mkSort === k ? 'on' : '', label, 'button');
+    b.type = 'button'; b.dataset.sort = k; b.setAttribute('aria-pressed', mkSort === k);
+    seg.append(b);
+  });
+  sort.append(part('', 'Sort', 'span'), seg);
+  box.append(chips, sort);
+
+  // the bank's four, gone for the day once you've bought one of them
+  const rows = (chalMarket.bankToday[me] ? [] : Object.keys(ITEMS).map(type => ({ bank: type, type, price: ITEMS[type].bank, until: bankUntil(type, now) })))
+    .concat(chalMarket.listings.map(l => ({ list: l.id, type: l.type, price: l.price, until: l.until, yours: l.who === me })))
+    .filter(r => mkFilter === 'all' || r.type === mkFilter)
+    .sort(mkSort === 'long' ? (a, b) => b.until - a.until : mkSort === 'soon' ? (a, b) => a.until - b.until
+      : (a, b) => a.price - b.price || a.until - b.until);
+  if (full) box.append(part('mk-note', `You hold ${FAMILIES.power.hold} power-ups. Use one to buy another.`));
+  const list = part('mk-list');
+  rows.forEach(r => {
+    const row = part('mk-row'), what = part(''), name = part('', ITEMS[r.type].name, 'b');
+    if (r.yours) name.append(part('mk-tag', 'Yours', 'span'));
+    if (r.bank && isAdmin) name.append(part('mk-tag bank', 'Bank', 'span'));
+    what.append(name, part('mk-does', ITEMS[r.type].does), mkLeft(r.until, 'Gone in '));
+    const b = part('mk-buy', String(r.price), 'button');
+    b.type = 'button';
+    if (r.bank) b.dataset.bank = r.type; else b.dataset.list = r.list;
+    b.dataset.price = r.price; b.dataset.type = r.type;
+    b.disabled = !!r.yours || full || free < r.price;
+    b.setAttribute('aria-label', r.yours ? 'Your own listing' : `Buy ${ITEMS[r.type].a} for ${r.price}`);
+    row.append(puIcon(r.type), what, b);
+    list.append(row);
+  });
+  if (!rows.length) list.append(part('mk-empty', 'Nothing for sale here right now.'));
+  box.append(list);
+}
+$('mkBody').onclick = e => {
+  const t = e.target.closest('button');
+  if (!t || t.disabled) return;
+  if (t.dataset.own) { mkSel = mkSel === t.dataset.own ? null : t.dataset.own; return renderMarket(); }
+  if (t.dataset.use) return useItem(myOwned().find(x => x.id === t.dataset.use));
+  if (t.dataset.filter) { mkFilter = t.dataset.filter; return renderMarket(); }
+  if (t.dataset.sort) {
+    mkSort = t.dataset.sort;
+    try { localStorage.setItem('mkSort', mkSort); } catch (err) { /* kept for this visit only */ }
+    return renderMarket();
+  }
+  if ((t.dataset.list || t.dataset.bank) && myName() && window.spendCoins) {
+    if (!confirm(`Buy ${ITEMS[t.dataset.type].a} for ${t.dataset.price} coin${+t.dataset.price === 1 ? '' : 's'}?`)) return;
+    t.disabled = true; // the snapshot redraws the list; until then, one tap is one row
+    window.spendCoins(t.dataset.list ? { kind: 'buy', list: t.dataset.list, by: acctEmail } : { kind: 'buy', bank: t.dataset.bank, by: acctEmail });
+  }
+};
+$('marketBtn').onclick = () => { mkSel = null; renderMarket(); $('market').classList.add('open'); };
+$('market').onclick = e => { if (e.target === $('market')) $('market').classList.remove('open'); };
+
+/* Under an oak, in the coin sheet: its count to the next power-up, and the ones
+   it has dropped, each listed or waiting to be. Listing one opens its choice of
+   power-up and price in place. */
+var oakListing = null, oakPick = 'win', oakPrice = 5;
+function oakRow(me) {
+  const t = chalTrees[me], o = chalMarket.oaks[me], drops = (o && o.drops) || [];
+  if (!(t && t.stage === TREE.length - 1) && !drops.length) return null;
+  const box = part('oak-drops');
+  box.append(part('', 'Power-ups', 'b'), part('mk-note', drops.length >= DROP_HOLD
+    ? `Your oak holds ${DROP_HOLD}. Sell one and it grows another.`
+    : Date.now() < MARKET_FROM ? `From midnight, every ${DROP_EVERY}th water drops a power-up to sell.`
+    : `${(o && o.n) || 0} of ${DROP_EVERY} waters to the next one. You can't use them, only sell them.`));
+  drops.forEach(d => {
+    const l = d.list && chalMarket.listings.find(x => x.id === d.list), row = part('oak-drop');
+    row.append(puIcon(l ? l.type : null, true), part('', l ? `On sale as ${ITEMS[l.type].a} · ${l.price}` : 'Ready to sell', 'span'), mkLeft(d.until));
+    const b = part('btn ' + (l ? '' : 'btn-green'), l ? 'Take down' : 'List', 'button');
+    b.type = 'button';
+    if (l) b.dataset.unlist = l.id; else b.dataset.oak = d.id;
+    row.append(b);
+    box.append(row);
+    if (!l && oakListing === d.id) {
+      const pick = part('oak-pick');
+      Object.entries(ITEMS).forEach(([k, x]) => {
+        const opt = part('oak-opt', '', 'button');
+        opt.type = 'button'; opt.dataset.oakpick = k; opt.setAttribute('aria-pressed', oakPick === k);
+        const txt = part('', '', 'span');
+        txt.append(part('', x.name, 'b'), part('', x.does, 'span'));
+        opt.append(puIcon(k, true), txt);
+        pick.append(opt);
+      });
+      const [lo, hi] = FAMILIES.power.price, price = part('oak-price'), amt = part('ch-wg-amt');
+      const dn = part('', '−', 'button'), up = part('', '+', 'button'), val = part('', String(oakPrice), 'span');
+      dn.type = up.type = 'button'; dn.dataset.oakstep = -1; up.dataset.oakstep = 1;
+      dn.setAttribute('aria-label', 'One less'); up.setAttribute('aria-label', 'One more');
+      dn.disabled = oakPrice <= lo; up.disabled = oakPrice >= hi;
+      val.style.cssText = 'min-width:32px;text-align:center;font-weight:900;color:#172b4d';
+      amt.append(dn, val, up);
+      price.append(part('', 'Price', 'span'), amt, part('mk-note', `${lo} to ${hi} coins`, 'span'));
+      const go = part('btn btn-green', `List ${ITEMS[oakPick].a} for ${oakPrice}`, 'button');
+      go.type = 'button'; go.dataset.oaklist = d.id;
+      const no = part('btn', 'Cancel', 'button');
+      no.type = 'button'; no.dataset.oak = '';
+      const acts = part('oak-drop');
+      acts.append(go, no);
+      box.append(pick, price, acts);
+    }
+  });
+  return box;
+}
 
 const pairName = (c, a, b) => c.slots[a].name + ' & ' + c.slots[b].name;
 const chalTeamLine = c => pairName(c, 'bf', 'bd') + ' vs ' + pairName(c, 'rf', 'rd');
@@ -5409,8 +5881,12 @@ function betRow(c) {
    fourth seat; after that the panels stay up, read-only, until the game is
    agreed. Which pair you picked and how much is this page's to remember across
    repaints, since the board redraws on every write. */
-var wgPick = null, wgAmt = 5;
-const wgPayText = a => `Win +${a} \u00b7 lose ${a}`;
+var wgPick = null, wgAmt = 5, wgPu = null; // wgPu: the id of a Win Boost or Shield of yours to add
+const wgPayText = a => {
+  const pu = wgPu && myOwned().find(x => x.id === wgPu), half = Math.floor(a / 2);
+  return pu && pu.type === 'win' ? `Win +${a + half} \u00b7 lose ${a}`
+    : pu && pu.type === 'shield' ? `Win +${a} \u00b7 lose ${a - half}` : `Win +${a} \u00b7 lose ${a}`;
+};
 function wagerPanel(c) {
   const fill = chalFillAt(c);
   if (!fill || chalDone(c)) return null;
@@ -5455,8 +5931,9 @@ function wagerPanel(c) {
   box.append(teams);
   if (mine) {
     const n = part('ch-betnote bet');
-    n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}. If they win you get `,
-      part('', '+' + mine.amt, 'b'), '. Only you can see which pair.');
+    const half = Math.floor(mine.amt / 2), pu = mine.pu && mine.pu.type;
+    n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}${pu ? ` with ${ITEMS[pu].a}` : ''}. If they win you get `,
+      part('', '+' + (mine.amt + (pu === 'win' ? half : 0)), 'b'), pu === 'shield' ? `, and if they lose ${half} comes back` : '', '. Only you can see which pair.');
     box.append(n);
   } else if (pick) box.append(wagerDrawer(c, pick));
   else box.append(part('ch-note', (can ? 'Tap the pair you think will win. ' : '')
@@ -5464,14 +5941,29 @@ function wagerPanel(c) {
   return box;
 }
 function wagerDrawer(c, side) {
+  // one chip a kind, the one running out first; a stale pick drops off
+  const pus = myOwned().filter(x => ITEMS[x.type].on === 'bet').filter((x, i, a) => a.findIndex(y => y.type === x.type) === i);
+  if (!pus.some(x => x.id === wgPu)) wgPu = null;
+  let extra = null;
+  if (pus.length) {
+    extra = part('ch-wg-pu');
+    pus.forEach(x => {
+      const b = part('', '', 'button');
+      b.type = 'button'; b.setAttribute('aria-pressed', wgPu === x.id);
+      b.append(puIcon(x.type, true), (wgPu === x.id ? '' : 'Add ') + ITEMS[x.type].name);
+      b.onclick = () => { wgPu = wgPu === x.id ? null : x.id; renderChal(); };
+      extra.append(b);
+    });
+  }
   return betDrawer(c.id, pairName(c, side + 'f', side + 'd'), wgPayText, amt => {
-    wgPick = null;
-    window.spendCoins({ kind: 'bet', game: c.id, side, amt, by: acctEmail });
-  });
+    const own = wgPu;
+    wgPick = null; wgPu = null;
+    window.spendCoins({ kind: 'bet', game: c.id, side, amt, by: acctEmail, ...(own && { own }) });
+  }, WAGER_MAX, extra);
 }
 /* The amount picker and the button, for a bet on a game or on the cup: `pay`
    words the stake, `place` writes it. */
-function betDrawer(key, name, pay0, place, max = WAGER_MAX) {
+function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null) {
   const free = Math.max(0, chalFree || 0);
   const box = part('ch-wg-drawer');
   if (free < 1) {
@@ -5500,6 +5992,7 @@ function betDrawer(key, name, pay0, place, max = WAGER_MAX) {
   input.onchange = show;
   amt.append(dn, input, up);
   row.append(amt, pay);
+  if (extra) box.append(extra);
   show();
   go.onclick = () => {
     if (!window.spendCoins || !myName()) return;
@@ -5609,7 +6102,11 @@ function chalCard(c) {
   el.append(grid);
   const why = chalShort(c) || (myName() && !chalSat(c) && !chalDone(c) && !chalPending(c)
     && SEATS.filter(([x]) => !(c.slots && c.slots[x])).map(([x]) => huntShort(c, x)).find(Boolean));
-  if (why) el.append(part('ch-shy', why));
+  if (why) {
+    const shy = part('ch-shy', why), use = why === capMsg() && capUse();
+    if (use) shy.append(document.createElement('br'), use);
+    el.append(shy);
+  }
 
   const wg = wagerPanel(c);
   if (wg) el.append(wg);
@@ -5746,12 +6243,14 @@ function renderChal() {
   cupWagers = walk.cupBets;
   coinLog = walk.log;
   chalTrack = walk.track;
+  chalMarket = walk.market;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   paintCard();
   /* Worked out here and read by every card below: the balance is the whole
      ledger walked, and four seats would otherwise ask for it four times. */
   chalFree = name ? mySpendable(name) : null;
   renderCupBets(); // the same walk, and the free coins it bets from
+  renderMarket();
 
   const hunts = $('chalHunts');
   hunts.textContent = '';
@@ -5973,7 +6472,7 @@ function paintBet() {
   note.className = 'ch-betnote' + (capped || over || betWarn ? ' no' : newBet ? ' bet' : '');
   note.textContent = '';
   // opening a lobby is taking a seat in it, so the day's cap stops this too
-  if (chalUsed >= chalMax) note.textContent = capMsg();
+  if (chalUsed >= chalMax) { note.textContent = capMsg(); const use = capUse(); if (use) note.append(document.createElement('br'), use); }
   else if (chalBusy) note.textContent = BUSY_MSG;
   else if (chalOwn) note.textContent = OWN_MSG;
   else if (betWarn) note.textContent = betWarn;
@@ -6114,7 +6613,7 @@ $('prSignOut').onclick = () => {
 $('profile').onclick = e => { if (e.target === $('profile')) $('profile').classList.remove('open'); };
 /* Every overlay card carries the same X in its corner — built here rather than
    in five copies of the markup, and it dismisses whichever card it sits in. */
-document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who, #card').forEach(p => {
+document.querySelectorAll('#hall, #rules, #toss, #alerts, #profile, #chal, #coinInfo, #who, #card, #market').forEach(p => {
   const x = document.createElement('button');
   x.className = 'card-x';
   x.type = 'button';
@@ -6148,7 +6647,7 @@ document.addEventListener('keydown', e => {
   if ($('coinInfo').classList.contains('open')) { $('coinInfo').classList.remove('open'); return; }
   // the create screen sits on the board it was opened from, like the profile
   if (!$('chalForm').hidden && $('chal').classList.contains('open')) { window.closeChalForm(); return; }
-  ['hall', 'rules', 'toss', 'alerts', 'chal'].forEach(p => $(p).classList.remove('open'));
+  ['hall', 'rules', 'toss', 'alerts', 'chal', 'market'].forEach(p => $(p).classList.remove('open'));
 });
 const HALL_PANES = { cups: 'hallList', players: 'hallPlayers', badges: 'hallBadges' };
 document.querySelectorAll('#hall .hall-tab').forEach(tab => tab.onclick = () => {

@@ -267,6 +267,20 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
   assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
   assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+  // the market: what's sold and for how much is the walk's to judge, the shape is the rules'
+  assert.ok(await put('spends/m1', B1, sp(B1, { kind: 'list', src: 'w1', type: 'shield', price: 4 })), 'a player could not list a power-up');
+  assert.ok(await put('spends/m2', B1, sp(B1, { kind: 'unlist', list: 'm1' })), 'a player could not take a listing down');
+  assert.ok(await put('spends/m3', B2, sp(B2, { kind: 'buy', list: 'm1' })), 'a player could not buy a listing');
+  assert.ok(await put('spends/m4', B2, sp(B2, { kind: 'buy', bank: 'water' })), 'a player could not buy from the bank');
+  assert.ok(await put('spends/m5', B2, sp(B2, { kind: 'use', own: 'm4' })), 'a player could not use a power-up');
+  assert.ok(!await put('spends/y1', B1, sp(B1, { kind: 'list', src: 'w1', type: 'shield', price: 51 })), 'a listing over 50');
+  assert.ok(!await put('spends/y2', B1, sp(B1, { kind: 'list', type: 'shield', price: 4 })), 'a listing of nothing');
+  assert.ok(!await put('spends/y3', B1, sp(B1, { kind: 'list', src: 'w1', type: 'shield', price: 2.5 })), 'a fractional price');
+  assert.ok(!await put('spends/y4', B2, sp(B2, { kind: 'buy', list: 'm1', bank: 'win' })), 'a buy from a player and the bank at once');
+  assert.ok(!await put('spends/y5', B2, sp(B2, { kind: 'buy' })), 'a buy of nothing');
+  assert.ok(!await put('spends/y6', B2, sp(B2, { kind: 'use' })), 'a use of nothing');
+  assert.ok(!await put('spends/y7', B2, sp(B2, { kind: 'gift', to: R1, amt: 5, own: 'm4' })), 'a gift carrying a power-up');
+  assert.ok(!await put('spends/y8', B2, sp(B2, { kind: 'slot', price: 3 })), 'a slot carrying a price');
 
   /* A bet from the side: on a full lobby with no result, by somebody not in it,
      within two minutes of the last seat being taken. */
@@ -280,6 +294,7 @@ const confirm = (id, who, b, r, at = NOW) =>
   const bet = (game, extra) => sp(NUR, { kind: 'bet', game, side: 'b', amt: 6, ...extra });
   assert.ok(await put('spends/w1', NUR, bet(fresh)), 'a spectator could not bet on a game that just filled');
   assert.ok(await put('spends/w2', NUR, bet(fresh, { side: 'r', amt: 10 })), 'a spectator could not bet ten on the other side');
+  assert.ok(await put('spends/w2b', NUR, bet(fresh, { own: 'm4' })), 'a bet could not carry a power-up');
   assert.ok(!await put('spends/w3', B1, sp(B1, { kind: 'bet', game: fresh, side: 'r', amt: 6 })), 'a player bet on their own game');
   assert.ok(!await put('spends/w4', NUR, bet(stale)), 'a bet landed after the two minutes');
   assert.ok(!await put('spends/w5', NUR, bet(scored)), 'a bet landed on a game with a result');

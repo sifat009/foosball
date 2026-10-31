@@ -430,6 +430,24 @@ is redrawn, prizes included. A new goal goes on the end with `from` set to the
 first month it may appear. A skip is a `spends` row of kind `skip` with nothing
 else on it. The spec is `docs/superpowers/specs/2026-10-19-monthly-track-design.md`.
 
+### Power-ups and the market
+
+An old oak drops a blank power-up every 5th water (from `MARKET_FROM`,
+1 Nov 2026), holding 3 at most. Its owner can only sell it: from under the tree
+they pick Win Boost, Shield, Auto Water or Extra Game and a price from 1 to 20.
+The **Market** tab (a sheet on a phone, where Install gives way so the bar keeps
+five tabs) lists them with no seller's name, beside the bank's four at fixed
+prices, which look the same to everyone but the admin. A player buys one bank
+item a day and holds 3 power-ups; each lasts 7 workdays.
+
+Nothing new is stored. `list`, `unlist`, `buy` and `use` are `spends` rows, and
+a bet can carry `own`. `coinWalk` grows the drops (each named after the water
+that dropped it), settles every sale and every power-up, and fires an Auto
+Water's 9am waters as events of its own. That needs each spend's key, so
+`walkNow` hands the walk `{ id, ...row }`. Everything reads `ITEMS` and
+`FAMILIES`, so another kind of item is a row in each plus what it does. The
+spec is `docs/superpowers/specs/2026-10-31-power-ups-market-design.md`.
+
 ## Before it works
 
 **Authorized domains.** Firebase Console → Authentication → Settings →

@@ -4226,6 +4226,95 @@ assert.equal((await chalView()).shown, false, 'a player with no challenges shows
 await page.evaluate(() => { window.renderChallenges({}); delete window.myPhoto; window.setAccount(null); $('profile').classList.remove('open'); });
 console.log('own profile OK');
 
+/* The market: an oak drops a blank power-up every fifth water, its owner lists
+   it as one of four, and a buyer uses it. The bank sells all four, one a day.
+   Sifat and Ofi start on two hundred, the rest on nothing. */
+const mk = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (ns, at) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), ...(at && { at: at + i }) }]));
+  const seed = Array.from({ length: 100 }, (_, i) => ({ id: 'z' + i, at: i + 1, slots: S(['Sifat', 'Ofi', 'Nur', 'Rashed']), score: { b: 1, r: 0, at: i + 1 } }));
+  const D = (d, h = 10, m = 0) => new Date(2026, 10, d, h, m).getTime(); // November: the 2nd is a Monday
+  let n = 0;
+  const sp = (at, by, kind, extra) => ({ id: 'r' + (++n), at, by: em(by), kind, ...extra });
+  const w = (spends, now, rows = seed) => window.coinWalk(rows, [], spends, now);
+  holidays = {};
+  // an oak on Monday the 2nd, then watered every workday
+  const oak = [sp(D(2), 'Sifat', 'plant'), sp(D(2, 10, 1), 'Sifat', 'grow'), sp(D(2, 10, 2), 'Sifat', 'grow'), sp(D(2, 10, 3), 'Sifat', 'grow')];
+  const waters = [3, 4, 5, 6, 9, 10, 11, 12, 13].map(d => sp(D(d), 'Sifat', 'water'));
+  const four = w([...oak, ...waters.slice(0, 4)], D(6, 12)).market.oaks.Sifat;
+  const five = w([...oak, ...waters.slice(0, 5)], D(9, 12)).market.oaks.Sifat;
+  const drop = five.drops[0];
+  const list = sp(D(9, 12), 'Sifat', 'list', { src: drop.id, type: 'shield', price: 4 });
+  // Ofi buys it, Nur after has nothing to buy, and Sifat can't buy their own
+  const buy = sp(D(9, 13), 'Ofi', 'buy', { list: list.id }), late = sp(D(9, 14), 'Ofi', 'buy', { list: list.id });
+  const own = sp(D(9, 13), 'Sifat', 'buy', { list: list.id });
+  const sold = w([...oak, ...waters.slice(0, 5), list, buy, late], D(9, 15));
+  const dear = sp(D(9, 12), 'Sifat', 'list', { src: drop.id, type: 'win', price: 21 });
+  // the bank: one a day each, three in hand at most
+  const bank = (d, type = 'game', h = 10) => sp(D(d, h), 'Ofi', 'buy', { bank: type });
+  const twice = w([bank(3), bank(3, 'win', 11)], D(3, 12)), nextDay = w([bank(3), bank(4)], D(4, 12));
+  const full = w([bank(3), bank(4), bank(5), bank(6)], D(6, 12));
+  // seven workdays from a Thursday, and from the same Thursday with a holiday in them
+  const thu = w([bank(5)], D(5, 12)).market.owned.Ofi[0].until;
+  holidays = { '2026-11-10': '2026-11-10' };
+  const thuHol = w([bank(5)], D(5, 12)).market.owned.Ofi[0].until;
+  holidays = {};
+  // an Extra Game raises today's limit; an Auto Water waters at 9, waits out a day watered, and stops at three
+  const game = bank(3, 'game', 8), useGame = sp(D(3, 9), 'Ofi', 'use', { own: game.id });
+  const aw = sp(D(3, 8), 'Sifat', 'buy', { bank: 'water' });
+  const useAw = sp(D(3, 8, 30), 'Sifat', 'use', { own: aw.id });
+  const self = sp(D(4, 8), 'Sifat', 'water');
+  const autoRun = w([...oak, aw, useAw, self], D(9, 23));
+  const autoLines = autoRun.log.Sifat.filter(l => /^Auto Water watered/.test(l.why)).map(l => new Date(l.t).getDate());
+  const lateUse = sp(D(3, 15), 'Sifat', 'use', { own: aw.id });
+  const lateRun = w([...oak, aw, lateUse], D(3, 16)).log.Sifat.filter(l => /^Auto Water watered/.test(l.why)).map(l => new Date(l.t).getHours());
+  /* a bet with a Win Boost or a Shield on it: everyone else starts on nothing, so Nur is given ten.
+     The 30th of October, after stakes were taken at the seat and before the track paid for a bet */
+  const O = h => new Date(2026, 9, 30, h).getTime(), H = O(12), gift = sp(O(9), 'Sifat', 'gift', { to: em('Nur'), amt: 10 });
+  const bet = (type, score) => {
+    const b = sp(O(10), 'Nur', 'buy', { bank: type });
+    const g = { id: 'g', at: H, slots: S(['Sifat', 'Ofi', 'Rashed', 'Siddiq'], H), ...(score && { score: { ...score, at: H + 600 } }) };
+    const r = w([gift, b, sp(H + 20, 'Nur', 'bet', { game: 'g', side: 'b', amt: 4, own: b.id })], H + 1000, [...seed, g]);
+    return [r.bal.Nur, (r.market.owned.Nur || []).length];
+  };
+  return {
+    four: [four.n, four.drops.length], five: [five.n, five.drops.length, drop.id === waters[4].id],
+    sold: [sold.bal.Sifat - w([...oak, ...waters.slice(0, 5)], D(9, 15)).bal.Sifat, sold.bal.Ofi, sold.ok.includes(late), sold.market.owned.Ofi.map(x => x.type), sold.market.listings.length],
+    own: w([...oak, ...waters.slice(0, 5), list, own], D(9, 15)).ok.includes(own),
+    dear: w([...oak, ...waters.slice(0, 5), dear], D(9, 15)).ok.includes(dear),
+    twice: [twice.bal.Ofi, twice.market.owned.Ofi.length], nextDay: nextDay.market.owned.Ofi.length,
+    full: [full.market.owned.Ofi.length, full.bal.Ofi],
+    thu: [new Date(thu).getDate(), new Date(thuHol).getDate()],
+    cap: [w([game, useGame], D(3, 12)).bought[EMAIL_NAMES[em('Ofi')] + new Date(D(3)).toDateString()], w([game, useGame], D(3, 12)).market.owned.Ofi.length],
+    auto: autoLines, autoLeft: autoRun.market.autoW.Sifat, late: lateRun,
+    // watered Tuesday and Wednesday, then not until the next Tuesday: three workdays missed, so a tree again
+    held: [w([...oak, ...waters.slice(0, 2), sp(D(10), 'Sifat', 'water'), sp(D(11), 'Sifat', 'water')], D(11, 12)).market.oaks.Sifat.n],
+    bets: { open: bet('win'), boosted: bet('win', { b: 1, r: 0 }), boostLost: bet('win', { b: 0, r: 1 }),
+      shieldLost: bet('shield', { b: 0, r: 1 }), shieldWon: bet('shield', { b: 1, r: 0 }), draw: bet('shield', { b: 1, r: 1 }) },
+  };
+});
+assert.deepEqual(mk.four, [4, 0], 'an oak dropped a power-up before its fifth water');
+assert.deepEqual(mk.five, [0, 1, true], 'an oak’s fifth water dropped nothing, or the drop isn’t named after it');
+assert.deepEqual(mk.sold, [4, 196, false, ['shield'], 0], 'a sale did not pay the seller, charge the buyer and hand over the item, once');
+assert.equal(mk.own, false, 'a seller bought their own listing');
+assert.equal(mk.dear, false, 'a power-up was listed over 20');
+assert.deepEqual(mk.twice, [197, 1], 'a second bank buy the same day went through');
+assert.equal(mk.nextDay, 2, 'a bank buy the next day was refused');
+assert.deepEqual(mk.full, [3, 191], 'a fourth power-up went into a full hand');
+assert.deepEqual(mk.thu, [14, 17], 'seven workdays from a Thursday end wrong, or a holiday isn’t skipped');
+assert.deepEqual(mk.cap, [1, 0], 'an Extra Game did not add a game today');
+assert.deepEqual(mk.auto, [3, 5, 6], 'an Auto Water did not water at 9 on three days, skipping the one watered by hand');
+assert.equal(mk.autoLeft, 0, 'an Auto Water kept watering past three');
+assert.deepEqual(mk.late, [15], 'an Auto Water used after 9 did not water straight away');
+assert.deepEqual(mk.held, [0], 'an oak that fell a stage kept its count towards a drop');
+assert.deepEqual(mk.bets.open, [0, 0], 'a power-up on a bet was not taken with it');
+assert.deepEqual(mk.bets.boosted, [10, 0], 'a Win Boost on a won bet of 4 did not pay +6');
+assert.deepEqual(mk.bets.boostLost, [0, 0], 'a Win Boost on a lost bet paid something');
+assert.deepEqual(mk.bets.shieldLost, [2, 0], 'a Shield on a lost bet of 4 did not hand 2 back');
+assert.deepEqual(mk.bets.shieldWon, [8, 0], 'a Shield on a won bet changed the win');
+assert.deepEqual(mk.bets.draw, [4, 1], 'a draw kept the Shield on it');
+console.log('market OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();
