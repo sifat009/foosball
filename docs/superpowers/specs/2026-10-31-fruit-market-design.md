@@ -25,20 +25,21 @@ game sells fruit too, but nobody can tell which listings are the game's.
 |-------|------------------------|
 | Sweet | A won game bet pays half again, rounded down: bet 6, win +9 |
 | Sour  | A lost game bet gives back half the stake, rounded down: bet 6, lose 3 |
-| Juicy | Your tree is watered for you each day at 9am for 3 days |
+| Juicy | Waters your tree for you at 9am, 3 times |
 | Ripe  | One extra challenge today, like the 3-coin extra game |
 
 - **Sweet and Sour work on game bets only**, not cup bets. You add one fruit to
   a bet as you place it. The fruit is used up whether the bet wins or loses.
   A draw or a cancelled game hands back the stake and the fruit, and the
   fruit's countdown doesn't change.
-- **Juicy** covers the day you use it and the next two, weekends included.
-  Each of those days, at 9am, the tree is watered unless you've watered it
-  already. Used after 9 on a day the tree hasn't been watered, it waters
+- **Juicy** gives 3 auto-waters, starting the day you use it, weekends
+  included. Each day at 9am it waters the tree unless you've watered it
+  already. A day you water yourself doesn't use one up; Juicy just waits for
+  the next day. Used after 9 on a day the tree hasn't been watered, it waters
   straight away. Each water costs the usual 1 and pays as usual (double on a
   bonus day). It counts as a real water for misses and for oak fruit. A day
-  you can't pay the 1 is skipped and counts as a miss. You need a living tree
-  to use one.
+  you can't pay the 1 is skipped: it counts as a miss but doesn't use one up.
+  A used Juicy leaves My fruit at once. You need a living tree to use one.
 - **Ripe** adds one extra challenge today at no cost. An unplayed Ripe game
   is gone at midnight with nothing back.
 
@@ -122,8 +123,9 @@ New `spends` kinds, replayed by `coinWalk` like the tree's:
   water that grew it, so every page agrees on it.
 - **The walk gives back** each player's harvest, fruit and fruit count, the
   open listings, and today's bank buys.
-- **A Juicy** adds a water event at 9am on each day it covers, and the walk
-  skips it if a water already stands that day.
+- **A Juicy** adds a water event at 9am each day until it has watered 3
+  times. A day that already has a water, or that the player can't pay for,
+  is skipped and not counted.
 - **A Ripe** counts with the day's `slot` rows for the challenge cap, at cost 0.
 - **A bank listing's countdown** comes from a fixed start and each power's
   offset, so it needs no row.
@@ -156,7 +158,7 @@ New `spends` kinds, replayed by `coinWalk` like the tree's:
 - Expiry skips a weekend and a holiday.
 - Sweet on a won bet, on a lost one, and on a draw.
 - Sour on a lost bet, and on a won one.
-- Juicy waters at 9, skips a day already watered, waters straight away after 9, and skips a day with no coin.
+- Juicy waters at 9, waits out a day already watered (still 3 waters in all), waters straight away after 9, and skips a day with no coin.
 - A Ripe adds a challenge.
 
 `test-rules.mjs`:
