@@ -1297,9 +1297,11 @@
   .mk-does { font-size: 0.74rem; color: #5b6b85; }
   .mk-tag { font-size: 0.64rem; font-weight: 800; border-radius: 999px; padding: 2px 7px; color: #17854a; background: #eef7f2; }
   .mk-tag.bank { color: #96660a; background: #fff8e6; }
-  .mk-buy { border: 0; border-radius: 999px; padding: 7px 13px; font: inherit; font-weight: 800; font-size: 0.8rem; color: #fff; white-space: nowrap; cursor: pointer;
-    background: linear-gradient(135deg, #22ab5f, #17854a); }
+  .mk-buy { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 999px; padding: 7px 13px; font: inherit; font-weight: 800; font-size: 0.8rem;
+    color: #fff; white-space: nowrap; cursor: pointer; background: linear-gradient(135deg, #22ab5f, #17854a); }
+  .mk-buy .coin-disc { width: 13px; height: 13px; flex: none; }
   .mk-buy:disabled { background: #eef1f6; color: #8fa0b8; cursor: default; }
+  .mk-buy:disabled .coin-disc { filter: grayscale(0.7); }
   .mk-own:focus-visible, .mk-chip:focus-visible, .mk-seg button:focus-visible, .mk-buy:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
   .mk-note { font-size: 0.76rem; color: #5b6b85; }
   .mk-empty { padding: 18px 8px; text-align: center; font-size: 0.82rem; color: #7a879c; }
@@ -5608,7 +5610,9 @@ function renderMarket() {
     if (r.yours) name.append(part('mk-tag', 'Yours', 'span'));
     if (r.bank && isAdmin) name.append(part('mk-tag bank', 'Bank', 'span'));
     what.append(name, part('mk-does', ITEMS[r.type].does), mkLeft(r.until, 'Gone in '));
-    const b = part('mk-buy', String(r.price), 'button');
+    // a button that says what it does, and what it costs
+    const b = part('mk-buy', 'Buy \u00b7', 'button');
+    b.append(part('coin-disc', '', 'span'), String(r.price));
     b.type = 'button';
     if (r.bank) b.dataset.bank = r.type; else b.dataset.list = r.list;
     b.dataset.price = r.price; b.dataset.type = r.type;
