@@ -62,8 +62,9 @@ The Spend tab gets a **Market** section.
   and "Bought Sweet at the market · −4". The seller doesn't learn who bought it.
 - **Your own listing** shows with a Yours tag and no Buy button.
 - **My fruit holds 3.** A buy that would make 4 is refused.
-- **Bought fruit lasts 3 workdays**, counted the same way as harvest fruit. A
-  fruit bought on a Thursday lasts Thursday, Friday and Monday.
+- **Bought fruit lasts 7 workdays** from the day it's bought, counted the same
+  way as harvest fruit, whatever was left on its listing. A fruit bought on a
+  Thursday lasts until the end of the Friday after next.
 - **No reselling.** A bought fruit can only be used.
 
 ## The bank
