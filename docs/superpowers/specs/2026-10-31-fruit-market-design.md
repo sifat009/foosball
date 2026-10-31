@@ -41,7 +41,11 @@ game sells fruit too, but nobody can tell which listings are the game's.
   you can't pay the 1 is skipped: it counts as a miss but doesn't use one up.
   A used Juicy leaves My fruit at once. You need a living tree to use one.
 - **Ripe** adds one extra challenge today at no cost. An unplayed Ripe game
-  is gone at midnight with nothing back.
+  is gone at midnight with nothing back. No game is "the Ripe one": it only
+  raises today's cap, so the best time is when you've run out. A player who
+  has run out and holds a Ripe gets "You've played 5 challenges today. Use
+  your Ripe to play one more?" with a Use button where the cap message shows,
+  and joins on one tap. Use in My fruit still works earlier in the day.
 
 ## The market
 
