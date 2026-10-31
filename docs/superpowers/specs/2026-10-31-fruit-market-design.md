@@ -49,7 +49,12 @@ game sells fruit too, but nobody can tell which listings are the game's.
 
 ## The market
 
-The Spend tab gets a **Market** section.
+The market has its own **Market** tab in the menu, between Games and Account,
+with a fruit icon drawn in the same line style as the others. It shows only to
+a signed-in player. On a phone it opens as a sheet from the bottom, the way
+Alerts does, with the balance at the top. On a desktop it's one more corner
+button. An amber dot on the tab means one of your fruit has less than a day
+left.
 
 - **Listing.** From My harvest, the owner picks a fruit, a power and a price
   from 1 to 20. They can take it down any time. To change the power or price,
@@ -90,7 +95,7 @@ The bank's prices cap the market: growers sell below them or don't sell.
 
 ## Interface
 
-Layout D from the mockups:
+Inside the Market sheet, layout D from the mockups:
 
 - **My fruit** is a row of chips at the top of the Market section, each with
   its countdown. It turns amber in the last 6 hours. A Juicy or Ripe chip
