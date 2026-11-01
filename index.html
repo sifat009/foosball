@@ -639,7 +639,8 @@
   @media (prefers-reduced-motion: reduce) { .trk-stop.now .trk-stone { animation: none; } }
   .hist-more { margin-top: 10px; width: 100%; }
   .spend[hidden] { display: none; }
-  .sp-shelf { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+  .sp-shelf { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 6px; }
+  .sp-shelf button[hidden] { display: none; }
   .sp-shelf button { font: inherit; font-size: 0.74rem; font-weight: 700; line-height: 1.15; color: #172b4d; cursor: pointer;
     display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 10px 2px 8px; text-align: center; min-width: 0;
     background: #f4f7fb; border: 0; border-radius: 14px; }
@@ -1278,6 +1279,10 @@
   /* the market: a sheet like the alerts drawer. A power-up is a coloured disc
      with a white mark, the colour from ITEMS. */
   .mk-sheet { display: grid; gap: 12px; align-content: start; }
+  #mkBody, #mkSale { display: contents; }
+  .mk-how { font-size: 0.8rem; color: #3d4a5c; }
+  .mk-how summary { justify-self: center; text-align: center; cursor: pointer; font-weight: 700; color: #17854a; padding: 4px 0; }
+  .mk-how ul { margin: 4px 0 10px; padding-left: 18px; }
   .mk-sheet .hall-title { margin-bottom: 0; }
   .mk-bal { justify-self: center; margin-top: -6px; font-size: 0.8rem; font-weight: 800; color: #96660a; background: #fff8e6; border: 1px solid #ecc45c; border-radius: 999px; padding: 3px 10px; }
   .mk-h { font-size: 0.66rem; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase; color: #7a879c; }
@@ -2591,13 +2596,8 @@ Nur</textarea>
       </div>
       <div class="rules-h">Spending</div>
       <ul>
-        <li><b>Name colour &mdash; 20 coins.</b> One of the five, or any colour dark
-        enough to read. Your name shows in it on the board, in the cup and in the Hall, until you buy another.</li>
-        <li><b>Name icon &mdash; 15 coins.</b> A crown, flame, star, bolt, shield or
-        target in front of your name on the board, in the cup and in the Hall, in your colour if you have one,
-        until you buy another.</li>
-        <li><b>Extra game &mdash; 3 coins.</b> One more challenge today on top of the
-        five, as many as you like. One you don't play comes back at midnight.</li>
+        <li><b>Name colours, icons, extra games and power-ups</b> are in the
+        <b>Market</b>, with how each one works.</li>
         <li><b>Gift.</b> Send up to 50 coins straight to another player, with a note
         if you like. It waits for them as a letter on this sheet until they open it.
         Anyone can read a note, so keep it to happy birthday.</li>
@@ -2615,17 +2615,6 @@ Nur</textarea>
         </div>
         A day's coins are worth the stage it was watered at, so growing after the
         water pays the new amount from the next day.</li>
-        <li><b>Power-ups.</b> An old oak drops one every 5th water, up to 3 at a time.
-        Its owner can't use them, only sell them: pick which one it becomes and a price
-        from 1 to 20, from under the tree. <b>Win Boost</b>: a won game bet pays half
-        again. <b>Shield</b>: a lost game bet gives half back. <b>Auto Water</b>: your
-        tree is watered at 9am, 3 times, for the usual 1 each; a day you water it
-        yourself doesn't use one. <b>Extra Game</b>: one more challenge today.
-        <!-- mirrors ITEMS, FAMILIES and DROP_EVERY in the script: change them together --></li>
-        <li><b>Market.</b> The Market tab sells power-ups, and nobody sees who is
-        selling. Buy one and it's yours for 7 workdays; you can hold 3. Add a Win Boost
-        or Shield as you place a bet, and Use the other two from the Market. A draw or
-        a cancelled game hands it back.</li>
         <li><b>Bounty.</b> Put an even number of coins on a player for two days.
         The next pair to beat them split it. Every player who loses to them in the
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
@@ -2669,7 +2658,47 @@ Nur</textarea>
   <div class="hall-card al-sheet">
     <div class="al-grip"></div>
     <div class="hall-title">Market</div>
-    <div id="mkBody" class="mk-sheet"></div>
+    <!-- one sheet for everything you can buy for yourself: the For you buys
+         (the spend form, lent by the coin sheet while this is open) and the
+         power-ups. Gift and bounty stay on the coin sheet: they go to somebody. -->
+    <div class="mk-sheet">
+      <details class="mk-how">
+        <summary>How the market works</summary>
+        <div class="rules-h">For you</div>
+        <ul>
+          <li><b>Name colour, 20.</b> One of the five, or any colour dark enough to read.
+          Your name shows in it on the board, in the cup and in the Hall, until you buy another.</li>
+          <li><b>Name icon, 15.</b> A crown, flame, star, bolt, shield or target in front
+          of your name, in your colour if you have one, until you buy another.</li>
+          <li><b>Extra game, 3.</b> One more challenge today on top of the five, as many
+          as you like. One you don't play comes back at midnight.</li>
+        </ul>
+        <div class="rules-h">Power-ups</div>
+        <ul>
+          <li>The bank sells each one once a day. Players with an old oak sell the ones
+          it drops, and nobody sees who. One you buy is yours for 7 workdays, and you can hold 3.</li>
+          <li><b>Win Boost.</b> Add it as you bet on a game. If your pair wins you get half
+          again: bet 6, win +9 instead of +6.</li>
+          <li><b>Shield.</b> Add it as you bet on a game. If your pair loses you get half
+          back: bet 6, lose 3 instead of 6.</li>
+          <li>Both are used up win or lose. Cup bets don't count. A draw or a cancelled
+          game hands it back.</li>
+          <li><b>Auto Water.</b> Tap Use and your tree is watered at 9am for the next 3
+          days, for the usual 1 each. A day you water it yourself doesn't use one up.</li>
+        </ul>
+        <div class="rules-h">Selling</div>
+        <ul>
+          <li>An old oak drops a power-up every 5th water, up to 3 at a time. You can't
+          use them yourself: pick which one it becomes and a price from 1 to 20, from
+          under your tree.</li>
+        </ul>
+        <!-- mirrors ITEMS, FAMILIES, DROP_EVERY and the spend costs in the script: change them together -->
+      </details>
+      <div id="mkBody"></div>
+      <div class="mk-h">For you</div>
+      <div id="mkFor"></div>
+      <div id="mkSale"></div>
+    </div>
   </div>
 </div>
 
@@ -3808,7 +3837,7 @@ const slotsToday = (email, now = Date.now()) => !EMAIL_NAMES[email] ? 0
   : walkNow().bought[EMAIL_NAMES[email] + new Date(now).toDateString()] || 0;
 const dayCap = email => CH_DAILY + slotsToday(email);
 const capMsg = () => myExtraGame() ? `You’ve played ${chalMax} challenges today. Use your Extra Game to play one more?`
-  : `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game from the coins sheet.`;
+  : `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game in the Market.`;
 // the one tap that turns that message into a seat: an Extra Game used on the spot
 const capUse = () => {
   const x = myExtraGame();
@@ -4002,13 +4031,15 @@ const treeAt = (tr, t) => {
    reads ITEMS and FAMILIES, so a new family is a row in each plus what it does
    when used. Power-ups are the first: an old oak drops a blank one every
    DROP_EVERY waters, its owner picks which one it becomes when listing it, and
-   only a buyer can use it. A bank row looks like anybody's listing. */
+   only a buyer can use it. A bank row looks like anybody's listing. A retired
+   item is still honoured where somebody holds or lists one, but nobody can get a
+   new one: an Extra Game is a For you buy at the same price, with no limit. */
 const FAMILIES = { power: { name: 'Power-ups', hold: 3, lasts: 7, price: [1, 20] } };
 const ITEMS = {
-  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'A won bet pays half again', on: 'bet', bank: 6, color: '#e5a922', icon: 'M12 18V7M7 11l5-5 5 5' },
-  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'A lost bet gives half back', on: 'bet', bank: 6, color: '#7cb342', icon: 'M12 4l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5z' },
-  water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree 3 times', on: 'use', bank: 10, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
-  game: { fam: 'power', name: 'Extra Game', a: 'an Extra Game', does: 'One more challenge today', on: 'use', bank: 3, color: '#e4572e', icon: 'M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 5.5v3M12 15.5v3M5.5 12h3M15.5 12h3' },
+  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 6, get +9 not +6', on: 'bet', bank: 6, color: '#e5a922', icon: 'M12 18V7M7 11l5-5 5 5' },
+  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 6, lose 3 not 6', on: 'bet', bank: 6, color: '#7cb342', icon: 'M12 4l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5z' },
+  water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree at 9am for 3 days, 1 coin each', on: 'use', bank: 10, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
+  game: { fam: 'power', name: 'Extra Game', a: 'an Extra Game', does: 'One more challenge today, past the usual 5', on: 'use', bank: 3, retired: true, color: '#e4572e', icon: 'M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 5.5v3M12 15.5v3M5.5 12h3M15.5 12h3' },
 };
 const DROP_EVERY = 5, DROP_HOLD = 3, AUTO_WATERS = 3, AUTO_HOUR = 9;
 /* When oaks started counting waters (midnight into 2026-11-01, Dhaka): a water
@@ -5464,6 +5495,19 @@ $('spGo').onclick = () => {
   window.spendCoins({ ...row, by: acctEmail });
   $('spAmt').value = $('spMsg').value = '';
 };
+/* One form, two homes: the Market's For you while it's showing, the coin
+   sheet's Send (gift, bounty) while that is open on top. The shelf shows only
+   that home's buys. */
+const SPEND_HOME = { mkFor: ['flair', 'icon', 'slot'], coinSpend: ['gift', 'bounty'] };
+const placeSpend = () => {
+  const home = $('coinInfo').classList.contains('open') ? 'coinSpend' : 'mkFor', kinds = SPEND_HOME[home];
+  if ($('spend').parentNode.id !== home) $(home).prepend($('spend'));
+  $('spKind').querySelectorAll('button').forEach(b => { b.hidden = !kinds.includes(b.dataset.kind); });
+  if (!kinds.includes(spKind)) spKind = kinds[0];
+  paintSpend();
+};
+new MutationObserver(placeSpend).observe($('coinInfo'), { attributes: true, attributeFilter: ['class'] });
+placeSpend();
 $('coinYou').onclick = e => {
   const g = e.target.closest('[data-gift]');
   if (g) {
@@ -5589,12 +5633,12 @@ const useItem = x => {
   window.spendCoins({ kind: 'use', own: x.id, by: acctEmail });
 };
 function renderMarket() {
-  const me = myName(), now = Date.now(), box = $('mkBody'), btn = $('marketBtn');
+  const me = myName(), now = Date.now(), box = $('mkBody'), sale = $('mkSale'), btn = $('marketBtn');
   btn.style.display = me ? '' : 'none';
   document.body.classList.toggle('market-on', !!me);
   const mine = me ? myOwned() : [];
   btn.classList.toggle('due', mine.some(x => x.until - now < 864e5));
-  box.textContent = '';
+  box.textContent = sale.textContent = '';
   if (!me) { $('market').classList.remove('open'); return; }
   const free = mySpendable(me), full = mine.length >= FAMILIES.power.hold;
   box.append(part('mk-bal', `${free} coin${free === 1 ? '' : 's'}`, 'span'));
@@ -5626,7 +5670,7 @@ function renderMarket() {
   }
 
   const chips = part('mk-chips');
-  [['all', 'All'], ...Object.entries(ITEMS).map(([k, x]) => [k, x.name])].forEach(([k, label]) => {
+  [['all', 'All'], ...Object.entries(ITEMS).filter(([, x]) => !x.retired).map(([k, x]) => [k, x.name])].forEach(([k, label]) => {
     const c = part('mk-chip' + (mkFilter === k ? ' on' : ''), '', 'button');
     c.type = 'button'; c.dataset.filter = k; c.setAttribute('aria-pressed', mkFilter === k);
     if (k !== 'all') c.append(puIcon(k, true));
@@ -5640,15 +5684,15 @@ function renderMarket() {
     seg.append(b);
   });
   sort.append(part('', 'Sort', 'span'), seg);
-  box.append(chips, sort);
+  sale.append(part('mk-h', 'Power-ups'), chips, sort);
 
-  // the bank's four, gone for the day once you've bought one of them
-  const rows = (chalMarket.bankToday[me] ? [] : Object.keys(ITEMS).map(type => ({ bank: type, type, price: ITEMS[type].bank, until: bankUntil(type, now) })))
+  // the bank's three, gone for the day once you've bought one of them
+  const rows = (chalMarket.bankToday[me] ? [] : Object.keys(ITEMS).filter(k => !ITEMS[k].retired).map(type => ({ bank: type, type, price: ITEMS[type].bank, until: bankUntil(type, now) })))
     .concat(chalMarket.listings.map(l => ({ list: l.id, type: l.type, price: l.price, until: l.until, yours: l.who === me })))
     .filter(r => mkFilter === 'all' || r.type === mkFilter)
     .sort(mkSort === 'long' ? (a, b) => b.until - a.until : mkSort === 'soon' ? (a, b) => a.until - b.until
       : (a, b) => a.price - b.price || a.until - b.until);
-  if (full) box.append(part('mk-note', `You hold ${FAMILIES.power.hold} power-ups. Use one to buy another.`));
+  if (full) sale.append(part('mk-note', `You hold ${FAMILIES.power.hold} power-ups. Use one to buy another.`));
   const list = part('mk-list');
   rows.forEach(r => {
     const row = part('mk-row'), what = part(''), name = part('', ITEMS[r.type].name, 'b');
@@ -5667,9 +5711,9 @@ function renderMarket() {
     list.append(row);
   });
   if (!rows.length) list.append(part('mk-empty', 'Nothing for sale here right now.'));
-  box.append(list);
+  sale.append(list);
 }
-$('mkBody').onclick = e => {
+$('mkBody').onclick = $('mkSale').onclick = e => {
   const t = e.target.closest('button');
   if (!t || t.disabled) return;
   if (t.dataset.own) { mkSel = mkSel === t.dataset.own ? null : t.dataset.own; return renderMarket(); }
@@ -5711,7 +5755,7 @@ function oakRow(me) {
     box.append(row);
     if (!l && oakListing === d.id) {
       const pick = part('oak-pick');
-      Object.entries(ITEMS).forEach(([k, x]) => {
+      Object.entries(ITEMS).filter(([, x]) => !x.retired).forEach(([k, x]) => {
         const opt = part('oak-opt', '', 'button');
         opt.type = 'button'; opt.dataset.oakpick = k; opt.setAttribute('aria-pressed', oakPick === k);
         const txt = part('', '', 'span');

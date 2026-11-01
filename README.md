@@ -331,7 +331,9 @@ a result put right moves the coins when the new one was agreed, not the wrong on
 ### Spending them
 
 Betting only moves coins between players, so there was nothing to buy with them.
-The coins sheet now sells these, all on the challenge board:
+The **Market** sells the first three under For you; the coins sheet keeps gift and
+bounty, the two that go to somebody. One spend form serves both: it sits in
+whichever sheet is open on top, and its shelf shows only that sheet's buys.
 
 - **Name colour, 20.** Your name shows in that colour on every seat you take, until you buy another.
 - **Name icon, 15.** A crown, flame, star, bolt, shield or target in front of your
@@ -439,9 +441,11 @@ writes it down, and a skip says nothing.
 
 An old oak drops a blank power-up every 5th water (from `MARKET_FROM`,
 1 Nov 2026), holding 3 at most. Its owner can only sell it: from under the tree
-they pick Win Boost, Shield, Auto Water or Extra Game and a price from 1 to 20.
+they pick Win Boost, Shield or Auto Water and a price from 1 to 20. (Extra Game
+was a fourth until 1 Nov 2026; it's `retired` in `ITEMS`, so ones already held
+or listed still work but nobody gets a new one: For you sells extra games.)
 The **Market** tab (a sheet on a phone, where Install gives way so the bar keeps
-five tabs) lists them with no seller's name, beside the bank's four at fixed
+five tabs) lists them with no seller's name, beside the bank's three at fixed
 prices, which look the same to everyone but the admin. A player buys one bank
 item a day and holds 3 power-ups; each lasts 7 workdays.
 
