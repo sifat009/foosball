@@ -618,7 +618,9 @@
   .trk-go { display: flex; align-items: center; gap: 10px; }
   .trk-bar { flex: 1; height: 8px; background: #dfe6f0; border-radius: 99px; overflow: hidden; }
   .trk-bar i { display: block; height: 100%; background: linear-gradient(90deg, #22ab5f, #17854a); }
-  .trk-skip { padding: 8px 14px; font-size: 0.8rem; box-shadow: none; white-space: nowrap; }
+  .trk-skip { display: inline-flex; align-items: center; gap: 4px; padding: 8px 14px; font-size: 0.8rem; box-shadow: none; white-space: nowrap; }
+  .trk-skip .coin-disc { width: 13px; height: 13px; flex: none; }
+  .trk-skip:disabled .coin-disc { filter: grayscale(0.7); }
   .trk-who { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.78rem; color: #5b6b85; }
   @keyframes trk-bob { 50% { transform: translateY(-4px); } }
   @media (prefers-reduced-motion: reduce) { .trk-stop.now .trk-stone { animation: none; } }
@@ -4038,11 +4040,11 @@ const TRACK_GOALS = [
   { tier: 0, text: 'Play 3 challenges', how: 'Play three 2v2 games on the Challenges board, win or lose. A draw doesn’t count.', n: 3, on: f => f.k === 'win' || f.k === 'loss' },
   { tier: 0, text: 'Water your tree 3 times', how: 'Tap Water under your tree at the top of this sheet, on three days.', n: 3, on: f => f.k === 'water' },
   { tier: 0, text: 'Gift someone a coin', how: 'In the Spend tab, pick Gift, choose a player and send them a coin or more.', n: 1, on: f => f.k === 'gift' },
-  { tier: 0, text: 'Place a side bet', how: 'When a challenge you’re not playing in fills up, you have 2 minutes to bet 1 to 10 coins on a pair. Look for Who wins? on the full lobby.', n: 1, on: f => f.k === 'bet' },
+  { tier: 0, text: 'Bet on someone else’s game', how: 'When a 2v2 game you’re not in gets all 4 players, a Who wins? button shows on it for 2 minutes. Tap it and bet 1 to 10 coins on the pair you think will win. Cup bets don’t count.', n: 1, on: f => f.k === 'bet' },
   { tier: 1, text: 'Win 3 challenges', how: 'Win three 2v2 games on the Challenges board.', n: 3, on: f => f.k === 'win' },
   { tier: 1, text: 'Win a challenge to nil', how: 'Win a challenge without the other side scoring, and tick To nil when you file who won.', n: 1, on: f => f.k === 'win' && f.nil },
   { tier: 1, text: 'Win with 2 different partners', how: 'Win two challenges, each with a different teammate.', n: 2, partners: true, on: f => f.k === 'win' },
-  { tier: 1, text: 'Win a side bet', how: 'Bet on a pair in a full lobby you’re not playing in, within 2 minutes of it filling, and see that pair win.', n: 1, on: f => f.k === 'betwon' },
+  { tier: 1, text: 'Win a bet on someone else’s game', how: 'Bet on a pair in a full 2v2 game you’re not in, within 2 minutes of it filling, and see that pair win. Cup bets don’t count.', n: 1, on: f => f.k === 'betwon' },
   { tier: 1, text: 'Win a challenge played for a bet', how: 'Open a lobby for coins (2, 5, 10 or more), or sit at one, and win it.', n: 1, on: f => f.k === 'win' && f.paid },
   { tier: 1, text: 'Water your tree 5 times', how: 'Tap Water under your tree at the top of this sheet, on five days.', n: 5, on: f => f.k === 'water' },
   { tier: 1, text: 'Collect from your tree 3 times', how: 'Water your tree and its coins land in your balance three hours later. Do it on three days.', n: 3, on: f => f.k === 'collect' },
@@ -5216,7 +5218,9 @@ function renderTrack() {
       fill.style.width = (100 * mine.count / g.n) + '%';
       bar.append(fill);
       const free = mySpendable(me);
-      const skip = part('btn btn-gold trk-skip', `Skip · ${TRACK_PRIZE[sel]}`, 'button');
+      // says it costs: 'Skip · 3' read as a skip that pays 3
+      const skip = part('btn btn-gold trk-skip', 'Pay', 'button');
+      skip.append(part('coin-disc', '', 'span'), `${TRACK_PRIZE[sel]} to skip`);
       skip.type = 'button'; skip.dataset.skip = TRACK_PRIZE[sel]; skip.disabled = free < TRACK_PRIZE[sel];
       if (skip.disabled) skip.title = `You have ${free} to spend`;
       go.append(bar, part('trk-note', `${mine.count} of ${g.n}`, 'span'), skip);
