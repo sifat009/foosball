@@ -623,6 +623,19 @@
   .trk-skip:disabled .coin-disc { filter: grayscale(0.7); }
   .trk-who { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.78rem; color: #5b6b85; }
   @keyframes trk-bob { 50% { transform: translateY(-4px); } }
+  /* a stage cleared: a pill over the tab bar for a few seconds, tap for the pond */
+  #trkToast { position: fixed; z-index: 60; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); width: min(360px, calc(100% - 32px));
+    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 0; border-radius: 14px; cursor: pointer; text-align: left; font: inherit;
+    background: #16233a; color: #fff; box-shadow: 0 10px 24px rgba(10,20,40,0.35);
+    transform: translate(-50%, 0); transition: opacity 0.3s, transform 0.3s; }
+  #trkToast.out { opacity: 0; transform: translate(-50%, 16px); pointer-events: none; }
+  #trkToast .trk-stone { flex: none; width: 26px; height: 26px; font-size: 0.8rem; color: #6b4500; text-shadow: none;
+    background: radial-gradient(circle at 35% 28%, #fff6cf 0 12%, #f5c33b 45%, #c7860b 100%); }
+  #trkToast span { flex: 1; min-width: 0; display: grid; gap: 1px; }
+  #trkToast b { font-size: 0.92rem; }
+  #trkToast b i { font-style: normal; color: #f5c33b; margin-left: 6px; }
+  #trkToast small { font-size: 0.78rem; color: #c3cde0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { #trkToast { transition: none; } }
   @media (prefers-reduced-motion: reduce) { .trk-stop.now .trk-stone { animation: none; } }
   .hist-more { margin-top: 10px; width: 100%; }
   .spend[hidden] { display: none; }
@@ -4769,7 +4782,7 @@ const sealedGifts = () => {
    device, which this device remembers like an opened gift; closed unclaimed, it
    waits in #cardBox. One worth nothing is a notice: seen once, done. Nothing
    shows until the spends are in, or a claimed card would pop up again. */
-var chalClaims = [], spendsIn = false;
+var chalClaims = [], spendsIn = false, chalIn = false;
 const cardSeenMem = new Set();
 const cardSeen = id => { try { if (localStorage.getItem('cardSeen:' + id)) return true; } catch {} return cardSeenMem.has(id); };
 const setCardSeen = id => { cardSeenMem.add(id); try { localStorage.setItem('cardSeen:' + id, 1); } catch {} };
@@ -5031,6 +5044,34 @@ function renderHistory() {
    player's initials on the one they are on, and a card for the tapped stop.
    Stages only, never coins: the same rule the pill keeps. */
 var chalTrack = {}, trackSel = null;
+/* A stage cleared since this phone last looked gets a toast, once, with what's
+   next. The phone keeps "month:stage" for the reader and only ever raises it,
+   so a load still filling in can't lower it; the first look on a phone just
+   writes it down. A skipped stage paid nothing and says nothing. */
+function trackToast() {
+  const me = myName(), p = me && chalTrack[me], m = monthOf(Date.now());
+  if (!p || !spendsIn || !chalIn || p.month !== m || !p.stage) return;
+  const key = 'trackSeen:' + me;
+  let seen; try { seen = localStorage.getItem(key); } catch (e) { return; }
+  const [sm, ss] = (seen || '').split(':').map(Number), was = seen === null ? null : sm === m ? ss : 0;
+  if (was !== null && p.stage <= was) return;
+  try { localStorage.setItem(key, m + ':' + p.stage); } catch (e) {}
+  const n = p.stage - 1, next = trackOf(m)[p.stage];
+  if (was === null || p.skipped.includes(n)) return;
+  let t = $('trkToast');
+  if (!t) {
+    t = part('', '', 'button'); t.id = 'trkToast'; t.type = 'button';
+    t.onclick = () => { t.classList.add('out'); openCoins(); document.querySelector('.coin-tabs [data-pane="coinTrack"]').click(); };
+    document.body.append(t);
+  }
+  t.textContent = '';
+  const txt = part('', '', 'span'), head = part('', `Track stage ${n + 1} cleared`, 'b');
+  head.append(part('', '+' + TRACK_PRIZE[n], 'i'));
+  txt.append(head, part('', next ? `Next: ${next.text} ›` : 'All ten cleared this month', 'small'));
+  t.append(part('trk-stone', '✓', 'span'), txt);
+  t.classList.remove('out');
+  clearTimeout(t.timer); t.timer = setTimeout(() => t.classList.add('out'), 4500);
+}
 // the islands sit where they're put, in the scene's 340 x 470; the cup's is the last
 const TRACK_SPOTS = [[66, 430], [172, 436], [272, 398], [194, 348], [78, 318], [152, 262], [270, 232], [194, 174], [76, 142], [150, 88]];
 const TRACK_TOP = [240, 48];
@@ -6251,6 +6292,7 @@ function renderChal() {
   cupWagers = walk.cupBets;
   coinLog = walk.log;
   chalTrack = walk.track;
+  trackToast();
   chalMarket = walk.market;
   renderCoins(); // same inputs: the lobbies, and who is signed in
   paintCard();
@@ -6402,7 +6444,7 @@ function betBoard() {
   return box;
 }
 window.renderChallenges = all => {
-  allChal = all || {};
+  allChal = all || {}; chalIn = true;
   /* Nothing here writes on a read except this: the admin's page is the only
      one allowed to delete anybody's row, so it is the one that sweeps the
      lobbies nobody ever filled. Everyone else just stops drawing them. */

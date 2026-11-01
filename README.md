@@ -430,6 +430,11 @@ is redrawn, prizes included. A new goal goes on the end with `from` set to the
 first month it may appear. A skip is a `spends` row of kind `skip` with nothing
 else on it. The spec is `docs/superpowers/specs/2026-10-19-monthly-track-design.md`.
 
+Clearing a stage shows a toast over the tab bar, once per phone: the stage, its
+prize and the next goal, tap for the pond. The phone keeps `trackSeen:<name>` as
+`month:stage` in localStorage and only raises it; the first look on a phone just
+writes it down, and a skip says nothing.
+
 ### Power-ups and the market
 
 An old oak drops a blank power-up every 5th water (from `MARKET_FROM`,

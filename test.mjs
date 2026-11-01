@@ -3013,6 +3013,24 @@ assert.ok(await page.evaluate(() => TRACK_GOALS.every(g => g.how)), 'a track goa
 // the tab draws ten stops and a card, before November and after
 assert.equal(await page.evaluate(() => { window.renderTrack(); return $('coinTrack').querySelectorAll('.trk-stop').length; }), 10,
   'the Track tab is missing its stops');
+// the toast: silent on a phone's first look, once per new stage, never for a skip
+const toast = await page.evaluate(() => {
+  const was = [acctEmail, chalTrack, spendsIn, chalIn];
+  window.setAccount('sifat@x.com'); spendsIn = chalIn = true;
+  const m = monthOf(Date.now()), shown = () => { const t = $('trkToast'); const r = t && !t.classList.contains('out') ? t.textContent : ''; t && t.classList.add('out'); return r; };
+  const at = (stage, skipped = []) => { chalTrack = { Sifat: { month: m, stage, skipped } }; trackToast(); return shown(); };
+  localStorage.removeItem('trackSeen:Sifat');
+  const r = [at(1), at(2), at(2), at(3, [2]), at(3)];
+  localStorage.setItem('trackSeen:Sifat', (m - 1) + ':7'); // last month's stage 7: a new month starts again from 0
+  r.push(at(1));
+  localStorage.removeItem('trackSeen:Sifat');
+  [acctEmail, chalTrack, spendsIn, chalIn] = was;
+  return r;
+});
+assert.equal(toast[0], '', 'a phone toasted on its first look at the track');
+assert.ok(toast[1].includes('Track stage 2 cleared+4') && toast[1].includes('Next: '), 'clearing stage 2 showed no toast: ' + toast[1]);
+assert.deepEqual(toast.slice(2, 5), ['', '', ''], 'a stage toasted twice, or a skip toasted');
+assert.ok(toast[5].includes('Track stage 1 cleared+3'), 'a new month’s first clear showed no toast');
 console.log('track OK');
 
 assert.deepEqual([spendCheck.flair.bal.Sifat, spendCheck.flair.ok.length], [10, 0], 'a twenty-coin colour went through on ten coins');
