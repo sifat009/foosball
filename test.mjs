@@ -4295,7 +4295,12 @@ const mk = await page.evaluate(() => {
     const r = w([gift, b, sp(H + 20, 'Nur', 'bet', { game: 'g', side: 'b', amt: 4, own: b.id })], H + 1000, [...seed, g]);
     return [r.bal.Nur, (r.market.owned.Nur || []).length];
   };
+  // the bank's price cut: a Shield bought a minute before it cost 6, a minute after 3
+  const cutAt = (dt, type = 'shield') => { const t = MARKET_CUT_FROM + dt, r = w([sp(t, 'Ofi', 'buy', { bank: type })], t + 6e4);
+    return w([], t + 6e4).bal.Ofi - r.bal.Ofi; };
+  const cut = [cutAt(-6e4), cutAt(6e4), cutAt(6e4, 'win'), cutAt(6e4, 'water')];
   return {
+    cut,
     four: [four.n, four.drops.length], five: [five.n, five.drops.length, drop.id === waters[4].id],
     sold: [sold.bal.Sifat - w([...oak, ...waters.slice(0, 5)], D(9, 15)).bal.Sifat, sold.bal.Ofi, sold.ok.includes(late), sold.market.owned.Ofi.map(x => x.type), sold.market.listings.length],
     own: w([...oak, ...waters.slice(0, 5), list, own], D(9, 15)).ok.includes(own),
@@ -4317,6 +4322,7 @@ assert.deepEqual(mk.sold, [4, 196, false, ['shield'], 0], 'a sale did not pay th
 assert.equal(mk.own, false, 'a seller bought their own listing');
 assert.equal(mk.dear, false, 'a power-up was listed over 20');
 assert.deepEqual(mk.twice, [197, 1], 'a second bank buy the same day went through');
+assert.deepEqual(mk.cut, [6, 3, 3, 4], 'the bank did not charge the old price before the cut and 3, 3, 4 after');
 assert.equal(mk.nextDay, 2, 'a bank buy the next day was refused');
 assert.deepEqual(mk.full, [3, 191], 'a fourth power-up went into a full hand');
 assert.deepEqual(mk.thu, [14, 17], 'seven workdays from a Thursday end wrong, or a holiday isn’t skipped');

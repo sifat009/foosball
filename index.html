@@ -2698,7 +2698,7 @@ Nur</textarea>
         <div class="rules-h">Selling</div>
         <ul>
           <li>An old oak drops a power-up every 5th water, up to 3 at a time. You can't
-          use them yourself: pick which one it becomes and a price from 1 to 20, from
+          use them yourself: pick which one it becomes and a price from 1 to 10, from
           under your tree.</li>
         </ul>
         <!-- mirrors ITEMS, FAMILIES, DROP_EVERY and the spend costs in the script: change them together -->
@@ -4041,16 +4041,22 @@ const treeAt = (tr, t) => {
    only a buyer can use it. A bank row looks like anybody's listing. A retired
    item is still honoured where somebody holds or lists one, but nobody can get a
    new one: an Extra Game is a For you buy at the same price, with no limit. */
-const FAMILIES = { power: { name: 'Power-ups', hold: 3, lasts: 7, price: [1, 20] } };
+const FAMILIES = { power: { name: 'Power-ups', hold: 3, lasts: 7, price: [1, 10] } };
 const ITEMS = {
-  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 6, get +9 not +6', on: 'bet', bank: 6, color: '#e5a922',
+  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 6, get +9 not +6', on: 'bet', bank: 3, color: '#e5a922',
     // Lucide rocket and shield-check (ISC licence)
     icon: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5' },
-  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 6, lose 3 not 6', on: 'bet', bank: 6, color: '#7cb342',
+  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 6, lose 3 not 6', on: 'bet', bank: 3, color: '#7cb342',
     icon: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1zM9 12l2 2 4-4' },
-  water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree at 9am for 3 days, 1 coin each', on: 'use', bank: 10, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
+  water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree at 9am for 3 days, 1 coin each', on: 'use', bank: 4, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
   game: { fam: 'power', name: 'Extra Game', a: 'an Extra Game', does: 'One more challenge today, past the usual 5', on: 'use', bank: 3, retired: true, color: '#e4572e', icon: 'M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 5.5v3M12 15.5v3M5.5 12h3M15.5 12h3' },
 };
+/* When the bank's prices dropped to 3, 3 and 4 and an oak's listing price was
+   capped at 10 (2026-11-02, Dhaka). A buy or listing before then keeps the old
+   price and the old cap of 20, and the walk still charges it. */
+const MARKET_CUT_FROM = 1793605200000;
+const OLD_BANK = { win: 6, shield: 6, water: 10, game: 3 };
+const bankPrice = (type, t) => (t < MARKET_CUT_FROM && OLD_BANK[type]) || ITEMS[type].bank;
 const DROP_EVERY = 5, DROP_HOLD = 3, AUTO_WATERS = 3, AUTO_HOUR = 9;
 /* When oaks started counting waters (midnight into 2026-11-01, Dhaka): a water
    before it drops nothing. */
@@ -4374,7 +4380,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       if (s.kind === 'list') {
         const t = +s.at, o = oaks[who], d = o && o.drops.find(x => x.id === s.src && !x.sold), f = fam(s.type), p = +s.price;
         if (who === undefined) return;
-        if (!d || d.until <= t || d.list || !f || ITEMS[s.type].fam !== 'power' || !(p >= f.price[0] && p <= f.price[1]) || p % 1)
+        if (!d || d.until <= t || d.list || !f || ITEMS[s.type].fam !== 'power' || !(p >= f.price[0] && p <= (t < MARKET_CUT_FROM ? 20 : f.price[1])) || p % 1)
           return refuse(who, s, false);
         d.list = s.id;
         listings[s.id] = { id: s.id, who, type: s.type, price: p, at: t, until: d.until, drop: d };
@@ -4398,7 +4404,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if (who === undefined) return;
         if (!f || (s.list != null ? !l || l.until <= t || l.who === who : s.bank == null || (bankDay[who + isoDay(t)] || 0) >= 1)
           || holds(who, ITEMS[type].fam, t) >= f.hold) return refuse(who, s, false);
-        const price = l ? l.price : ITEMS[type].bank;
+        const price = l ? l.price : bankPrice(type, t);
         if (bal[who] < price) return refuse(who, s, true);
         move(who, -price, `Bought ${ITEMS[type].a} at the market`, t);
         if (l) {
