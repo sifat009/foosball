@@ -433,10 +433,13 @@ is redrawn, prizes included. A new goal goes on the end with `from` set to the
 first month it may appear. A skip is a `spends` row of kind `skip` with nothing
 else on it. The spec is `docs/superpowers/specs/2026-10-19-monthly-track-design.md`.
 
-Clearing a stage shows a toast over the tab bar, once per phone: the stage, its
-prize and the next goal, tap for the pond. The phone keeps `trackSeen:<name>` as
+Clearing a stage shows a card in the middle of a dimmed screen, once per phone:
+the stage, its prize and the next stage's goal and prize, with See the track
+(opens the pond) and Later. It stays up until closed. The phone keeps `trackSeen:<name>` as
 `month:stage` in localStorage and only raises it; the first look on a phone just
-writes it down, and a skip says nothing.
+writes it down, and a skip says nothing. Skipping is a quiet "Stuck? Skip ›"
+link under the progress bar; it opens a confirm in the card that spells out
+the cost, that the stage pays 0, and what opens next.
 
 ### Power-ups and the market
 

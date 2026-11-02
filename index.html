@@ -618,24 +618,36 @@
   .trk-go { display: flex; align-items: center; gap: 10px; }
   .trk-bar { flex: 1; height: 8px; background: #dfe6f0; border-radius: 99px; overflow: hidden; }
   .trk-bar i { display: block; height: 100%; background: linear-gradient(90deg, #22ab5f, #17854a); }
-  .trk-skip { display: inline-flex; align-items: center; gap: 4px; padding: 8px 14px; font-size: 0.8rem; box-shadow: none; white-space: nowrap; }
-  .trk-skip .coin-disc { width: 13px; height: 13px; flex: none; }
-  .trk-skip:disabled .coin-disc { filter: grayscale(0.7); }
+  .trk-earn { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 0.82rem; font-weight: 700; }
+  .trk-earn em { font-style: normal; font-weight: 900; color: #8a5d06; }
+  .trk-skip { background: none; border: 0; padding: 4px 0; font: inherit; font-size: 0.8rem; color: #5b6b85; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+  .trk-skip:disabled { cursor: default; text-decoration: none; opacity: 0.7; }
+  .trk-ask { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #dfe6f0; display: grid; gap: 8px; }
+  .trk-ask ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 3px; font-size: 0.8rem; }
+  .trk-ask .neg { color: #b42318; font-weight: 800; }
+  .trk-ask .pos { color: #17854a; font-weight: 800; }
+  .trk-ask .btns { display: flex; gap: 8px; }
+  .trk-ask .btn { flex: 1; padding: 9px 12px; font-size: 0.8rem; box-shadow: none; }
   .trk-who { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 0.78rem; color: #5b6b85; }
   @keyframes trk-bob { 50% { transform: translateY(-4px); } }
-  /* a stage cleared: a pill over the tab bar for a few seconds, tap for the pond */
-  #trkToast { position: fixed; z-index: 60; left: 50%; bottom: calc(96px + env(safe-area-inset-bottom)); width: min(360px, calc(100% - 32px));
-    display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 0; border-radius: 14px; cursor: pointer; text-align: left; font: inherit;
-    background: #16233a; color: #fff; box-shadow: 0 10px 24px rgba(10,20,40,0.35);
-    transform: translate(-50%, 0); transition: opacity 0.3s, transform 0.3s; }
-  #trkToast.out { opacity: 0; transform: translate(-50%, 16px); pointer-events: none; }
-  #trkToast .trk-stone { flex: none; width: 26px; height: 26px; font-size: 0.8rem; color: #6b4500; text-shadow: none;
+  /* a stage cleared: a card in the middle of a dimmed screen, up until it's closed.
+     A pill over the tab bar that faded on its own went unseen. */
+  #trkToast { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(10,18,34,0.55);
+    padding: 16px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); transition: opacity 0.3s; }
+  #trkToast.out { opacity: 0; pointer-events: none; }
+  #trkToast .pop { width: min(320px, 100%); background: #fff; color: #172b4d; border-radius: 20px; padding: 22px 18px 12px;
+    display: grid; gap: 8px; justify-items: center; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+    transition: transform 0.45s cubic-bezier(.2,1.3,.4,1); }
+  #trkToast.out .pop { transform: translateY(16px) scale(0.88); }
+  #trkToast .trk-stone { width: 56px; height: 56px; font-size: 1.5rem; color: #6b4500; text-shadow: none; box-shadow: 0 4px 10px rgba(138,93,6,0.35);
     background: radial-gradient(circle at 35% 28%, #fff6cf 0 12%, #f5c33b 45%, #c7860b 100%); }
-  #trkToast span { flex: 1; min-width: 0; display: grid; gap: 1px; }
-  #trkToast b { font-size: 0.92rem; }
-  #trkToast b i { font-style: normal; color: #f5c33b; margin-left: 6px; }
-  #trkToast small { font-size: 0.78rem; color: #c3cde0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  @media (prefers-reduced-motion: reduce) { #trkToast { transition: none; } }
+  #trkToast .kick { font-size: 0.72rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase; color: #17854a; }
+  #trkToast .plus { font-size: 2.2rem; font-weight: 900; color: #8a5d06; line-height: 1; }
+  #trkToast .next { width: 100%; box-sizing: border-box; background: #f1f4f9; border-radius: 10px; padding: 8px 10px; font-size: 0.84rem; text-align: left; display: grid; gap: 2px; }
+  #trkToast .next b { font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6b85; }
+  #trkToast .btn { width: 100%; margin-top: 4px; }
+  #trkToast .later { background: none; border: 0; padding: 8px; font: inherit; font-size: 0.82rem; font-weight: 700; color: #5b6b85; cursor: pointer; }
+  @media (prefers-reduced-motion: reduce) { #trkToast, #trkToast .pop { transition: none; } }
   @media (prefers-reduced-motion: reduce) { .trk-stop.now .trk-stone { animation: none; } }
   .hist-more { margin-top: 10px; width: 100%; }
   .spend[hidden] { display: none; }
@@ -5090,7 +5102,7 @@ function renderHistory() {
 /* The Track tab: the month's ten stages as islands on a forest pond, each
    player's initials on the one they are on, and a card for the tapped stop.
    Stages only, never coins: the same rule the pill keeps. */
-var chalTrack = {}, trackSel = null;
+var chalTrack = {}, trackSel = null, trackAsk = false; // trackAsk: the skip's confirm is open
 /* A stage cleared since this phone last looked gets a toast, once, with what's
    next. The phone keeps "month:stage" for the reader and only ever raises it,
    so a load still filling in can't lower it; the first look on a phone just
@@ -5107,17 +5119,27 @@ function trackToast() {
   if (was === null || p.skipped.includes(n)) return;
   let t = $('trkToast');
   if (!t) {
-    t = part('', '', 'button'); t.id = 'trkToast'; t.type = 'button';
-    t.onclick = () => { t.classList.add('out'); openCoins(); document.querySelector('.coin-tabs [data-pane="coinTrack"]').click(); };
+    t = part('out'); t.id = 'trkToast';
+    t.setAttribute('role', 'dialog'); t.setAttribute('aria-modal', 'true'); t.setAttribute('aria-label', 'Track stage cleared');
+    // a tap on the dim or Later closes it; See the track opens the pond
+    t.onclick = e => {
+      if (e.target.closest('.pop') && !e.target.closest('button')) return;
+      t.classList.add('out');
+      if (e.target.closest('[data-go]')) { openCoins(); document.querySelector('.coin-tabs [data-pane="coinTrack"]').click(); }
+    };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') t.classList.add('out'); });
     document.body.append(t);
   }
   t.textContent = '';
-  const txt = part('', '', 'span'), head = part('', `Track stage ${n + 1} cleared`, 'b');
-  head.append(part('', '+' + TRACK_PRIZE[n], 'i'));
-  txt.append(head, part('', next ? `Next: ${next.text} ›` : 'All ten cleared this month', 'small'));
-  t.append(part('trk-stone', '✓', 'span'), txt);
+  const pop = part('pop'), nx = part('next');
+  if (next) nx.append(part('', `Next · stage ${n + 2} · +${TRACK_PRIZE[n + 1]}`, 'b'), next.text);
+  else nx.append(part('', 'All ten cleared this month', 'b'), 'A new track opens on the 1st.');
+  const go = part('btn btn-green', 'See the track', 'button'), later = part('later', 'Later', 'button');
+  go.type = later.type = 'button'; go.dataset.go = 1;
+  pop.append(part('trk-stone', '✓', 'span'), part('kick', `Track stage ${n + 1} cleared`), part('plus', '+' + TRACK_PRIZE[n]), nx, go, later);
+  t.append(pop);
   t.classList.remove('out');
-  clearTimeout(t.timer); t.timer = setTimeout(() => t.classList.add('out'), 4500);
+  go.focus({ preventScroll: true });
 }
 // the islands sit where they're put, in the scene's 340 x 470; the cup's is the last
 const TRACK_SPOTS = [[66, 430], [172, 436], [272, 398], [194, 348], [78, 318], [152, 262], [270, 232], [194, 174], [76, 142], [150, 88]];
@@ -5305,14 +5327,29 @@ function renderTrack() {
       const go = part('trk-go'), bar = part('trk-bar'), fill = part('', '', 'i');
       fill.style.width = (100 * mine.count / g.n) + '%';
       bar.append(fill);
-      const free = mySpendable(me);
-      // says it costs: 'Skip · 3' read as a skip that pays 3
-      const skip = part('btn btn-gold trk-skip', 'Pay', 'button');
-      skip.append(part('coin-disc', '', 'span'), `${TRACK_PRIZE[sel]} to skip`);
-      skip.type = 'button'; skip.dataset.skip = TRACK_PRIZE[sel]; skip.disabled = free < TRACK_PRIZE[sel];
-      if (skip.disabled) skip.title = `You have ${free} to spend`;
-      go.append(bar, part('trk-note', `${mine.count} of ${g.n}`, 'span'), skip);
+      const free = mySpendable(me), prize = TRACK_PRIZE[sel], next = goals[sel + 1];
+      go.append(bar, part('trk-note', `${mine.count} of ${g.n}`, 'span'));
       card.append(go);
+      /* the skip is a quiet link, and its cost is spelled out in the card before
+         it goes: a gold 'Pay 4 to skip' read as the thing to tap, and got tapped */
+      if (!trackAsk) {
+        const earn = part('trk-earn'), win = part('', 'Win it → you get ', 'span');
+        win.append(part('', `+${prize} coins`, 'em'));
+        const skip = part('trk-skip', free < prize ? `Skipping costs ${prize}` : 'Stuck? Skip ›', 'button');
+        skip.type = 'button'; skip.dataset.ask = 1; skip.disabled = free < prize;
+        earn.append(win, skip);
+        card.append(earn);
+      } else {
+        const ask = part('trk-ask'), ul = document.createElement('ul');
+        const li = (a, b, c = '') => { const x = document.createElement('li'); x.append(a, part(b, c, 'span')); return x; };
+        ul.append(li('You pay ', 'neg', `${prize} coins`), li('You get ', 'neg', `0 for stage ${sel + 1}`));
+        if (next) ul.append(li(`Stage ${sel + 2} `, 'pos', `(+${TRACK_PRIZE[sel + 1]})`)), ul.lastChild.append(' opens right away');
+        const btns = part('btns'), keep = part('btn', 'Keep playing', 'button'), pay = part('btn btn-gold', `Pay ${prize}, skip`, 'button');
+        keep.type = pay.type = 'button'; keep.dataset.ask = 0; pay.dataset.skip = prize;
+        btns.append(keep, pay);
+        ask.append(part('', `Skip stage ${sel + 1}?`, 'b'), ul, btns);
+        card.append(ask);
+      }
     } else if (me && sel < myStage) {
       card.append(part('trk-note', mine.skipped.includes(sel) ? 'You skipped this one.' : `You collected +${TRACK_PRIZE[sel]} for this one.`));
     } else card.append(part('trk-note', sel === 0 ? 'Where everyone starts.' : `Opens once stage ${sel} is cleared.`));
@@ -5328,17 +5365,18 @@ function renderTrack() {
 $('coinTrack').onclick = e => {
   const st = e.target.closest('[data-stage]');
   if (st) {
-    trackSel = +st.dataset.stage;
+    trackSel = +st.dataset.stage; trackAsk = false;
     renderTrack();
     const f = $('coinTrack').querySelector(`[data-stage="${trackSel}"]`);
     if (f) f.focus({ preventScroll: true });
     return;
   }
+  const a = e.target.closest('[data-ask]');
+  if (a && !a.disabled) { trackAsk = a.dataset.ask === '1'; renderTrack(); return; }
   const b = e.target.closest('[data-skip]');
   if (!b || b.disabled || !myName() || !window.spendCoins) return;
-  if (!confirm(`Skip this stage for ${b.dataset.skip} coins? A skipped stage pays nothing.`)) return;
   b.disabled = true; // the snapshot redraws the card; until then, one tap is one row
-  trackSel = null;
+  trackSel = null; trackAsk = false;
   window.spendCoins({ kind: 'skip', by: acctEmail });
 };
 function renderCoins() {
@@ -6738,7 +6776,7 @@ $('chalBtn').addEventListener('click', closeChalForm);
    profile has none. Keyboard too: it is a role=button, so it has to answer one. */
 const openCoins = () => {
   // the tree's page and a stop tapped last time both go back to where you are
-  if (treeOpen || trackSel !== null) { treeOpen = false; trackSel = null; renderCoins(); }
+  if (treeOpen || trackSel !== null || trackAsk) { treeOpen = false; trackSel = null; trackAsk = false; renderCoins(); }
   $('coinInfo').classList.add('open');
 };
 $('coins').onclick = openCoins;

@@ -3028,7 +3028,7 @@ const toast = await page.evaluate(() => {
   return r;
 });
 assert.equal(toast[0], '', 'a phone toasted on its first look at the track');
-assert.ok(toast[1].includes('Track stage 2 cleared+4') && toast[1].includes('Next: '), 'clearing stage 2 showed no toast: ' + toast[1]);
+assert.ok(toast[1].includes('Track stage 2 cleared+4') && toast[1].includes('Next · stage 3'), 'clearing stage 2 showed no toast: ' + toast[1]);
 assert.deepEqual(toast.slice(2, 5), ['', '', ''], 'a stage toasted twice, or a skip toasted');
 assert.ok(toast[5].includes('Track stage 1 cleared+3'), 'a new month’s first clear showed no toast');
 console.log('track OK');
