@@ -2687,9 +2687,9 @@ Nur</textarea>
           <li>The bank sells each one once a day. Players with an old oak sell the ones
           it drops, and nobody sees who. One you buy is yours for 7 workdays, and you can hold 3.</li>
           <li><b>Win Boost.</b> Add it as you bet on a game. If your pair wins you get half
-          again: bet 6, win +9 instead of +6.</li>
+          again: bet 10, win +15 instead of +10.</li>
           <li><b>Shield.</b> Add it as you bet on a game. If your pair loses you get half
-          back: bet 6, lose 3 instead of 6.</li>
+          back: bet 10, lose 5 instead of 10.</li>
           <li>Both are used up win or lose. Cup bets don't count. A draw or a cancelled
           game hands it back.</li>
           <li><b>Auto Water.</b> Tap Use and your tree is watered at 9am for the next 3
@@ -4043,10 +4043,10 @@ const treeAt = (tr, t) => {
    new one: an Extra Game is a For you buy at the same price, with no limit. */
 const FAMILIES = { power: { name: 'Power-ups', hold: 3, lasts: 7, price: [1, 10] } };
 const ITEMS = {
-  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 6, get +9 not +6', on: 'bet', bank: 3, color: '#e5a922',
+  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 10, get +15 not +10', on: 'bet', bank: 3, color: '#e5a922',
     // Lucide rocket and shield-check (ISC licence)
     icon: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5' },
-  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 6, lose 3 not 6', on: 'bet', bank: 3, color: '#7cb342',
+  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 10, lose 5 not 10', on: 'bet', bank: 3, color: '#7cb342',
     icon: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1zM9 12l2 2 4-4' },
   water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree at 9am for 3 days, 1 coin each', on: 'use', bank: 4, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
   game: { fam: 'power', name: 'Extra Game', a: 'an Extra Game', does: 'One more challenge today, past the usual 5', on: 'use', bank: 3, retired: true, color: '#e4572e', icon: 'M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 5.5v3M12 15.5v3M5.5 12h3M15.5 12h3' },
