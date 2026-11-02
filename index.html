@@ -1305,7 +1305,7 @@
   .mk-chip { flex: none; display: inline-flex; gap: 4px; align-items: center; border: 1px solid #dfe6f0; background: #fff; border-radius: 999px; padding: 4px 10px 4px 6px;
     font: inherit; font-size: 0.74rem; font-weight: 700; color: #5b6b85; cursor: pointer; }
   .mk-chip.on { background: #172b4d; border-color: #172b4d; color: #fff; }
-  .mk-chip:first-child { padding-left: 10px; }
+  .mk-chip:not(:has(.pu)) { padding-left: 10px; }
   .mk-sort { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; font-weight: 700; color: #7a879c; }
   .mk-seg { display: flex; gap: 2px; background: #f2f5f9; border-radius: 999px; padding: 3px; flex: 1; min-width: 0; }
   .mk-seg button { flex: 1; border: 0; background: none; border-radius: 999px; padding: 5px 4px; font: inherit; font-size: 0.7rem; font-weight: 700; color: #5b6b85; cursor: pointer; white-space: nowrap; }
@@ -1317,6 +1317,14 @@
   .mk-does { font-size: 0.74rem; color: #5b6b85; }
   .mk-tag { font-size: 0.64rem; font-weight: 800; border-radius: 999px; padding: 2px 7px; color: #17854a; background: #eef7f2; }
   .mk-tag.bank { color: #96660a; background: #fff8e6; }
+  .mk-tag.you { color: #5b3fd0; background: #f1edff; }
+  .mk-row.open { border-color: #17854a; box-shadow: 0 0 0 3px #e3f5ea; }
+  .mk-row [data-fyclose] { cursor: pointer; }
+  .mk-more { grid-column: 1 / -1; padding-top: 10px; border-top: 1px dashed #dfe6f0; }
+  .mk-more .spend { margin: 0; }
+  .mk-more #spKind, .mk-more #spGo { display: none; }
+  .mk-more .sp-drawer { background: none; padding: 0; }
+  .mk-more .sp-prev { background: #f4f7fb; }
   .mk-buy { display: inline-flex; align-items: center; gap: 5px; border: 0; border-radius: 999px; padding: 7px 13px; font: inherit; font-weight: 800; font-size: 0.8rem;
     color: #fff; white-space: nowrap; cursor: pointer; background: linear-gradient(135deg, #22ab5f, #17854a); }
   .mk-buy .coin-disc { width: 13px; height: 13px; flex: none; }
@@ -2658,9 +2666,10 @@ Nur</textarea>
   <div class="hall-card al-sheet">
     <div class="al-grip"></div>
     <div class="hall-title">Market</div>
-    <!-- one sheet for everything you can buy for yourself: the For you buys
-         (the spend form, lent by the coin sheet while this is open) and the
-         power-ups. Gift and bounty stay on the coin sheet: they go to somebody. -->
+    <!-- one list for everything you can buy for yourself: the For you buys and
+         the power-ups. An open Name colour or Name icon row borrows the coin
+         sheet's spend form for its picker. Gift and bounty stay on the coin
+         sheet: they go to somebody. -->
     <div class="mk-sheet">
       <details class="mk-how">
         <summary>How the market works</summary>
@@ -2695,8 +2704,6 @@ Nur</textarea>
         <!-- mirrors ITEMS, FAMILIES, DROP_EVERY and the spend costs in the script: change them together -->
       </details>
       <div id="mkBody"></div>
-      <div class="mk-h">For you</div>
-      <div id="mkFor"></div>
       <div id="mkSale"></div>
     </div>
   </div>
@@ -4036,8 +4043,11 @@ const treeAt = (tr, t) => {
    new one: an Extra Game is a For you buy at the same price, with no limit. */
 const FAMILIES = { power: { name: 'Power-ups', hold: 3, lasts: 7, price: [1, 20] } };
 const ITEMS = {
-  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 6, get +9 not +6', on: 'bet', bank: 6, color: '#e5a922', icon: 'M12 18V7M7 11l5-5 5 5' },
-  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 6, lose 3 not 6', on: 'bet', bank: 6, color: '#7cb342', icon: 'M12 4l6.5 2.5v5c0 4-2.8 6.9-6.5 8.5-3.7-1.6-6.5-4.5-6.5-8.5v-5z' },
+  win: { fam: 'power', name: 'Win Boost', a: 'a Win Boost', does: 'Win a game bet: bet 6, get +9 not +6', on: 'bet', bank: 6, color: '#e5a922',
+    // Lucide rocket and shield-check (ISC licence)
+    icon: 'M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09zM12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2zM9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5' },
+  shield: { fam: 'power', name: 'Shield', a: 'a Shield', does: 'Lose a game bet: bet 6, lose 3 not 6', on: 'bet', bank: 6, color: '#7cb342',
+    icon: 'M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1zM9 12l2 2 4-4' },
   water: { fam: 'power', name: 'Auto Water', a: 'an Auto Water', does: 'Waters your tree at 9am for 3 days, 1 coin each', on: 'use', bank: 10, color: '#2a8bd6', icon: 'M12 4c3 4 5.5 6.8 5.5 10a5.5 5.5 0 0 1-11 0C6.5 10.8 9 8 12 4z' },
   game: { fam: 'power', name: 'Extra Game', a: 'an Extra Game', does: 'One more challenge today, past the usual 5', on: 'use', bank: 3, retired: true, color: '#e4572e', icon: 'M12 5.5a6.5 6.5 0 1 1 0 13 6.5 6.5 0 0 1 0-13zM12 5.5v3M12 15.5v3M5.5 12h3M15.5 12h3' },
 };
@@ -5483,6 +5493,7 @@ function paintSpend() {
     : 'Shown on every seat you take.');
   $('spGo').disabled = !!why || !(cost > 0);
   $('spGo').textContent = cost > 0 ? `Spend ${cost} coin${cost === 1 ? '' : 's'}` : 'Spend';
+  if ($('mkForBuy')) $('mkForBuy').disabled = $('spGo').disabled;
 }
 ['spItem', 'spAmt', 'spMsg'].forEach(id => { $(id).oninput = paintSpend; });
 $('spKind').onclick = e => { const b = e.target.closest('[data-kind]'); if (b) { spKind = b.dataset.kind; paintSpend(); } };
@@ -5495,15 +5506,15 @@ $('spGo').onclick = () => {
   window.spendCoins({ ...row, by: acctEmail });
   $('spAmt').value = $('spMsg').value = '';
 };
-/* One form, two homes: the Market's For you while it's showing, the coin
-   sheet's Send (gift, bounty) while that is open on top. The shelf shows only
-   that home's buys. */
-const SPEND_HOME = { mkFor: ['flair', 'icon', 'slot'], coinSpend: ['gift', 'bounty'] };
+/* One form, two homes: the coin sheet's Send (gift, bounty) while that is
+   open, else the Market's open Name colour or Name icon row (mkFor), whose
+   Buy pill presses spGo. Neither: it waits, hidden, in the coin sheet. */
 const placeSpend = () => {
-  const home = $('coinInfo').classList.contains('open') ? 'coinSpend' : 'mkFor', kinds = SPEND_HOME[home];
-  if ($('spend').parentNode.id !== home) $(home).prepend($('spend'));
-  $('spKind').querySelectorAll('button').forEach(b => { b.hidden = !kinds.includes(b.dataset.kind); });
-  if (!kinds.includes(spKind)) spKind = kinds[0];
+  const coin = $('coinInfo').classList.contains('open'), home = coin ? $('coinSpend') : $('mkFor');
+  if (home && $('spend').parentNode !== home) home.prepend($('spend'));
+  $('spKind').querySelectorAll('button').forEach(b => { b.hidden = !['gift', 'bounty'].includes(b.dataset.kind); });
+  if (coin && !['gift', 'bounty'].includes(spKind)) spKind = 'gift';
+  if (!coin && mkOpen) spKind = mkOpen;
   paintSpend();
 };
 new MutationObserver(placeSpend).observe($('coinInfo'), { attributes: true, attributeFilter: ['class'] });
@@ -5604,7 +5615,17 @@ window.renderSpends = v => { allSpends = v || {}; spendsIn = true; renderChal();
    What's on sale and what you hold, from the walk; set where the flair is. A
    bank row is drawn exactly like a player's, so only the admin can tell them apart. */
 var chalMarket = { listings: [], owned: {}, oaks: {}, bankToday: {}, autoW: {} };
-var mkFilter = 'all', mkSel = null;
+var mkFilter = 'all', mkSel = null, mkOpen = null;
+/* the For you buys, keyed by spend kind; Lucide palette, crown, circle-plus (ISC) */
+const FOR_YOU = {
+  flair: { name: 'Name colour', does: 'Your name in it on every seat', left: 'Keeps', price: () => FLAIR_COST,
+    color: 'conic-gradient(#e5a922, #e4572e, #c93c78, #7a3fe0, #2a8bd6, #7cb342, #e5a922)',
+    icon: 'M13.5 6.5h.01M17.5 10.5h.01M8.5 7.5h.01M6.5 12.5h.01M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z' },
+  icon: { name: 'Name icon', does: 'A mark in front of your name', left: 'Keeps', price: () => ICON_COST, color: '#8b5cf6',
+    icon: 'M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294zM5 21h14' },
+  slot: { name: 'Extra game', does: 'One more challenge today', left: 'Any time', price: () => slotCost(Date.now()), color: '#e4572e',
+    icon: 'M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0M8 12h8M12 8v8' },
+};
 let mkSort = 'cheap';
 try { mkSort = localStorage.getItem('mkSort') || 'cheap'; } catch (e) { /* private window: Cheapest it is */ }
 const MK_SORTS = { cheap: 'Cheapest', long: 'Most time left', soon: 'Ending soon' };
@@ -5612,8 +5633,9 @@ const SOON_MS = 6 * 36e5;
 // a power-up's disc: static paths from ITEMS, never anything a player typed
 const puIcon = (type, sm) => {
   const el = part('pu' + (sm ? ' sm' : '') + (type ? '' : ' blank'), '', 'span');
-  if (type) el.style.setProperty('--pu', ITEMS[type].color);
-  el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${type ? ITEMS[type].icon : 'M12 6v12M6 12h12'}"/></svg>`;
+  const it = ITEMS[type] || FOR_YOU[type];
+  if (it) el.style.setProperty('--pu', it.color);
+  el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${it ? it.icon : 'M12 6v12M6 12h12'}"/></svg>`;
   return el;
 };
 // "Gone in 2d 5h", amber in its last six hours; the clock interval keeps it ticking
@@ -5638,6 +5660,7 @@ function renderMarket() {
   document.body.classList.toggle('market-on', !!me);
   const mine = me ? myOwned() : [];
   btn.classList.toggle('due', mine.some(x => x.until - now < 864e5));
+  if (sale.contains($('spend'))) $('coinSpend').prepend($('spend')); // or the redraw takes it with it
   box.textContent = sale.textContent = '';
   if (!me) { $('market').classList.remove('open'); return; }
   const free = mySpendable(me), full = mine.length >= FAMILIES.power.hold;
@@ -5670,10 +5693,10 @@ function renderMarket() {
   }
 
   const chips = part('mk-chips');
-  [['all', 'All'], ...Object.entries(ITEMS).filter(([, x]) => !x.retired).map(([k, x]) => [k, x.name])].forEach(([k, label]) => {
+  [['all', 'All'], ['you', 'For you'], ...Object.entries(ITEMS).filter(([, x]) => !x.retired).map(([k, x]) => [k, x.name])].forEach(([k, label]) => {
     const c = part('mk-chip' + (mkFilter === k ? ' on' : ''), '', 'button');
     c.type = 'button'; c.dataset.filter = k; c.setAttribute('aria-pressed', mkFilter === k);
-    if (k !== 'all') c.append(puIcon(k, true));
+    if (ITEMS[k]) c.append(puIcon(k, true));
     c.append(label);
     chips.append(c);
   });
@@ -5684,17 +5707,20 @@ function renderMarket() {
     seg.append(b);
   });
   sort.append(part('', 'Sort', 'span'), seg);
-  sale.append(part('mk-h', 'Power-ups'), chips, sort);
+  sale.append(part('mk-h', 'Shop'), chips, sort);
 
   // the bank's three, gone for the day once you've bought one of them
   const rows = (chalMarket.bankToday[me] ? [] : Object.keys(ITEMS).filter(k => !ITEMS[k].retired).map(type => ({ bank: type, type, price: ITEMS[type].bank, until: bankUntil(type, now) })))
     .concat(chalMarket.listings.map(l => ({ list: l.id, type: l.type, price: l.price, until: l.until, yours: l.who === me })))
-    .filter(r => mkFilter === 'all' || r.type === mkFilter)
-    .sort(mkSort === 'long' ? (a, b) => b.until - a.until : mkSort === 'soon' ? (a, b) => a.until - b.until
-      : (a, b) => a.price - b.price || a.until - b.until);
+    .concat(Object.keys(FOR_YOU).map(k => ({ you: k, type: k, price: FOR_YOU[k].price(), until: 0 })))
+    .filter(r => mkFilter === 'all' || (mkFilter === 'you' ? r.you : r.type === mkFilter))
+    // For you buys never run out: by price they mix in, by time they go last
+    .sort((a, b) => mkSort === 'cheap' ? a.price - b.price || !!a.you - !!b.you || a.until - b.until
+      : !!a.you - !!b.you || (mkSort === 'long' ? b.until - a.until : a.until - b.until));
   if (full) sale.append(part('mk-note', `You hold ${FAMILIES.power.hold} power-ups. Use one to buy another.`));
   const list = part('mk-list');
   rows.forEach(r => {
+    if (r.you) return list.append(forYouRow(r.you, free));
     const row = part('mk-row'), what = part(''), name = part('', ITEMS[r.type].name, 'b');
     if (r.yours) name.append(part('mk-tag', 'Yours', 'span'));
     if (r.bank && isAdmin) name.append(part('mk-tag bank', 'Bank', 'span'));
@@ -5712,13 +5738,40 @@ function renderMarket() {
   });
   if (!rows.length) list.append(part('mk-empty', 'Nothing for sale here right now.'));
   sale.append(list);
+  if ($('mkFor')) placeSpend();
+}
+/* A For you row. Extra game buys straight off its pill; Name colour and Name
+   icon say Pick, and open in place with the spend form's picker and preview,
+   the pill turning into Buy. */
+function forYouRow(k, free) {
+  const it = FOR_YOU[k], open = mkOpen === k, row = part('mk-row' + (open ? ' open' : '')), what = part('');
+  const name = part('', it.name, 'b'), ico = puIcon(k);
+  name.append(part('mk-tag you', 'For you', 'span'));
+  what.append(name, part('mk-does', it.does), part('mk-left', it.left, 'span'));
+  if (open) ico.dataset.fyclose = what.dataset.fyclose = 1;
+  const price = it.price(), b = part('mk-buy', k === 'slot' || open ? 'Buy \u00b7' : 'Pick \u00b7', 'button');
+  b.append(part('coin-disc', '', 'span'), String(price));
+  b.type = 'button'; b.dataset.fy = k;
+  if (open) b.id = 'mkForBuy';
+  b.disabled = free < price;
+  b.setAttribute('aria-label', `${open || k === 'slot' ? 'Buy' : 'Pick'} ${it.name.toLowerCase()} for ${price}`);
+  row.append(ico, what, b);
+  if (open) { const more = part('mk-more'); more.id = 'mkFor'; row.append(more); }
+  return row;
 }
 $('mkBody').onclick = $('mkSale').onclick = e => {
+  if (e.target.closest('[data-fyclose]')) { mkOpen = null; return renderMarket(); }
   const t = e.target.closest('button');
   if (!t || t.disabled) return;
   if (t.dataset.own) { mkSel = mkSel === t.dataset.own ? null : t.dataset.own; return renderMarket(); }
   if (t.dataset.use) return useItem(myOwned().find(x => x.id === t.dataset.use));
   if (t.dataset.filter) { mkFilter = t.dataset.filter; return renderMarket(); }
+  if (t.dataset.fy) {
+    const k = t.dataset.fy;
+    if (k === 'slot') { spKind = 'slot'; paintSpend(); return $('spGo').onclick(); }
+    if (mkOpen !== k) { mkOpen = k; return renderMarket(); }
+    return $('spGo').onclick();
+  }
   if (t.dataset.sort) {
     mkSort = t.dataset.sort;
     try { localStorage.setItem('mkSort', mkSort); } catch (err) { /* kept for this visit only */ }
@@ -5730,7 +5783,7 @@ $('mkBody').onclick = $('mkSale').onclick = e => {
     window.spendCoins(t.dataset.list ? { kind: 'buy', list: t.dataset.list, by: acctEmail } : { kind: 'buy', bank: t.dataset.bank, by: acctEmail });
   }
 };
-$('marketBtn').onclick = () => { mkSel = null; renderMarket(); $('market').classList.add('open'); };
+$('marketBtn').onclick = () => { mkSel = mkOpen = null; renderMarket(); $('market').classList.add('open'); };
 $('market').onclick = e => { if (e.target === $('market')) $('market').classList.remove('open'); };
 
 /* Under an oak, in the coin sheet: its count to the next power-up, and the ones

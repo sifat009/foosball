@@ -4331,9 +4331,10 @@ assert.deepEqual(mk.bets.boostLost, [0, 0], 'a Win Boost on a lost bet paid some
 assert.deepEqual(mk.bets.shieldLost, [2, 0], 'a Shield on a lost bet of 4 did not hand 2 back');
 assert.deepEqual(mk.bets.shieldWon, [8, 0], 'a Shield on a won bet changed the win');
 assert.deepEqual(mk.bets.draw, [4, 1], 'a draw kept the Shield on it');
-/* The For you buys sit in the Market and the coin sheet keeps what goes to
-   somebody: one form, lent to whichever sheet is on top. An Extra Game is a For
-   you buy now, so the bank no longer sells it as a power-up. */
+/* The For you buys are rows in the Market's one list and the coin sheet keeps
+   what goes to somebody. Name colour opens in place with the spend form's
+   picker, and keeps it through a redraw. An Extra Game is a For you buy now, so
+   the bank no longer sells it as a power-up. */
 const homes = await page.evaluate(async () => {
   const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
   const shelf = () => [$('spend').parentNode.id, [...$('spKind').querySelectorAll('button')].filter(b => !b.hidden).map(b => b.dataset.kind)];
@@ -4341,14 +4342,22 @@ const homes = await page.evaluate(async () => {
   $('coinInfo').classList.add('open'); await new Promise(r => setTimeout(r));
   const coins = shelf();
   $('coinInfo').classList.remove('open'); await new Promise(r => setTimeout(r));
-  const market = shelf();
-  renderMarket();
+  mkFilter = 'all'; mkOpen = null; renderMarket();
+  const you = [...$('mkSale').querySelectorAll('[data-fy]')].map(b => b.dataset.fy).sort();
+  mkOpen = 'flair'; renderMarket(); // what its Pick pill does
+  renderMarket(); // a snapshot redraw must not lose the form
+  const open = [$('spend').parentNode.id, spKind, $('mkForBuy').textContent.startsWith('Buy'), !!$('spPick').querySelector('.sp-sw')];
+  mkFilter = 'you'; renderMarket();
+  const only = $('mkSale').querySelectorAll('.mk-row').length;
+  mkFilter = 'all'; mkOpen = null; renderMarket();
   const bank = [...$('mkSale').querySelectorAll('[data-bank]')].map(b => b.dataset.bank);
   window.setAccount(null);
-  return { coins, market, bank };
+  return { coins, you, open, only, bank };
 });
 assert.deepEqual(homes.coins, ['coinSpend', ['gift', 'bounty']], 'the coin sheet did not keep gift and bounty');
-assert.deepEqual(homes.market, ['mkFor', ['flair', 'icon', 'slot']], 'the Market did not get colour, icon and extra game');
+assert.deepEqual(homes.you, ['flair', 'icon', 'slot'], 'the Market list is missing colour, icon or extra game');
+assert.deepEqual(homes.open, ['mkFor', 'flair', true, true], 'Name colour did not open in place with its picker and a Buy pill');
+assert.equal(homes.only, 3, 'the For you chip did not show just the three');
 assert.deepEqual(homes.bank.sort(), ['shield', 'water', 'win'], 'the bank does not sell exactly the three power-ups');
 console.log('market OK');
 

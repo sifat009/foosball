@@ -331,9 +331,10 @@ a result put right moves the coins when the new one was agreed, not the wrong on
 ### Spending them
 
 Betting only moves coins between players, so there was nothing to buy with them.
-The **Market** sells the first three under For you; the coins sheet keeps gift and
-bounty, the two that go to somebody. One spend form serves both: it sits in
-whichever sheet is open on top, and its shelf shows only that sheet's buys.
+The **Market** sells the first three as For you rows in its one list, beside the
+power-ups; the coins sheet keeps gift and bounty, the two that go to somebody.
+One spend form serves both: the coin sheet's Send while that is open, else the
+Market's open Name colour or Name icon row, whose Buy pill presses it.
 
 - **Name colour, 20.** Your name shows in that colour on every seat you take, until you buy another.
 - **Name icon, 15.** A crown, flame, star, bolt, shield or target in front of your
