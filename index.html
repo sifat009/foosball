@@ -1867,6 +1867,12 @@
   .ch-wg-pay { font-size: 0.82rem; font-weight: 800; color: #5b6a7d; }
   .ch-wg-go { width: 100%; padding: 12px 18px; font-size: 0.9rem; }
   .ch-wg .ch-betnote { margin-top: 0; }
+  .ch-wg-top { align-self: stretch; display: flex; justify-content: space-between; align-items: center; gap: 4px; }
+  .ch-wg-tier { font-size: 0.62rem; font-weight: 800; border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+  .ch-wg-tier.fav { background: #eef2f7; color: #425066; }
+  .ch-wg-tier.dog { background: #fff4dc; color: #8a5a00; }
+  .ch-wg-tier.even { background: #eef7f2; color: #17854a; }
+  .ch-wg-gain { font-size: 0.8rem; font-weight: 900; color: #17854a; padding: 4px 0 1px; font-variant-numeric: tabular-nums; }
   .ch-wg-change { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; text-decoration: underline; cursor: pointer; }
   .ch-wg > .ch-wg-change { display: block; margin: 10px auto 0; color: #6b7280; }
   /* the bet a finished game was played for, beside the pair that won it */
@@ -2642,8 +2648,10 @@ Nur</textarea>
         meantime pays you 1. Nobody beats them, and it all comes back to you. One
         bounty per player at a time, and you need a coin to sit against a target.</li>
         <li><b>Bet on a game.</b> When a challenge fills, everyone not playing has two
-        minutes to put 1 to 10 coins on a pair. If they win you win your bet: bet 6,
-        win +6. If they lose, your bet is gone. A draw or a cancelled
+        minutes to put 1 to 10 coins on a pair. Each pair is marked from the players'
+        records and shows what your bet would win: on an Even game bet 6, win +6;
+        back the Underdog and bet 6 wins +9; back the Favourite and it wins +4.
+        If they lose, your bet is gone. A draw or a cancelled
         challenge costs you nothing. Changed your mind? Tap Change under your bet
         to switch the pair or the amount, until the two minutes are up.</li>
         <li><b>Bet on the cup.</b> For five minutes after the draw, anyone can put 1 to
@@ -3990,6 +3998,35 @@ const chalFillAt = c => {
   const ts = chalFull(c) ? SEATS.map(([x]) => +c.slots[x].at).filter(t => t > 0) : [];
   return ts.length ? Math.max(...ts) : null;
 };
+/* Underdog odds. From ODDS_FROM a bet on a lopsided game pays by how likely
+   its pair looked when the game filled: each player's record in the games
+   agreed before then, smoothed so a newcomer starts near half, (wins + 2) /
+   (games + 4); a pair is the average of its two; Blue's chance is its share of
+   the two. Over 60% is the favourite, under 40% the underdog, the rest even.
+   A win pays 2/3 of the bet on the favourite, the bet on an even game, and
+   1.5 times it on the underdog, rounded down, never under 1. A loss is the bet,
+   as ever. Before ODDS_FROM every bet walks as even. */
+const ODDS_FROM = 1793642965000;
+function betTiers(c, rows) {
+  const fill = chalFillAt(c), rec = {};
+  if (!fill) return { b: 'even', r: 'even' };
+  (rows || []).forEach(g => {
+    if (!g || !g.slots || !chalDone(g) || +g.score.b === +g.score.r || chalAt(g) >= fill) return;
+    const blue = +g.score.b > +g.score.r;
+    SEATS.forEach(([x]) => {
+      const n = seatName(g.slots[x]);
+      if (!n) return;
+      const r = rec[n] = rec[n] || { w: 0, g: 0 };
+      r.g++; if ((x[0] === 'b') === blue) r.w++;
+    });
+  });
+  const rate = n => { const r = rec[n] || { w: 0, g: 0 }; return (r.w + 2) / (r.g + 4); };
+  const pair = side => (rate(seatName(c.slots[side + 'f'])) + rate(seatName(c.slots[side + 'd']))) / 2;
+  const b = pair('b'), p = b / (b + pair('r'));
+  return p > 0.6 ? { b: 'fav', r: 'dog' } : p < 0.4 ? { b: 'dog', r: 'fav' } : { b: 'even', r: 'even' };
+}
+const betGain = (tier, a) => tier === 'fav' ? Math.max(1, Math.floor(a * 2 / 3)) : tier === 'dog' ? Math.floor(a * 3 / 2) : a;
+const ODDS_NAME = { fav: 'Favourite', dog: 'Underdog', even: 'Even' };
 const spendCost = s => s.kind === 'flair' ? (iconOf(s.item) ? ICON_COST : FLAIR_COST) : s.kind === 'slot' ? slotCost(s.at == null ? Date.now() : +s.at) : +s.amt || 0;
 
 /* A tree: planted, grown and watered with spend rows, kept nowhere but the walk.
@@ -4166,6 +4203,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   const byId = {}, wagers = {}; // game id -> the lobby, the bets on it
   const cupBets = {}; // cup id -> the bets on who wins it
   const stakes = {}; // game id -> [{ who, amt }], the seats' stakes taken and not yet paid back
+  const tiers = {}; // game id -> its pairs' odds, worked out once: they're fixed at the fill
   const claimed = {}; // player + card id -> true once its coins are in
   /* The market. oaks: player -> { n waters towards the next drop, drops: [{ id,
      until, list, sold }] }. listings: list row id -> what's on sale. owned:
@@ -4349,13 +4387,14 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         const old = w.find(x => x.who === who), back = old && old.cut ? old.amt : 0;
         if ((old && (+s.at < BET_CHANGE_FROM || old.settled)) || bal[who] + back < amt) return refuse(who, s, bal[who] + back < amt);
         const cut = +c.at >= HOLD_FROM, on = pairOf(c, s.side);
+        const tier = +s.at >= ODDS_FROM ? (tiers[s.game] = tiers[s.game] || betTiers(c, rows))[s.side] : 'even';
         if (old) {
           if (back) move(who, back, `Bet of ${old.amt} on ${old.on} back, to change it`, s.at);
           if (old.pu) (owned[who] = owned[who] || []).push(old.pu);
         }
         // a Win Boost or Shield rides on a bet whose stake is taken, the only kind settled with one
         const pu = cut && s.own ? takeOwn(who, s.own, 'bet', +s.at) : null;
-        wagers[s.game] = [...w.filter(x => x !== old), { who, side: s.side, amt, at: +s.at, on, cut, pu }];
+        wagers[s.game] = [...w.filter(x => x !== old), { who, side: s.side, amt, at: +s.at, on, cut, pu, tier }];
         if (cut) move(who, -amt, `Bet on ${on}` + (pu ? `, with ${ITEMS[pu.type].a}` : ''), s.at);
         ok.push(s);
         if (!old) hit(who, { k: 'bet' }, +s.at); // a change is still the one bet
@@ -4622,9 +4661,10 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
          A Win Boost adds half the bet to a win, a Shield hands half back on a loss. */
       const half = Math.floor(x.amt / 2), boost = x.pu && x.pu.type === 'win', shield = x.pu && x.pu.type === 'shield';
       if (x.cut) {
-        if (x.won) move(x.who, 2 * x.amt + (boost ? half : 0), `Bet on ${x.on} won` + (boost ? ', with a Win Boost' : ''), e.t);
+        if (x.won) move(x.who, x.amt + betGain(x.tier, x.amt) + (boost ? half : 0), `Bet on ${x.on} won`
+          + (x.tier === 'dog' ? ', as the underdog' : x.tier === 'fav' ? ', as the favourite' : '') + (boost ? ', with a Win Boost' : ''), e.t);
         else if (shield) move(x.who, half, `Shield: half your bet on ${x.on} back`, e.t);
-      } else move(x.who, x.won ? x.amt : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
+      } else move(x.who, x.won ? betGain(x.tier, x.amt) : -x.amt, `Bet on ${x.on} ${x.won ? 'won' : 'lost'}`, e.t);
       if (x.won) hit(x.who, { k: 'betwon' }, e.t);
     });
   });
@@ -6088,10 +6128,10 @@ var wgPick = null, wgAmt = 5, wgPu = null; // wgPu: the id of a Win Boost or Shi
 var wgEdit = null; // the game whose bet of yours is being changed
 // your power-ups for a bet, with the one on the bet you're changing: it comes back when you change
 const betPus = mine => [...(mine && mine.pu ? [mine.pu] : []), ...myOwned()].filter(x => ITEMS[x.type].on === 'bet');
-const wgPayText = (a, mine) => {
-  const pu = wgPu && betPus(mine).find(x => x.id === wgPu), half = Math.floor(a / 2);
-  return pu && pu.type === 'win' ? `Win +${a + half} \u00b7 lose ${a}`
-    : pu && pu.type === 'shield' ? `Win +${a} \u00b7 lose ${a - half}` : `Win +${a} \u00b7 lose ${a}`;
+const wgPayText = (a, mine, tier) => {
+  const pu = wgPu && betPus(mine).find(x => x.id === wgPu), half = Math.floor(a / 2), g = betGain(tier, a);
+  return pu && pu.type === 'win' ? `Win +${g + half} \u00b7 lose ${a}`
+    : pu && pu.type === 'shield' ? `Win +${g} \u00b7 lose ${a - half}` : `Win +${g} \u00b7 lose ${a}`;
 };
 function wagerPanel(c) {
   const fill = chalFillAt(c);
@@ -6119,11 +6159,19 @@ function wagerPanel(c) {
      exists: a player who could see a big bet on their own pair could throw the
      game to wipe it out. */
   const teams = part('ch-wg-teams');
+  // the odds, fixed at the fill; a bet already placed keeps the ones it was placed at
+  const tiers = Date.now() >= ODDS_FROM ? betTiers(c, Object.values(allChal || {})) : { b: 'even', r: 'even' };
+  // what the amount in the picker would win on each pair, kept in step with it
+  const gains = [];
+  const paint = a => gains.forEach(([el, side]) => { el.textContent = `Bet ${a} \u2192 win +${betGain(tiers[side], a)}`; });
   [['b', 'Blue'], ['r', 'Red']].forEach(([side, team]) => {
     const p = document.createElement(can ? 'button' : 'div');
     p.className = 'ch-wg-team ' + (side === 'b' ? 'blue' : 'red') + (pick === side || (mine && !editing && mine.side === side) ? ' on' : '');
     // names are user input: text nodes throughout
-    p.append(part('', team, 'u'), part('', pairName(c, side + 'f', side + 'd'), 'b'));
+    const top = part('ch-wg-top', '', 'span');
+    top.append(part('', team, 'u'), part('ch-wg-tier ' + tiers[side], ODDS_NAME[tiers[side]], 'span'));
+    p.append(top, part('', pairName(c, side + 'f', side + 'd'), 'b'));
+    if (can) { const g = part('ch-wg-gain', '', 'span'); gains.push([g, side]); p.append(g); }
     if (mine && mine.side === side) {
       const who = part('ch-wg-who', '', 'span');
       who.append(part('ch-wg-chip you', 'You ' + mine.amt, 'span'));
@@ -6137,11 +6185,12 @@ function wagerPanel(c) {
     teams.append(p);
   });
   box.append(teams);
+  paint(Math.max(1, Math.min(WAGER_MAX, wgAmt)));
   if (mine && !editing) {
     const n = part('ch-betnote bet');
     const half = Math.floor(mine.amt / 2), pu = mine.pu && mine.pu.type;
     n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}${pu ? ` with ${ITEMS[pu].a}` : ''}. If they win you get `,
-      part('', '+' + (mine.amt + (pu === 'win' ? half : 0)), 'b'), pu === 'shield' ? `, and if they lose ${half} comes back` : '', '. Only you can see which pair.');
+      part('', '+' + (betGain(mine.tier, mine.amt) + (pu === 'win' ? half : 0)), 'b'), pu === 'shield' ? `, and if they lose ${half} comes back` : '', '. Only you can see which pair.');
     if (open) {
       const ch = part('ch-wg-change', 'Change', 'button');
       ch.type = 'button';
@@ -6152,8 +6201,9 @@ function wagerPanel(c) {
       n.append(' ', ch);
     }
     box.append(n);
-  } else if (pick) box.append(wagerDrawer(c, pick, editing && mine));
+  } else if (pick) box.append(wagerDrawer(c, pick, editing && mine, tiers[pick], paint));
   else box.append(part('ch-note', (can ? 'Tap the pair you think will win. ' : '')
+    + (can && tiers.b !== 'even' ? 'The underdog wins more, the favourite less. ' : '')
     + 'Who bet on which pair stays hidden until the score is in. Then tap the result to see.'));
   if (editing) {
     const keep = part('ch-wg-change', `Keep my bet of ${mine.amt}`, 'button');
@@ -6163,7 +6213,7 @@ function wagerPanel(c) {
   }
   return box;
 }
-function wagerDrawer(c, side, mine) {
+function wagerDrawer(c, side, mine, tier = 'even', paint = () => {}) {
   // one chip a kind, the one running out first; a stale pick drops off
   const pus = betPus(mine).filter((x, i, a) => a.findIndex(y => y.type === x.type) === i);
   if (!pus.some(x => x.id === wgPu)) wgPu = null;
@@ -6178,7 +6228,7 @@ function wagerDrawer(c, side, mine) {
       extra.append(b);
     });
   }
-  return betDrawer(c.id, pairName(c, side + 'f', side + 'd'), a => wgPayText(a, mine), amt => {
+  return betDrawer(c.id, pairName(c, side + 'f', side + 'd'), a => { paint(a); return wgPayText(a, mine, tier); }, amt => {
     const own = wgPu;
     wgPick = null; wgPu = null; wgEdit = null;
     window.spendCoins({ kind: 'bet', game: c.id, side, amt, by: acctEmail, ...(own && { own }) });
@@ -6556,7 +6606,7 @@ function renderChal() {
         const l = part('ch-rbl' + (x.won ? '' : ' bad'));
         const t = part('', '', 'span');
         t.append(part('', x.who === me ? 'You' : x.who, 'b'), ` on ${x.on}`); // textContent: names are user input
-        l.append(part('coin-disc', '', 'span'), t, part('', x.won ? `won +${x.amt}` : `lost ${x.amt}`, 'i'));
+        l.append(part('coin-disc', '', 'span'), t, part('', x.won ? `won +${betGain(x.tier, x.amt)}` : `lost ${x.amt}`, 'i'));
         row.append(l);
       });
       row.append(part('ch-rmore', `${bets.length} bet${bets.length > 1 ? 's' : ''}`, 'span'));
@@ -6584,7 +6634,7 @@ function betBoard() {
   const from = +dayStart(Date.now()), net = {}, n = {};
   const add = (who, v) => { net[who] = (net[who] || 0) + v; n[who] = (n[who] || 0) + 1; };
   Object.values(chalWagers).flat().filter(x => x.won !== undefined && x.t >= from)
-    .forEach(x => add(x.who, x.won ? x.amt : -x.amt));
+    .forEach(x => add(x.who, x.won ? betGain(x.tier, x.amt) : -x.amt));
   Object.values(cupWagers).flat().filter(x => x.won !== undefined && x.t >= from)
     .forEach(x => add(x.who, x.won ? cupBetWin(x.amt, x.n) : -x.amt));
   const rows = Object.keys(net).sort((a, b) => net[b] - net[a] || n[a] - n[b]);

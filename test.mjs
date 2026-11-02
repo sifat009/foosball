@@ -4116,6 +4116,28 @@ const hold = await page.evaluate(() => {
     })(),
   };
 });
+/* From ODDS_FROM a lopsided game pays by its odds. Shewa & Toufiq have won all
+   ten of their games, Siddiq & Sajeeb lost them: Blue is the favourite. */
+const odds = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const O = ODDS_FROM, S = (ns, at) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), ...(at && { at: at + i }) }]));
+  const P = ['Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'];
+  const seed = Array.from({ length: 10 }, (_, i) => ({ id: 'w' + i, at: O - 1e6 + i, slots: S(P), score: { b: 5, r: 0, at: O - 1e6 + i } }));
+  // the two bettors' coins: games among themselves, as many won as lost, from long before
+  const B = ['Nur', 'Rashed', 'Ofi', 'Sifat'];
+  seed.push(...[0, 1, 2, 3, 4].flatMap(i => [{ id: 'xb' + i, at: i + 1, slots: S(B), score: { b: 1, r: 0, at: i + 1 } },
+    { id: 'xr' + i, at: i + 1, slots: S(B), score: { b: 0, r: 1, at: i + 1 } }]));
+  const g = won => ({ id: 'g', at: O + 10, slots: S(P, O + 10), score: { b: won === 'b' ? 5 : 0, r: won === 'r' ? 5 : 0, at: O + 500 } });
+  const bets = [{ at: O + 20, by: em('Nur'), kind: 'bet', game: 'g', side: 'r', amt: 6 }, { at: O + 30, by: em('Rashed'), kind: 'bet', game: 'g', side: 'b', amt: 6 }];
+  const line = (w, n) => w.log[n].find(l => /^Bet on .* won/.test(l.why));
+  const r = window.coinWalk([...seed, g('r')], [], bets, O + 1000), b = window.coinWalk([...seed, g('b')], [], bets, O + 1000);
+  return { tiers: betTiers(g('b'), seed), dog: line(r, 'Nur'), fav: line(b, 'Rashed'), lost: line(r, 'Rashed'),
+    gains: [1, 6, 10].map(a => [betGain('fav', a), betGain('even', a), betGain('dog', a)]) };
+});
+assert.deepEqual(odds.tiers, { b: 'fav', r: 'dog' }, 'a pair that won every game was not the favourite');
+assert.deepEqual([odds.dog.d, odds.fav.d, odds.lost], [15, 10, undefined], 'an underdog 6 did not pay 6 + 9, or a favourite 6 did not pay 6 + 4');
+assert.match(odds.dog.why, /as the underdog/, 'the history does not say the bet won as the underdog');
+assert.deepEqual(odds.gains, [[1, 1, 1], [4, 6, 9], [6, 10, 15]], 'the odds table moved: ' + JSON.stringify(odds.gains));
 // 10, the 4 back, 7 on Red, Red wins: 17, and 3 for the track's first bet, once. Changed after the
 // window, the 4 on Blue stands and loses: 6, plus the 3.
 assert.deepEqual(hold.change, [20, 1, 9], 'a change in the window did not replace the first bet, or one after it did');

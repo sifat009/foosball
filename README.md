@@ -353,6 +353,12 @@ Market's open Name colour or Name icon row, whose Buy pill presses it.
   (bet 6, +6) and a loss loses it, to nobody. The bet is never taken up front, so
   the app shows and records only the gain. A draw, a cancelled
   lobby or a game the walk doesn't pay costs nothing. One bet per player per game; from `BET_CHANGE_FROM` a second one inside the two minutes replaces the first, which hands back its stake and any power-up on it.
+  From `ODDS_FROM` a lopsided game pays by its odds: each player's record in the
+  games agreed before the fill, smoothed to (wins + 2) / (games + 4), a pair the
+  average of its two, Blue's chance its share of both. Over 60% is the
+  Favourite (a win pays 2/3 of the bet), under 40% the Underdog (1.5 times),
+  the rest Even (the bet). Rounded down, never under 1; a loss is the bet. The
+  panel shows each pair's tag and what the amount in the picker would win.
   Each seat now records the server's time when it is taken (`slots/<seat>/at`,
   written once), and the window runs from the latest of the four, so a swapped
   player starts a new window and earlier bets don't stand. The rules check the
