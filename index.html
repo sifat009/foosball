@@ -1867,6 +1867,8 @@
   .ch-wg-pay { font-size: 0.82rem; font-weight: 800; color: #5b6a7d; }
   .ch-wg-go { width: 100%; padding: 12px 18px; font-size: 0.9rem; }
   .ch-wg .ch-betnote { margin-top: 0; }
+  .ch-wg-change { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: inherit; text-decoration: underline; cursor: pointer; }
+  .ch-wg > .ch-wg-change { display: block; margin: 10px auto 0; color: #6b7280; }
   /* the bet a finished game was played for, beside the pair that won it */
   .ch-rbet {
     flex: none; display: inline-flex; align-items: center; gap: 4px;
@@ -2642,7 +2644,8 @@ Nur</textarea>
         <li><b>Bet on a game.</b> When a challenge fills, everyone not playing has two
         minutes to put 1 to 10 coins on a pair. If they win you win your bet: bet 6,
         win +6. If they lose, your bet is gone. A draw or a cancelled
-        challenge costs you nothing.</li>
+        challenge costs you nothing. Changed your mind? Tap Change under your bet
+        to switch the pair or the amount, until the two minutes are up.</li>
         <li><b>Bet on the cup.</b> For five minutes after the draw, anyone can put 1 to
         5 coins on one team, their own included. If they win the cup you win your bet
         times two less than the number of teams: bet 5 in a 4-team cup, win +10. If your
@@ -3972,6 +3975,10 @@ const CUP_KO_FROM = 1793089471591, CUPBET_MAX = 5;
    The running cup's bets placed before it are taken at HOLD_FROM rather than
    when placed, so no game already settled walks any differently. */
 const HOLD_FROM = 1793271960000;
+/* From here a second bet on a game, still inside its two minutes, replaces the
+   first: the first's stake and any power-up on it come back, then the new one
+   is placed. Before it a second bet was refused, and those rows still are. */
+const BET_CHANGE_FROM = 1793638000000;
 const cutCup = id => +id >= CUP_KO_FROM;
 /* When the fourth seat was taken: the latest of the four times, so a swapped
    player fills the lobby again and starts a new window. The time is a second
@@ -4329,8 +4336,9 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         return;
       }
       /* A bet stands if it came from somebody on the list who isn't one of the
-         four, inside the window, before the result, and their first on this game.
-         It takes nothing now: what it does is decided when the game is agreed. */
+         four, inside the window, before the result, and their first on this game,
+         or from BET_CHANGE_FROM a change to their first: that one is handed back
+         and this one takes its place. */
       if (s.kind === 'bet') {
         const c = byId[s.game], fill = c && chalFillAt(c), amt = +s.amt, w = wagers[s.game] || [];
         if (who === undefined) return;
@@ -4338,14 +4346,19 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         if (!fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
         if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return refuse(who, s, false);
         if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
-        if (w.some(x => x.who === who) || bal[who] < amt) return refuse(who, s, bal[who] < amt);
+        const old = w.find(x => x.who === who), back = old && old.cut ? old.amt : 0;
+        if ((old && (+s.at < BET_CHANGE_FROM || old.settled)) || bal[who] + back < amt) return refuse(who, s, bal[who] + back < amt);
         const cut = +c.at >= HOLD_FROM, on = pairOf(c, s.side);
+        if (old) {
+          if (back) move(who, back, `Bet of ${old.amt} on ${old.on} back, to change it`, s.at);
+          if (old.pu) (owned[who] = owned[who] || []).push(old.pu);
+        }
         // a Win Boost or Shield rides on a bet whose stake is taken, the only kind settled with one
         const pu = cut && s.own ? takeOwn(who, s.own, 'bet', +s.at) : null;
-        wagers[s.game] = [...w, { who, side: s.side, amt, at: +s.at, on, cut, pu }];
+        wagers[s.game] = [...w.filter(x => x !== old), { who, side: s.side, amt, at: +s.at, on, cut, pu }];
         if (cut) move(who, -amt, `Bet on ${on}` + (pu ? `, with ${ITEMS[pu.type].a}` : ''), s.at);
         ok.push(s);
-        hit(who, { k: 'bet' }, +s.at);
+        if (!old) hit(who, { k: 'bet' }, +s.at); // a change is still the one bet
         return;
       }
       /* A bet on the cup stands if it came from somebody on the list, inside the
@@ -6072,8 +6085,11 @@ function betRow(c) {
    agreed. Which pair you picked and how much is this page's to remember across
    repaints, since the board redraws on every write. */
 var wgPick = null, wgAmt = 5, wgPu = null; // wgPu: the id of a Win Boost or Shield of yours to add
-const wgPayText = a => {
-  const pu = wgPu && myOwned().find(x => x.id === wgPu), half = Math.floor(a / 2);
+var wgEdit = null; // the game whose bet of yours is being changed
+// your power-ups for a bet, with the one on the bet you're changing: it comes back when you change
+const betPus = mine => [...(mine && mine.pu ? [mine.pu] : []), ...myOwned()].filter(x => ITEMS[x.type].on === 'bet');
+const wgPayText = (a, mine) => {
+  const pu = wgPu && betPus(mine).find(x => x.id === wgPu), half = Math.floor(a / 2);
   return pu && pu.type === 'win' ? `Win +${a + half} \u00b7 lose ${a}`
     : pu && pu.type === 'shield' ? `Win +${a} \u00b7 lose ${a - half}` : `Win +${a} \u00b7 lose ${a}`;
 };
@@ -6086,7 +6102,9 @@ function wagerPanel(c) {
   // closed, it stays up only for a bettor: left standing it would say somebody bet
   if (!open && !mine) return null;
   const playing = SEATS.some(([x]) => seatName(c.slots[x]) === me);
-  const can = open && !!me && !playing && !mine;
+  if (wgEdit === c.id && !(open && mine)) wgEdit = null;
+  const editing = wgEdit === c.id;
+  const can = open && !!me && !playing && (!mine || editing);
   const pick = can && wgPick && wgPick.id === c.id ? wgPick.side : null;
   const box = part('ch-wg');
   const head = part('ch-wg-h');
@@ -6103,7 +6121,7 @@ function wagerPanel(c) {
   const teams = part('ch-wg-teams');
   [['b', 'Blue'], ['r', 'Red']].forEach(([side, team]) => {
     const p = document.createElement(can ? 'button' : 'div');
-    p.className = 'ch-wg-team ' + (side === 'b' ? 'blue' : 'red') + (pick === side || (mine && mine.side === side) ? ' on' : '');
+    p.className = 'ch-wg-team ' + (side === 'b' ? 'blue' : 'red') + (pick === side || (mine && !editing && mine.side === side) ? ' on' : '');
     // names are user input: text nodes throughout
     p.append(part('', team, 'u'), part('', pairName(c, side + 'f', side + 'd'), 'b'));
     if (mine && mine.side === side) {
@@ -6119,20 +6137,35 @@ function wagerPanel(c) {
     teams.append(p);
   });
   box.append(teams);
-  if (mine) {
+  if (mine && !editing) {
     const n = part('ch-betnote bet');
     const half = Math.floor(mine.amt / 2), pu = mine.pu && mine.pu.type;
     n.append(`You bet ${mine.amt} on ${pairName(c, mine.side + 'f', mine.side + 'd')}${pu ? ` with ${ITEMS[pu].a}` : ''}. If they win you get `,
       part('', '+' + (mine.amt + (pu === 'win' ? half : 0)), 'b'), pu === 'shield' ? `, and if they lose ${half} comes back` : '', '. Only you can see which pair.');
+    if (open) {
+      const ch = part('ch-wg-change', 'Change', 'button');
+      ch.type = 'button';
+      ch.onclick = () => {
+        wgEdit = c.id; wgPick = { id: c.id, side: mine.side }; wgAmt = mine.amt; wgPu = mine.pu ? mine.pu.id : null;
+        renderChal();
+      };
+      n.append(' ', ch);
+    }
     box.append(n);
-  } else if (pick) box.append(wagerDrawer(c, pick));
+  } else if (pick) box.append(wagerDrawer(c, pick, editing && mine));
   else box.append(part('ch-note', (can ? 'Tap the pair you think will win. ' : '')
     + 'Who bet on which pair stays hidden until the score is in. Then tap the result to see.'));
+  if (editing) {
+    const keep = part('ch-wg-change', `Keep my bet of ${mine.amt}`, 'button');
+    keep.type = 'button';
+    keep.onclick = () => { wgEdit = null; wgPick = null; wgPu = null; renderChal(); };
+    box.append(keep);
+  }
   return box;
 }
-function wagerDrawer(c, side) {
+function wagerDrawer(c, side, mine) {
   // one chip a kind, the one running out first; a stale pick drops off
-  const pus = myOwned().filter(x => ITEMS[x.type].on === 'bet').filter((x, i, a) => a.findIndex(y => y.type === x.type) === i);
+  const pus = betPus(mine).filter((x, i, a) => a.findIndex(y => y.type === x.type) === i);
   if (!pus.some(x => x.id === wgPu)) wgPu = null;
   let extra = null;
   if (pus.length) {
@@ -6145,16 +6178,17 @@ function wagerDrawer(c, side) {
       extra.append(b);
     });
   }
-  return betDrawer(c.id, pairName(c, side + 'f', side + 'd'), wgPayText, amt => {
+  return betDrawer(c.id, pairName(c, side + 'f', side + 'd'), a => wgPayText(a, mine), amt => {
     const own = wgPu;
-    wgPick = null; wgPu = null;
+    wgPick = null; wgPu = null; wgEdit = null;
     window.spendCoins({ kind: 'bet', game: c.id, side, amt, by: acctEmail, ...(own && { own }) });
-  }, WAGER_MAX, extra);
+  }, WAGER_MAX, extra, mine ? mine.amt : 0);
 }
 /* The amount picker and the button, for a bet on a game or on the cup: `pay`
    words the stake, `place` writes it. */
-function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null) {
-  const free = Math.max(0, chalFree || 0);
+function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null, back = 0) {
+  // `back`: the bet being changed, whose coins come back to cover this one
+  const free = Math.max(0, chalFree || 0) + back;
   const box = part('ch-wg-drawer');
   if (free < 1) {
     box.append(part('ch-shy', `You need a coin free to bet \u2014 you have ${free}.`));
@@ -6170,7 +6204,7 @@ function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null) {
   const go = document.createElement('button');
   go.type = 'button';
   go.className = 'btn btn-green ch-wg-go';
-  const show = () => { pay.textContent = pay0(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; input.value = wgAmt; };
+  const show = () => { pay.textContent = pay0(wgAmt); go.textContent = `${back ? 'Change to' : 'Bet'} ${wgAmt} on ${name}`; input.value = wgAmt; };
   const step = d => { wgAmt = Math.max(1, Math.min(max, free, wgAmt + d)); show(); };
   const dn = document.createElement('button'), up = document.createElement('button');
   dn.type = up.type = 'button';
@@ -6178,7 +6212,7 @@ function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null) {
   dn.setAttribute('aria-label', 'One less'); up.setAttribute('aria-label', 'One more');
   dn.onclick = () => step(-1); up.onclick = () => step(1);
   // as they type, without a repaint that would take the caret away
-  input.oninput = () => { const n = Math.round(+input.value); if (n >= 1) { wgAmt = Math.min(max, free, n); pay.textContent = pay0(wgAmt); go.textContent = `Bet ${wgAmt} on ${name}`; } };
+  input.oninput = () => { const n = Math.round(+input.value); if (n >= 1) { wgAmt = Math.min(max, free, n); pay.textContent = pay0(wgAmt); go.textContent = `${back ? 'Change to' : 'Bet'} ${wgAmt} on ${name}`; } };
   input.onchange = show;
   amt.append(dn, input, up);
   row.append(amt, pay);

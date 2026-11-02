@@ -3893,9 +3893,20 @@ const hid = await page.evaluate(() => {
     const p = wagerPanel(c); return p && { pot: !!p.querySelector('.ch-wg-pot'), chips: [...p.querySelectorAll('.ch-wg-chip')].map(x => x.textContent), text: p.textContent }; };
   // betting closed three minutes ago
   const out = { nur: look('Nur'), shewa: look('Shewa'), nurShut: look('Nur', mk(Date.now() - 200000)), shewaShut: look('Shewa', mk(Date.now() - 200000)) };
+  // Shewa's bet, still in the window: Change reopens the picker on it, and shut, there is no Change
+  look('Shewa');
+  const c = mk(Date.now() - 5000), btn = p => [...p.querySelectorAll('button')].map(x => x.textContent);
+  const before = wagerPanel(c), shutBtns = btn(wagerPanel(mk(Date.now() - 200000)));
+  before.querySelector('.ch-wg-change').click();
+  chalWagers = { h: [{ who: 'Shewa', side: 'r', amt: 10 }] };
+  out.change = { before: btn(before), after: btn(wagerPanel(c)), shut: shutBtns };
+  wgEdit = null; wgPick = null;
   chalWagers = {}; window.setAccount(null);
   return out;
 });
+assert.ok(hid.change.before.includes('Change') && !hid.change.shut.includes('Change'), 'Change shows on a closed bet, or not on an open one: ' + hid.change.before);
+assert.ok(hid.change.after.some(x => /^Change to 10 on /.test(x)) && hid.change.after.includes('Keep my bet of 10'),
+  'Change did not reopen the picker on the bet: ' + hid.change.after);
 assert.equal(hid.nur.pot, false, 'the pot shows while the game is on');
 assert.deepEqual(hid.nur.chips, [], 'a player can see who bet on their game');
 assert.doesNotMatch(hid.nur.text, /Shewa|13|coins in/, 'a player can see there is money on the game');
@@ -4095,8 +4106,19 @@ const hold = await page.evaluate(() => {
     // the cup running at HOLD_FROM: its bets are taken then, not when placed
     H,
     early: [cup([], {}, H - 1, H - 1e5).bal.Shewa, cup([], {}, H + 1, H - 1e5).log.Shewa.at(-1)],
+    // from BET_CHANGE_FROM a second bet in the window replaces the first
+    change: (() => {
+      const C = BET_CHANGE_FROM, g = { id: 'g', at: C + 10, slots: S(A, C + 10), score: { b: 0, r: 1, at: C + 500 } };
+      const b = (at, side, amt) => ({ at: C + at, by: em('Nur'), kind: 'bet', game: 'g', side, amt });
+      const w = window.coinWalk([...seed, g], [], [b(20, 'b', 4), b(40, 'r', 7)], C + 1000);
+      const late = window.coinWalk([...seed, g], [], [b(20, 'b', 4), b(20 + WAGER_MS, 'r', 7)], C + 1000);
+      return [w.bal.Nur, w.wagers.g.length, late.bal.Nur];
+    })(),
   };
 });
+// 10, the 4 back, 7 on Red, Red wins: 17, and 3 for the track's first bet, once. Changed after the
+// window, the 4 on Blue stands and loses: 6, plus the 3.
+assert.deepEqual(hold.change, [20, 1, 9], 'a change in the window did not replace the first bet, or one after it did');
 assert.deepEqual(hold.open, [5, 5, 6], 'a seat or a bet from the side left its stake in the wallet');
 assert.deepEqual(hold.won, [15, 5, 14], 'a win did not hand the stake back with the winnings');
 assert.deepEqual(hold.lost, [5, 15, 6], 'a loss took more than the stake already gone');

@@ -352,7 +352,7 @@ Market's open Name colour or Name icon row, whose Buy pill presses it.
   anyone not playing can put coins on a pair, at even money: a win gains the bet
   (bet 6, +6) and a loss loses it, to nobody. The bet is never taken up front, so
   the app shows and records only the gain. A draw, a cancelled
-  lobby or a game the walk doesn't pay costs nothing. One bet per player per game.
+  lobby or a game the walk doesn't pay costs nothing. One bet per player per game; from `BET_CHANGE_FROM` a second one inside the two minutes replaces the first, which hands back its stake and any power-up on it.
   Each seat now records the server's time when it is taken (`slots/<seat>/at`,
   written once), and the window runs from the latest of the four, so a swapped
   player starts a new window and earlier bets don't stand. The rules check the
