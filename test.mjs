@@ -3946,7 +3946,7 @@ const dayBoard = await page.evaluate(() => {
   const T = Date.now() - 100000;
   const S = (at, ...ns) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), at: at[i] }]));
   const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { at: i, slots: S([], 'Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'), score: { b: 1, r: 0, at: i } }]));
-  rows.g = { at: T, slots: S([T + 90, T + 95, T + 99, T + 100], 'Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: T + 500 } };
+  rows.g = { at: T, stake: 2, slots: S([T + 90, T + 95, T + 99, T + 100], 'Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: T + 500 } }; // staked: a free game takes no bets
   window.setAccount(em('Toufiq'));
   window.renderChallenges(rows);
   window.renderSpends({ x1: { at: T + 150, by: em('Shewa'), kind: 'bet', game: 'g', side: 'r', amt: 4 },
