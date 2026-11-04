@@ -3987,6 +3987,8 @@ const HOLD_FROM = 1793271960000;
    first: the first's stake and any power-up on it come back, then the new one
    is placed. Before it a second bet was refused, and those rows still are. */
 const BET_CHANGE_FROM = 1793638000000;
+// From here a free game (no stake) takes no bets; bets placed before it still walk.
+const PAID_BET_FROM = 1793777000000;
 const cutCup = id => +id >= CUP_KO_FROM;
 /* When the fourth seat was taken: the latest of the four times, so a swapped
    player fills the lobby again and starts a new window. The time is a second
@@ -4381,6 +4383,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         const c = byId[s.game], fill = c && chalFillAt(c), amt = +s.amt, w = wagers[s.game] || [];
         if (who === undefined) return;
         if (!c) return refuse(who, s, false, 'the challenge was cancelled');
+        if (+s.at >= PAID_BET_FROM && !chalBet(c)) return refuse(who, s, false, 'free games take no bets');
         if (!fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
         if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return refuse(who, s, false);
         if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
@@ -6135,7 +6138,7 @@ const wgPayText = (a, mine, tier) => {
 };
 function wagerPanel(c) {
   const fill = chalFillAt(c);
-  if (!fill || chalDone(c)) return null;
+  if (!fill || chalDone(c) || !chalBet(c)) return null; // free games take no bets
   const bets = chalWagers[c.id] || [], me = myName();
   const open = !chalPending(c) && Date.now() < fill + WAGER_MS;
   const mine = bets.find(x => x.who === me);

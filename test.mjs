@@ -3854,7 +3854,7 @@ const panel = async who => page.evaluate(({ who }) => {
   const now = Date.now(), seat = (n, at) => ({ name: n, email: em(n), at });
   const rows = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['s' + i, { by: em('Shewa'), at: i,
     slots: { bf: seat('Shewa'), bd: seat('Toufiq'), rf: seat('Siddiq'), rd: seat('Sajeeb') }, score: { b: 1, r: 0, at: i } }]));
-  rows.wg = { by: em('Sifat'), at: now - 5000,
+  rows.wg = { by: em('Sifat'), at: now - 5000, stake: 1,
     slots: { bf: seat('Sifat', now - 4000), bd: seat('Ofi', now - 3000), rf: seat('Nur', now - 2000), rd: seat('Rashed', now - 1000) } };
   window.spent = null;
   window.spendCoins = row => { window.spent = row; return Promise.resolve(); };
@@ -3885,7 +3885,7 @@ const player = await panel('Nur');
 assert.deepEqual(player.teams, ['div', 'div'], 'one of the four could bet on their own game');
 // a big bet on Nur's own pair: Nur sees nothing of it, not even that it is there
 const hid = await page.evaluate(() => {
-  const mk = at => ({ id: 'h', at, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
+  const mk = at => ({ id: 'h', at, stake: 1, slots: Object.fromEntries(['Sifat', 'Ofi', 'Nur', 'Rashed'].map((n, i) =>
     [['bf', 'bd', 'rf', 'rd'][i], { name: n, email: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n), at: at + 1000 }])) });
   // after setAccount, whose repaint walks the ledger and resets the bets
   const look = (who, c = mk(Date.now() - 5000)) => { window.setAccount(Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === who));
@@ -4114,6 +4114,13 @@ const hold = await page.evaluate(() => {
       const late = window.coinWalk([...seed, g], [], [b(20, 'b', 4), b(20 + WAGER_MS, 'r', 7)], C + 1000);
       return [w.bal.Nur, w.wagers.g.length, late.bal.Nur];
     })(),
+    // from PAID_BET_FROM a free game takes no bets, a staked one still does
+    noFree: (() => {
+      const P = PAID_BET_FROM, g = (id, stake) => ({ id, at: P + 10, slots: S(A, P + 10), ...(stake && { stake }) });
+      const b = game => ({ at: P + 20, by: em('Nur'), kind: 'bet', game, side: 'b', amt: 3 });
+      const w = window.coinWalk([...seed, g('f'), g('p', 2)], [], [b('f'), b('p')], P + 1000);
+      return [!!(w.wagers.f || []).length, (w.wagers.p || []).length];
+    })(),
   };
 });
 /* From ODDS_FROM a lopsided game pays by its odds. Shewa & Toufiq have won all
@@ -4141,6 +4148,7 @@ assert.deepEqual(odds.gains, [[1, 1, 1], [4, 6, 9], [6, 10, 15]], 'the odds tabl
 // 10, the 4 back, 7 on Red, Red wins: 17, and 3 for the track's first bet, once. Changed after the
 // window, the 4 on Blue stands and loses: 6, plus the 3.
 assert.deepEqual(hold.change, [20, 1, 9], 'a change in the window did not replace the first bet, or one after it did');
+assert.deepEqual(hold.noFree, [false, 1], 'a free game took a bet, or a staked one refused it');
 assert.deepEqual(hold.open, [5, 5, 6], 'a seat or a bet from the side left its stake in the wallet');
 assert.deepEqual(hold.won, [15, 5, 14], 'a win did not hand the stake back with the winnings');
 assert.deepEqual(hold.lost, [5, 15, 6], 'a loss took more than the stake already gone');
