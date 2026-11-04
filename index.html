@@ -5132,7 +5132,7 @@ function renderHistory() {
   if (!me) return box.append(part('hist-sum', acctEmail
     ? 'Signed in, but not on the player list.' : 'Sign in as a player to see your coins come and go.'));
   // the waiting bets first: they are what the balance doesn't show yet
-  const lines = (coinLog[me] || []).slice().sort((a, b) => (b.wait - a.wait) || (b.t - a.t));
+  const lines = (coinLog[me] || []).slice().reverse().sort((a, b) => (b.wait - a.wait) || (b.t - a.t));
   const all = myCoins(), held = chalHeld(me);
   box.append(part('hist-sum', held ? `${all} coins in all, ${held} of them riding on bets and games not settled yet.`
     : `${all} coin${all === 1 ? '' : 's'} in all.`));
