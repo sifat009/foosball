@@ -267,6 +267,11 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/x7', B1, sp(B1, { kind: 'gift', to: R1 })), 'a gift with no amount');
   assert.ok(!await put('spends/x8', B1, sp(B1, { kind: 'loan', to: R1, amt: 5 })), 'an unknown kind');
   assert.ok(!await put('spends/x9', B1, sp(B1, { kind: 'slot', amt: 5 })), 'a slot carrying an amount');
+  // a game gifted: to somebody else, and no coins on it
+  assert.ok(await put('spends/g1', B1, sp(B1, { kind: 'gamegift', to: R1 })), 'a player could not gift a game');
+  assert.ok(!await put('spends/g2', B1, sp(B1, { kind: 'gamegift', to: B1 })), 'a game gifted to yourself');
+  assert.ok(!await put('spends/g3', B1, sp(B1, { kind: 'gamegift' })), 'a game gifted to nobody');
+  assert.ok(!await put('spends/g4', B1, sp(B1, { kind: 'gamegift', to: R1, amt: 5 })), 'a game gift carrying coins');
   // the market: what's sold and for how much is the walk's to judge, the shape is the rules'
   assert.ok(await put('spends/m1', B1, sp(B1, { kind: 'list', src: 'w1', type: 'shield', price: 4 })), 'a player could not list a power-up');
   assert.ok(await put('spends/m2', B1, sp(B1, { kind: 'unlist', list: 'm1' })), 'a player could not take a listing down');

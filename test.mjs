@@ -2827,6 +2827,38 @@ assert.equal(mint.boughtOne.Sifat, 10, 'an extra game bought by one player paid 
 assert.equal(mint.nextDay.Sifat, 12, 'the allowance did not reset the next day');
 assert.equal(mint.before.Sifat, 14, 'a day from before the five a day lost games to it');
 
+/* A game gifted moves one of the giver's free five to somebody else for the day:
+   no more than three to anybody, never one already played, and a gifted game is
+   played before a bought one, so the bought one still comes back at midnight. */
+const gifted = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const four = S('Sifat', 'Ofi', 'Nur', 'Rashed');
+  const T = CH_DAILY_FROM + 864e5;
+  const win = at => ({ at, slots: four, score: { b: 1, r: 0, at } });
+  const day = (n, from = T) => Array.from({ length: n }, (_, i) => win(from + i));
+  const give = (by, to, at = T - 1) => ({ at, by: em(by), to: em(to), kind: 'gamegift' });
+  const toAll = ['Sifat', 'Ofi', 'Nur', 'Rashed'].map(n => give('Toufiq', n));
+  const cup = [{ champion: 'Nur + Rashed', runnerUp: 'Sifat + Ofi', date: 1 }];
+  const w = coinWalk(day(7), [], toAll);
+  return {
+    six: w.bal.Sifat, lines: [w.log.Toufiq.filter(l => /Gave a game/.test(l.why)).length, w.log.Sifat.some(l => l.why === 'Toufiq gave you a game for today')],
+    four: coinWalk([], [], [1, 2, 3, 4].map(i => give('Toufiq', 'Sifat', T + i))).ok.length,
+    gaveTwo: coinWalk(day(5), [], [give('Sifat', 'Toufiq'), give('Sifat', 'Shewa')]).bal.Sifat,
+    afterFive: coinWalk(day(5), [], [give('Sifat', 'Toufiq', T + 10)]).ok.length,
+    self: coinWalk([], [], [give('Sifat', 'Sifat')]).ok.length,
+    slotBack: coinWalk(day(6), cup, [...toAll, { at: T - 1, by: em('Ofi'), kind: 'slot' }], T + 2 * 864e5).log.Ofi
+      .filter(l => /not played/.test(l.why)).map(l => l.d),
+  };
+}, String(seat4));
+assert.equal(gifted.six, 12, 'a gifted game did not make a sixth that paid');
+assert.deepEqual(gifted.lines, [4, true], 'a game gift left no line for the giver or the one given it');
+assert.equal(gifted.four, 3, 'a fourth gifted game in a day went through');
+assert.equal(gifted.gaveTwo, 6, 'two games gifted away left the giver five');
+assert.equal(gifted.afterFive, 0, 'a game was gifted after all five were played');
+assert.equal(gifted.self, 0, 'a game was gifted to yourself');
+assert.deepEqual(gifted.slotBack, [5], 'an extra game was used before a gifted one and never came back');
+
 // a cup pays its finalists: ten to each champion, five to each runner-up — but
 // only a cup saved with its runner-up, so the cups before this pay nothing
 const cupCoins = await page.evaluate(() => ({

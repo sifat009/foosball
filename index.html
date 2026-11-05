@@ -1624,6 +1624,14 @@
   #chalBoard .hall-title .ico { display: none; }
   #chalWho { font-size: 0.8rem; font-weight: 500; color: #7d8a9c; min-height: 1.2em; text-align: center; }
   #chalWho b { color: #172b4d; font-weight: 700; }
+  .ch-giftlink { background: none; border: 0; padding: 0; font: inherit; font-weight: 700; color: #17854a; text-decoration: underline; cursor: pointer; }
+  .ch-gift { margin: 10px 0 4px; padding: 12px; border: 1px solid #dde3ec; border-radius: 12px; background: #fff; font-size: 0.82rem; color: #5b6a7d; }
+  .ch-gift p { margin-bottom: 8px; }
+  .ch-gift p b { color: #172b4d; }
+  .ch-gift .ch-giftrow { display: flex; gap: 8px; margin-bottom: 8px; }
+  .ch-gift select { flex: 1; min-width: 0; font: inherit; font-size: 0.85rem; padding: 8px; border: 1px solid #dde3ec; border-radius: 10px; background: #fff; color: #172b4d; }
+  .ch-gift .btn { padding: 8px 16px; font-size: 0.85rem; }
+  .ch-gift small { font-size: 0.74rem; }
   #chalTabs {
     background: none; border-radius: 0; padding: 0; gap: 20px; width: auto;
     margin: 18px 0 4px; border-bottom: 1px solid #e7ecf3;
@@ -2155,6 +2163,8 @@
     <div id="chalBoard">
       <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Challenges</div>
       <div id="chalWho"></div>
+      <!-- Gift a game, opened from the link in the line above -->
+      <div id="chalGift" class="ch-gift" hidden></div>
       <div id="chalHunts"></div>
       <div class="hall-tabs" id="chalTabs">
         <button class="hall-tab active" data-tab="open">Open</button>
@@ -3867,7 +3877,15 @@ const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(
 // extra games bought today, and Extra Games used: the walk counts both
 const slotsToday = (email, now = Date.now()) => !EMAIL_NAMES[email] ? 0
   : walkNow().bought[EMAIL_NAMES[email] + new Date(now).toDateString()] || 0;
-const dayCap = email => CH_DAILY + slotsToday(email);
+/* Games gifted (2026-11-05): one of your free five not yet played, to a
+   colleague, free and for good. Nobody takes more than GIFT_RECV a day, and a
+   game you were given can't be passed on: you give from the five. */
+const GIFT_RECV = 3;
+const giftsToday = (email, w = walkNow(), now = Date.now()) => {
+  const k = EMAIL_NAMES[email] + new Date(now).toDateString();
+  return !EMAIL_NAMES[email] ? { given: 0, recv: 0 } : { given: w.given[k] || 0, recv: w.recv[k] || 0 };
+};
+const dayCap = email => { const g = giftsToday(email); return CH_DAILY + slotsToday(email) + g.recv - g.given; };
 const capMsg = () => myExtraGame() ? `You’ve played ${chalMax} challenges today. Use your Extra Game to play one more?`
   : `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game in the Market.`;
 // the one tap that turns that message into a seat: an Extra Game used on the spot
@@ -3880,6 +3898,55 @@ const capUse = () => {
   return b;
 };
 var chalUsed = 0, chalMax = CH_DAILY; // worked out once a render, like chalFree
+/* Gift a game: only from the free five, so what's left of them less what you
+   gave away; to anybody else on the list who hasn't had GIFT_RECV today. The
+   panel's open state and pick live outside the render, which runs on every sync. */
+var giftOpen = false, giftTo = '';
+function renderGameGift(name) {
+  const box = $('chalGift'), g = name ? giftsToday(acctEmail) : null;
+  const left = g ? CH_DAILY - g.given - chalUsed : 0;
+  $('chalWho').querySelector('.ch-giftat')?.remove();
+  if (left > 0) {
+    const a = part('ch-giftlink', 'Gift a game', 'button');
+    a.type = 'button';
+    a.onclick = () => { giftOpen = !giftOpen; renderGameGift(name); };
+    const at = part('ch-giftat', ' · ', 'span');
+    at.append(a);
+    $('chalWho').append(at);
+  }
+  box.textContent = '';
+  box.hidden = !(giftOpen && left > 0);
+  if (box.hidden) return;
+  const w = walkNow();
+  const opts = Object.entries(EMAIL_NAMES).filter(([e]) => e !== acctEmail && giftsToday(e, w).recv < GIFT_RECV)
+    .sort((x, y) => x[1].localeCompare(y[1]));
+  const p = document.createElement('p');
+  p.append('Give one of your ', part('', `${left} game${left === 1 ? '' : 's'} left`, 'b'), ' today to:');
+  const sel = document.createElement('select');
+  sel.setAttribute('aria-label', 'Who gets the game');
+  sel.append(new Option('Pick a colleague', ''));
+  opts.forEach(([e, n]) => sel.append(new Option(n, e)));
+  if (!opts.some(([e]) => e === giftTo)) giftTo = '';
+  sel.value = giftTo;
+  const go = part('btn btn-green', 'Give', 'button');
+  go.type = 'button';
+  go.disabled = !giftTo;
+  sel.onchange = () => { giftTo = sel.value; go.disabled = !giftTo; };
+  go.onclick = () => {
+    if (!giftTo) return;
+    go.disabled = true;
+    const to = giftTo;
+    giftOpen = false; giftTo = '';
+    window.spendCoins && window.spendCoins({ kind: 'gamegift', by: acctEmail, to });
+    renderGameGift(name);
+  };
+  const row = document.createElement('div');
+  row.className = 'ch-giftrow';
+  row.append(sel, go);
+  box.append(p, row, part('', opts.length ? `You’ll have ${left - 1} left today. It can’t be undone.`
+    : 'Everyone has had 3 games gifted today.', 'small'));
+}
+
 
 /* ================= COINS =================
    A challenge win is worth two coins, and coins are what a challenge is bet in.
@@ -4236,6 +4303,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
   const bal = {}, ok = [], tags = {}; // tags: game id -> what a bounty did in it
   const played = {}, bought = {}; // player + day -> games paid, extra games bought
   const extraPaid = {}; // player + day -> what each extra game cost, in the order bought
+  const given = {}, recv = {}; // player + day -> games gifted away, games gifted to them
   let bounties = [];
   const trees = {}; // player -> { stage, day } as of its last watering
   const picked = {}; // player -> every coin they have collected off a tree
@@ -4537,6 +4605,20 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         return;
       }
       const to = EMAIL_NAMES[s.to];
+      /* A game gifted: free, so it never reaches the coin checks below. It goes
+         through while the giver has a free game not yet played and the other end
+         has had fewer than GIFT_RECV today. */
+      if (s.kind === 'gamegift') {
+        const d = new Date(+s.at).toDateString();
+        if (who === undefined) return;
+        if (to === undefined || to === who || (played[who + d] || 0) >= CH_DAILY - (given[who + d] || 0)
+          || (recv[to + d] || 0) >= GIFT_RECV) return refuse(who, s, false);
+        given[who + d] = (given[who + d] || 0) + 1; recv[to + d] = (recv[to + d] || 0) + 1;
+        note(who, 0, `Gave a game to ${to}`, s.at);
+        note(to, 0, `${who} gave you a game for today`, s.at);
+        ok.push(s);
+        return;
+      }
       // a gift or bounty needs somebody on the list at the other end, and not you
       if (who === undefined) return;
       if (!(cost > 0) || bal[who] < cost) return refuse(who, s, cost > 0);
@@ -4559,7 +4641,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       const who = EMAIL_NAMES[e.by], k = who + e.day, n = bought[k] || 0;
       const games = (rows || []).filter(c => chalDone(c) && new Date(chalAt(c)).toDateString() === e.day
         && SEATS.some(([x]) => c.slots && c.slots[x] && c.slots[x].email === e.by)).length;
-      const back = Math.min(n, CH_DAILY + n - games);
+      // a gifted game is played before a bought one, so a bought one still comes back
+      const back = Math.min(n, CH_DAILY + (recv[k] || 0) - (given[k] || 0) + n - games);
       if (who === undefined || back <= 0) return;
       bought[k] = n - back; // a game agreed late for that day can't use one handed back
       move(who, extraPaid[k].splice(-back).reduce((a, b) => a + b, 0),
@@ -4640,7 +4723,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        opened, it pays nothing and takes nothing, and doesn't use up anyone's. */
     const all = e.up.concat(e.down);
     if (e.day) {
-      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0)))
+      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0) + (recv[n + e.day] || 0) - (given[n + e.day] || 0)))
         return all.forEach(n => note(n, 0, 'A challenge past the day’s game limit paid nothing', e.t));
       all.forEach(n => { played[n + e.day] = (played[n + e.day] || 0) + 1; });
     }
@@ -4736,12 +4819,13 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     bankToday: Object.fromEntries(Object.values(EMAIL_NAMES).map(n => [n, !!bankDay[n + isoDay(now)]])),
     autoW,
   };
-  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought, given, recv };
 }
 // what a spend row was for, in a history line that says it didn't go through
 const spendWhat = s => ({
   plant: 'Plant a tree', water: 'Water your tree', collect: 'Collect from your tree', grow: 'Grow your tree',
   bet: `Bet of ${s.amt} on a challenge`, cupbet: `Cup bet of ${s.amt}`, slot: 'An extra game',
+  gamegift: `A game to ${EMAIL_NAMES[s.to] || 'somebody'}`,
   gift: `Gift of ${s.amt} to ${EMAIL_NAMES[s.to] || 'somebody'}`, bounty: `Bounty of ${s.amt} on ${EMAIL_NAMES[s.to] || 'somebody'}`,
   flair: iconOf(s.item) ? 'An icon' : 'A name colour', skip: 'Skip a track stage',
   claim: (cards[s.card] || {}).title || 'A card',
@@ -6557,6 +6641,7 @@ function renderChal() {
   mk.textContent = open.length ? '+ New challenge'
     : name ? 'Start the first one' : 'Sign in to start one';
   if (acctEmail && !name) closeChalForm();
+  renderGameGift(name);
 
   const walk = walkNow();
   const wore = JSON.stringify(chalFlair);
