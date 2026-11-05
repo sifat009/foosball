@@ -9591,7 +9591,10 @@ window.savePushPrefs = () => savePrefs()
   } catch (e) { console.info('[push] messaging unavailable:', e.message); return; }
 
   async function subscribe() {
-    if (await Notification.requestPermission() !== 'granted') return false;
+    // already granted: don't ask again — on an iPhone a permission request
+    // outside a tap is not something to lean on at launch
+    if (Notification.permission !== 'granted' &&
+        await Notification.requestPermission() !== 'granted') return false;
     /* Its own scope: sw.js already owns ./, and a second registration there
        would evict the worker that makes the site installable. The path doesn't
        have to exist — a scope is a namespace, not a page. Registering by
@@ -9605,6 +9608,7 @@ window.savePushPrefs = () => savePrefs()
        puts it back to off rather than reporting a subscription nobody has. */
     try { await saveToken(); await savePrefs(); }
     catch (err) { pushToken = null; throw err; }
+    setWasOn(true);
     return true;
   }
 
@@ -9615,6 +9619,11 @@ window.savePushPrefs = () => savePrefs()
   const OPT_OUT = 'foosball-push-off';
   const optedOut = () => { try { return !!localStorage.getItem(OPT_OUT); } catch { return false; } };
   const setOptedOut = on => { try { on ? localStorage.setItem(OPT_OUT, '1') : localStorage.removeItem(OPT_OUT); } catch {} };
+  // set once a subscribe lands, so a launch that silently loses it can say why
+  // instead of just painting the switch off (iPhones did exactly that)
+  const WAS_ON = 'foosball-push-was-on';
+  const wasOn = () => { try { return !!localStorage.getItem(WAS_ON); } catch { return false; } };
+  const setWasOn = on => { try { on ? localStorage.setItem(WAS_ON, '1') : localStorage.removeItem(WAS_ON); } catch {} };
   const failTip = msg => {
     $('installSteps').textContent = msg;
     $('installTip').classList.add('open');
@@ -9632,8 +9641,15 @@ window.savePushPrefs = () => savePrefs()
      token, but the browser permission stays granted — so without a memory of
      the choice, the next reload re-registered and the off switch did nothing.
      The flag is per-device, which is right: it's this phone that opted out. */
-  if (Notification.permission === 'granted' && !optedOut())
-    await subscribe().catch(e => console.error('[push]', e));
+  if (!optedOut()) {
+    let why = null;
+    if (Notification.permission !== 'granted') why = 'permission: ' + Notification.permission;
+    else await subscribe()
+      .then(ok => { if (!ok) why = 'no token'; })
+      .catch(e => { console.error('[push]', e); why = e.code || e.message || String(e); });
+    if (why && wasOn())
+      failTip('Notifications switched off when the app opened (' + why + '). Take a screenshot of this, then tap the switch to turn them back on.');
+  }
   paint();
   btn.style.display = '';
   /* The tab opens the drawer; this is what its master switch calls. Everything
@@ -9645,6 +9661,7 @@ window.savePushPrefs = () => savePrefs()
         // off means dropping the token — permission itself can only be revoked
         // by the user in browser settings, but the relay stops sending here
         setOptedOut(true);
+        setWasOn(false);
         if (pushToken) {
           await remove(ref(db, 'pushTokens/' + pushToken));
           await remove(ref(db, 'pushPrefs/' + pushToken));
