@@ -47,13 +47,13 @@ Clubhouse caps their levels as before.
 
 ## The army
 
-| | Brawler | Archer |
+| | Soldier | Archer |
 |---|---|---|
 | Trained in | batches of 5 | batches of 5 |
 | Cost a batch | 2 coins | 3 coins |
 | Time a batch | 2 min | 3 min |
-| Health | 60 | 25 |
-| Hit | 10 every 1.0 s, range 0.8 | 7 every 1.0 s, range 3 |
+| Health | 50 | 22 |
+| Hit | 5 every 1.0 s, range 0.8 | 4 every 1.0 s, range 3 |
 | Speed | 1.0 square/s | 1.2 squares/s |
 | Goes for | nearest building; a wall in its way, it breaks | nearest building, over walls |
 
@@ -66,8 +66,12 @@ Clubhouse caps their levels as before.
 
 | | L1 | L2 | L3 |
 |---|---|---|---|
-| **Cannon**: range 4 squares, one shot every 1.5 s | hits 20, health 300 | 27, 400 | 36, 530 |
-| **Archer tower**: range 6, one shot every 0.6 s | hits 6, health 250 | 8, 330 | 11, 440 |
+| **Cannon**: range 4 squares, one shot every 1.5 s | hits 30, health 300 | 40, 400 | 54, 530 |
+| **Archer tower**: range 6, one shot every 0.6 s | hits 8, health 250 | 11, 330 | 15, 440 |
+
+Tuned by simulation: at the first numbers, 10 Soldiers flattened a village
+with a Cannon in 30 seconds. With these, an undefended village falls to 2 or 3
+stars, a level-1 Cannon holds 10 Soldiers to 1, and a bigger army does better.
 
 A defence shoots the closest living attacker in range, and sticks with it
 until it's down or out of range.
@@ -142,7 +146,7 @@ is local-only (it never shipped), so it simply moves under `saves`.
 - **Arithmetic only:** `+ − × ÷` and `Math.sqrt`, which are exact the same
   everywhere. No randomness, no trigonometry. Ties break by a fixed order:
   building id, then the cell, then drop order.
-- **Movement:** attackers move in straight lines to their target. A Brawler
+- **Movement:** attackers move in straight lines to their target. A Soldier
   whose next step enters a wall piece attacks that piece instead.
 - **Inputs:** the victim's levels and layout at the raid's start, and the
   drops. **Outputs:** the Bank's health lost, which buildings fell, the
@@ -163,7 +167,7 @@ The relay runs the same simulation when a raid settles. It sends the victim
   - An army line beside the builder ("Army 10/15 · Archers 1:20").
   - A shield badge ("Shield 8h").
   - A **Raid log** button: raids made and raids suffered, each with **Replay**.
-- **Barracks popup:** the army by type, **Train 5 Brawlers · 2**, **Train 5
+- **Barracks popup:** the army by type, **Train 5 Soldiers · 2**, **Train 5
   Archers · 3**, the batch in training with its countdown, and the upgrade row.
 - **Raid list:** name, Clubhouse level, "up to N coins", or greyed with why.
 - **Looking at a village:** their village in the 3D view; "Rafi's village · up
@@ -179,6 +183,16 @@ The relay runs the same simulation when a raid settles. It sends the victim
   being raided opens it, with **Raid back** (needs a ticket) and **Challenge at
   the table** (opens a real lobby against them).
 - **No 3D:** training, the Raid log and losses still work; Raid says it needs 3D.
+- **The tour** replaces part 1's three welcome cards. It is a guided first run:
+  - The screen dims except one spotlit button or building, and a bubble says
+    what to do. Each step waits for it to be done.
+  - The steps: Build → Gold mine → place and Save → the Bank → Build →
+    Barracks → place and Save → open the Barracks → Train → Raid → Defend.
+  - A step already done is passed over. Short of coins, the bubble says so
+    and offers to skip the step.
+  - It's always skippable, and **?** in the top bar starts it again. Progress
+    is kept per phone. Players who saw part 1's welcome start at the raid steps.
+  - The Army line opens the Barracks.
 - **`?play` on localhost:** training batches take 10 seconds.
 
 ## Tests

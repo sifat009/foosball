@@ -49,10 +49,10 @@ Everyone has one of each. More than one Gold mine can come later.
 | **Gold mine** | Coins into the Bank over workday hours | 15 → 3 a day | 40 → 5 | 90 → 8 | | |
 | **Bank** | Holds coins until Collect. A full Bank stops the mine | free → holds 10 | 30 → 20 | 70 → 35 | 150 → 55 | 300 → 80 |
 | **Old oak** | The tree as it is today, standing on the grid | as today | | | | |
-| **Wall** | Pieces laid one by one. Defence only matters from piece 3 | 24 pieces free | 30 | 80 | | |
+| **Wall** | Pieces laid one by one. Defence only matters from piece 3 | 28 pieces free | 30 | 80 | | |
 | **Stadium** | Free extra games a day, on top of the daily 5 | 60 → +1 | 150 → +2 | | | |
 
-- **Wall pieces** past the free 24 cost 1 coin each. The Wall's level applies to
+- **Wall pieces** past the free 28 cost 1 coin each. The Wall's level applies to
   every piece at once.
 - **The Clubhouse cap:** an upgrade to level N needs the Clubhouse at level N or
   higher. A Clubhouse upgrade has no cap.
@@ -105,8 +105,8 @@ positions are stored.
 ## Your first visit
 
 Everyone starts with a ready-made layout: the Clubhouse in the middle, the Bank
-and the Old oak (if they have a living tree) beside it, and the 24 free wall
-pieces in a ring round all three. Earned buildings already won are placed in the
+and the Old oak (if they have a living tree) beside it, and the 28 free wall
+pieces in a ring round all three (28 is what that ring takes). Earned buildings already won are placed in the
 first free space. Nothing about this start is stored until the player saves a
 layout of their own; until then the app draws the default.
 
@@ -177,7 +177,7 @@ Bank is full", at most once a day per player.
 - **Build list:** what you can buy, with cost and footprint. Locked items say
   what unlocks them.
 - **Edit bar:** "Wall pieces: 6 spare · Buy more", **Cancel**, **Save**.
-- **First visit:** a three-part card (the existing `---` cards):
+- **First visit:** a three-part card inside the village, shown once per phone:
   1. The mine fills the Bank, and you collect it.
   2. Upgrades earn more. One builds at a time.
   3. Coming soon: raids, using wins from real games.
@@ -210,3 +210,36 @@ tab opens, so the rest of the app stays as fast as today.
 - `test-rules.mjs`: the new spend kinds; the layout node (owner only, whole
   numbers 0 to 19, known ids).
 - `test-relay.mjs`: the upgrade-done push, and Bank-full at most once a day.
+
+## The village as home
+
+The village stops being a tab and becomes the app for anyone signed in. The
+existing screens stay as they are and open as panels over it.
+
+- **Signed in:** the village opens by itself, once a session. The page's tab
+  bar and corner buttons step aside while it's up.
+- **The town:** fixed buildings on the grass round every plot. They are the
+  same for everyone, can't be moved and aren't raid targets:
+
+  | Building | Opens |
+  |---|---|
+  | **Arena** | The cup page itself, with **← Village** to come back |
+  | **Foosball hall** | Challenges |
+  | **Hall of Fame** | Hall of Fame, Players, Badges |
+  | **Market** | The Market |
+  | **Notice board** | The monthly track |
+  | **Toss & rules** | Match Toss and How it works |
+
+  The Bank opens coins and history, and the Clubhouse opens your profile.
+- **Bubbles over the town:** "2 open" over the Foosball hall, "Stage 4/10"
+  over the Notice board, "Live" over the Arena, "Ends soon" over the Market.
+- **The top bar:** your coins (which open the Bank), the builder, a bell for
+  alerts and ? for the tour.
+- **The second row:** **Town**, a list of every screen one tap away, and a
+  live line while a cup is on.
+- **Classic view:** a switch in the Clubhouse (profile), kept per phone. It
+  brings back today's page, with the Village tab as before.
+- **Signed out:** today's page, with **Sign in to enter your village**.
+- **Pushes:** each one opens where it's about. The relay adds `?go=`: games,
+  arena or raids.
+- **Live site:** none of this shows until `VILLAGE.FROM`.

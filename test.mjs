@@ -4450,6 +4450,204 @@ assert.deepEqual(homes.sell, [true, 0], 'the Sell tab did not open a drop to lis
 assert.equal(homes.inCoins, false, "the coin sheet still shows the oak's power-ups");
 console.log('market OK');
 
+/* The village: built, upgraded and collected with spend rows the walk prices
+   off village.js. The page keeps it shut until VILLAGE_FROM, so these open it. */
+const vil = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  // fifty wins long ago: a hundred coins each for Sifat and Ofi, no daily limit then
+  const seed = Array.from({ length: 50 }, (_, i) => ({ at: i + 1, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: i + 1 } }));
+  const H = 36e5, mon = +new Date(2026, 10, 2); // Monday 2 November 2026, local midnight
+  const sp = (h, by, extra) => ({ at: mon + h * H, by: em(by), ...extra });
+  const was = VILLAGE_FROM;
+  VILLAGE_FROM = 0;
+  const w = (now, ...spends) => window.coinWalk(seed, [], spends, mon + now * H);
+  const out = {
+    start: w(1).villages.Sifat,
+    mine: w(1, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' })),
+    broke: w(1, sp(0.5, 'Nur', { kind: 'vbuild', item: 'mine' })),
+    twice: w(1, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' }), sp(0.6, 'Sifat', { kind: 'vbuild', item: 'mine' })).bal.Sifat,
+    // Clubhouse to 2 starts building; a second upgrade waits for the builder
+    busy: w(0.9, sp(0.5, 'Sifat', { kind: 'vup', item: 'club' }), sp(0.6, 'Sifat', { kind: 'vup', item: 'bank' })),
+    done: w(2, sp(0.5, 'Sifat', { kind: 'vup', item: 'club' })).villages.Sifat,
+    capped: w(1, sp(0.5, 'Sifat', { kind: 'vup', item: 'bank' }), sp(0.6, 'Sifat', { kind: 'vup', item: 'bank' })),
+    // a mine from 00:30 Monday: by 18:00 it has made a workday's 3, by noon half of that, not more
+    noon: w(12, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' })).villages.Sifat.bank,
+    eve: w(18, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' })).villages.Sifat.bank,
+    night: w(23, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' })).villages.Sifat.bank,
+    // Saturday makes nothing; a week fills the Bank to its 10 and stops
+    sat: w(5 * 24 + 18, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' }), sp(4 * 24 + 23, 'Sifat', { kind: 'vcollect' })).villages.Sifat.bank,
+    week: w(7 * 24, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' })).villages.Sifat.bank,
+    collect: w(18.5, sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' }), sp(18, 'Sifat', { kind: 'vcollect' })),
+    empty: w(1, sp(0.6, 'Sifat', { kind: 'vcollect' })).bal.Sifat,
+    walls: w(1, sp(0.5, 'Sifat', { kind: 'vwall', n: 5 })),
+    // the tree's day lands in the Bank, not the balance
+    tree: w(24 + 20, sp(10, 'Sifat', { kind: 'plant' }), sp(24 + 10, 'Sifat', { kind: 'water' })),
+  };
+  // a Stadium makes a sixth game that day pay
+  // (the sixth with three who haven't played: all four need a game left)
+  const day = d => Array.from({ length: 6 }, (_, i) => ({ at: mon + (11 + i * .1) * H, slots: i < 5 ? S('Sifat', 'Ofi', 'Nur', 'Rashed') : S('Sifat', 'Toufiq', 'Siddiq', 'Shewa'), score: { b: 1, r: 0, at: mon + (11 + i * .1) * H } }));
+  out.noStadium = window.coinWalk([...seed, ...day()], [], [], mon + 20 * H).bal.Sifat;
+  out.stadium = window.coinWalk([...seed, ...day()], [], [sp(10, 'Sifat', { kind: 'vbuild', item: 'stadium' })], mon + 20 * H).bal.Sifat;
+  VILLAGE_FROM = was;
+  out.shut = window.coinWalk(seed, [], [sp(0.5, 'Sifat', { kind: 'vbuild', item: 'mine' })], mon + H);
+  out.treeShut = window.coinWalk(seed, [], [sp(10, 'Sifat', { kind: 'plant' }), sp(24 + 10, 'Sifat', { kind: 'water' })], mon + 44 * H).bal.Sifat;
+  const pick = x => ({ bal: x.bal, v: x.villages });
+  return JSON.parse(JSON.stringify({ ...out, mine: pick(out.mine), broke: pick(out.broke), busy: pick(out.busy), capped: pick(out.capped),
+    collect: pick(out.collect), walls: pick(out.walls), tree: pick(out.tree), shut: { bal: out.shut.bal.Sifat, v: out.shut.villages } }));
+}, String(seat4));
+assert.deepEqual(vil.start.lvl, { club: 1, mine: 0, bank: 1, wall: 1, stadium: 0, barracks: 0, cannon: 0, cannon2: 0, tower: 0, tower2: 0 }, 'a village should start with a Clubhouse, a Bank and a wall at 1');
+assert.equal(vil.start.pieces, 28, 'a village should start with 28 wall pieces');
+assert.equal(vil.mine.bal.Sifat, 85, 'a Gold mine should cost 15');
+assert.equal(vil.mine.v.Sifat.lvl.mine, 1, 'the mine was not built');
+assert.equal(vil.broke.v.Nur.lvl.mine, 0, 'a mine was built with no coins');
+assert.equal(vil.twice, 85, 'a second mine was charged');
+assert.equal(vil.busy.bal.Sifat, 60, 'the Clubhouse to 2 should cost 40, and the Bank waiting on the builder nothing');
+assert.equal(vil.busy.v.Sifat.building.item, 'club', 'the Clubhouse should be under construction');
+assert.equal(vil.busy.v.Sifat.lvl.club, 1, 'the Clubhouse should stay at 1 until it finishes');
+assert.equal(vil.done.lvl.club, 2, 'the Clubhouse did not reach 2 after an hour');
+assert.equal(vil.done.building, null, 'the builder should be free once it finishes');
+assert.equal(vil.capped.v.Sifat.lvl.bank, 1, 'the Bank went past the Clubhouse');
+assert.equal(vil.capped.bal.Sifat, 100, 'an upgrade the Clubhouse caps should cost nothing');
+assert.ok(Math.abs(vil.noon - 1) < 1e-9, `the mine should make 1 by noon, made ${vil.noon}`);
+assert.ok(Math.abs(vil.eve - 3) < 1e-9, `the mine should make 3 by 18:00, made ${vil.eve}`);
+assert.ok(Math.abs(vil.night - 3) < 1e-9, 'the mine worked after 18:00');
+assert.ok(vil.sat < 1, `the mine worked on a Saturday: ${vil.sat}`);
+assert.equal(vil.week, 10, 'a week should fill a level 1 Bank to its 10 and stop');
+assert.equal(vil.collect.bal.Sifat, 88, 'Collect should move the 3 into the balance');
+assert.ok(vil.collect.v.Sifat.bank < 1, 'Collect left coins in the Bank');
+assert.equal(vil.empty, 100, 'collecting an empty Bank moved coins');
+assert.equal(vil.walls.v.Sifat.pieces, 33, 'five wall pieces should make 33');
+assert.equal(vil.walls.bal.Sifat, 95, 'five wall pieces should cost 5');
+assert.equal(vil.tree.bal.Sifat, 89, 'a tree should cost 10 to plant and 1 to water, and pay nothing into the balance');
+assert.equal(Math.floor(vil.tree.v.Sifat.bank), 2, 'the sapling’s 2 should land in the Bank');
+assert.equal(vil.stadium - vil.noStadium, 2 - 60, 'a Stadium (60) should make the sixth game that day pay its 2');
+assert.equal(vil.shut.bal, 100, 'a village row before VILLAGE_FROM was charged');
+assert.deepEqual(vil.shut.v, {}, 'villages showed before VILLAGE_FROM');
+assert.equal(vil.treeShut, 91, 'before VILLAGE_FROM the tree should pay the balance');
+console.log('village OK');
+
+/* Raids: tickets from paying wins, an army trained with coins, a raid fought
+   from its drops on every phone alike, loot out of the Bank by its damage. */
+const raid = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const seed = Array.from({ length: 50 }, (_, i) => ({ at: i + 1, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: i + 1 } }));
+  const H = 36e5, mon = +new Date(2026, 10, 2);
+  let n = 0;
+  const sp = (h, by, extra) => ({ id: 'x' + (++n), at: mon + h * H, by: em(by), ...extra });
+  const was = VILLAGE_FROM, saves = allVillages;
+  VILLAGE_FROM = 0;
+  const w = (now, spends) => window.coinWalk(seed, [], spends, mon + now * H);
+  // Sifat: a Barracks and two batches of Soldiers; Ofi: a mine filling a Bank
+  const base = [sp(.5, 'Sifat', { kind: 'vbuild', item: 'barracks' }), sp(.6, 'Sifat', { kind: 'train', u: 'b' }), sp(.7, 'Sifat', { kind: 'train', u: 'b' }),
+    sp(.8, 'Sifat', { kind: 'train', u: 'a' }), sp(.9, 'Sifat', { kind: 'train', u: 'b' }), sp(.5, 'Ofi', { kind: 'vbuild', item: 'mine' })];
+  const out = {};
+  const w1 = w(1, base);
+  out.tickets = [w1.villages.Sifat.tickets, w1.villages.Nur.tickets];
+  out.army = w1.villages.Sifat.army; out.bal = w1.bal.Sifat; out.training = w1.villages.Sifat.training;
+  // removing troops: from the army, no coins back, never below none
+  const rm = w(1, [...base, sp(.95, 'Sifat', { kind: 'dismiss', u: 'b', n: 3 }), sp(.96, 'Sifat', { kind: 'dismiss', u: 'a', n: 1 })]);
+  out.dismiss = { army: rm.villages.Sifat.army, bal: rm.bal.Sifat };
+  out.dismissAll = w(1, [...base, sp(.95, 'Sifat', { kind: 'dismiss', u: 'b', n: 20 })]).villages.Sifat.army.b;
+  // Tuesday 18:00: Ofi's Bank holds 6, so 3 can be taken
+  const rd = sp(42, 'Sifat', { kind: 'raid', on: em('Ofi') });
+  const drops = Array.from({ length: 10 }, (_, i) => sp(42 + 1 / 3600, 'Sifat', { kind: 'drop', raid: rd.id, u: 'b', x: 20 + i, z: 20, t: i * 300 }));
+  const at = h => mon + h * H;
+  const r1 = w(43, [...base, rd, ...drops]);
+  out.r1 = { sifat: r1.bal.Sifat, ofiBank: r1.villages.Ofi.bank, ofiShield: r1.villages.Ofi.shield - at(42), raid: r1.raids[0] && { done: r1.raids[0].done, loot: r1.raids[0].loot, stars: r1.raids[0].res.stars, drops: r1.raids[0].drops.length },
+    army: r1.villages.Sifat.army, tickets: r1.villages.Sifat.tickets };
+  // the same fight worked out again from the same drops
+  out.same = JSON.stringify(VILLAGE.fight(r1.raids[0].input, r1.raids[0].drops)) === JSON.stringify(r1.raids[0].res);
+  // in progress: not settled until 90 s after it started
+  out.live = w(42 + 60 / 3600, [...base, rd, ...drops]).raids[0].done;
+  // a drop on top of the Bank, and one saved too late, don't count
+  const bad = [sp(42 + 1 / 3600, 'Sifat', { kind: 'drop', raid: rd.id, u: 'b', x: 135, z: 115, t: 100 }), sp(42 + 100 / 3600, 'Sifat', { kind: 'drop', raid: rd.id, u: 'b', x: 10, z: 10, t: 200 })];
+  out.bad = w(43, [...base, rd, ...bad]).raids[0].drops.length;
+  // no drops at all: the ticket is gone, the army stays, nothing is taken
+  const none = w(43, [...base, rd]);
+  out.none = { loot: none.raids[0].loot, army: none.villages.Sifat.army, tickets: none.villages.Sifat.tickets };
+  // Ofi collects mid-raid: the loot can't be more than is left
+  const col = w(43, [...base, rd, ...drops, sp(42 + 30 / 3600, 'Ofi', { kind: 'vcollect' })]);
+  out.collected = col.raids[0].loot;
+  // the same day again: refused; Ofi's shield refuses Nur's raid too (Nur has no tickets either way)
+  const again = w(43, [...base, rd, ...drops, sp(42.5, 'Sifat', { kind: 'raid', on: em('Ofi') })]);
+  out.again = again.raids.length;
+  out.self = w(43, [...base, sp(42, 'Sifat', { kind: 'raid', on: em('Sifat') })]).raids.length;
+  out.noArmy = w(43, [sp(42, 'Ofi', { kind: 'raid', on: em('Sifat') })]).raids.length;
+  // the next day the shield's still up 11 hours on; at 13 hours it's down
+  const re = sp(43, 'Sifat', { kind: 'train', u: 'b' }); // a fresh batch, so only the shield can stop it
+  out.shield11 = w(54, [...base, rd, ...drops, re, sp(53, 'Sifat', { kind: 'raid', on: em('Ofi') })]).raids.length;
+  out.shield13 = w(56, [...base, rd, ...drops, re, sp(55, 'Sifat', { kind: 'raid', on: em('Ofi') })]).raids.length;
+  // a layout saved after the raid doesn't move it; one saved before does
+  const res = r => JSON.stringify(r.raids[0].res);
+  const plain = res(r1);
+  allVillages = { [villageKey(em('Ofi'))]: { saves: { s1: { at: at(43), layout: { club: { x: 0, z: 0 }, bank: { x: 0, z: 17 }, mine: { x: 17, z: 0 } } } } } };
+  out.later = res(w(43.5, [...base, rd, ...drops])) === plain;
+  allVillages = { [villageKey(em('Ofi'))]: { saves: { s1: { at: at(41), layout: { club: { x: 0, z: 0 }, bank: { x: 0, z: 17 }, mine: { x: 17, z: 0 } } } } } };
+  out.earlier = res(w(43.5, [...base, rd, ...drops])) !== plain;
+  allVillages = saves;
+  VILLAGE_FROM = was;
+  return JSON.parse(JSON.stringify(out));
+}, String(seat4));
+assert.deepEqual(raid.tickets, [3, 0], 'winners should hold 3 tickets, losers none');
+assert.deepEqual(raid.army, { b: 10, a: 0 }, 'two batches of Soldiers should train; the Archers (Barracks 1) and a third batch (full) should not');
+assert.equal(raid.bal, 100 - 25 - 2 - 2, 'a Barracks is 25 and each batch 2');
+assert.equal(raid.training, null, 'a batch was still training after its two minutes');
+assert.deepEqual(raid.dismiss, { army: { b: 7, a: 0 }, bal: 71 }, 'removing 3 Soldiers should leave 7 and give nothing back; removing an Archer you lack, nothing');
+assert.equal(raid.dismissAll, 0, 'removing more than you have should leave none');
+assert.equal(raid.r1.raid.done, true, 'the raid did not settle');
+assert.equal(raid.r1.raid.drops, 10, 'the ten drops should all count');
+assert.equal(raid.r1.raid.loot, 3, 'a Bank of 6 knocked flat should give up 3');
+assert.equal(raid.r1.sifat, 71 + 3, 'the loot should land in the raider’s balance');
+assert.ok(raid.r1.ofiBank < 4, 'the loot should leave Ofi’s Bank');
+assert.equal(raid.r1.ofiShield, 12 * 36e5, 'Ofi should have a 12-hour shield');
+assert.deepEqual(raid.r1.army, { b: 0, a: 0 }, 'dropped attackers should be used up');
+assert.equal(raid.r1.tickets, 2, 'a raid should use a ticket');
+assert.ok(raid.same, 'the fight came out differently the second time');
+assert.equal(raid.live, undefined, 'a raid settled before its 90 seconds were up');
+assert.equal(raid.bad, 0, 'a drop on a building or after 90 seconds counted');
+assert.deepEqual(raid.none, { loot: 0, army: { b: 10, a: 0 }, tickets: 2 }, 'a raid with no drops should take nothing, keep the army and use the ticket');
+assert.ok(raid.collected <= 0, `Ofi collected mid-raid, yet the raid took ${raid.collected}`);
+assert.equal(raid.again, 1, 'the same pair raided twice in a day');
+assert.equal(raid.self, 0, 'a player raided themselves');
+assert.equal(raid.noArmy, 0, 'a raid with no army went through');
+assert.equal(raid.shield11, 1, 'a raid went through a shield');
+assert.equal(raid.shield13, 2, 'the shield did not come down after 12 hours');
+assert.ok(raid.later, 'a layout saved after the raid changed it');
+assert.ok(raid.earlier, 'a layout saved before the raid was not used');
+console.log('raids OK');
+
+/* The village as home: signed in, it opens by itself over the page and the
+   tab bar steps aside; Classic view keeps today's page; signed out, the cup
+   stays with a way in. */
+const home = await page.evaluate(async () => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const was = VILLAGE_FROM, out = {};
+  VILLAGE_FROM = 0; localStorage.removeItem('vgClassic'); villageHomed = false;
+  window.setAccount(null); paintVillageBtn();
+  out.signedOut = { enter: !$('enterVillage').hidden, open: $('village').classList.contains('open') };
+  window.setAccount(em('Sifat')); paintVillageBtn();
+  out.signedIn = { open: $('village').classList.contains('open'), inVillage: document.body.classList.contains('in-village') };
+  villageApi.go('arena');
+  out.arena = { open: $('village').classList.contains('open'), atArena: document.body.classList.contains('at-arena') };
+  $('toVillage').click();
+  out.back = $('village').classList.contains('open');
+  villageApi.go('games');
+  out.games = $('chal').classList.contains('open'); $('chal').classList.remove('open');
+  localStorage.setItem('vgClassic', '1'); closeVillage(); villageHomed = false; paintVillageBtn();
+  out.classic = $('village').classList.contains('open');
+  localStorage.removeItem('vgClassic'); closeVillage(); window.setAccount(null); VILLAGE_FROM = was; paintVillageBtn();
+  return out;
+});
+assert.deepEqual(home.signedOut, { enter: true, open: false }, 'signed out should keep the cup page, with a way into the village');
+assert.deepEqual(home.signedIn, { open: true, inVillage: true }, 'signed in, the village should open by itself as home');
+assert.deepEqual(home.arena, { open: false, atArena: true }, 'the Arena should show the cup page with a way back');
+assert.ok(home.back, '← Village did not reopen the village');
+assert.ok(home.games, 'the Foosball hall did not open Challenges');
+assert.equal(home.classic, false, 'Classic view still opened the village');
+console.log('village home OK');
+
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
 server.close();

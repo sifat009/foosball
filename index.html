@@ -464,6 +464,7 @@
   /* today's coins hanging on the tree: pale while they ripen, gold and bobbing
      once they can be picked */
   .tree-pic { position: relative; flex: none; }
+  .tree-bank { flex-basis: 100%; margin-top: 8px; background: none; border: 0; padding: 4px 0; font: inherit; font-size: 0.8rem; font-weight: 700; color: #b8860b; cursor: pointer; text-align: left; }
   .tree-coins { position: absolute; inset: 0 0 18% 0; pointer-events: none; }
   .tree-coin { position: absolute; width: 11px; height: 11px; margin: -5px 0 0 -5px; border-radius: 50%;
     background: radial-gradient(circle at 34% 30%, #ffe9a8, #f0b429 58%, #c98a10);
@@ -1606,6 +1607,29 @@
     box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
   }
   #marketBtn:hover { color: #17854a; border-color: #b6e3c9; }
+  #villageBtn {
+    position: fixed; top: 156px; right: 18px; z-index: 5;
+    background: #fff; color: #5b6a7d; border: 1.5px solid #e2e8f1;
+    border-radius: 999px; padding: 9px 18px; font-family: inherit;
+    font-size: 0.82rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 4px 14px rgba(23,43,77,0.08); transition: color 0.15s, border-color 0.15s;
+  }
+  #villageBtn:hover { color: #b8860b; border-color: #f0d79a; }
+  /* the village is home: the page's tab bar and corner buttons step aside under it */
+  body.in-village #btnBar, body.in-village #coins, body.in-village #hallBtn, body.in-village #chalBtn,
+  body.in-village #marketBtn, body.in-village #villageBtn, body.in-village #authBtn, body.in-village #installBtn,
+  body.in-village #notifyBtn, body.in-village #resetBtn { display: none !important; }
+  /* the Arena is the page itself; this is the way back from it */
+  #toVillage { display: none; position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    z-index: 35; font: 700 1rem inherit; font-family: inherit; color: #fff; background: linear-gradient(#62b6ff, #2a6fd6);
+    border: 3px solid #1b1b1b; border-radius: 16px; padding: 12px 22px; box-shadow: 0 4px 0 #1b1b1b; cursor: pointer; }
+  body.at-arena #toVillage { display: block; }
+  body.at-arena #btnBar { display: none !important; }
+  .enter-village { display: block; margin: -10px auto 24px; font: inherit; font-weight: 800; font-size: 0.95rem; color: #fff;
+    background: linear-gradient(#8ee35a, #3ea21f); border: 3px solid #1b1b1b; border-radius: 16px; padding: 12px 22px;
+    box-shadow: 0 4px 0 #1b1b1b; cursor: pointer; }
+  .enter-village[hidden] { display: none; }
+  body.village-on #resetBtn { top: 202px; }
   /* one of your power-ups has under a day left */
   #marketBtn .mk-dot { display: none; width: 8px; height: 8px; border-radius: 50%; background: #d99a12; margin-left: 6px; vertical-align: 0.1em; }
   #marketBtn.due .mk-dot { display: inline-block; }
@@ -1985,7 +2009,7 @@
       bottom: calc(-10px - env(safe-area-inset-bottom));
       background: linear-gradient(to top, #e4eaf3 55%, rgba(228,234,243,0));
     }
-    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn, #chalBtn, #marketBtn {
+    #hallBtn, #resetBtn, #authBtn, #installBtn, #notifyBtn, #chalBtn, #marketBtn, #villageBtn {
       position: static; top: auto; right: auto; bottom: auto; left: auto;
       flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 4px;
@@ -2010,11 +2034,14 @@
     }
     #alerts .al-grip, #market .al-grip { display: block; }
     body.market-on #installBtn { display: none !important; }
+    /* five tabs: Alerts moves into Account (the profile) once Village shows */
+    body.village-on #notifyBtn { display: none !important; }
     #btnBar #marketBtn { position: relative; }
     #btnBar #marketBtn .mk-dot { position: absolute; top: 4px; left: 50%; margin-left: 6px; border: 2px solid #fff; width: 10px; height: 10px; }
     /* pressed state only — these are actions, not a "you are here" nav */
     #hallBtn:active, #resetBtn:active, #authBtn:active,
-    #installBtn:active, #notifyBtn:active, #chalBtn:active, #marketBtn:active { background: #eef2f8; }
+    #installBtn:active, #notifyBtn:active, #chalBtn:active, #marketBtn:active, #villageBtn:active { background: #eef2f8; }
+    #villageBtn:active { color: #b8860b; }
     #marketBtn:active { color: #17854a; }
     #chalBtn:active { color: #2563eb; }
     /* the count rides above the icon on a tab, not inline beside a label */
@@ -2056,9 +2083,11 @@
   body.booting #boot { display: block; }
   body.booting .screen, body.booting #viewBadge, body.booting #authBtn,
   body.booting #resetBtn, body.booting #hallBtn, body.booting #installBtn,
-  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar, body.booting #marketBtn,
+  body.booting #notifyBtn, body.booting #chalBtn, body.booting #btnBar, body.booting #marketBtn, body.booting #villageBtn,
   body.booting #coins { display: none !important; }
 </style>
+<!-- three.js for the Village tab, loaded only when it opens; pinned -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
 
@@ -2066,6 +2095,7 @@
      so there are no emoji anywhere and each icon inherits colour + size from its
      text. Line icons (stroke, 24px grid), styled by .ico in the stylesheet. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="i-castle" viewBox="0 0 24 24"><path d="M3 21V8l2.5-2 2.5 2v3h2V6l2-2 2 2v5h2V8l2.5-2L21 8v13z"/><path d="M10 21v-4a2 2 0 0 1 4 0v4"/></symbol>
   <symbol id="i-ball" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9.5"/><path d="M12 7.2l3.8 2.8-1.45 4.5h-4.7L7.2 10z"/><path d="M12 2.5v4.7M21 9.2l-4.4 1.3M18.4 19l-3.6-3.4M5.6 19l3.6-3.4M3 9.2l4.4 1.3"/></symbol>
   <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22"/><path d="M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"/></symbol>
@@ -2100,7 +2130,9 @@
     <span class="coin-plus" aria-hidden="true">+</span>
   </button>
 </div>
+<button id="toVillage" type="button">← Village</button>
 <div id="viewBadge"><svg class="ico"><use href="#i-eye"/></svg> Live standings — updating automatically</div>
+<button id="enterVillage" class="enter-village" type="button" hidden>Sign in to enter your village</button>
 <div id="boot">Loading the cup…</div>
 <!-- display:contents on desktop, so each button keeps its own fixed corner;
      on mobile the wrapper becomes the bottom tab bar. data-lbl is the short
@@ -2109,6 +2141,7 @@
 <div id="btnBar">
   <button id="hallBtn" data-lbl="Hall" aria-label="Hall of Fame"><svg class="ico"><use href="#i-trophy"/></svg><span class="lbl"> Hall of Fame</span></button>
   <button id="chalBtn" data-lbl="Games" aria-label="Challenges"><svg class="ico"><use href="#i-swords"/></svg><span class="lbl"> Challenges</span></button>
+  <button id="villageBtn" data-lbl="Village" aria-label="Your village" style="display:none"><svg class="ico"><use href="#i-castle"/></svg><span class="lbl"> Village</span></button>
   <button id="marketBtn" data-lbl="Market" aria-label="Market" style="display:none"><svg class="ico"><use href="#i-bag"/></svg><span class="lbl"> Market</span><span class="mk-dot" aria-hidden="true"></span></button>
   <button id="authBtn" data-lbl="Account"><svg class="ico"><use href="#i-user"/></svg><span class="lbl"> Sign in</span></button>
   <button id="resetBtn" data-lbl="Reset" style="display:none"><svg class="ico"><use href="#i-rotate"/></svg><span class="lbl"> Start Over</span></button>
@@ -2199,6 +2232,14 @@
       <div class="pr-h">Challenges</div>
       <div class="pr-stats" id="prChalStats"></div>
       <div class="pr-mate" id="prMate"></div>
+    </div>
+    <div id="prClassic" hidden>
+      <div class="pr-h">Village</div>
+      <button type="button" class="pr-tree" id="prClassicRow"></button>
+    </div>
+    <div id="prAlerts" hidden>
+      <div class="pr-h">Notifications</div>
+      <button type="button" class="pr-tree" id="prAlertsRow">Choose what pings this phone</button>
     </div>
     <div id="prTree" hidden>
       <div class="pr-h">Your tree</div>
@@ -2686,6 +2727,9 @@ Nur</textarea>
   </div>
 </div>
 
+<!-- the village: village-view.js fills it the first time it opens -->
+<div id="village" role="dialog" aria-label="Your village"></div>
+
 <!-- the market: power-ups for sale, players' and the bank's alike, and your own -->
 <div id="market">
   <div class="hall-card al-sheet">
@@ -2773,6 +2817,7 @@ Nur</textarea>
   </div>
 </div>
 
+<script src="village.js"></script>
 <script>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
@@ -3473,6 +3518,9 @@ function openProfile(name) {
   // numbers only, so innerHTML carries nothing a player typed
   // the photo, purse and sign-out belong to whoever is signed in on this phone
   const mine = name === myName(), free = mine ? myFree() : null;
+  $('prAlerts').hidden = !(mine && villageOpen());
+  $('prClassic').hidden = !(mine && villageOpen());
+  $('prClassicRow').textContent = classicView() ? 'Classic view is on. Tap to make the village home again' : 'Use Classic view: the old page instead of the village';
   $('prStats').innerHTML = stat(c.titles, 'Cups won') + stat(c.p || '—', 'Played')
     + stat(c.p ? Math.round(c.w / c.p * 100) + '%' : '—', 'Cup win rate')
     + stat(c.g || '—', 'Goals');
@@ -3867,7 +3915,9 @@ const chalToday = (rows, email, now = Date.now()) => !email ? 0 : Object.values(
 // extra games bought today, and Extra Games used: the walk counts both
 const slotsToday = (email, now = Date.now()) => !EMAIL_NAMES[email] ? 0
   : walkNow().bought[EMAIL_NAMES[email] + new Date(now).toDateString()] || 0;
-const dayCap = email => CH_DAILY + slotsToday(email);
+// plus the Stadium's free games, once the village is open
+const villageOf = email => EMAIL_NAMES[email] && walkNow().villages[EMAIL_NAMES[email]];
+const dayCap = email => CH_DAILY + slotsToday(email) + (villageOf(email) ? VILLAGE.games(villageOf(email)) : 0);
 const capMsg = () => myExtraGame() ? `You’ve played ${chalMax} challenges today. Use your Extra Game to play one more?`
   : `You’ve played ${chalMax} challenges today — seats open again tomorrow, or buy an extra game in the Market.`;
 // the one tap that turns that message into a seat: an Extra Game used on the spot
@@ -4157,6 +4207,12 @@ const DROP_EVERY = 5, DROP_HOLD = 3, AUTO_WATERS = 3, AUTO_HOUR = 9;
    before it drops nothing. */
 const MARKET_FROM = 1793469600000;
 const workday = d => !weekend(d) && !holiday(+d);
+/* The village (docs/superpowers/specs/2026-11-04-village-design.md). Its rules
+   live in village.js, shared with the relay and the tests. Nothing about it
+   exists before VILLAGE_FROM: set it to the moment piece 1 ships. Until then
+   only localhost has it, with ?village or ?play, against the emulators. */
+var VILLAGE_FROM = ['localhost', '127.0.0.1'].includes(location.hostname) && /[?&](play|village)\b/.test(location.search) ? 0 : VILLAGE.FROM;
+const VOPT = { isWorkday: d => workday(d), play: TREE_PLAY };
 /* The midnight that ends the nth workday from t's day, t's day counting as the
    first when it is one. A holiday added later moves it on by itself. */
 const workdaysEnd = (t, n) => {
@@ -4230,6 +4286,27 @@ const trackOf = m => trackMemo[m] || (trackMemo[m] = (() => {
   });
 })());
 
+/* A player's village as a raid sees it at t: what stands (built, earned by
+   then, the oak if alive) and where, from their last layout saved at or before
+   t, so a later move never changes an old raid. Ghosts are statues not yet won. */
+function villageHas(name, v, t, cups, alive) {
+  const c = career(name, (cups || []).filter(e => e && (e.date || 0) <= t));
+  const has = ['club', 'bank'];
+  if (alive) has.push('oak');
+  ['mine', 'stadium', 'barracks', 'cannon', 'cannon2', 'tower', 'tower2'].forEach(id => v.lvl[id] && has.push(id));
+  if (c.titles) has.push('trophy');
+  has.push('boot', 'glove');
+  return { has, ghosts: ['boot', 'glove'].filter(k => !c[k]), titles: c.titles || 0, boot: c.boot || 0, glove: c.glove || 0 };
+}
+const villageKey = email => email.replace(/\./g, ',');
+// the last layout saved at or before t, or null for the starting one
+function villageSave(email, t = Infinity) {
+  const saves = Object.values(((allVillages || {})[villageKey(email || '')] || {}).saves || {});
+  return saves.filter(x => x && +x.at <= t).sort((a, b) => a.at - b.at).pop() || null;
+}
+// a settled raid never changes, so its fight is worked out once per page
+const raidMemo = new Map();
+
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
 function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
@@ -4249,6 +4326,19 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
      player -> [{ id, type, until }] bought and not used. bankDay: player + day ->
      bank buys. autoW: player -> Auto Water waters still to come. */
   const oaks = {}, listings = {}, owned = {}, bankDay = {}, autoW = {};
+  // player -> their village, worked forward event by event like everything else
+  const villages = {};
+  const vil = (who, t) => villages[who] || (villages[who] = Object.assign(VILLAGE.fresh(), { t: Math.max(t, VILLAGE_FROM) }));
+  // raid row id -> the raid: who, on whom, what it's fought on, the drops so far, and once settled the result
+  const raids = {};
+  const emailOf = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const raidInput = (name, v, t, army) => {
+    const tr = treeAt(trees[name], t), h = villageHas(name, v, t, cups, !!tr);
+    const l = VILLAGE.place(h.has, villageSave(emailOf(name), t), v.pieces);
+    return VILLAGE.raidInput(v, l.pos, l.walls, h.ghosts, army);
+  };
+  // the Stadium's free games on top of the daily five, as the village stood at t
+  const vGames = (who, t) => { const v = t >= VILLAGE_FROM && villages[who]; if (!v) return 0; VILLAGE.advance(v, t, VOPT); return VILLAGE.games(v); };
   const fam = type => ITEMS[type] && FAMILIES[ITEMS[type].fam];
   const holds = (who, f, t) => (owned[who] || []).filter(x => x.until > t && ITEMS[x.type].fam === f).length;
   // an item of yours, unexpired, used the way it's for: taken off you, or null
@@ -4306,6 +4396,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (s.kind === 'bounty' && +s.at + BOUNTY_MS <= now) ev.push({ t: +s.at + BOUNTY_MS, expire: s });
     // so is a water's coins ripening, from AUTO_PICK_FROM: they land on their own
     if (s.kind === 'water' && +s.at >= AUTO_PICK_FROM && ripeAt(+s.at) <= now) ev.push({ t: ripeAt(+s.at), pick: s });
+    // and a raid's end, 90 s on, the last a drop can arrive
+    if (s.kind === 'raid' && +s.at + VILLAGE.SETTLE_MS <= now) ev.push({ t: +s.at + VILLAGE.SETTLE_MS, raidEnd: s.id || 'r' + s.at });
     // and the running cup's bets from before HOLD_FROM are taken at it
     if (s.kind === 'cupbet' && cutCup(s.cup) && +s.at < HOLD_FROM && HOLD_FROM <= now) ev.push({ t: HOLD_FROM, cutBet: s });
     // and so is the midnight after an extra game, which hands back one not played
@@ -4536,6 +4628,44 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
         ok.push(s);
         return;
       }
+      /* A raid: a ticket and an army, on somebody it's allowed on. It shields
+         them for 12 hours and ends the raider's own shield. */
+      if (s.kind === 'raid') {
+        const t = +s.at, them = EMAIL_NAMES[s.on];
+        if (who === undefined) return;
+        if (t < VILLAGE_FROM || them === undefined) return refuse(who, s, false);
+        const a = vil(who, t), b = vil(them, t);
+        VILLAGE.advance(a, t, VOPT); VILLAGE.advance(b, t, VOPT);
+        const no = VILLAGE.raidNo(a, b, t, who, them);
+        if (no) return refuse(who, s, false, no === 'shield' ? `${them} had a shield` : no);
+        a.tickets--; a.shield = 0; a.raided[them] = VILLAGE.dayKey(t); b.shield = t + VILLAGE.SHIELD_MS;
+        const rid = s.id || 'r' + s.at;
+        raids[rid] = { id: rid, by: who, on: them, at: t, input: raidInput(them, b, t, a.army), loot0: VILLAGE.lootable(b), drops: [], left: { ...a.army } };
+        note(who, 0, `Raided ${them}`, t);
+        ok.push(s);
+        return;
+      }
+      /* A drop counts if it's the raider's, inside the minute, saved within 90 s
+         of the raid, on a cell it may land on, with one of that kind left. */
+      if (s.kind === 'drop') {
+        const r = raids[s.raid], t = +s.at, x = +s.x / 10, z = +s.z / 10;
+        if (!r || r.by !== who || r.done || t > r.at + VILLAGE.SETTLE_MS || !(+s.t >= 0 && +s.t < VILLAGE.RAID_MS)) return;
+        if (!(r.left[s.u] > 0) || !VILLAGE.canDrop(r.input, x, z)) return;
+        r.left[s.u]--; villages[who].army[s.u] = Math.max(0, villages[who].army[s.u] - 1);
+        r.drops.push({ u: s.u, x, z, t: +s.t });
+        ok.push(s);
+        return;
+      }
+      // the village: priced and timed by village.js, paid here like anything else
+      if (VILLAGE.KINDS.includes(s.kind)) {
+        if (who === undefined) return;
+        if (+s.at < VILLAGE_FROM) return refuse(who, s, false, 'the village isn’t open yet');
+        const r = VILLAGE.act(vil(who, +s.at), s, bal[who], VOPT);
+        if (r.no) return refuse(who, s, !!r.short, r.no);
+        move(who, -r.cost, r.why, s.at);
+        ok.push(s);
+        return;
+      }
       const to = EMAIL_NAMES[s.to];
       // a gift or bounty needs somebody on the list at the other end, and not you
       if (who === undefined) return;
@@ -4559,11 +4689,28 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       const who = EMAIL_NAMES[e.by], k = who + e.day, n = bought[k] || 0;
       const games = (rows || []).filter(c => chalDone(c) && new Date(chalAt(c)).toDateString() === e.day
         && SEATS.some(([x]) => c.slots && c.slots[x] && c.slots[x].email === e.by)).length;
-      const back = Math.min(n, CH_DAILY + n - games);
+      const back = Math.min(n, CH_DAILY + vGames(who, e.t) + n - games);
       if (who === undefined || back <= 0) return;
       bought[k] = n - back; // a game agreed late for that day can't use one handed back
       move(who, extraPaid[k].splice(-back).reduce((a, b) => a + b, 0),
         back > 1 ? `${back} extra games not played` : 'Extra game not played', e.t);
+      return;
+    }
+    /* A raid settles: the fight from its drops, then the loot out of the Bank,
+       never more than is still in it, into the raider's balance. */
+    if (e.raidEnd) {
+      const r = raids[e.raidEnd];
+      if (!r) return;
+      const key = r.id + ':' + r.drops.length;
+      const res = raidMemo.get(key) || VILLAGE.fight(r.input, r.drops);
+      raidMemo.set(key, res);
+      const b = vil(r.on, e.t);
+      VILLAGE.advance(b, e.t, VOPT);
+      const loot = Math.min(Math.floor(r.loot0 * res.bank), Math.floor(b.bank));
+      b.bank -= loot;
+      Object.assign(r, { done: true, res, loot });
+      move(r.by, loot, `Raid on ${r.on}: ${res.stars} star${res.stars === 1 ? '' : 's'}, ${Math.round(res.pct * 100)}%`, e.t);
+      note(r.on, 0, `${r.by} raided your village and took ${loot} from your Bank`, e.t);
       return;
     }
     if (e.expire) { // nobody beat them: the creator has it back
@@ -4574,7 +4721,14 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     if (e.pick) { // only the water that stood, and only once
       const who = EMAIL_NAMES[e.pick.by], tr = trees[who];
       if (!tr || tr.at !== +e.pick.at || tr.got) return;
-      move(who, tr.pay, 'Collected from your tree', e.t); tr.got = true;
+      // from VILLAGE_FROM the coins land in the Bank, over its cap if need be
+      if (e.t >= VILLAGE_FROM) {
+        const v = vil(who, e.t);
+        VILLAGE.advance(v, e.t, VOPT);
+        v.bank += tr.pay;
+        note(who, 0, `Your tree paid ${tr.pay} into your Bank`, e.t);
+      } else move(who, tr.pay, 'Collected from your tree', e.t);
+      tr.got = true;
       picked[who] = (picked[who] || 0) + tr.pay;
       return hit(who, { k: 'collect' }, e.t);
     }
@@ -4640,7 +4794,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
        opened, it pays nothing and takes nothing, and doesn't use up anyone's. */
     const all = e.up.concat(e.down);
     if (e.day) {
-      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0)))
+      if (all.some(n => (played[n + e.day] || 0) >= CH_DAILY + (bought[n + e.day] || 0) + vGames(n, e.t)))
         return all.forEach(n => note(n, 0, 'A challenge past the day’s game limit paid nothing', e.t));
       all.forEach(n => { played[n + e.day] = (played[n + e.day] || 0) + 1; });
     }
@@ -4670,6 +4824,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const game = (n, side, vs) => `${side} with ${side === 'Won' ? e.up.find(m => m !== n) : e.down.find(m => m !== n)} vs ${vs.join(' & ')}`
       + (paid ? `, bet ${e.bet}` : '') + (e.nil ? ', to nil' : '');
     e.up.forEach(n => move(n, back + (paid ? e.bet : COIN_WIN) * x, game(n, 'Won', e.down), e.t));
+    // a win that pays is a raid ticket, up to three held
+    if (e.t >= VILLAGE_FROM) e.up.forEach(n => { const v = vil(n, e.t); v.tickets = Math.min(VILLAGE.TICKETS, v.tickets + 1); });
     // a free loss costs nothing, unless it was to nil — then the two a win pays
     const cost = (paid ? e.bet * x : e.nil ? COIN_WIN : 0) - back;
     e.down.forEach(n => move(n, -Math.min(bal[n], cost), game(n, 'Lost', e.up), e.t));
@@ -4736,7 +4892,11 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     bankToday: Object.fromEntries(Object.values(EMAIL_NAMES).map(n => [n, !!bankDay[n + isoDay(now)]])),
     autoW,
   };
-  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought };
+  // every village as of now; everyone on the list has one once it's open
+  const villagesNow = {};
+  if (now >= VILLAGE_FROM) Object.keys(bal).forEach(n => { villagesNow[n] = VILLAGE.at(vil(n, now), now, VOPT); });
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought, villages: villagesNow,
+    raids: Object.values(raids).sort((a, b) => a.at - b.at) };
 }
 // what a spend row was for, in a history line that says it didn't go through
 const spendWhat = s => ({
@@ -4746,6 +4906,8 @@ const spendWhat = s => ({
   flair: iconOf(s.item) ? 'An icon' : 'A name colour', skip: 'Skip a track stage',
   claim: (cards[s.card] || {}).title || 'A card',
   list: 'Put a power-up on sale', unlist: 'Take a power-up off sale', buy: 'Buy at the market', use: 'Use a power-up',
+  vbuild: `Build a ${((VILLAGE.B[s.item] || {}).name || 'building').toLowerCase()}`, vup: `Upgrade your ${((VILLAGE.B[s.item] || {}).name || 'building').toLowerCase()}`,
+  vwall: 'Buy wall pieces', vcollect: 'Collect from your Bank', train: 'Train an army', dismiss: 'Remove troops', raid: `Raid ${EMAIL_NAMES[s.on] || 'a village'}`, drop: 'A drop',
 })[s.kind] || 'A spend';
 const coins = (rows, cups, spends) => coinWalk(rows, cups, spends).bal;
 window.coins = coins;
@@ -5136,7 +5298,7 @@ function treeRow(me, bal, sheet) {
   } else {
     const done = part('tree-done', '', 'span');
     done.innerHTML = TICK;
-    done.append(t.got ? 'Collected' : 'Planted');
+    done.append(t.got ? (villageOpen() ? 'In your Bank' : 'Collected') : 'Planted');
     row.append(done);
   }
   /* the four stages as a path under the tree: where it is, and the next one,
@@ -5153,6 +5315,13 @@ function treeRow(me, bal, sheet) {
       path.append(c);
     });
     row.append(path);
+  }
+  // once the village is open the tree pays into the Bank there: say so, and link it
+  if (sheet && t && villageOpen()) {
+    const go = part('tree-bank', 'Pays into your Bank · Open your village ›', 'button');
+    go.type = 'button';
+    go.onclick = () => { $('coinInfo').classList.remove('open'); openVillage(); };
+    row.append(go);
   }
   return row;
 }
@@ -5727,7 +5896,7 @@ function flyCoins(coins, total, start) {
   });
   return true;
 }
-window.renderSpends = v => { allSpends = v || {}; spendsIn = true; renderChal(); };
+window.renderSpends = v => { allSpends = v || {}; spendsIn = true; renderChal(); villageView && villageView.update(); };
 
 /* ---- the market ----
    What's on sale and what you hold, from the walk; set where the flair is. A
@@ -5776,6 +5945,7 @@ function renderMarket() {
   const me = myName(), now = Date.now(), box = $('mkBody'), sale = $('mkSale'), btn = $('marketBtn');
   btn.style.display = me ? '' : 'none';
   document.body.classList.toggle('market-on', !!me);
+  paintVillageBtn();
   const mine = me ? myOwned() : [];
   btn.classList.toggle('due', mine.some(x => x.until - now < 864e5));
   if (sale.contains($('spend'))) $('coinSpend').prepend($('spend')); // or the redraw takes it with it
@@ -6914,6 +7084,118 @@ window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate 
 $('chalBtn').addEventListener('click', closeChalForm);
 /* The card is the only way into the sheet — it has no toolbar button, the way the
    profile has none. Keyboard too: it is a role=button, so it has to answer one. */
+/* The Village tab. village-view.js and three.js load the first time it opens.
+   `api` is everything the view may know or do: the walk's answer for this
+   player, their saved layout, a spend row, a layout save. */
+var allVillages = {}, villageView = null;
+function villageOpen() { return !!myName() && Date.now() >= VILLAGE_FROM; }
+/* Classic view: today's page instead of the village, per phone. Off, the
+   village is home for anyone signed in, and opens by itself once a session. */
+const classicView = () => { try { return localStorage.getItem('vgClassic') === '1'; } catch { return false; } };
+var villageHomed = false;
+function paintVillageBtn() {
+  const on = villageOpen();
+  $('villageBtn').style.display = on ? '' : 'none';
+  document.body.classList.toggle('village-on', on);
+  // signed out, with the village live: the cup as ever, and a way in
+  $('enterVillage').hidden = on || !!myName() || Date.now() < VILLAGE_FROM;
+  if (!on) { villageHomed = false; if ($('village').classList.contains('open')) closeVillage(); return; }
+  if (!villageHomed && !classicView()) { villageHomed = true; openVillage(); }
+}
+$('enterVillage').onclick = () => $('authBtn').click();
+$('prClassicRow').onclick = () => {
+  try { localStorage.setItem('vgClassic', classicView() ? '0' : '1'); } catch {}
+  $('profile').classList.remove('open');
+  if (classicView()) closeVillage(); else openVillage();
+};
+// the Arena is the cup page itself: the village steps away, with a button back
+function villageArena() { closeVillage(); document.body.classList.add('at-arena'); window.scrollTo(0, 0); }
+$('toVillage').onclick = () => openVillage();
+/* One player's village as the view draws it: levels, what stands, where (their
+   last save), and what they've won. `w` is a walk already worked out. */
+const villageLook = (w, name, now) => {
+  const v = w.villages[name], email = Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === name);
+  if (!v) return null;
+  const tree = w.trees[name] || null, h = villageHas(name, v, now, hallEntries, !!tree);
+  return { name, email, v, tree, has: h.has, ghosts: h.ghosts, titles: h.titles, boot: h.boot, glove: h.glove, saved: villageSave(email) };
+};
+const villageApi = {
+  opts: VOPT,
+  state() {
+    const me = myName(), now = Date.now();
+    if (!villageOpen()) return null;
+    const w = walkNow(), mine = villageLook(w, me, now);
+    if (!mine) return null;
+    // everyone else, for the Raid list: why not, and what could be taken
+    const others = Object.values(EMAIL_NAMES).filter((n, i, a) => a.indexOf(n) === i && n !== me && w.villages[n]).map(n => ({
+      name: n, lvl: w.villages[n].lvl.club, loot: VILLAGE.lootable(w.villages[n]), shield: w.villages[n].shield,
+      no: VILLAGE.raidNo(w.villages[me], w.villages[n], now, me, n) }));
+    const raids = w.raids.filter(r => r.by === me || r.on === me);
+    const tk = w.track[me], stage = tk && tk.month === monthOf(now) ? tk.stage : 0;
+    const open = +($('chalBtn').dataset.n || 0);
+    const town = { games: open ? `${open} open` : '', market: $('marketBtn').classList.contains('due') ? 'Ends soon' : '',
+      notice: monthOf(now) >= TRACK_FROM && stage < 10 ? `Stage ${stage + 1}/10` : '',
+      arena: lastCup && lastCup.screen === 'draw' ? 'Draft on' : lastCup && lastCup.screen === 'tourney' ? 'Live' : '' };
+    const live = lastCup && lastCup.screen === 'draw' ? 'The Cup draft is on' : lastCup && lastCup.screen === 'tourney' ? (koStarted ? 'Cup · knockout' : 'Cup · group stage') : '';
+    return { ...mine, me, now, bal: w.bal[me] || 0, others, raids, look: n => villageLook(w, n, now), town, live };
+  },
+  spend: row => window.spendCoins({ ...row, by: acctEmail }),
+  // a raid row, handing back its id at once so its drops can name it
+  raid: name => window.spendKeyed({ kind: 'raid', on: Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === name), by: acctEmail }),
+  drop: (raid, u, x, z, t) => window.spendKeyed({ kind: 'drop', raid, u, x: Math.round(x * 10), z: Math.round(z * 10), t, by: acctEmail }),
+  // what the raid on `name` is fought on, worked out now the way the walk will
+  raidInput(name) {
+    const w = walkNow(), now = Date.now(), them = villageLook(w, name, now);
+    const l = VILLAGE.place(them.has, them.saved, them.v.pieces);
+    return VILLAGE.raidInput(them.v, l.pos, l.walls, them.ghosts, w.villages[myName()].army);
+  },
+  save: data => window.saveVillage(acctEmail, data),
+  isHome: () => !classicView(),
+  // a town building, the Bank or the Clubhouse: the app's own screen, opened over the village
+  go(k) {
+    if (k === 'arena') return villageArena();
+    if (k === 'games') return $('chalBtn').click();
+    if (k === 'hall') return $('hallBtn').click();
+    if (k === 'market') return $('marketBtn').click();
+    if (k === 'coins') return openCoins();
+    if (k === 'track') { openCoins(); return document.querySelector('.coin-tabs [data-pane="coinTrack"]')?.click(); }
+    if (k === 'toss') return document.querySelector('.toss-btn')?.click();
+    if (k === 'profile') return window.openProfile && window.openProfile(myName());
+    if (k === 'alerts') return $('notifyBtn').click();
+    if (k === 'raids') return villageView && villageView.log();
+  },
+  close: () => closeVillage(),
+  openTree: () => openCoins(),
+  openGames: () => $('chalBtn').click(),
+};
+async function openVillage() {
+  if (!villageOpen()) return;
+  $('village').classList.add('open');
+  document.body.classList.remove('at-arena');
+  document.body.classList.toggle('in-village', !classicView());
+  document.body.style.overflow = 'hidden';
+  if (villageView) return villageView.show();
+  try {
+    const m = await import('./village-view.js');
+    villageView = m.mount($('village'), villageApi);
+    // a push names where it should land: ?go=games, arena, raids, coins…
+    const go = new URLSearchParams(location.search).get('go');
+    if (go) { history.replaceState(null, '', location.pathname + location.search.replace(/[?&]go=[^&]*/, '').replace(/^&/, '?')); setTimeout(() => villageApi.go(go), 600); }
+  } catch (err) {
+    console.error('[village] load failed:', err);
+    $('village').innerHTML = '<div class="vg-load" style="position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:700;padding:24px;text-align:center">Couldn’t load the village. Check your connection and try again.</div>';
+    villageView = null;
+  }
+}
+function closeVillage() {
+  $('village').classList.remove('open');
+  document.body.classList.remove('in-village');
+  document.body.style.overflow = '';
+  if (villageView) villageView.hide();
+}
+$('villageBtn').onclick = openVillage;
+$('prAlertsRow').onclick = () => { $('profile').classList.remove('open'); $('notifyBtn').click(); };
+window.renderVillages = v => { allVillages = v || {}; villageView && villageView.update(); };
 const openCoins = () => {
   // the tree's page and a stop tapped last time both go back to where you are
   if (treeOpen || trackSel !== null || trackAsk) { treeOpen = false; trackSel = null; trackAsk = false; renderCoins(); }
@@ -9369,11 +9651,22 @@ onValue(ref(db, 'challenges'), snap => window.renderChallenges(snap.val() || {})
 /* Spends are append-only and stamped by the server: the walk orders on `at`,
    and a buyer who could set it could date a gift to before the game they lost
    the coins in. The rules insist on `now`. */
+// a spend whose id is needed straight away (a raid, so its drops can name it)
+window.spendKeyed = row => {
+  const r = push(ref(db, 'spends'), { ...row, at: serverTimestamp() });
+  r.catch(err => console.error('[spend] write rejected:', err));
+  return { key: r.key, done: r };
+};
 window.spendCoins = row => push(ref(db, 'spends'), { ...row, at: serverTimestamp() })
   .catch(err => {
     console.error('[spend] write rejected:', err);
     alert('Could not spend those coins: ' + err.message);
   });
+// the village layout: only where things stand, owner-written, everyone may read
+// a layout save is a new entry in the player's history, stamped by the server
+window.saveVillage = (email, data) => push(ref(db, 'villages/' + playerKey(email) + '/saves'), { ...data, at: serverTimestamp() });
+onValue(ref(db, 'villages'), snap => window.renderVillages(snap.val() || {}),
+  err => console.error('[villages] read failed:', err));
 onValue(ref(db, 'spends'), snap => window.renderSpends(snap.val() || {}),
   err => console.error('[spend] read failed:', err));
 

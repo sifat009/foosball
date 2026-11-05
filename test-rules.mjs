@@ -486,6 +486,55 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('giftSeen/' + uid(B1), B2, 9), 'a player marked somebody else’s gifts opened');
   assert.ok(!await put('giftSeen/' + uid(B1), B1, 9999999999999), 'a gift was marked opened in the future');
 }
+// ---- the village ----
+{
+  const NOW = { '.sv': 'timestamp' };
+  const sp = (by, extra) => ({ by, at: NOW, ...extra });
+  assert.ok(await put('spends/v1', B1, sp(B1, { kind: 'vbuild', item: 'mine' })), 'a player could not build a mine');
+  assert.ok(await put('spends/v2', B1, sp(B1, { kind: 'vup', item: 'club' })), 'a player could not upgrade');
+  assert.ok(await put('spends/v2b', B1, sp(B1, { kind: 'vbuild', item: 'cannon2' })), 'a player could not build a second cannon');
+  assert.ok(await put('spends/v2c', B1, sp(B1, { kind: 'vup', item: 'barracks' })), 'a player could not upgrade a Barracks');
+  assert.ok(await put('spends/v3', B1, sp(B1, { kind: 'vwall', n: 5 })), 'a player could not buy wall pieces');
+  assert.ok(await put('spends/v4', B1, sp(B1, { kind: 'vcollect' })), 'a player could not collect');
+  assert.ok(!await put('spends/v5', B1, sp(B1, { kind: 'vbuild', item: 'club' })), 'a Clubhouse was bought');
+  assert.ok(!await put('spends/v6', B1, sp(B1, { kind: 'vup', item: 'oak' })), 'an earned building was upgraded');
+  assert.ok(!await put('spends/v7', B1, sp(B1, { kind: 'vwall', n: 51 })), 'more than 50 wall pieces at once');
+  assert.ok(!await put('spends/v8', B1, sp(B1, { kind: 'vwall', n: 0 })), 'nought wall pieces');
+  assert.ok(!await put('spends/v9', B1, sp(B1, { kind: 'vup' })), 'an upgrade of nothing');
+
+  // raids: training, the raid, its drops
+  assert.ok(await put('spends/r1', B1, sp(B1, { kind: 'train', u: 'b' })), 'a player could not train');
+  assert.ok(!await put('spends/r2', B1, sp(B1, { kind: 'train', u: 'x' })), 'an unknown attacker was trained');
+  assert.ok(await put('spends/r2b', B1, sp(B1, { kind: 'dismiss', u: 'b', n: 1 })), 'a player could not remove a troop');
+  assert.ok(!await put('spends/r2c', B1, sp(B1, { kind: 'dismiss', u: 'b', n: 21 })), 'more than an army was removed at once');
+  assert.ok(!await put('spends/r2d', B1, sp(B1, { kind: 'dismiss', u: 'b' })), 'a removal of no number');
+  assert.ok(await put('spends/r3', B1, sp(B1, { kind: 'raid', on: R1 })), 'a player could not raid');
+  assert.ok(!await put('spends/r4', B1, sp(B1, { kind: 'raid', on: B1 })), 'a player raided themselves');
+  assert.ok(await put('spends/r5', B1, sp(B1, { kind: 'drop', raid: 'r3', u: 'a', x: 15, z: 190, t: 59900 })), 'a drop was refused');
+  assert.ok(!await put('spends/r6', B1, sp(B1, { kind: 'drop', raid: 'r3', u: 'b', x: 15, z: 200, t: 0 })), 'a drop off the plot');
+  assert.ok(!await put('spends/r7', B1, sp(B1, { kind: 'drop', raid: 'r3', u: 'b', x: 15, z: 10, t: 60000 })), 'a drop after the minute');
+  assert.ok(!await put('spends/r8', B1, sp(B1, { kind: 'drop', raid: 'r3', u: 'b', x: 1.5, z: 10, t: 0 })), 'a drop between tenths');
+  assert.ok(!await put('spends/r9', B1, sp(B1, { kind: 'drop', raid: 'r3', u: 'b', x: 15, z: 10 })), 'a drop with no time');
+
+  // layouts: a history only ever added to, by its owner
+  const key = B1.replace(/\./g, ',');
+  const save = { at: NOW, layout: { club: { x: 8, z: 8 }, bank: { x: 12, z: 8 }, cannon: { x: 3, z: 3 } }, walls: { '7_7': true, '19_0': true } };
+  assert.ok(await put(`villages/${key}/saves/a`, B1, save), 'a player could not save their layout');
+  assert.ok(!await put(`villages/${key}/saves/a`, B1, save), 'a saved layout was overwritten');
+  assert.ok(!await del(`villages/${key}/saves/a`, B1), 'a saved layout was deleted');
+  assert.ok(!await put(`villages/${key}/saves/b`, B2, save), 'a player saved somebody else’s layout');
+  assert.ok(!await put(`villages/${key}/saves/c`, OUT, save), 'a stranger saved a layout');
+  assert.ok(!await put(`villages/${key}/saves/d`, B1, { ...save, at: 5 }), 'a save was backdated');
+  assert.ok(!await put(`villages/${key}/saves/e`, B1, { ...save, layout: { club: { x: 20, z: 0 } } }), 'a building was put off the plot');
+  assert.ok(!await put(`villages/${key}/saves/f`, B1, { ...save, layout: { club: { x: 1.5, z: 0 } } }), 'a building was put between cells');
+  assert.ok(!await put(`villages/${key}/saves/g`, B1, { ...save, layout: { castle: { x: 1, z: 1 } } }), 'an unknown building was placed');
+  assert.ok(!await put(`villages/${key}/saves/h`, B1, { ...save, walls: { '20_1': true } }), 'a wall was put off the plot');
+  assert.ok(!await put(`villages/${key}/saves/i`, B1, { ...save, coins: 9 }), 'a save carried something else');
+  assert.ok(!await put(`villages/${key}/coins`, B1, 99), 'a village held coins');
+  assert.ok(!await put(`villages/${key}`, B1, { saves: {} }), 'a village’s history was wiped');
+  assert.ok(await send('GET', 'villages/' + key, OUT), 'a village could not be looked at');
+}
+
 // the rules carry their own copy of EMAIL_NAMES — they can't read the page — so
 // adding a player means both; this fails the moment the two drift apart
 {

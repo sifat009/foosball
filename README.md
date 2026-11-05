@@ -541,6 +541,36 @@ deployed page never takes that branch.
 Push is the exception: there is no FCM emulator, so notifications only really
 happen against the live project with the relay running.
 
+### Trying the village locally
+
+The village is shut on the live site until `VILLAGE.FROM` in `village.js` is
+set to the moment it ships. On localhost it opens with `?village`, or with
+`?play`, which also speeds things up so a round takes minutes: an upgrade hour
+is 10 seconds, a mine's workday is 90 seconds, and every day is a workday.
+
+```
+firebase emulators:start --only auth,database   # terminal 1
+python3 -m http.server 8080                     # terminal 2, from the repo
+node seed-local.mjs                             # once the emulator is up: a 200-coin card
+```
+
+Then open <http://localhost:8080/?play>. Sign in from the account tab, and in
+the emulator's picker choose **Add new account** with an address from
+`EMAIL_NAMES` (any other address can't play). The **Test coins** card pops up;
+claim it, then open **Village**.
+
+The seed also records five finished games, so `rifathaque93@gmail.com` and
+`nuralam862@gmail.com` hold 3 raid tickets and `sajeeb.ollyo@gmail.com` and
+`siddikcoder@gmail.com` hold 2 (a ticket only comes from a real win). To try a
+raid: build a Barracks, train Soldiers (10 seconds a batch under `?play`), tap
+**Raid**, **Look** at someone, **Attack**, then tap round the edge of their
+village to drop. A raid settles 90 seconds after it starts. A raided player is
+shielded for 12 hours, and nobody can raid the same person twice in a day, so
+spread raids across the accounts. To be a second player, open the same URL in a
+private window, or another browser, and add a different address. Everything
+is shared through the emulator, so both see each other's coins move. Run
+`seed-local.mjs` again after restarting the emulator, which forgets everything.
+
 ## Push notifications
 
 Ten things reach a phone: a group match recorded, a knockout match decided, the
@@ -620,8 +650,9 @@ curl -fsSLO https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-arm64.tar.xz
 tar xf node-v20.18.1-linux-arm64.tar.xz && mv node-v20.18.1-linux-arm64 node
 ```
 
-Copy `relay/*.mjs`, `relay/package.json` and the service-account JSON (as
-`sa.json`) into that directory, then:
+Copy `relay/*.mjs`, `relay/package.json`, `village.js` (from the repo root: the
+relay shares the village's rules with the page) and the service-account JSON
+(as `sa.json`) into that directory, then:
 
 ```
 ./node/bin/node test-relay.mjs                              # "ok"
@@ -876,3 +907,7 @@ these by hand after deploying:
 - Past Champions is an overlay, not one of the `.screen` divs. `applyState()`
   calls `show()` on every remote snapshot, so a screen would close itself the
   moment the admin scored a match.
+
+## Credits
+
+The village's 3D models (`models/`) are from [Kenney](https://kenney.nl), CC0.

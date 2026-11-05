@@ -1,7 +1,7 @@
 /* node relay/test-relay.mjs — no database, no key, no network. */
 import assert from 'node:assert';
 import { delayFor, recipients, sugReady, sugText, resText, sugApprovers, sugId, chalNews, chalSeats, chalScored,
-  chalClaim, chalClaimId, chalOthers, treesOf, thirsty, nextRemind, ripeAt } from './relay.mjs';
+  chalClaim, chalClaimId, chalOthers, treesOf, thirsty, nextRemind, ripeAt, villagesOf, fullAt, builtText, raidsDue, linkFor } from './relay.mjs';
 
 const NOW = 1_700_000_000_000;
 
@@ -233,5 +233,31 @@ assert.deepEqual(thirsty(treesOf(planted, at(27), hols), at(27), hols), []);
 assert.deepEqual(treesOf(planted, at(29)), {});
 assert.equal(treesOf(planted, at(29), hols)[me].stage, 0);
 assert.equal(nextRemind(at(26, 12), hols), at(28, 11)); // Monday afternoon, Tuesday off -> Wednesday
+
+// ---- villages: the build in hand and when the Bank fills, on the page's numbers ----
+{
+  const mon = +new Date(2026, 10, 2), H = 36e5, by = 'a@x.com';
+  const sp = (h, extra) => ({ by, at: mon + h * H, ...extra });
+  const rows = { a: sp(8, { kind: 'vbuild', item: 'mine' }), b: sp(8.5, { kind: 'vup', item: 'club' }) };
+  assert.deepEqual(villagesOf(rows, mon + 9 * H), {}, 'a village before it opens'); // FROM is still far off
+  const vs = villagesOf(rows, mon + 9 * H, {}, 0);
+  assert.equal(vs[by].building.item, 'club');
+  assert.equal(vs[by].building.done, mon + 9.5 * H);
+  assert.equal(builtText(vs[by].building), 'Your Clubhouse is level 2');
+  // finished, then a level 1 mine at 3 a workday fills a 10-coin Bank on Wednesday afternoon
+  const v = villagesOf(rows, mon + 10 * H, {}, 0)[by];
+  assert.equal(v.building, null);
+  const full = fullAt(v, mon + 10 * H);
+  assert.equal(new Date(full).getDay(), 4, 'the Bank should fill on Thursday'); // 3 a day from Monday 10:00: 2.67 + 3 + 3 = 8.67 by Wed night
+  assert.equal(fullAt(villagesOf({ a: rows.a }, mon + 10 * H, {}, 0)[by], mon + 10 * H, { '2026-11-03': '2026-11-06' }), mon + (9 * 24 + 12) * H, 'holidays should push it to Wednesday week');
+  assert.equal(fullAt(villagesOf({}, mon, {}, 0)[by] || { lvl: { mine: 0, bank: 1 }, bank: 0 }, mon), null);
+  // a raid still settling is due 90 s after it started; one already settled isn't
+  const raids = { r1: { kind: 'raid', by, on: 'b@x.com', at: mon }, r2: { kind: 'raid', by, on: 'c@x.com', at: mon - 2e5 } };
+  assert.deepEqual(raidsDue(raids, mon + 1e3, 0), [{ id: 'r1', on: 'b@x.com', by, at: mon + 9e4 }]);
+  // pushes open the building they're about
+  assert.equal(linkFor('https://x.io/f/', 'challenge'), 'https://x.io/f/?go=games');
+  assert.equal(linkFor('https://x.io/f/', 'raid'), 'https://x.io/f/?go=raids');
+  assert.equal(linkFor('https://x.io/f/', 'tree'), 'https://x.io/f/');
+}
 
 console.log('ok');

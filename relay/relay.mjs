@@ -232,6 +232,46 @@ export const nextRemind = (now = Date.now(), hols = {}) => {
   return +d;
 };
 
+/* The village (village.js, shared with the page): two pings to the owner alone,
+   when an upgrade finishes and when the Bank fills. The relay has no balances,
+   so it takes every village row as paid. ponytail: a row the page would have
+   refused for want of coins can ping wrongly; the page never sends one. */
+const { existsSync } = await import('node:fs');
+await import(existsSync(new URL('./village.js', import.meta.url)) ? './village.js' : '../village.js');
+const V = globalThis.VILLAGE;
+const vOpts = hols => ({ isWorkday: d => !offDay(+d) && !holiday(+d, hols), play: false });
+// email -> their village as of now; nothing before the village opens
+export const villagesOf = (spends, now = Date.now(), hols = {}, from = V.FROM) => {
+  if (now < from) return {};
+  const o = vOpts(hols), vs = {};
+  Object.values(spends || {}).filter(s => s && s.by && +s.at >= from && V.KINDS.includes(s.kind))
+    .sort((a, b) => a.at - b.at)
+    .forEach(s => V.act(vs[s.by] || (vs[s.by] = Object.assign(V.fresh(), { t: +s.at })), s, Infinity, o));
+  return Object.fromEntries(Object.entries(vs).map(([e, v]) => [e, V.at(v, now, o)]));
+};
+// the hour a village's Bank reaches its cap, looking a fortnight ahead; null if it won't
+export const fullAt = (v, now = Date.now(), hols = {}) => {
+  const o = vOpts(hols), need = V.cap(v) - v.bank;
+  if (!V.perDay(v) || need <= 0 || v.building) return null; // a build changes the numbers: wait for it
+  let got = 0;
+  for (let t = now; t < now + 14 * 864e5; t += 36e5) {
+    got += V.mined(V.perDay(v), t, t + 36e5, o.isWorkday);
+    if (got >= need - 1e-9) return t + 36e5;
+  }
+  return null;
+};
+/* Where a push opens: the app's ?go= names the village building to land on,
+   so a lobby filling opens the Foosball hall and a cup result the Arena. */
+export const GO = { challenge: 'games', bet: 'games', suggest: 'arena', result: 'arena', raid: 'raids' };
+export const linkFor = (site, kind) => GO[kind] ? site + (site.includes('?') ? '&' : '?') + 'go=' + GO[kind] : site;
+export const builtText = b => `Your ${V.B[b.item].name} is level ${b.lvl}`;
+/* Raids still to settle, from now: the victim hears when theirs does. The relay
+   doesn't simulate the fight (it has no balances to vet the raid with), so the
+   push sends them to the replay rather than naming the coins. */
+export const raidsDue = (spends, now = Date.now(), from = V.FROM) => Object.entries(spends || {})
+  .filter(([, s]) => s && s.kind === 'raid' && s.on && +s.at >= from && +s.at + V.SETTLE_MS > now)
+  .map(([id, s]) => ({ id, on: s.on, by: s.by, at: +s.at + V.SETTLE_MS }));
+
 async function main() {
   // the tree's day ends at the office's midnight, not the VM's
   process.env.TZ = process.env.TZ || 'Asia/Dhaka';
@@ -281,7 +321,7 @@ async function main() {
       webpush: {
         headers: { Urgency: 'high' },
         notification: { icon: new URL('icons/icon-192.png', SITE_URL).href },
-        fcmOptions: { link: SITE_URL },
+        fcmOptions: { link: linkFor(SITE_URL, kind) },
       },
     });
     console.log(`[send] ${title} -> ${res.successCount}/${list.length}`);
@@ -394,13 +434,45 @@ async function main() {
       if (armed) clearTimeout(armed[1]);
       ripeTimers.set(email, [tr.ripe, setTimeout(() => {
         ripeTimers.delete(email);
-        const auto = tr.ripe >= AUTO_PICK_FROM;
+        const auto = tr.ripe >= AUTO_PICK_FROM, bank = tr.ripe >= V.FROM;
         send(auto ? 'Your tree paid out' : 'Coins are ripe',
-          auto ? 'Today’s coins are in your balance.' : 'Your tree is ready — collect before midnight or they drop.',
+          bank ? 'Today’s coins are in your Bank. Collect them in your village.'
+            : auto ? 'Today’s coins are in your balance.' : 'Your tree is ready — collect before midnight or they drop.',
           false, 'tree', null, [email]).catch(e => console.error('[send] failed:', e));
       }, tr.ripe - Date.now())]);
     });
   });
+  /* Villages: a timer per player for the build in hand and one for the Bank
+     filling, re-armed on every change to /spends. A Bank-full ping goes at
+     most once a day each. */
+  const builtTimers = new Map(), fullTimers = new Map(), fullSent = new Map();
+  const arm = (map, email, when, fire) => {
+    const was = map.get(email);
+    if (was && was[0] === when) return;
+    if (was) clearTimeout(was[1]);
+    if (!when || when <= Date.now()) return map.delete(email);
+    // ponytail: setTimeout caps at ~24.8 days; a fortnight's look-ahead stays under it
+    map.set(email, [when, setTimeout(() => { map.delete(email); fire(); }, when - Date.now())]);
+  };
+  const villages = () => Object.entries(villagesOf(spends, Date.now(), holidays)).forEach(([email, v]) => {
+    const b = v.building;
+    arm(builtTimers, email, b && b.done, () => send(builtText(b), 'Tap to see it in your village.', false, 'tree', null, [email])
+      .catch(e => console.error('[send] failed:', e)));
+    arm(fullTimers, email, fullAt(v, Date.now(), holidays), () => {
+      const day = dayOf(Date.now());
+      if (fullSent.get(email) === day) return;
+      fullSent.set(email, day);
+      send('Your Bank is full', 'Your Gold mine has stopped. Collect to keep it working.', false, 'tree', null, [email])
+        .catch(e => console.error('[send] failed:', e));
+    });
+  });
+  db.ref('spends').on('value', villages);
+  const raidTimers = new Map();
+  db.ref('spends').on('value', () => raidsDue(spends).forEach(r => {
+    if (raidTimers.has(r.id)) return;
+    raidTimers.set(r.id, setTimeout(() => send('Your village was raided', 'Open your Raid log to watch it and raid back.', false, 'raid', null, [r.on])
+      .catch(e => console.error('[send] failed:', e)), r.at - Date.now()));
+  }));
   const remind = () => setTimeout(() => {
     const list = thirsty(trees, Date.now(), holidays);
     if (list.length) send('Your tree wants water', 'Water it now and its coins ripen before the day is out.',
