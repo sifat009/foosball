@@ -357,7 +357,12 @@ Market's open Name colour or Name icon row, whose Buy pill presses it.
   games agreed before the fill, smoothed to (wins + 2) / (games + 4), a pair the
   average of its two, Blue's chance its share of both. Over 60% is the
   Favourite (a win pays 2/3 of the bet), under 40% the Underdog (1.5 times),
-  the rest Even (the bet). Rounded down, never under 1; a loss is the bet. The
+  the rest Even (the bet). Rounded down, never under 1; a loss is the bet. A game
+  that fills from `STRENGTH_FROM` (5 Nov 2026) is rated by strength instead: each
+  player's strength is fitted from every game agreed before the fill, crediting
+  partners and opponents (a logistic of the gap between two pairs' summed
+  strengths, each pulled towards 0), and for the label a pair counts its weaker
+  player 2/3 and the stronger 1/3, so one player can't carry a partner. The
   panel shows each pair's tag and what the amount in the picker would win.
   Each seat now records the server's time when it is taken (`slots/<seat>/at`,
   written once), and the window runs from the latest of the four, so a swapped

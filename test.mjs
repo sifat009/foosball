@@ -4142,6 +4142,23 @@ const odds = await page.evaluate(() => {
     gains: [1, 6, 10].map(a => [betGain('fav', a), betGain('even', a), betGain('dog', a)]) };
 });
 assert.deepEqual(odds.tiers, { b: 'fav', r: 'dog' }, 'a pair that won every game was not the favourite');
+/* From STRENGTH_FROM a pair is rated by strength, the weaker player counting
+   2/3. Shewa has won twelve, four with each of Toufiq, Nur and Rashed against
+   the other two, so Shewa comes out strong and those three weak; Siddiq, Ofi
+   and Sifat never played and are even. */
+const carry = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const T = STRENGTH_FROM, S = (ns, at) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), ...(at && { at: at + i }) }]));
+  const won = (ns, i) => ({ id: 'k' + i, at: T - 1e6 + i, slots: S(ns), score: { b: 5, r: 0, at: T - 1e6 + i } });
+  const seed = [0, 1, 2, 3].flatMap(i => [won(['Shewa', 'Toufiq', 'Nur', 'Rashed'], i), won(['Shewa', 'Nur', 'Toufiq', 'Rashed'], 10 + i), won(['Shewa', 'Rashed', 'Toufiq', 'Nur'], 20 + i)]);
+  const game = (at, ns) => ({ id: 'q', at, slots: S(ns, at) });
+  return { strong: betTiers(game(T + 10, ['Shewa', 'Siddiq', 'Ofi', 'Sifat']), seed),
+    carried: betTiers(game(T + 10, ['Shewa', 'Toufiq', 'Siddiq', 'Ofi']), seed),
+    before: betTiers(game(T - 100, ['Shewa', 'Siddiq', 'Ofi', 'Sifat']), seed) };
+});
+assert.deepEqual(carry.strong, { b: 'fav', r: 'dog' }, 'a strong player with an even partner was not the favourite against two even players');
+assert.deepEqual(carry.carried, { b: 'even', r: 'even' }, 'a strong player carried a weak partner past two even players');
+assert.deepEqual(carry.before, { b: 'even', r: 'even' }, 'a game that filled before STRENGTH_FROM was not rated by records');
 assert.deepEqual([odds.dog.d, odds.fav.d, odds.lost], [15, 10, undefined], 'an underdog 6 did not pay 6 + 9, or a favourite 6 did not pay 6 + 4');
 assert.match(odds.dog.why, /as the underdog/, 'the history does not say the bet won as the underdog');
 assert.deepEqual(odds.gains, [[1, 1, 1], [4, 6, 9], [6, 10, 15]], 'the odds table moved: ' + JSON.stringify(odds.gains));
