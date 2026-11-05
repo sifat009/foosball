@@ -1,23 +1,31 @@
-/* Background push. Separate from sw.js on purpose: the SDK registers this one
-   under its own scope (/firebase-cloud-messaging-push-scope), so the two
-   workers never collide — sw.js stays the do-nothing worker that only makes
-   the site installable.
+/* Background push. Separate from sw.js on purpose: the page registers this one
+   under its own scope (./fcm-scope/), so the two workers never collide — sw.js
+   stays the do-nothing worker that only makes the site installable.
 
-   No message handler here. The relay sends a `notification` payload, which the
-   SDK's default handler displays on its own; a custom onBackgroundMessage
-   would only draw the same notification twice. Uses the compat build because
-   importScripts can't load ES modules. */
-importScripts('https://www.gstatic.com/firebasejs/12.16.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/12.16.0/firebase-messaging-compat.js');
-
-firebase.initializeApp({
-  apiKey: "AIzaSyAro7bw59yU4JiP_0RusBSb9y4KzAUbyWA",
-  authDomain: "ollyo-foosball.firebaseapp.com",
-  databaseURL: "https://ollyo-foosball-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "ollyo-foosball",
-  storageBucket: "ollyo-foosball.firebasestorage.app",
-  messagingSenderId: "796892845246",
-  appId: "1:796892845246:web:64464f2e8591eeee1abaef"
+   No Firebase SDK here. The page's getToken only needs this registration's
+   pushManager; the SDK's job in a worker was drawing the notification, and it
+   skips that whenever it thinks a window is visible. A home-screen app frozen
+   in the background on an iPhone still reports itself visible, so every push
+   landed silent — and iOS revokes the subscription of a site that receives a
+   few pushes without showing anything. The phone stopped getting alerts, and
+   on the next launch the page found no subscription and painted the switch
+   off. So every push draws its notification here, unconditionally. */
+self.addEventListener('push', e => {
+  let msg = {};
+  try { msg = e.data.json(); } catch {}
+  const n = msg.notification || {};
+  e.waitUntil(self.registration.showNotification(n.title || 'Foosball Cup', {
+    body: n.body || '',
+    icon: n.icon || '../icons/icon-192.png',
+    data: { link: (msg.fcmOptions && msg.fcmOptions.link) || '../' },
+  }));
 });
 
-firebase.messaging();
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const link = new URL(e.notification.data.link, self.registration.scope).href;
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+    const open = list.find(c => 'focus' in c);
+    return open ? open.focus() : clients.openWindow(link);
+  }));
+});
