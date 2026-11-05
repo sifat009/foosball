@@ -1345,9 +1345,10 @@
   .mk-own:focus-visible, .mk-chip:focus-visible, .mk-seg button:focus-visible, .mk-buy:focus-visible { outline: 2px solid #f0b429; outline-offset: 2px; }
   .mk-note { font-size: 0.76rem; color: #5b6b85; }
   .mk-empty { padding: 18px 8px; text-align: center; font-size: 0.82rem; color: #7a879c; }
-  /* under the oak: its count to the next drop, and the drops to sell */
-  .oak-drops { flex-basis: 100%; display: grid; gap: 6px; margin-top: 4px; padding-top: 10px; border-top: 1px dashed #dfe6f0; }
-  .oak-drops > b { font-size: 0.8rem; color: #172b4d; }
+  /* the Market's Sell tab: an oak's count to the next drop, and the drops to sell */
+  .mk-tabs { margin: 0; }
+  .mk-count { margin-left: 6px; padding: 1px 7px; border-radius: 99px; background: #17854a; color: #fff; font-size: 0.66rem; letter-spacing: 0; }
+  .oak-drops { display: grid; gap: 8px; }
   .oak-drop { display: flex; align-items: center; gap: 8px; font-size: 0.78rem; color: #5b6b85; }
   .oak-drop > span:nth-child(2) { flex: 1; min-width: 0; }
   .oak-drop .btn { padding: 6px 12px; font-size: 0.76rem; box-shadow: none; }
@@ -2721,8 +2722,8 @@ Nur</textarea>
         <div class="rules-h">Selling</div>
         <ul>
           <li>An old oak drops a power-up every 5th water, up to 3 at a time. You can't
-          use them yourself: pick which one it becomes and a price from 1 to 10, from
-          under your tree.</li>
+          use them yourself: pick which one it becomes and a price from 1 to 10, on
+          the Sell tab here.</li>
         </ul>
         <!-- mirrors ITEMS, FAMILIES, DROP_EVERY and the spend costs in the script: change them together -->
       </details>
@@ -5480,8 +5481,6 @@ function renderCoins() {
     you.append(card);
   }
   you.append(treeRow(myName(), myCoins(), true), part('tree-note', '3 workdays without water drops a stage. Weekends and holidays pay double.'));
-  const oak = oakRow(myName());
-  if (oak) you.append(oak);
   const opened = giftsToMe().filter(g => !sealed.includes(g)).slice(-5).reverse();
   if (opened.length) {
     const log = part('gift-log');
@@ -5630,23 +5629,6 @@ $('coinYou').onclick = e => {
     if (!flyCoins(Array(Math.min(gift.amt, 10)).fill(g), gift.amt, shown)) renderCoins();
     return;
   }
-  // an oak's power-ups: open one to list, pick, price, list it, or take one down
-  const ok = e.target.closest('[data-oak], [data-oakpick], [data-oakstep], [data-oaklist], [data-unlist]');
-  if (ok && !ok.disabled) {
-    const d = ok.dataset;
-    if (d.oak !== undefined) oakListing = d.oak || null;
-    if (d.oakpick) oakPick = d.oakpick;
-    if (d.oakstep) oakPrice = Math.max(FAMILIES.power.price[0], Math.min(FAMILIES.power.price[1], oakPrice + +d.oakstep));
-    if ((d.oaklist || d.unlist) && myName() && window.spendCoins) {
-      if (d.unlist && !confirm('Take it off sale?')) return;
-      ok.disabled = true;
-      oakListing = null;
-      window.spendCoins(d.oaklist ? { kind: 'list', src: d.oaklist, type: oakPick, price: oakPrice, by: acctEmail }
-        : { kind: 'unlist', list: d.unlist, by: acctEmail });
-      return;
-    }
-    return renderCoins();
-  }
   const pth = e.target.closest('[data-path]');
   if (pth) {
     treeOpen = pth.dataset.path === 'open';
@@ -5715,7 +5697,7 @@ window.renderSpends = v => { allSpends = v || {}; spendsIn = true; renderChal();
    What's on sale and what you hold, from the walk; set where the flair is. A
    bank row is drawn exactly like a player's, so only the admin can tell them apart. */
 var chalMarket = { listings: [], owned: {}, oaks: {}, bankToday: {}, autoW: {} };
-var mkFilter = 'all', mkSel = null, mkOpen = null;
+var mkFilter = 'all', mkSel = null, mkOpen = null, mkTab = 'buy';
 /* the For you buys, keyed by spend kind; Lucide palette, crown, circle-plus (ISC) */
 const FOR_YOU = {
   flair: { name: 'Name colour', does: 'Your name in it on every seat', left: 'Keeps', price: () => FLAIR_COST,
@@ -5765,6 +5747,22 @@ function renderMarket() {
   if (!me) { $('market').classList.remove('open'); return; }
   const free = mySpendable(me), full = mine.length >= FAMILIES.power.hold;
   box.append(part('mk-bal', `${free} coin${free === 1 ? '' : 's'}`, 'span'));
+
+  // an oak's drops get a Sell tab; everyone else sees just the shop
+  const oak = oakRow(me);
+  if (!oak) mkTab = 'buy';
+  else {
+    const o = chalMarket.oaks[me], ready = ((o && o.drops) || []).filter(d => !d.list).length;
+    const tabs = part('leg-tabs coin-tabs mk-tabs');
+    [['buy', 'Buy'], ['sell', 'Sell']].forEach(([k, label]) => {
+      const t = part('leg-tab' + (mkTab === k ? ' on' : ''), label, 'button');
+      t.type = 'button'; t.dataset.tab = k; t.setAttribute('aria-pressed', mkTab === k);
+      if (k === 'sell' && ready) t.append(part('mk-count', String(ready), 'span'));
+      tabs.append(t);
+    });
+    box.append(tabs);
+    if (mkTab === 'sell') { box.append(oak); return; }
+  }
 
   // yours: tap one to use it, or to be told where it's used
   box.append(part('mk-h', 'My power-ups'));
@@ -5861,6 +5859,25 @@ function forYouRow(k, free) {
 }
 $('mkBody').onclick = $('mkSale').onclick = e => {
   if (e.target.closest('[data-fyclose]')) { mkOpen = null; return renderMarket(); }
+  // an oak's power-ups: open one to list, pick, price, list it, or take one down
+  const ok = e.target.closest('[data-oak], [data-oakpick], [data-oakstep], [data-oaklist], [data-unlist]');
+  if (ok && !ok.disabled) {
+    const d = ok.dataset;
+    if (d.oak !== undefined) oakListing = d.oak || null;
+    if (d.oakpick) oakPick = d.oakpick;
+    if (d.oakstep) oakPrice = Math.max(FAMILIES.power.price[0], Math.min(FAMILIES.power.price[1], oakPrice + +d.oakstep));
+    if ((d.oaklist || d.unlist) && myName() && window.spendCoins) {
+      if (d.unlist && !confirm('Take it off sale?')) return;
+      ok.disabled = true;
+      oakListing = null;
+      window.spendCoins(d.oaklist ? { kind: 'list', src: d.oaklist, type: oakPick, price: oakPrice, by: acctEmail }
+        : { kind: 'unlist', list: d.unlist, by: acctEmail });
+      return;
+    }
+    return renderMarket();
+  }
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { mkTab = tab.dataset.tab; oakListing = null; return renderMarket(); }
   const t = e.target.closest('button');
   if (!t || t.disabled) return;
   if (t.dataset.own) { mkSel = mkSel === t.dataset.own ? null : t.dataset.own; return renderMarket(); }
@@ -5883,10 +5900,10 @@ $('mkBody').onclick = $('mkSale').onclick = e => {
     window.spendCoins(t.dataset.list ? { kind: 'buy', list: t.dataset.list, by: acctEmail } : { kind: 'buy', bank: t.dataset.bank, by: acctEmail });
   }
 };
-$('marketBtn').onclick = () => { mkSel = mkOpen = null; renderMarket(); $('market').classList.add('open'); };
+$('marketBtn').onclick = () => { mkSel = mkOpen = oakListing = null; mkTab = 'buy'; renderMarket(); $('market').classList.add('open'); };
 $('market').onclick = e => { if (e.target === $('market')) $('market').classList.remove('open'); };
 
-/* Under an oak, in the coin sheet: its count to the next power-up, and the ones
+/* The Market's Sell tab: an oak's count to the next power-up, and the ones
    it has dropped, each listed or waiting to be. Listing one opens its choice of
    power-up and price in place. */
 var oakListing = null, oakPick = 'win', oakPrice = 5;
@@ -5894,7 +5911,7 @@ function oakRow(me) {
   const t = chalTrees[me], o = chalMarket.oaks[me], drops = (o && o.drops) || [];
   if (!(t && t.stage === TREE.length - 1) && !drops.length) return null;
   const box = part('oak-drops');
-  box.append(part('', 'Power-ups', 'b'), part('mk-note', drops.length >= DROP_HOLD
+  box.append(part('mk-h', 'From your oak'), part('mk-note', drops.length >= DROP_HOLD
     ? `Your oak holds ${DROP_HOLD}. Sell one and it grows another.`
     : Date.now() < MARKET_FROM ? `From midnight, every ${DROP_EVERY}th water drops a power-up to sell.`
     : `${(o && o.n) || 0} of ${DROP_EVERY} waters to the next one. You can't use them, only sell them.`));

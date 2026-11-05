@@ -4409,14 +4409,28 @@ const homes = await page.evaluate(async () => {
   const only = $('mkSale').querySelectorAll('.mk-row').length;
   mkFilter = 'all'; mkOpen = null; renderMarket();
   const bank = [...$('mkSale').querySelectorAll('[data-bank]')].map(b => b.dataset.bank);
+  // an oak's drops: a Sell tab in the Market, nothing left in the coin sheet
+  const was = chalMarket.oaks;
+  chalMarket.oaks = { ...was, Sifat: { n: 2, drops: [{ id: 'd1', until: Date.now() + 864e5 }] } };
+  renderMarket();
+  const tabs = [...$('mkBody').querySelectorAll('[data-tab]')].map(b => b.textContent);
+  $('mkBody').querySelector('[data-tab="sell"]').click();
+  $('mkBody').querySelector('[data-oak="d1"]').click();
+  const sell = [!!$('mkBody').querySelector('[data-oaklist="d1"]'), $('mkSale').childElementCount];
+  renderCoins();
+  const inCoins = !!$('coinYou').querySelector('.oak-drops');
+  chalMarket.oaks = was; mkTab = 'buy'; oakListing = null; renderMarket(); renderCoins();
   window.setAccount(null);
-  return { coins, you, open, only, bank };
+  return { coins, you, open, only, bank, tabs, sell, inCoins };
 });
 assert.deepEqual(homes.coins, ['coinSpend', ['gift', 'bounty']], 'the coin sheet did not keep gift and bounty');
 assert.deepEqual(homes.you, ['flair', 'icon', 'slot'], 'the Market list is missing colour, icon or extra game');
 assert.deepEqual(homes.open, ['mkFor', 'flair', true, true], 'Name colour did not open in place with its picker and a Buy pill');
 assert.equal(homes.only, 3, 'the For you chip did not show just the three');
 assert.deepEqual(homes.bank.sort(), ['shield', 'water', 'win'], 'the bank does not sell exactly the three power-ups');
+assert.deepEqual(homes.tabs, ['Buy', 'Sell1'], 'an oak with a drop to sell did not get Buy and Sell tabs, with a count');
+assert.deepEqual(homes.sell, [true, 0], 'the Sell tab did not open a drop to list, or still showed the shop');
+assert.equal(homes.inCoins, false, "the coin sheet still shows the oak's power-ups");
 console.log('market OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));

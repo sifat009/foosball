@@ -450,8 +450,8 @@ the cost, that the stage pays 0, and what opens next.
 ### Power-ups and the market
 
 An old oak drops a blank power-up every 5th water (from `MARKET_FROM`,
-1 Nov 2026), holding 3 at most. Its owner can only sell it: from under the tree
-they pick Win Boost, Shield or Auto Water and a price from 1 to 10. (Extra Game
+1 Nov 2026), holding 3 at most. Its owner can only sell it: on the Market's Sell
+tab they pick Win Boost, Shield or Auto Water and a price from 1 to 10. (Extra Game
 was a fourth until 1 Nov 2026; it's `retired` in `ITEMS`, so ones already held
 or listed still work but nobody gets a new one: For you sells extra games.)
 The **Market** tab (a sheet on a phone, where Install gives way so the bar keeps
