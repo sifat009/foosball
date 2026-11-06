@@ -118,7 +118,7 @@ export function mount(el, api) {
     // light
     sc.add(new THREE.HemisphereLight(0xcfe2ff, 0x1d3a1d, 1.3));
     const key = new THREE.DirectionalLight(0xffffff, 2.6); key.position.set(2, 8, 6); key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048); Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); key.shadow.bias = -.0003; sc.add(key);
+    key.shadow.mapSize.set(1024, 1024); // plenty for one keeper; a phone's GPU thanks it Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5 }); key.shadow.bias = -.0003; sc.add(key);
     const rim = new THREE.DirectionalLight(0x9cc4ff, 1.4); rim.position.set(-3, 5, -6); sc.add(rim);
     // grass: mown stripes, white lines
     const grass = new THREE.Mesh(new THREE.PlaneGeometry(40, 30), new THREE.MeshStandardMaterial({ roughness: .95, map: tex(512, 512, (c, w, h) => {
@@ -160,7 +160,8 @@ export function mount(el, api) {
      coloured by whether it's nearer a pentagon's centre or a hexagon's. A ghost
      is the pale see-through one you aim at. */
   function football(r, ghost) {
-    const g = new THREE.IcosahedronGeometry(1, 40), pos = g.attributes.position, col = [];
+    // the see-through targets are small: a quarter of the triangles
+    const g = new THREE.IcosahedronGeometry(1, ghost ? 20 : 40), pos = g.attributes.position, col = [];
     const ico = new THREE.IcosahedronGeometry(1, 0).attributes.position, pent = [], hexC = [];
     for (let i = 0; i < ico.count; i++) { const v = new THREE.Vector3().fromBufferAttribute(ico, i).normalize(); if (!pent.some(p => p.distanceTo(v) < 1e-3)) pent.push(v); }
     for (let i = 0; i < ico.count; i += 3) hexC.push(new THREE.Vector3().fromBufferAttribute(ico, i).add(new THREE.Vector3().fromBufferAttribute(ico, i + 1)).add(new THREE.Vector3().fromBufferAttribute(ico, i + 2)).normalize());
@@ -524,7 +525,8 @@ export function mount(el, api) {
     on = false; cur = null; key = ''; clearInterval(tick); tweens.forEach(w => w.res()); tweens = [];
     el.classList.remove('open'); document.body.style.overflow = '';
     if (/^#d\//.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+    api.closed && api.closed(); // the board waited while the duel was up
   }
   const update = () => step();
-  return { open, close, update };
+  return { open, close, update, isOpen: () => !!cur };
 }

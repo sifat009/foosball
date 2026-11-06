@@ -6715,7 +6715,15 @@ function flipBtn(c, blueWon) {
   return b;
 }
 
+/* The board is the dearest thing on the page to draw: it walks every coin ever
+   moved (a quarter of a second on a laptop, more on a phone). A live penalty
+   duel saves four picks a kick, each one a fresh snapshot, so drawing the board
+   under the duel froze the kick mid-flight. While a duel is open the board
+   can't be seen: it waits, and draws once when the duel closes. */
+var chalStale = false;
 function renderChal() {
+  if (duelView && duelView.isOpen()) { chalStale = true; return; }
+  chalStale = false;
   const rows = Object.entries(allChal || {}).map(([id, c]) => Object.assign({ id }, c))
     .filter(c => c && c.at);
   /* A settled game with a claim on it is an open question again: it goes back
@@ -6979,6 +6987,7 @@ const duelApi = {
   mark: (id, n, f, v) => window.duelMark(id, n, f, v),
   remove: id => window.duelRemove(id),
   signIn: id => { window.chalIntent = { duel: id }; window.startSignIn(); },
+  closed: () => { if (chalStale) renderChal(); },
   share: (id, btn) => shareLink(new URL('#d/' + id, location.href).href, `Penalty duel for ${DUEL.stakeOf(duelRow(id))} coins. First to join plays me.`, 'Penalty duel', btn),
   again: () => { $('chal').classList.add('open'); showGame('pen'); },
 };
