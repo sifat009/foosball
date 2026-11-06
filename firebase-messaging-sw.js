@@ -26,6 +26,9 @@ self.addEventListener('notificationclick', e => {
   const link = new URL(e.notification.data.link, self.registration.scope).href;
   e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
     const open = list.find(c => 'focus' in c);
-    return open ? open.focus() : clients.openWindow(link);
+    if (!open) return clients.openWindow(link);
+    // the app is already open: bring it up and tell it where the push points (a duel's #d/<id>)
+    open.postMessage({ open: link });
+    return open.focus();
   }));
 });

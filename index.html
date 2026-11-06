@@ -23,6 +23,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<!-- three.js for the penalty duel's pitch, fetched only when one opens -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   /* quick taps on −/+ read as a double-tap and zoom on iOS; pinch zoom still works */
@@ -1782,6 +1784,49 @@
   .ch-hunt > span:nth-child(2) { min-width: 0; }
   .ch-hunt .ch-left { margin-left: auto; white-space: nowrap; font-variant-numeric: tabular-nums; }
   #chalHunts { margin: 10px 0 16px; }
+  /* Games: Challenges and Penalties, a tab each. Only the chosen game's parts
+     show; the board's own Open/Recent switch keeps working underneath. */
+  .gm-tabs { display: flex; background: #eef1f6; border-radius: 14px; padding: 4px; margin: 6px 0 12px; }
+  .gm-tabs button { flex: 1; border: 0; background: none; border-radius: 11px; padding: 10px 0; font: inherit; font-size: 0.88rem; font-weight: 800; color: #5b6a7d; display: flex; justify-content: center; align-items: center; gap: 7px; cursor: pointer; }
+  .gm-tabs button.on { background: #fff; color: #172b4d; box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+  .gm-tabs i { font-style: normal; background: #e23b3b; color: #fff; border-radius: 999px; font-size: 0.68rem; font-weight: 800; padding: 1px 7px; }
+  .gm-tabs i:empty { display: none; }
+  #chalBoard[data-game="pen"] > :not(.hall-title):not(#gameTabs):not(#chalDuels) { display: none !important; }
+  #chalBoard:not([data-game="pen"]) #chalDuels { display: none; }
+  /* the Penalties tab: tickets */
+  .pt-sub { text-align: center; font-size: 0.78rem; font-weight: 600; color: #5b6a7d; margin: -2px 0 12px; }
+  .pt-sub b { color: #172b4d; }
+  .pt-lab { font-size: 0.7rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; color: #5b6a7d; margin: 14px 0 8px; }
+  .pt-live { display: flex; align-items: center; gap: 10px; width: 100%; border: 1.5px solid #f3c64a; background: #fff8e1; border-radius: 14px; padding: 10px 12px; margin-bottom: 8px; font: inherit; font-size: 0.88rem; font-weight: 800; color: #172b4d; cursor: pointer; text-align: left; }
+  .pt-live .pt-dot { width: 8px; height: 8px; border-radius: 50%; background: #e23b3b; box-shadow: 0 0 0 3px #f9d1d1; flex: none; }
+  .pt-live .pt-go { margin-left: auto; background: #f5c400; color: #3d2b00; border-radius: 999px; padding: 7px 13px; font-size: 0.8rem; white-space: nowrap; }
+  .pt-live .pt-wait { margin-left: auto; color: #96660a; font-size: 0.78rem; white-space: nowrap; }
+  .pt-post { border: 2px dashed #b9c6d8; border-radius: 16px; padding: 12px; margin-bottom: 4px; }
+  .pt-post > b { font-size: 0.88rem; }
+  .pt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 9px 0; }
+  .pt-chips button, .pt-chips input { font: inherit; font-size: 0.8rem; font-weight: 800; border: 1px solid #dde3ec; background: #fff; color: #172b4d; border-radius: 999px; padding: 6px 11px; cursor: pointer; }
+  .pt-chips .on { border-color: #e0a81f; background: #fff8e8; color: #96660a; }
+  .pt-chips input { width: 76px; cursor: text; outline: none; }
+  .pt-btn { display: block; width: 100%; font: inherit; font-size: 0.86rem; font-weight: 800; color: #fff; background: #1f8a3b; border: 0; border-radius: 999px; padding: 11px; cursor: pointer; }
+  .pt-btn:disabled { opacity: .45; cursor: default; }
+  .pt-why { font-size: 0.74rem; font-weight: 800; color: #96660a; margin-top: 8px; text-align: center; }
+  .pt-tk { position: relative; display: flex; align-items: center; gap: 11px; border: 1.5px solid #e5e9f0; border-radius: 16px; padding: 10px 12px; margin-bottom: 8px; background: #fff; }
+  .pt-tk::before, .pt-tk::after { content: ''; position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: #fff; border: 1.5px solid #e5e9f0; transform: translateY(-50%); }
+  .pt-tk::before { left: -8px; } .pt-tk::after { right: -8px; }
+  .pt-tk.mine { background: #f2f8ff; border-color: #c9dcf5; }
+  .pt-av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 0.74rem; flex: none; }
+  .pt-who { min-width: 0; }
+  .pt-who b { display: block; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pt-who span { font-size: 0.74rem; font-weight: 600; color: #5b6a7d; }
+  .pt-amt { margin-left: auto; text-align: right; font-size: 1.15rem; font-weight: 900; white-space: nowrap; }
+  .pt-amt small { display: block; font-size: 0.68rem; font-weight: 700; color: #5b6a7d; }
+  .pt-coin { display: inline-block; width: 15px; height: 15px; border-radius: 50%; vertical-align: -2px; margin-right: 3px; background: radial-gradient(circle at 35% 35%, #fff3a6, #f5c400 45%, #b98a00); box-shadow: 0 0 0 1.5px #7a5a00; }
+  .pt-join { font: inherit; font-size: 0.8rem; font-weight: 800; color: #fff; background: #1f8a3b; border: 0; border-radius: 999px; padding: 8px 14px; cursor: pointer; flex: none; }
+  .pt-mini { font: inherit; font-size: 0.74rem; font-weight: 800; border: 1px solid #dde3ec; background: #fff; color: #172b4d; border-radius: 999px; padding: 6px 10px; cursor: pointer; flex: none; }
+  .pt-acts { display: flex; flex-direction: column; gap: 5px; flex: none; }
+  .pt-empty { font-size: 0.8rem; font-weight: 600; color: #5b6a7d; text-align: center; padding: 12px 6px; border: 1px dashed #dde3ec; border-radius: 14px; }
+  .pt-res { display: flex; align-items: center; padding: 8px 4px; border-bottom: 1px solid #eef1f6; font-size: 0.86rem; font-weight: 800; width: 100%; background: none; border-left: 0; border-right: 0; border-top: 0; font-family: inherit; color: #172b4d; cursor: pointer; text-align: left; }
+  .pt-res span { margin-left: auto; color: #5b6a7d; font-weight: 700; }
   #chalHunts:empty { display: none; }
   /* a name and the icon bought for it: never split across a line */
   .nm { white-space: nowrap; }
@@ -2161,11 +2206,18 @@
          out of sight while you picked a position. No Close under either — the X
          in the corner, the backdrop and Esc already dismiss every card. -->
     <div id="chalBoard">
-      <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Challenges</div>
+      <div class="hall-title"><svg class="ico"><use href="#i-swords"/></svg> Games</div>
+      <!-- two games, two tabs: neither pushes the other down the sheet -->
+      <div class="gm-tabs" id="gameTabs">
+        <button data-game="chal">Challenges <i id="gtChal"></i></button>
+        <button data-game="pen">Penalties <i id="gtPen"></i></button>
+      </div>
       <div id="chalWho"></div>
       <!-- Gift a game, opened from the link in the line above -->
       <div id="chalGift" class="ch-gift" hidden></div>
       <div id="chalHunts"></div>
+      <!-- the Penalties tab: post a duel, join one (duel.js, duel-view.js) -->
+      <div id="chalDuels"></div>
       <div class="hall-tabs" id="chalTabs">
         <button class="hall-tab active" data-tab="open">Open</button>
         <button class="hall-tab" data-tab="recent">Recent</button>
@@ -2194,6 +2246,9 @@
     </div>
   </div>
 </div>
+
+<!-- the penalty duel: duel-view.js fills it the first time one opens -->
+<div id="duel"></div>
 
 <div id="profile">
   <div class="hall-card">
@@ -2772,6 +2827,10 @@ Nur</textarea>
       <input type="checkbox" class="sw" data-kind="challenge">
     </label>
     <label class="al-row">
+      <div class="al-txt"><b>New penalty duels</b><i>Someone posted a duel you could join</i></div>
+      <input type="checkbox" class="sw" data-kind="duels">
+    </label>
+    <label class="al-row">
       <div class="al-txt"><b>Your tree</b><i>It still wants today's water, or its coins are ripe</i></div>
       <input type="checkbox" class="sw" data-kind="tree">
     </label>
@@ -2783,6 +2842,7 @@ Nur</textarea>
   </div>
 </div>
 
+<script src="duel.js"></script>
 <script>
 var SPIN_MS = 4000; // var: reachable from tests to shorten the animation
 
@@ -2879,7 +2939,7 @@ function closeWho() { $('who').classList.remove('open'); window.chalIntent = nul
    mirrored to /pushPrefs under this device's token and the relay is what drops
    the kinds nobody here asked for. Anything missing means yes: a device that
    subscribed before this existed keeps getting everything. */
-const ALERT_KINDS = ['draw', 'result', 'milestone', 'challenge', 'tree', 'suggest'];
+const ALERT_KINDS = ['draw', 'result', 'milestone', 'challenge', 'duels', 'tree', 'suggest'];
 const PREFS_KEY = 'foosball-push-prefs';
 window.alertPrefs = () => {
   let saved = {};
@@ -4299,7 +4359,7 @@ const trackOf = m => trackMemo[m] || (trackMemo[m] = (() => {
 
 /* The balances, and which spends went through. `ok` is what the flair and the
    day's cap read: a spend nobody could pay for buys nothing. */
-function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
+function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}, duels = []) {
   const bal = {}, ok = [], tags = {}; // tags: game id -> what a bounty did in it
   const played = {}, bought = {}; // player + day -> games paid, extra games bought
   const extraPaid = {}; // player + day -> what each extra game cost, in the order bought
@@ -4436,6 +4496,22 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     const t = chalDone(c) ? chalAt(c) : !chalPending(c) && +end <= now ? +end : null;
     if (t) ev.push({ t, release: c });
   });
+  /* Penalty duels (duel.js): the poster's stake goes when they post, the
+     joiner's when they join, and comes back if the poster doesn't show. The
+     start is when the day's five are counted; the end pays the winner both,
+     and a draw, or both of them leaving, hands them back. A post taken down is
+     gone from the row, and so from here. */
+  const duelPaid = {}; // duel id -> { a, b, void }: whose stake the walk holds
+  (duels || []).filter(d => d && d.id && +d.at && DUEL.stakeOf(d) && EMAIL_NAMES[d.a] !== undefined).forEach(d => {
+    ev.push({ t: +d.at, duel: d, k: 'post' });
+    if (!d.b || !+d.bAt || EMAIL_NAMES[d.b] === undefined || EMAIL_NAMES[d.b] === EMAIL_NAMES[d.a]) return;
+    ev.push({ t: +d.bAt, duel: d, k: 'join' });
+    if (!+d.go) return void (now > +d.bAt + DUEL.SHOW_MS && ev.push({ t: +d.bAt + DUEL.SHOW_MS, duel: d, k: 'noshow' }));
+    ev.push({ t: +d.go, duel: d, k: 'go' });
+    const st = DUEL.state(d, now);
+    if (st.done) ev.push({ t: st.endAt, duel: d, k: 'end', st });
+  });
+  const duelDay = {}; // name + day -> duels started
   // a cup that never got a champion hands its bets back when the next one is drawn
   const draws = Object.keys(drawn).filter(cutCup).sort((a, b) => +drawn[a].at - +drawn[b].at);
   draws.slice(0, -1).forEach((id, i) => (cups || []).some(e => e && e.id === id && e.champion)
@@ -4675,6 +4751,36 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
       oakTick(who, cur.stage, `${e.autoW.id || 'u' + e.autoW.at}~${isoDay(t)}`, t);
       return hit(who, { k: 'water' }, t);
     }
+    if (e.duel) {
+      const d = e.duel, A = EMAIL_NAMES[d.a], B = EMAIL_NAMES[d.b], S = DUEL.stakeOf(d);
+      const p = duelPaid[d.id] = duelPaid[d.id] || { a: false, b: false };
+      const back = why => { [['a', A], ['b', B]].forEach(([k, n]) => p[k] && move(n, S, `Your ${S} back: ${why}`, e.t)); p.a = p.b = false; };
+      if (e.k === 'post') {
+        if (bal[A] < S) return note(A, 0, `Penalty duel: not enough coins for a ${S} stake`, e.t), p.void = true;
+        return move(A, -S, `Penalty duel: your ${S} stake`, e.t), p.a = true;
+      }
+      if (!p.a || p.void) return;
+      if (e.k === 'join') {
+        if (bal[B] < S) return note(B, 0, `Penalty duel vs ${A}: not enough coins`, e.t);
+        return move(B, -S, `Penalties vs ${A}: your ${S} stake`, e.t), p.b = true;
+      }
+      if (e.k === 'noshow') return p.b && move(B, S, `Your ${S} back: ${A} didn’t show`, e.t), p.b = false;
+      if (e.k === 'go') {
+        const day = new Date(e.t).toDateString();
+        if (!p.b) return back('they couldn’t cover the stake'), p.void = true;
+        if ((duelDay[A + day] || 0) >= DUEL.DAILY || (duelDay[B + day] || 0) >= DUEL.DAILY) return back(`a ${DUEL.DAILY + 1}th duel today`), p.void = true;
+        duelDay[A + day] = (duelDay[A + day] || 0) + 1; duelDay[B + day] = (duelDay[B + day] || 0) + 1;
+        return;
+      }
+      // the end
+      if (!p.b) return;
+      const { st } = e, score = (x, y) => `${x}\u2013${y}`;
+      if (!st.winner) return back(st.gone ? 'the duel stopped' : `drawn ${score(st.ga, st.gb)}`);
+      const [W, L] = st.winner === 'a' ? [A, B] : [B, A], [w, l] = st.winner === 'a' ? [st.ga, st.gb] : [st.gb, st.ga];
+      move(W, 2 * S, `Won penalties vs ${L} ${score(w, l)}${st.out ? `, ${L} left` : ''}`, e.t);
+      note(L, 0, `Lost penalties vs ${W} ${score(l, w)}${st.out ? ', you left' : ''}`, e.t);
+      return p.a = p.b = false;
+    }
     if (e.stake) { // a seat at a lobby with a bet: the stake goes now, if it's there
       const bet = chalBet(e.stake), who = e.who;
       if (bal[who] === undefined) return;
@@ -4819,7 +4925,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}) {
     bankToday: Object.fromEntries(Object.values(EMAIL_NAMES).map(n => [n, !!bankDay[n + isoDay(now)]])),
     autoW,
   };
-  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought, given, recv };
+  return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought, given, recv, duels: duelPaid };
 }
 // what a spend row was for, in a history line that says it didn't go through
 const spendWhat = s => ({
@@ -4844,7 +4950,8 @@ var allSpends = {};
 // a spend carries its key as `id`: a listing, a buy and a drop are named by the row behind them
 const walkNow = () => coinWalk(Object.entries(allChal || {}).filter(([, c]) => c && c.at)
   .map(([id, c]) => Object.assign({ id }, c)), hallEntries,
-  Object.entries(allSpends || {}).map(([id, s]) => Object.assign({ id }, s)), Date.now(), allDrawn);
+  Object.entries(allSpends || {}).map(([id, s]) => Object.assign({ id }, s)), Date.now(), allDrawn,
+  Object.entries(allDuels || {}).map(([id, d]) => Object.assign({ id }, d)));
 /* cup id -> { at, teams }: when the admin's draw finished, on the server's clock,
    and the team names it drew. Bets on the cup are open for five minutes from it. */
 var allDrawn = {};
@@ -6564,19 +6671,22 @@ function chalCard(c) {
    card already falls back through. Text and url both travel here, unlike the
    share card: a link has nothing to lose to a target that posts only one of
    them, where an image would have lost the image. */
-async function shareChal(c, btn) {
+function shareChal(c, btn) {
   const url = new URL('#c/' + c.id, location.href).href;
   const left = 4 - SEATS.filter(([seat]) => c.slots && c.slots[seat]).length;
   const text = left
     ? `Foosball — ${left} ${left === 1 ? 'seat' : 'seats'} left. Take one.`
     : `Foosball — ${chalTeamLine(c)}.`;
+  return shareLink(url, text, 'Foosball challenge', btn);
+}
+async function shareLink(url, text, title, btn) {
   const say = t => { const was = btn.innerHTML; btn.textContent = t; setTimeout(() => { btn.innerHTML = was; }, 1600); };
   try {
     // Phones get the OS sheet. Desktop does not: macOS Safari's share popover
     // renders its own preview of the link and can spin on that forever, and a
     // copied link beats a share sheet on a machine with a keyboard anyway.
     if (navigator.share && matchMedia('(pointer: coarse)').matches) {
-      await navigator.share({ title: 'Foosball challenge', text, url });
+      await navigator.share({ title, text, url });
       return;
     }
     await navigator.clipboard.writeText(url);
@@ -6615,8 +6725,6 @@ function renderChal() {
     .sort((a, b) => a.at - b.at);
   const done = rows.filter(c => chalDone(c) && !chalPending(c)).sort((a, b) => b.at - a.at);
 
-  const btn = $('chalBtn');
-  if (open.length) btn.setAttribute('data-n', open.length); else btn.removeAttribute('data-n');
 
   const who = $('chalWho');
   const name = myName();
@@ -6667,6 +6775,15 @@ function renderChal() {
   chalFree = name ? mySpendable(name) : null;
   renderCupBets(); // the same walk, and the free coins it bets from
   renderMarket();
+  chalDuelPaid = walk.duels;
+  // the tab's count: lobbies open, and duels waiting on you
+  const btn = $('chalBtn'), pen = renderDuelStrip(), waits = open.length + pen.waits;
+  if (waits) btn.setAttribute('data-n', waits); else btn.removeAttribute('data-n');
+  $('gtChal').textContent = open.length || '';
+  $('gtPen').textContent = pen.waits + pen.open || '';
+  // a duel waiting on you is the thing to see when the sheet opens
+  if (pen.waits && !renderDuelStrip.told) { renderDuelStrip.told = true; showGame('pen'); }
+  if (!pen.waits) renderDuelStrip.told = false;
 
   const hunts = $('chalHunts');
   hunts.textContent = '';
@@ -6828,6 +6945,188 @@ window.renderChallenges = all => {
   renderChal();
 };
 
+/* ---- penalty duels (duel.js, duel-view.js) ----
+   duel id -> the row. The walk says whose stake it holds (chalDuelPaid); a duel
+   it voided is nobody's game and isn't drawn. Times are the server's: the
+   kicks are timed by its clock, so the page reads it through the offset
+   Firebase keeps. */
+var allDuels = {}, chalDuelPaid = {}, duelView = null, duelBet = 5, duelOther = false;
+const srvNow = () => Date.now() + (window.srvOffset || 0);
+window.renderDuels = v => { allDuels = v || {}; renderChal(); duelView && duelView.update(); };
+const duelRow = id => allDuels[id] ? { id, ...allDuels[id] } : null;
+const duelOk = d => d && DUEL.stakeOf(d) && !(chalDuelPaid[d.id] || {}).void;
+const myDuels = () => !acctEmail ? [] : Object.keys(allDuels).map(duelRow).filter(d => duelOk(d) && DUEL.side(d, acctEmail));
+// started today, for the day's five
+const duelsToday = () => myDuels().filter(d => +d.go && new Date(+d.go).toDateString() === new Date().toDateString()).length;
+// '' when you can post (stake given) or join, or why not
+function duelBlock(stake, joining) {
+  if (!myName()) return 'Sign in to play.';
+  const now = srvNow(), mine = myDuels().map(d => [d, DUEL.state(d, now).phase]);
+  if (mine.some(([, ph]) => ph === 'joined' || ph === 'live')) return 'Finish the duel you’re in first.';
+  if (!joining && mine.some(([d, ph]) => d.a === acctEmail && ph === 'open')) return 'You already have a duel posted.';
+  if (duelsToday() >= DUEL.DAILY) return `That’s your ${DUEL.DAILY} duels for today. Back tomorrow.`;
+  if ((chalFree ?? 0) < stake) return `You need ${stake} coins.`;
+  return '';
+}
+const duelApi = {
+  me: () => acctEmail,
+  name: email => EMAIL_NAMES[email] || 'Someone',
+  duel: duelRow,
+  now: srvNow,
+  canJoin: d => duelBlock(DUEL.stakeOf(d), true),
+  join: id => window.duelJoin(id, { b: acctEmail, bn: myName() }),
+  go: id => window.duelGo(id),
+  mark: (id, n, f, v) => window.duelMark(id, n, f, v),
+  remove: id => window.duelRemove(id),
+  signIn: id => { window.chalIntent = { duel: id }; window.startSignIn(); },
+  share: (id, btn) => shareLink(new URL('#d/' + id, location.href).href, `Penalty duel for ${DUEL.stakeOf(duelRow(id))} coins. First to join plays me.`, 'Penalty duel', btn),
+  again: () => { $('chal').classList.add('open'); showGame('pen'); },
+};
+async function openDuel(id) {
+  try {
+    if (!duelView) duelView = (await import('./duel-view.js')).mount($('duel'), duelApi);
+  } catch (err) {
+    console.error('[duel] load failed:', err);
+    return alert('Couldn’t load the penalty duel. Check your connection and try again.');
+  }
+  $('chal').classList.remove('open');
+  duelView.open(id);
+}
+async function postDuel(btn) {
+  btn.disabled = true;
+  try {
+    const id = await window.duelPost({ a: acctEmail, an: myName(), stake: duelBet });
+    duelOther = false;
+    openDuel(id); // the post's own card: share it from there
+  } catch (err) {
+    console.error('[duel] post failed:', err);
+    alert('Couldn’t post the duel. Check your connection and try again.');
+  }
+  renderChal();
+}
+/* ---- Games: a tab for each game ----
+   The sheet remembers the last tab. A duel waiting on you opens on Penalties;
+   a challenge link opens on Challenges. */
+var gameTab = (() => { try { return localStorage.gameTab === 'pen' ? 'pen' : 'chal'; } catch { return 'chal'; } })();
+function showGame(g) {
+  gameTab = g === 'pen' ? 'pen' : 'chal';
+  try { localStorage.gameTab = gameTab; } catch {}
+  $('chalBoard').dataset.game = gameTab;
+  document.querySelectorAll('#gameTabs button').forEach(b => b.classList.toggle('on', b.dataset.game === gameTab));
+}
+document.querySelectorAll('#gameTabs button').forEach(b => { b.onclick = () => showGame(b.dataset.game); });
+showGame(gameTab);
+const AV = ['#d64545', '#7a52c7', '#e08a1e', '#2fa07a', '#3f7fd0', '#c2417f', '#5b8a1e', '#8a96a8'];
+const avatar = name => {
+  const a = part('pt-av', String(name || '?').replace(/[^\p{L}\p{N}]/gu, '').slice(0, 2).toUpperCase());
+  a.style.background = AV[[...String(name)].reduce((h, c) => h * 31 + c.charCodeAt(0) >>> 0, 7) % AV.length]; return a;
+};
+const ago = ms => ms < 6e4 ? 'just now' : ms < 36e5 ? `${Math.floor(ms / 6e4)} min ago` : ms < 864e5 ? `${Math.floor(ms / 36e5)} h ago` : ms < 1728e5 ? 'yesterday' : `${Math.floor(ms / 864e5)} days ago`;
+const coinAmt = (n, sub) => { const d = part('pt-amt'); d.append(part('pt-coin', '', 'span'), String(n), part('', sub, 'small')); return d; };
+/* The Penalties tab. Returns how many duels wait on you (yours joined, or
+   live) and how many others' are open to join, for the badges. */
+function renderDuelStrip() {
+  const box = $('chalDuels'), me = myName(), now = srvNow();
+  // a repaint mid-typing (someone else posted) keeps the typed stake's focus
+  const typing = document.activeElement && box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT';
+  box.textContent = '';
+  const them = d => EMAIL_NAMES[d.a === acctEmail ? d.b : d.a];
+  const all = Object.keys(allDuels).map(duelRow).filter(duelOk).map(d => ({ d, st: DUEL.state(d, now), s: acctEmail && DUEL.side(d, acctEmail) }));
+  const mine = all.filter(x => x.s && (x.st.phase !== 'open' || (x.s === 'a' && (chalDuelPaid[x.d.id] || {}).a)));
+  const live = mine.filter(x => x.st.phase === 'live' || x.st.phase === 'joined').sort((p, q) => +q.d.at - +p.d.at);
+  const posted = mine.filter(x => x.st.phase === 'open' && x.s === 'a');
+  const done = mine.filter(x => x.st.phase === 'done' && now - x.st.endAt < 2 * 864e5).sort((p, q) => q.st.endAt - p.st.endAt);
+  const open = all.filter(x => !x.s && x.st.phase === 'open' && (chalDuelPaid[x.d.id] || {}).a).sort((p, q) => +q.d.at - +p.d.at);
+  const waits = live.filter(x => x.st.phase === 'live' || x.s === 'a').length;
+
+  const sub = part('pt-sub', 'Pure luck, played live · ');
+  sub.append(part('', `${duelsToday()} of ${DUEL.DAILY}`, 'b'), ' today');
+  box.append(sub);
+  // what's on: yours joined or being played
+  live.forEach(({ d, st, s }) => {
+    const r = part('pt-live', '', 'button');
+    r.append(part('pt-dot', '', 'span'), part('', `vs ${them(d)} · ${DUEL.stakeOf(d)} coins`, 'span'));
+    const go = st.phase === 'live' || s === 'a';
+    r.append(go ? part('pt-go', 'Play now', 'span') : part('pt-wait', `Waiting for ${them(d)}`, 'span'));
+    r.onclick = () => openDuel(d.id);
+    box.append(r);
+  });
+  // post one: the stakes, or Other for any amount from 1 to 50
+  if (me) {
+    const post = part('pt-post'), chips = part('pt-chips');
+    post.append(part('', 'Post a duel', 'b'));
+    DUEL.BETS.forEach(n => {
+      const b = part(!duelOther && duelBet === n ? 'on' : '', String(n), 'button');
+      b.onclick = () => { duelBet = n; duelOther = false; renderDuelStrip(); };
+      chips.append(b);
+    });
+    if (duelOther) {
+      const typed = document.createElement('input');
+      Object.assign(typed, { type: 'number', inputMode: 'numeric', min: 1, max: DUEL.BET_MAX, step: 1, placeholder: '1–50', className: 'on', value: duelBet || '' });
+      typed.setAttribute('aria-label', 'Your own stake, 1 to 50 coins');
+      typed.oninput = () => { duelBet = Math.round(+typed.value) || 0; paintPost(); };
+      chips.append(typed);
+      if (typing || !typed.value) setTimeout(() => typed.focus());
+    } else {
+      const b = part('', 'Other', 'button');
+      b.onclick = () => { duelOther = true; if (DUEL.BETS.includes(duelBet)) duelBet = 0; renderDuelStrip(); };
+      chips.append(b);
+    }
+    const btn = part('pt-btn', '', 'button'), why = part('pt-why');
+    btn.onclick = () => postDuel(btn);
+    const paintPost = () => {
+      const ok = duelBet >= 1 && duelBet <= DUEL.BET_MAX && duelBet === Math.round(duelBet);
+      const block = !ok ? `Pick 1 to ${DUEL.BET_MAX} coins.` : duelBlock(duelBet);
+      btn.textContent = ok ? `Post for ${duelBet} coins · winner takes ${duelBet * 2}` : 'Post a duel';
+      btn.disabled = !!block; why.textContent = block; why.hidden = !block;
+    };
+    post.append(chips, btn, why);
+    paintPost();
+    box.append(post);
+  } else {
+    const b = part('pt-btn', 'Sign in to post a duel', 'button');
+    b.onclick = () => { window.chalIntent = { duelPost: true }; window.startSignIn(); };
+    box.append(b);
+  }
+  // open now: everyone else's, as tickets
+  box.append(part('pt-lab', 'Open now · tap to play'));
+  open.forEach(({ d }) => {
+    const t = part('pt-tk'), S = DUEL.stakeOf(d), who = part('pt-who'), join = part('pt-join', 'Join', 'button');
+    who.append(part('', EMAIL_NAMES[d.a], 'b'), part('', `posted ${ago(now - +d.at)}`, 'span'));
+    join.onclick = () => openDuel(d.id);
+    t.append(avatar(EMAIL_NAMES[d.a]), who, coinAmt(S, `wins ${S * 2}`), join);
+    box.append(t);
+  });
+  posted.forEach(({ d }) => {
+    const t = part('pt-tk mine'), S = DUEL.stakeOf(d), who = part('pt-who'), acts = part('pt-acts');
+    who.append(part('', 'Your duel', 'b'), part('', 'waiting for someone', 'span'));
+    const share = part('pt-mini', 'Share', 'button'), back = part('pt-mini', 'Take back', 'button');
+    share.onclick = () => duelApi.share(d.id, share);
+    back.onclick = async () => {
+      back.disabled = true;
+      try { await window.duelRemove(d.id); } catch (err) { back.disabled = false; console.error('[duel] take back failed:', err); alert('Couldn’t take it back. Check your connection and try again.'); }
+    };
+    acts.append(share, back);
+    const you = avatar('You'); you.style.background = '#3f7fd0'; you.textContent = 'YOU';
+    t.append(you, who, coinAmt(S, `wins ${S * 2}`), acts);
+    box.append(t);
+  });
+  if (!open.length && !posted.length) box.append(part('pt-empty', 'Nobody’s waiting. Post a duel and share the link.'));
+  // the last two days
+  if (done.length) {
+    box.append(part('pt-lab', 'Recent'));
+    done.forEach(({ d, st, s }) => {
+      const r = part('pt-res', '', 'button'), S = DUEL.stakeOf(d), [my, th] = s === 'a' ? [st.ga, st.gb] : [st.gb, st.ga];
+      const won = st.winner === s, lost = st.winner && !won;
+      r.append(won ? `Won ${my}–${th} vs ${them(d)}` : lost ? `Lost ${my}–${th} vs ${them(d)}` : st.gone ? `Stopped vs ${them(d)}` : `Drawn ${my}–${th} vs ${them(d)}`,
+        part('', won ? `+${S * 2}` : lost ? `−${S}` : `${S} back`, 'span'));
+      r.onclick = () => openDuel(d.id);
+      box.append(r);
+    });
+  }
+  return { waits, open: open.length };
+}
+
 /* ---- opening one ---- */
 function closeChalForm() {
   $('chalForm').hidden = true;
@@ -6943,7 +7242,9 @@ window.setAccount = email => {
      the page had no wallet to check, so this is the only check it gets. */
   renderChal();
   if (want && myName()) {
-    if (want.seat) {
+    if (want.duel) openDuel(want.duel);
+    else if (want.duelPost) showGame('pen');
+    else if (want.seat) {
       chalLit = want.id; // the lobby it came from, outlined on the way back
       chalFound = false;
       // the same test the seat button runs; if it fails, the card says why
@@ -6974,16 +7275,28 @@ document.querySelectorAll('#chalTabs .hall-tab').forEach(tab =>
    left to whichever render first draws it, once. */
 var chalFound = false;
 function openChalFromHash() {
+  const dm = /^#d\/([\w-]+)$/.exec(location.hash || '');
+  if (dm) return openDuel(dm[1]); // a penalty duel's link opens the duel itself
   const m = /^#c\/(\w+)$/.exec(location.hash || '');
   if (!m) return;
   chalLit = m[1];
   chalFound = false;
+  showGame('chal');
   closeChalForm();
   $('chal').classList.add('open');
   showChalTab('open'); // the link is an invitation to a lobby, not to the ladder
   renderChal();
 }
 addEventListener('hashchange', openChalFromHash);
+/* A push tapped while the app was already open: the worker can only focus the
+   window, so it says where the push pointed and the page goes there. */
+if ('serviceWorker' in navigator) navigator.serviceWorker.addEventListener('message', e => {
+  const to = e.data && e.data.open;
+  if (!to) return;
+  const hash = new URL(to, location.href).hash;
+  if (!hash) return;
+  if (location.hash === hash) openChalFromHash(); else location.hash = hash;
+});
 window.openChalFromHash = openChalFromHash; // bootDone opens it, once the gate lifts
 
 /* overlays: tap the backdrop or Close to dismiss, Esc closes whichever is open.
@@ -9459,6 +9772,19 @@ window.spendCoins = row => push(ref(db, 'spends'), { ...row, at: serverTimestamp
     console.error('[spend] write rejected:', err);
     alert('Could not spend those coins: ' + err.message);
   });
+/* Penalty duels: one row each. Every time in it is the server's: the
+   rules check them, and the kicks are timed by them. */
+window.duelPost = row => {
+  const r = push(ref(db, 'duels'));
+  return set(r, { ...row, at: serverTimestamp() }).then(() => r.key);
+};
+window.duelJoin = (id, row) => update(ref(db, 'duels/' + id), { ...row, bAt: serverTimestamp() });
+window.duelGo = id => set(ref(db, `duels/${id}/go`), serverTimestamp());
+window.duelMark = (id, n, f, v) => set(ref(db, `duels/${id}/k/${n}/${f}`), { v, t: serverTimestamp() });
+window.duelRemove = id => remove(ref(db, 'duels/' + id));
+onValue(ref(db, '.info/serverTimeOffset'), snap => { window.srvOffset = snap.val() || 0; });
+onValue(ref(db, 'duels'), snap => window.renderDuels(snap.val() || {}),
+  err => console.error('[duel] read failed:', err));
 onValue(ref(db, 'spends'), snap => window.renderSpends(snap.val() || {}),
   err => console.error('[spend] read failed:', err));
 

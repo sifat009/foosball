@@ -491,6 +491,65 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('giftSeen/' + uid(B1), B2, 9), 'a player marked somebody else’s gifts opened');
   assert.ok(!await put('giftSeen/' + uid(B1), B1, 9999999999999), 'a gift was marked opened in the future');
 }
+// ---- penalty duels: post, join, show up, then sealed picks kick by kick ----
+{
+  const D = id => 'duels/' + id;
+  const SEAL = 'a'.repeat(64), PICK = 'L:' + 'b'.repeat(32);
+  const post = (id, who = B1, row = {}) => put(D(id), who, { a: B1, an: 'Rifat', stake: 20, at: NOW, ...row });
+  const join = (id, who = R1, row = {}) => patch(D(id), who, { b: who, bn: 'Siddiq', bAt: NOW, ...row });
+  const mark = (id, n, f, who, v) => put(`${D(id)}/k/${n}/${f}`, who, { v, t: NOW });
+  // posting: as yourself, with a stake of 1 to 50 and the server's time, nobody in yet
+  assert.ok(!await post('d0', R1), 'a duel was posted in somebody else’s name');
+  assert.ok(!await post('d0', B1, { stake: 0 }), 'a duel was posted for nothing');
+  assert.ok(!await post('d0', B1, { stake: 51 }), 'a duel was posted over 50');
+  assert.ok(!await post('d0', B1, { stake: 2.5 }), 'a duel was posted for half a coin');
+  assert.ok(!await post('d0', B1, { at: 5 }), 'a duel was posted with a time of its own');
+  assert.ok(!await post('d0', B1, { b: R1, bAt: NOW }), 'a duel was posted already joined');
+  assert.ok(await post('d1'), 'a duel could not be posted');
+  assert.ok(!await patch(D('d1'), B1, { stake: 50 }), 'the poster changed the stake');
+  // joining: as yourself, not your own, and only one joiner at a time
+  assert.ok(!await join('d1', B1, { b: B1 }), 'the poster joined their own duel');
+  assert.ok(!await join('d1', R1, { b: R2 }), 'somebody joined in another’s name');
+  assert.ok(!await join('d1', R1, { bAt: 5 }), 'a join carried its own time');
+  assert.ok(!await mark('d1', 0, 'as', B1, SEAL), 'a pick was sealed before the duel started');
+  assert.ok(await join('d1'), 'a player could not join');
+  assert.ok(!await join('d1', R2), 'a second player took a seat already taken');
+  assert.ok(!await del(D('d1'), B1), 'the poster took down a duel just joined');
+  // showing up: the poster alone, once
+  assert.ok(!await put(D('d1/go'), R1, NOW), 'the joiner started the duel');
+  assert.ok(!await put(D('d1/go'), B1, 5), 'the start carried its own time');
+  assert.ok(await put(D('d1/go'), B1, NOW), 'the poster could not start');
+  assert.ok(!await put(D('d1/go'), B1, NOW), 'the duel was started twice');
+  assert.ok(!await join('d1', R2), 'somebody joined a duel already being played');
+  // seals: each side its own, once, a hash and the server's time
+  assert.ok(!await mark('d1', 0, 'as', R1, SEAL), 'the joiner sealed the poster’s pick');
+  assert.ok(!await mark('d1', 0, 'as', B1, 'L'), 'a pick went in unsealed');
+  assert.ok(!await put(D('d1/k/0/as'), B1, { v: SEAL, t: 5 }), 'a seal carried its own time');
+  assert.ok(!await mark('d1', 20, 'as', B1, SEAL), 'a kick past the twentieth');
+  assert.ok(await mark('d1', 0, 'as', B1, SEAL), 'the poster could not seal');
+  assert.ok(!await mark('d1', 0, 'as', B1, SEAL.replace('a', 'c')), 'a seal was changed');
+  // opening: only after both seals, each side its own, once
+  assert.ok(!await mark('d1', 0, 'ap', B1, PICK), 'a pick was opened before the other side sealed');
+  assert.ok(await mark('d1', 0, 'bs', R1, SEAL), 'the joiner could not seal');
+  assert.ok(!await mark('d1', 0, 'ap', R1, PICK), 'the joiner opened the poster’s pick');
+  assert.ok(!await mark('d1', 0, 'ap', B1, 'X:' + 'b'.repeat(32)), 'a pick went off the goal');
+  assert.ok(await mark('d1', 0, 'ap', B1, PICK), 'the poster could not open');
+  assert.ok(await mark('d1', 0, 'bp', R1, PICK), 'the joiner could not open');
+  assert.ok(!await mark('d1', 0, 'bp', R1, 'R:' + 'b'.repeat(32)), 'a pick was opened twice');
+  assert.ok(!await put(D('d1/k/0/xx'), B1, 1), 'a kick took a field of its own');
+  assert.ok(!await del(D('d1'), B1), 'a duel being played was taken down');
+  // before anyone joins, the poster can take it back; nobody else can
+  assert.ok(await post('d2'), 'a second duel could not be posted');
+  assert.ok(!await del(D('d2'), R1), 'somebody else took down a duel');
+  assert.ok(await del(D('d2'), B1), 'the poster could not take a duel back');
+  // a joiner who waited past three minutes for nobody: the seat opens again, and the post can come down
+  assert.ok(await post('d3') && await join('d3'), 'fixture: a joined duel');
+  assert.ok(await put(D('d3/bAt'), 'owner', Date.now() - 181000), 'fixture: an old join');
+  assert.ok(!await put(D('d3/go'), B1, NOW), 'the poster started after the join had lapsed');
+  assert.ok(await join('d3', R2, { bn: 'Shewa' }), 'nobody could take a lapsed seat');
+  assert.ok(await put(D('d3/bAt'), 'owner', Date.now() - 181000), 'fixture: an old join');
+  assert.ok(await del(D('d3'), B1), 'the poster could not take down a duel whose joiner had lapsed');
+}
 // the rules carry their own copy of EMAIL_NAMES — they can't read the page — so
 // adding a player means both; this fails the moment the two drift apart
 {

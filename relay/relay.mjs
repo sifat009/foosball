@@ -170,6 +170,47 @@ export const chalNews = (prev, c) => {
   return null;
 };
 
+/* ---- penalty duels ----
+   Three pushes, each opening the duel itself (#d/<id>):
+   - a new post, to everyone who could join it (duelAudience says who);
+   - somebody joined, to the poster: the duel only starts once they show up;
+   - the poster showed up, to the joiner, who may have left the waiting screen
+     and would otherwise miss their moves.
+   The kicks are played live, both watching, so nothing else is announced.
+   duel.js sits beside relay.mjs on the relay host and one level up in the repo. */
+const { existsSync } = await import('node:fs');
+await import(existsSync(new URL('./duel.js', import.meta.url)) ? './duel.js' : '../duel.js');
+const DUEL = globalThis.DUEL;
+// what the relay remembers of a duel between snapshots: who joined, when, and whether it started
+export const duelSig = d => (d ? [d.b || '', d.bAt || '', d.go ? 1 : 0].join('|') : '');
+export const duelNews = (prev, d, id, now = Date.now()) => {
+  if (!d || !d.a) return [];
+  const n = DUEL.stakeOf(d), an = d.an || 'Someone', bn = d.bn || 'Someone', link = `#d/${id}`, out = [];
+  const [pb, pbAt, pgo] = prev === undefined ? [] : prev.split('|');
+  const st = DUEL.state(d, now);
+  if (prev === undefined && st.phase === 'open' && !d.b)
+    out.push({ post: true, kind: 'duels', link, title: 'Penalty duel', body: `${an} posted a ${n}-coin penalty duel. First to join plays` });
+  if (st.phase === 'joined' && (d.b !== pb || String(d.bAt) !== pbAt))
+    out.push({ kind: 'challenge', link, only: [d.a], title: 'Penalty duel', body: `${bn} joined your ${n}-coin duel. Play now` });
+  if (prev !== undefined && d.go && pgo !== '1' && d.b)
+    out.push({ kind: 'challenge', link, only: [d.b], title: 'Penalty duel', body: `${an} is ready. Your duel starts now` });
+  return out;
+};
+/* Who hears about a new duel: everyone with the app but the poster, anyone
+   already in a duel, anyone who has played their day's duels, and anyone told
+   about one in the last half hour (`told`, email -> when). Days are the
+   office's, like the page's. */
+export const duelAudience = (emails, duels, poster, told, now = Date.now()) => {
+  const today = new Date(now).toDateString(), busy = new Set(), played = {};
+  Object.values(duels || {}).forEach(d => {
+    if (!d || !d.a) return;
+    const ph = DUEL.state(d, now).phase;
+    if (ph === 'joined' || ph === 'live') [d.a, d.b].forEach(e => e && busy.add(e));
+    if (+d.go && new Date(+d.go).toDateString() === today) [d.a, d.b].forEach(e => { played[e] = (played[e] || 0) + 1; });
+  });
+  return [...new Set(emails)].filter(e => e && e !== poster && !busy.has(e) && (played[e] || 0) < DUEL.DAILY && !(now - (told[e] || 0) < 18e5));
+};
+
 /* ---- trees ----
    The page works trees out in coinWalk, from /spends; this end repeats the
    part a reminder needs: whose tree is alive, whether today's water is in, and
@@ -262,7 +303,7 @@ async function main() {
 
   // ponytail: sendEachForMulticast caps at 500 tokens; chunk it if a cup ever
   // outgrows that, which for one office's foosball it will not
-  async function send(title, body, adminOnly, kind, except, only) {
+  async function send(title, body, adminOnly, kind, except, only, link) {
     const list = recipients(tokens, adminOnly, ADMIN_EMAIL, kind, prefs, except, only);
     if (!list.length) return;
     const res = await fcm.sendEachForMulticast({
@@ -281,7 +322,7 @@ async function main() {
       webpush: {
         headers: { Urgency: 'high' },
         notification: { icon: new URL('icons/icon-192.png', SITE_URL).href },
-        fcmOptions: { link: SITE_URL },
+        fcmOptions: { link: link ? new URL(link, SITE_URL).href : SITE_URL },
       },
     });
     console.log(`[send] ${title} -> ${res.successCount}/${list.length}`);
@@ -375,6 +416,29 @@ async function main() {
         news.only && [...news.only, ADMIN_EMAIL]).catch(e => console.error('[send] failed:', e));
     });
     chalSeen = now;
+  });
+
+  /* Duels. Seeded on the first snapshot like challenges, so a restart
+     announces nothing it already had. */
+  let duelSeen = null;
+  const duelTold = {}; // email -> when they last heard of a new duel, for the half-hour gap
+  db.ref('duels').on('value', s => {
+    const now = new Map();
+    Object.entries(s.val() || {}).forEach(([id, d]) => {
+      if (!d) return;
+      now.set(id, duelSig(d));
+      if (!duelSeen) return;
+      duelNews(duelSeen.get(id), d, id).forEach(m => {
+        let only = m.only;
+        if (m.post) {
+          only = duelAudience(Object.values(tokens || {}).filter(v => typeof v === 'string'), s.val(), d.a, duelTold);
+          only.forEach(e => { duelTold[e] = Date.now(); });
+          if (!only.length) return;
+        }
+        send(m.title, m.body, false, m.kind, null, only, m.link).catch(e => console.error('[send] failed:', e));
+      });
+    });
+    duelSeen = now;
   });
 
   /* Trees. Two pings, both to the tree's owner alone: a weekday-afternoon

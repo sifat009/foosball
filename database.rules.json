@@ -149,6 +149,60 @@
         "$other": { ".validate": false }
       }
     },
+    "duels": {
+      ".read": true,
+      "$id": {
+        ".write": "auth != null && auth.token.email_verified === true && ((!data.exists() && newData.child('a').val() === auth.token.email && newData.child('at').val() === now && !newData.hasChild('b') && !newData.hasChild('bn') && !newData.hasChild('bAt') && !newData.hasChild('go') && !newData.hasChild('k')) || (data.exists() && !newData.exists() && data.child('a').val() === auth.token.email && !data.child('go').exists() && (!data.child('b').exists() || data.child('bAt').val() < now - 180000)))",
+        ".validate": "newData.hasChildren(['a', 'stake', 'at'])",
+        "a": { ".validate": "newData.isString()" },
+        "an": { ".validate": "newData.isString() && newData.val().length <= 20" },
+        "stake": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 50 && newData.val() % 1 === 0" },
+        "at": { ".validate": "newData.isNumber()" },
+        "b": {
+          ".write": "auth != null && auth.token.email_verified === true && newData.val() === auth.token.email && data.parent().child('a').exists() && newData.val() !== data.parent().child('a').val() && !data.parent().child('go').exists() && (!data.exists() || data.parent().child('bAt').val() < now - 180000)",
+          ".validate": "newData.isString() && newData.parent().child('bAt').val() === now"
+        },
+        "bn": {
+          ".write": "auth != null && newData.parent().child('b').val() === auth.token.email && newData.parent().child('bAt').val() === now && !data.parent().child('go').exists()",
+          ".validate": "newData.isString() && newData.val().length <= 20"
+        },
+        "bAt": {
+          ".write": "auth != null && auth.token.email_verified === true && newData.parent().child('b').val() === auth.token.email && data.parent().child('a').exists() && !data.parent().child('go').exists() && (!data.exists() || data.val() < now - 180000)",
+          ".validate": "newData.val() === now"
+        },
+        "go": {
+          ".write": "auth != null && auth.token.email_verified === true && auth.token.email === data.parent().child('a').val() && !data.exists() && data.parent().child('b').exists() && data.parent().child('bAt').val() >= now - 180000",
+          ".validate": "newData.val() === now"
+        },
+        "k": {
+          "$n": {
+            ".validate": "$n.matches(/^1?[0-9]$/)",
+          "as": {
+            ".write": "auth != null && auth.token.email_verified === true && auth.token.email === root.child('duels/' + $id + '/a').val() && !data.exists() && root.child('duels/' + $id + '/go').exists()",
+            ".validate": "newData.hasChildren(['v', 't']) && newData.child('t').val() === now && newData.child('v').isString() && newData.child('v').val().matches(/^[0-9a-f]{64}$/)",
+            "$c": { ".validate": "$c === 'v' || $c === 't'" }
+          },
+          "ap": {
+            ".write": "auth != null && auth.token.email_verified === true && auth.token.email === root.child('duels/' + $id + '/a').val() && !data.exists() && data.parent().child('as').exists() && data.parent().child('bs').exists()",
+            ".validate": "newData.hasChildren(['v', 't']) && newData.child('t').val() === now && newData.child('v').isString() && newData.child('v').val().matches(/^[LMR]:[0-9a-f]{32}$/)",
+            "$c": { ".validate": "$c === 'v' || $c === 't'" }
+          },
+          "bs": {
+            ".write": "auth != null && auth.token.email_verified === true && auth.token.email === root.child('duels/' + $id + '/b').val() && !data.exists() && root.child('duels/' + $id + '/go').exists()",
+            ".validate": "newData.hasChildren(['v', 't']) && newData.child('t').val() === now && newData.child('v').isString() && newData.child('v').val().matches(/^[0-9a-f]{64}$/)",
+            "$c": { ".validate": "$c === 'v' || $c === 't'" }
+          },
+          "bp": {
+            ".write": "auth != null && auth.token.email_verified === true && auth.token.email === root.child('duels/' + $id + '/b').val() && !data.exists() && data.parent().child('as').exists() && data.parent().child('bs').exists()",
+            ".validate": "newData.hasChildren(['v', 't']) && newData.child('t').val() === now && newData.child('v').isString() && newData.child('v').val().matches(/^[LMR]:[0-9a-f]{32}$/)",
+            "$c": { ".validate": "$c === 'v' || $c === 't'" }
+          },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
     "notify": {
       ".read": false,
       ".write": "auth != null && auth.token.email_verified === true && auth.token.email === 'bhacker150@gmail.com'"

@@ -620,8 +620,9 @@ curl -fsSLO https://nodejs.org/dist/v20.18.1/node-v20.18.1-linux-arm64.tar.xz
 tar xf node-v20.18.1-linux-arm64.tar.xz && mv node-v20.18.1-linux-arm64 node
 ```
 
-Copy `relay/*.mjs`, `relay/package.json` and the service-account JSON (as
-`sa.json`) into that directory, then:
+Copy `relay/*.mjs`, `relay/package.json`, the repo's `duel.js` (the penalty
+duel's rules, which the relay reads to know whose turn it is) and the
+service-account JSON (as `sa.json`) into that directory, then:
 
 ```
 ./node/bin/node test-relay.mjs                              # "ok"

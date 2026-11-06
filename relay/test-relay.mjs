@@ -1,7 +1,7 @@
 /* node relay/test-relay.mjs — no database, no key, no network. */
 import assert from 'node:assert';
 import { delayFor, recipients, sugReady, sugText, resText, sugApprovers, sugId, chalNews, chalSeats, chalScored,
-  chalClaim, chalClaimId, chalOthers, treesOf, thirsty, nextRemind, ripeAt } from './relay.mjs';
+  chalClaim, chalClaimId, chalOthers, treesOf, thirsty, nextRemind, ripeAt, duelNews, duelSig, duelAudience } from './relay.mjs';
 
 const NOW = 1_700_000_000_000;
 
@@ -234,4 +234,27 @@ assert.deepEqual(treesOf(planted, at(29)), {});
 assert.equal(treesOf(planted, at(29), hols)[me].stage, 0);
 assert.equal(nextRemind(at(26, 12), hols), at(28, 11)); // Monday afternoon, Tuesday off -> Wednesday
 
+// penalty duels: a new post to everyone who could join, a join to the poster, the start to the joiner
+{
+  const A = 'sifat@x.com', B = 'ofi@x.com', C = 'rafi@x.com', T = Date.now(), d = o => ({ a: A, an: 'Sifat', stake: 20, at: T, ...o });
+  const step = (was, now) => duelNews(was === null ? undefined : duelSig(d(was)), d(now), 'id1', T + 1000);
+  const joined = { b: B, bn: 'Ofi', bAt: T };
+  const post = step(null, {});
+  assert.deepEqual([post.length, post[0].post, post[0].kind, post[0].link, post[0].body], [1, true, 'duels', '#d/id1', 'Sifat posted a 20-coin penalty duel. First to join plays']);
+  assert.deepEqual(step({}, {}), [], 'a post already seen was announced again');
+  const j = step({}, joined);
+  assert.deepEqual([j.length, j[0].only, j[0].body, j[0].link], [1, [A], 'Ofi joined your 20-coin duel. Play now', '#d/id1']);
+  assert.deepEqual(step(joined, joined), [], 'the same join was announced twice');
+  assert.deepEqual(step({}, { ...joined, bAt: T - 2e5 }), [], 'a lapsed join was announced');
+  const go = step(joined, { ...joined, go: T + 500 });
+  assert.deepEqual([go.length, go[0].only, go[0].body], [1, [B], 'Sifat is ready. Your duel starts now']);
+  assert.deepEqual(step({ ...joined, go: T + 500 }, { ...joined, go: T + 500 }), [], 'the start was announced twice');
+  // who hears of a new post
+  const busy = { x: { a: C, b: 'z@x.com', bAt: T, an: 'Rafi', stake: 2, at: T } }; // Rafi is waiting in a joined duel
+  assert.deepEqual(duelAudience([A, B, C, B], busy, A, {}, T), [B], 'the poster, a busy player or a repeat token heard of a post');
+  assert.deepEqual(duelAudience([B], {}, A, { [B]: T - 6e5 }, T), [], 'a player told ten minutes ago was told again');
+  assert.deepEqual(duelAudience([B], {}, A, { [B]: T - 2e6 }, T), [B], 'a player told over half an hour ago was left out');
+  const five = Object.fromEntries([1, 2, 3, 4, 5].map(i => ['p' + i, { a: B, b: 'q@x.com', bAt: T - 9e5, go: T - 8e5, an: 'Ofi', stake: 1, at: T - 9e5, k: {} }]));
+  assert.deepEqual(duelAudience([B], five, A, {}, T + 864e5 * 0), [], 'a player with five duels today heard of a post');
+}
 console.log('ok');

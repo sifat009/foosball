@@ -1831,7 +1831,7 @@ const drawer = await page.evaluate(async () => {
 });
 assert.deepEqual(drawer.off, { all: false, on: 0, live: 0 },
   'with notifications off the drawer still showed kinds switched on, or let them be tapped');
-assert.deepEqual(drawer.on, { all: true, on: 6 }, 'a fresh device does not start with every kind on');
+assert.deepEqual(drawer.on, { all: true, on: 7 }, 'a fresh device does not start with every kind on');
 assert.equal(drawer.afterOff.pref, false, 'switching a kind off did not stick');
 assert.equal(drawer.afterOff.stored, false, 'the choice was not remembered on this device');
 assert.equal(drawer.afterOff.saved, 1, 'the relay was never told the kind was switched off');
@@ -1842,10 +1842,10 @@ assert.notEqual(drawer.playerSees, 'none',
   'a signed-in player was not offered the row for a score waiting on them to confirm');
 assert.deepEqual(drawer.masterOff, { on: false, pref: false },
   'the master switch did not drop the subscription');
-assert.deepEqual(drawer.midSubscribe, { on: 6, live: 6 },
+assert.deepEqual(drawer.midSubscribe, { on: 7, live: 7 },
   'the kinds stayed dark while the subscription was still in flight');
 assert.equal(drawer.masterOn.on, true, 'the master switch did not resubscribe');
-assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true, true, true],
+assert.deepEqual(Object.values(drawer.masterOn.kinds), [true, true, true, true, true, true, true],
   'turning notifications back on left a kind silently switched off');
 assert.equal(drawer.viewerSees, 'none', 'a viewer was offered the admin-only suggestions switch');
 assert.notEqual(drawer.adminSees, 'none', 'the admin lost the suggestions switch');
@@ -4481,6 +4481,63 @@ assert.deepEqual(homes.tabs, ['Buy', 'Sell1'], 'an oak with a drop to sell did n
 assert.deepEqual(homes.sell, [true, 0], 'the Sell tab did not open a drop to list, or still showed the shop');
 assert.equal(homes.inCoins, false, "the coin sheet still shows the oak's power-ups");
 console.log('market OK');
+
+// ---------- penalty duels: the rules (duel.js) and the walk ----------
+const duels = await page.evaluate(s4 => {
+  const S = new Function('bf', 'bd', 'rf', 'rd', 'return ' + s4)();
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  // Sifat & Ofi beat Nur & Rashed five times: ten each, Nur and Rashed on nothing
+  const seed = [1, 2, 3, 4, 5].map(i => ({ at: i, slots: S('Sifat', 'Ofi', 'Nur', 'Rashed'), score: { b: 1, r: 0, at: i } }));
+  // honest kicks, sealed and opened, ten apart: [a's pick, b's pick] each
+  const salt = 'ab'.repeat(16), seal = (p, t) => ({ v: DUEL.sha256(p + ':' + salt), t }), open = (p, t) => ({ v: p + ':' + salt, t });
+  const ks = (pairs, t0) => Object.fromEntries(pairs.map(([x, y], n) => {
+    const t = t0 + n * 10; return [n, { as: seal(x, t + 1), bs: seal(y, t + 2), ap: open(x, t + 3), bp: open(y, t + 4) }];
+  }));
+  const rounds = (r, aShot, bShot) => Array.from({ length: r }, () => [aShot, bShot]).flat();
+  const WIN = rounds(5, ['L', 'R'], ['L', 'L']); // Sifat scores every kick and saves every one
+  const SAVES = rounds(10, ['L', 'L'], ['R', 'R']); // nobody scores, ten rounds
+  let id = 0;
+  const duel = (o = {}) => ({ id: 'd' + (++id), a: em('Sifat'), an: 'Sifat', stake: 5, at: 10, ...o });
+  const joined = (o = {}) => duel({ b: em('Ofi'), bn: 'Ofi', bAt: 15, ...o });
+  const played = (pairs, o = {}) => joined({ go: 20, k: ks(pairs, 20), ...o });
+  // Ofi plays the first round, then is gone; Sifat seals each kick straight away
+  const left = () => { const d = played(WIN.slice(0, 2)); [34, 15034, 30034].forEach((o, i) => { d.k[2 + i] = { as: seal('L', o + 1) }; }); return d; };
+  const walk = (d, now = 1e9) => { const w = window.coinWalk(seed, [], [], now, {}, d); return [w.bal.Sifat, w.bal.Ofi]; };
+  const st = d => { const x = DUEL.state(d, 1e9); return [x.phase, x.ga, x.gb, x.winner, x.out, x.gone]; };
+  return {
+    states: {
+      open: st(duel()), joined: DUEL.state(joined(), 100).phase, noshow: st(joined()),
+      won: st(played(WIN)), draw: st(played(SAVES)),
+      // Ofi stops after the first round: three missed moves and Ofi has left, Sifat scoring the dives Ofi missed
+      left: st(left()), gone: st(played([])),
+      // a pick opened that isn't the one sealed is a miss: Ofi's dive goes nowhere
+      cheat: (() => { const d = played(WIN.slice(0, 2)); d.k[0].bp = open('L', 27); return DUEL.state(d, 30).kicks[0]; })(),
+      mid: (() => { const x = DUEL.state(played(WIN.slice(0, 3)), 60); return [x.phase, x.cur && x.cur.n, x.cur && x.cur.by]; })(),
+    },
+    coins: {
+      posted: walk([duel()]), joined: walk([joined()], 100), noshow: walk([joined()]),
+      won: walk([played(WIN)]), draw: walk([played(SAVES)]), left: walk([left()]), gone: walk([played([])]),
+      // six started the same day: the sixth is played for nothing
+      sixth: walk(Array.from({ length: 6 }, (_, i) => played(WIN, { stake: 1, at: 10 + i, bAt: 15 + i, go: 1e6 + i * 1e3, k: ks(WIN, 1e6 + i * 1e3) }))),
+      // Nur has nothing: the post never stands
+      broke: (() => { const w = window.coinWalk(seed, [], [], 1e9, {}, [duel({ a: em('Nur'), an: 'Nur' })]); return [w.bal.Nur, Object.values(w.duels)[0].void]; })(),
+    },
+    log: window.coinWalk(seed, [], [], 1e9, {}, [played(WIN)]).log.Sifat.map(l => l.why).slice(-2),
+  };
+}, String(seat4));
+assert.deepEqual(duels.states, {
+  open: ['open', 0, 0, null, null, false], joined: 'joined', noshow: ['open', 0, 0, null, null, false],
+  won: ['done', 5, 0, 'a', null, false], draw: ['done', 0, 0, null, null, false],
+  left: ['done', 3, 0, 'a', 'b', false], gone: ['done', 0, 0, null, null, true],
+  cheat: duels.states.cheat, mid: ['live', 3, 'b'],
+}, 'a duel scored or turned wrong');
+assert.deepEqual([duels.states.cheat.b.miss, duels.states.cheat.goal], [true, true], 'a pick opened unlike its seal still counted');
+assert.deepEqual(duels.coins, {
+  posted: [5, 10], joined: [5, 5], noshow: [5, 10], won: [15, 5], draw: [10, 10], left: [15, 5], gone: [10, 10],
+  sixth: [15, 5], broke: [0, true],
+}, 'a duel moved the wrong coins');
+assert.deepEqual(duels.log, ['Penalty duel: your 5 stake', 'Won penalties vs Ofi 5–0'], 'the duel’s history lines are wrong');
+console.log('penalty duels OK');
 
 assert.deepEqual(errors, [], 'page errors: ' + errors.join('; '));
 await b.close();
