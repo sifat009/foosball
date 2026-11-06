@@ -4948,10 +4948,23 @@ window.coinWalk = coinWalk;
    question, for whoever is looking at it. */
 var allSpends = {};
 // a spend carries its key as `id`: a listing, a buy and a drop are named by the row behind them
-const walkNow = () => coinWalk(Object.entries(allChal || {}).filter(([, c]) => c && c.at)
-  .map(([id, c]) => Object.assign({ id }, c)), hallEntries,
-  Object.entries(allSpends || {}).map(([id, s]) => Object.assign({ id }, s)), Date.now(), allDrawn,
-  Object.entries(allDuels || {}).map(([id, d]) => Object.assign({ id }, d)));
+/* The walk is the dearest thing on the page, and one redraw of the Games board
+   asks for it about ten times (the cap, the gift line, the pill, every "can you
+   afford it"). So it is walked once and kept while its inputs are the same
+   objects (every one is replaced on change, never edited in place) and only
+   until the current task ends, so the clock moves on. Callers copy before they
+   sort, so the shared result is never changed. */
+let walkMemo = null, walkKey = [];
+const walkNow = () => {
+  const key = [allChal, hallEntries, allSpends, allDrawn, allDuels, holidays, cards, addedPlayers];
+  if (walkMemo && key.every((x, i) => x === walkKey[i])) return walkMemo;
+  if (!walkMemo) queueMicrotask(() => { walkMemo = null; });
+  walkKey = key;
+  return walkMemo = coinWalk(Object.entries(allChal || {}).filter(([, c]) => c && c.at)
+    .map(([id, c]) => Object.assign({ id }, c)), hallEntries,
+    Object.entries(allSpends || {}).map(([id, s]) => Object.assign({ id }, s)), Date.now(), allDrawn,
+    Object.entries(allDuels || {}).map(([id, d]) => Object.assign({ id }, d)));
+};
 /* cup id -> { at, teams }: when the admin's draw finished, on the server's clock,
    and the team names it drew. Bets on the cup are open for five minutes from it. */
 var allDrawn = {};
