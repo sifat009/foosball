@@ -6797,8 +6797,8 @@ function renderChal() {
   renderCupBets(); // the same walk, and the free coins it bets from
   renderMarket();
   chalDuelPaid = walk.duels;
-  // the tab's count: lobbies open, and duels waiting on you
-  const btn = $('chalBtn'), pen = renderDuelStrip(), waits = open.length + pen.waits;
+  // the tab's count: lobbies open, duels open to join, and duels waiting on you
+  const btn = $('chalBtn'), pen = renderDuelStrip(), waits = open.length + pen.waits + pen.open;
   if (waits) btn.setAttribute('data-n', waits); else btn.removeAttribute('data-n');
   $('gtChal').textContent = open.length || '';
   $('gtPen').textContent = pen.waits + pen.open || '';
