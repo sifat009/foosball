@@ -1829,12 +1829,12 @@
   .pt-res span { margin-left: auto; color: #5b6a7d; font-weight: 700; }
   /* the Penalties tab: today's ranking */
   .pt-rank { border: 1.5px solid #e5e9f0; border-radius: 16px; overflow: hidden; }
-  .pt-rank div { display: grid; grid-template-columns: 22px minmax(0, 1fr) 40px 44px 46px; gap: 6px; align-items: center; padding: 10px 12px; border-top: 1px solid #eef1f6; font-size: 0.86rem; font-weight: 800; }
+  .pt-rank div { display: grid; grid-template-columns: 22px minmax(0, 1fr) 40px 46px; gap: 6px; align-items: center; padding: 10px 12px; border-top: 1px solid #eef1f6; font-size: 0.86rem; font-weight: 800; }
   .pt-rank div:first-child { border-top: 0; background: #f6f8fb; padding: 8px 12px; font-size: 0.64rem; letter-spacing: .05em; text-transform: uppercase; color: #5b6a7d; }
   .pt-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .pt-rank span:nth-child(1), .pt-rank span:nth-child(4) { color: #5b6a7d; }
-  .pt-rank span:nth-child(3), .pt-rank span:nth-child(4) { text-align: center; }
-  .pt-rank span:nth-child(5) { text-align: right; }
+  .pt-rank span:nth-child(1) { color: #5b6a7d; }
+  .pt-rank span:nth-child(3) { text-align: center; }
+  .pt-rank span:nth-child(4) { text-align: right; }
   .pt-rank .me { background: #f2f8ff; }
   .pt-rank .top span:first-child { color: #96660a; }
   .pt-rank .up { color: #1f7a35; } .pt-rank .down { color: #b42318; }
@@ -7145,27 +7145,26 @@ function renderDuelStrip() {
     box.append(t);
   });
   if (!open.length && !posted.length) box.append(part('pt-empty', 'Nobody’s waiting. Post a duel and share the link.'));
-  // today's ranking: every duel finished today, coins won net, then wins, then goals
+  // today's ranking: every duel finished today, coins won net, then wins
   const today = new Date(now).toDateString(), rows = {};
   all.forEach(({ d, st }) => {
     if (st.phase !== 'done' || st.gone || new Date(st.endAt).toDateString() !== today) return;
     const S = DUEL.stakeOf(d);
     for (const s of 'ab') {
-      const r = rows[d[s]] = rows[d[s]] || { e: d[s], w: 0, l: 0, g: 0, c: 0 };
-      r.g += st['g' + s];
+      const r = rows[d[s]] = rows[d[s]] || { e: d[s], w: 0, l: 0, c: 0 };
       if (st.winner === s) { r.w++; r.c += S; } else if (st.winner) { r.l++; r.c -= S; }
     }
   });
-  const ranked = Object.values(rows).filter(r => EMAIL_NAMES[r.e]).sort((p, q) => q.c - p.c || q.w - p.w || q.g - p.g);
+  const ranked = Object.values(rows).filter(r => EMAIL_NAMES[r.e]).sort((p, q) => q.c - p.c || q.w - p.w);
   if (ranked.length) {
     box.append(part('pt-lab', 'Today’s ranking'));
     const t = part('pt-rank'), head = part('');
-    ['#', 'Player', 'W-L', 'Goals', 'Coins'].forEach(h => head.append(part('', h, 'span')));
+    ['#', 'Player', 'W-L', 'Coins'].forEach(h => head.append(part('', h, 'span')));
     t.append(head);
     ranked.forEach((r, i) => {
       const row = part(r.e === acctEmail ? 'me' : i ? '' : 'top');
       row.append(part('', String(i + 1), 'span'), part('', r.e === acctEmail ? 'You' : EMAIL_NAMES[r.e], 'span'),
-        part('', `${r.w}-${r.l}`, 'span'), part('', String(r.g), 'span'),
+        part('', `${r.w}-${r.l}`, 'span'),
         part(r.c > 0 ? 'up' : r.c < 0 ? 'down' : '', r.c > 0 ? `+${r.c}` : r.c < 0 ? `\u2212${-r.c}` : '0', 'span'));
       t.append(row);
     });
