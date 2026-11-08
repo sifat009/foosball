@@ -5,7 +5,11 @@
    The look: a front-on goal at night, a hexagon net, three see-through balls to
    aim at, and a real keeper. models/keeper.glb is Mixamo's "Shannon" with four
    of its motions (idle, dive-left, dive-right, catch-high), its textures shrunk
-   to 1k; his kit is tinted to whoever is in goal. Everything else is built here. */
+   to 1k; his kit is tinted to whoever is in goal. Everything else is built here.
+   Sounds, in sounds/: the whistle is SpliceSound's (CC0, Wikimedia Commons), the
+   crowd's "ooh" is CC0 from OpenGameArt; the cheer is Gregor Quendel's "Free Crowd
+   Cheering Sounds" (CC-BY 4.0) and the kick and glove are from CGEffex's "Punch,
+   slap, n' kick" (CC-BY 3.0, freesound.org/people/CGEffex/sounds/98341). */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
@@ -75,9 +79,39 @@ const CSS = `
 .dl-steps { text-align: left; margin: 14px 0 0; padding-left: 22px; font-size: 15px; line-height: 1.45; }
 .dl-steps li { margin: 6px 0; }
 .dl-load { position: absolute; inset: 0; display: grid; place-items: center; font-weight: 800; }
+.dl-snd { display: grid; place-items: center; padding: 0; }
+.dl-snd svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 2px 0 #10233f); }
 `;
 
+/* Sound: Web Audio, so a kick lands on the frame it's drawn. Phones keep the
+   audio asleep until a tap, so any tap wakes it. Off is remembered per phone. */
+let ac = null, muted = false;
+const spk = () => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff"/>${muted ? '<path d="M17 9l5 6M22 9l-5 6"/>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'}</svg>`;
+const buf = {};
+try { muted = localStorage.duelMute === '1'; } catch {}
+function sounds() {
+  if (ac) return;
+  ac = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
+  for (const n of ['kick', 'glove', 'cheer', 'ooh', 'whistle'])
+    fetch(`sounds/${n}.mp3`).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(d => { buf[n] = d; }).catch(() => {});
+  const wake = () => { if (ac.state !== 'running') ac.resume(); };
+  addEventListener('pointerdown', wake, true); addEventListener('touchend', wake, true);
+}
+function sfx(n, vol = 1) {
+  if (muted || !ac || ac.state !== 'running') return;
+  const g = ac.createGain(), t = ac.currentTime; g.connect(ac.destination);
+  if (n === 'tick') { // the last three seconds of a pick
+    const o = ac.createOscillator(); o.frequency.value = 1100; o.connect(g);
+    g.gain.setValueAtTime(.12, t); g.gain.exponentialRampToValueAtTime(.001, t + .09);
+    o.start(t); o.stop(t + .1); return;
+  }
+  if (!buf[n]) return;
+  g.gain.value = vol;
+  const s = ac.createBufferSource(); s.buffer = buf[n]; s.connect(g); s.start();
+}
+
 export function mount(el, api) {
+  sounds();
   if (!document.getElementById('duelCss')) {
     const st = document.createElement('style'); st.id = 'duelCss'; st.textContent = CSS; document.head.append(st);
   }
@@ -290,6 +324,7 @@ export function mount(el, api) {
       a.play(); kp.act.idle.crossFadeTo(a, .12, false); kp.save = a;
     }
     const b0 = ball.position.clone();
+    sfx('kick', k ? 1 : .35);
     if (!k) return tween(700, t => ball.position.set(b0.x, BR, b0.z - 1.2 * ease(t)));
     const [tx, ty] = TARGETS[k];
     const end = goal ? new THREE.Vector3(tx, ty, GZ - .55) : new THREE.Vector3(tx * .85, ty * (tx ? .8 : 1.02), GZ + .8); // a save meets his gloves, in front of him, not inside him
@@ -299,6 +334,7 @@ export function mount(el, api) {
       ball.rotation.x -= .25; ball.rotation.z += .1;
     });
     // a goal drops into the net; a save bounces back out
+    if (goal) sfx('cheer', .8); else { sfx('glove'); sfx('ooh', .7); }
     const p0 = ball.position.clone();
     await tween(420, t => goal ? ball.position.set(p0.x, p0.y * (1 - t) + BR * t, p0.z - .1 * t)
       : ball.position.set(p0.x * (1 - t * .3), p0.y + Math.sin(t * Math.PI) * .4 - p0.y * t + BR * t, p0.z + 2 * t));
@@ -316,7 +352,7 @@ export function mount(el, api) {
   const nameOf = () => api.name(them());
   const stake = () => D.stakeOf(cur.d);
   const top = (dots = '') => `<div class="dl-top dl-ts"><button class="dl-x" data-x aria-label="Close">✕</button>
-    <span class="dl-pill">Penalties vs ${esc(nameOf())}</span><span class="dl-pill">${coin}${stake() * 2}</span><button class="dl-x dl-q" data-how aria-label="How to play">?</button></div>` + dots;
+    <span class="dl-pill">Penalties vs ${esc(nameOf())}</span><span class="dl-pill">${coin}${stake() * 2}</span><button class="dl-x dl-q dl-snd" data-snd aria-pressed="${muted}" aria-label="Sound">${spk()}</button><button class="dl-x dl-q" data-how aria-label="How to play">?</button></div>` + dots;
   // the score so far, from the kicks already shown
   function vs(kicks) {
     const me = cur.s, n = Math.max(D.KICKS, Math.ceil(kicks.length / 2));
@@ -331,6 +367,10 @@ export function mount(el, api) {
     key = k; hud.innerHTML = html;
     hud.querySelectorAll('[data-x]').forEach(x => { x.onclick = close; }); // the ✕ and every card's OK, Done or Not now
     const h = hud.querySelector('[data-how]'); if (h) h.onclick = how;
+    const m = hud.querySelector('[data-snd]'); if (m) m.onclick = () => {
+      muted = !muted; try { localStorage.duelMute = muted ? '1' : '0'; } catch {}
+      m.innerHTML = spk(); m.setAttribute('aria-pressed', muted);
+    };
   };
   const card = (k, inner) => key === k ? false : (show(k, top() + `<div class="dl-dim"></div><div class="dl-card">${inner}</div>`), true);
   const on$ = (sel, fn) => { const b = hud.querySelector(sel); if (b) b.onclick = fn; return b; };
@@ -431,6 +471,7 @@ export function mount(el, api) {
     const sealed = mine || cur.sealing === n;
     const round = Math.floor(n / 2) + 1;
     if (key !== `live${n}${!!sealed}`) {
+      if (n === 0 && !sealed) sfx('whistle');
       reset(!shooting);
       const role = shooting ? 'You shoot' : 'You’re in goal';
       const tap = shooting ? 'Tap where to aim · ' : '';
@@ -451,7 +492,9 @@ export function mount(el, api) {
       hud.querySelectorAll('[data-v]').forEach(b => b.onclick = () => seal(n, b.dataset.v));
     }
     const r = hud.querySelector('[data-ring]');
-    if (r) r.textContent = sealed ? '' : String(Math.max(0, Math.min(10, Math.ceil(left / 1000))));
+    const secs = Math.max(0, Math.min(10, Math.ceil(left / 1000)));
+    if (r) r.textContent = sealed ? '' : String(secs);
+    if (!sealed && secs >= 1 && secs <= 3 && cur.tick !== `${n}:${secs}`) { cur.tick = `${n}:${secs}`; sfx('tick'); }
     // out of time with the screen open: a side picked for you
     if (!sealed && left <= 0) seal(n, 'LMR'[crypto.getRandomValues(new Uint8Array(1))[0] % 3]);
   }
@@ -485,6 +528,7 @@ export function mount(el, api) {
 
   function result(st) {
     if (key === 'done') return;
+    sfx('whistle');
     const me = cur.s, win = st.winner === me, draw = !st.winner, S = stake();
     const [my, th] = me === 'a' ? [st.ga, st.gb] : [st.gb, st.ga];
     const why = st.gone ? 'You both ran out of time, so the duel stopped. Both stakes are back.'
