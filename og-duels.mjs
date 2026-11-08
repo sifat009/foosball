@@ -19,20 +19,24 @@ const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const coins = n => `${n} coin${n === 1 ? '' : 's'}`;
 const logo = resolve('icons/icon-512.png');
 
+/* Slack shows the image as a small square cut from its middle, so all that
+   matters sits in the centre 630×630; the sides only show in wide previews. */
+// bump ?v= on the og:image when the design changes: Slack caches an image by its URL
 const card = n => `<!doctype html><meta charset="utf-8"><style>
 html,body{margin:0;width:1200px;height:630px;overflow:hidden}
 body{position:relative;color:#fff;font-family:Inter,-apple-system,system-ui,sans-serif;
-  background:radial-gradient(circle at 0 0,#1f3a66,#141c2e 60%,#16192a)}
-.logo{position:absolute;left:68px;top:68px;width:112px;height:112px;border-radius:24px;background:#fff url("file://${logo}") center/cover}
-.pill{position:absolute;left:216px;top:98px;border:2px solid #6b5a2a;background:#2e2b25;color:#f2b632;font-size:22px;letter-spacing:4px;font-weight:700;padding:12px 24px;border-radius:40px}
-.big{position:absolute;left:66px;top:220px;font-size:150px;font-weight:900;line-height:1;letter-spacing:-3px;
-  background:linear-gradient(90deg,#f6c23e,#e19a12);-webkit-background-clip:text;color:transparent}
-.sub{position:absolute;left:68px;top:392px;font-size:50px;font-weight:800}
-.bar{position:absolute;left:68px;bottom:118px;width:240px;height:8px;border-radius:4px;background:linear-gradient(90deg,#f6c23e,#c8601a)}
-.foot{position:absolute;left:68px;bottom:56px;font-size:32px;color:#9fb0cc}
-</style><div class="logo"></div><div class="pill">PENALTY DUEL</div>
-<div class="big">${coins(n)}</div><div class="sub">on the line. Who's stepping up?</div>
-<div class="bar"></div><div class="foot">${DUEL.KICKS} kicks each · winner takes ${n * 2}</div>`;
+  background:radial-gradient(circle at 50% 45%,#1f3a66,#141c2e 55%,#16192a)}
+.mid{position:absolute;left:285px;width:630px;top:0;height:630px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.pill{border:2px solid #6b5a2a;background:#2e2b25;color:#f2b632;font-size:26px;letter-spacing:5px;font-weight:800;padding:12px 28px;border-radius:40px}
+.big{font-size:${n < 10 ? 300 : 280}px;font-weight:900;line-height:.9;letter-spacing:-8px;margin:22px 0 4px;
+  background:linear-gradient(180deg,#ffd45e,#e19a12);-webkit-background-clip:text;color:transparent}
+.sub{font-size:44px;font-weight:900;letter-spacing:1px}
+.foot{font-size:30px;color:#9fb0cc;margin-top:18px;font-weight:600}
+.logo{position:absolute;left:80px;top:245px;width:140px;height:140px;border-radius:30px;background:#fff url("file://${logo}") center/cover}
+.side{position:absolute;right:70px;top:250px;width:150px;font-size:34px;font-weight:800;line-height:1.2;color:#9fb0cc;text-align:right}
+</style><div class="logo"></div><div class="side">Who's stepping up?</div>
+<div class="mid"><div class="pill">PENALTY DUEL</div><div class="big">${n}</div>
+<div class="sub">${n === 1 ? 'COIN' : 'COINS'} ON THE LINE</div><div class="foot">Winner takes ${n * 2}</div></div>`;
 
 // The id only ever lands in the hash of this same site, so it can't redirect anywhere else.
 const page = n => {
@@ -48,7 +52,7 @@ const page = n => {
 <meta property="og:url" content="${SITE}d/${n}.html">
 <meta property="og:title" content="${title}">
 <meta property="og:description" content="${desc}">
-<meta property="og:image" content="${SITE}d/${n}.jpg">
+<meta property="og:image" content="${SITE}d/${n}.jpg?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
