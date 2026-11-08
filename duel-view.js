@@ -84,7 +84,8 @@ const CSS = `
 `;
 
 /* Sound: Web Audio, so a kick lands on the frame it's drawn. Phones keep the
-   audio asleep until a tap, so any tap wakes it. Off is remembered per phone. */
+   audio asleep until a tap, so any tap in a duel wakes it; closing one puts it
+   back to sleep. Off is remembered per phone. */
 let ac = null, muted = false;
 const spk = () => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="#fff"/>${muted ? '<path d="M17 9l5 6M22 9l-5 6"/>' : '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>'}</svg>`;
 const buf = {};
@@ -94,7 +95,7 @@ function sounds() {
   ac = new (globalThis.AudioContext || globalThis.webkitAudioContext)();
   for (const n of ['kick', 'glove', 'cheer', 'ooh', 'whistle'])
     fetch(`sounds/${n}.mp3`).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).then(d => { buf[n] = d; }).catch(() => {});
-  const wake = () => { if (ac.state !== 'running') ac.resume(); };
+  const wake = () => { if (ac.state !== 'running' && document.querySelector('#duel.open')) ac.resume(); };
   addEventListener('pointerdown', wake, true); addEventListener('touchend', wake, true);
 }
 function sfx(n, vol = 1) {
@@ -568,6 +569,7 @@ export function mount(el, api) {
   function close() {
     on = false; cur = null; key = ''; clearInterval(tick); tweens.forEach(w => w.res()); tweens = [];
     el.classList.remove('open'); document.body.style.overflow = '';
+    ac && ac.suspend(); // the phone's audio sleeps until the next duel
     if (/^#d\//.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
     api.closed && api.closed(); // the board waited while the duel was up
   }
