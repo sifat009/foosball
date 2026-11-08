@@ -7012,7 +7012,8 @@ const duelApi = {
   remove: id => window.duelRemove(id),
   signIn: id => { window.chalIntent = { duel: id }; window.startSignIn(); },
   closed: () => { if (chalStale) renderChal(); },
-  share: (id, btn) => shareLink(new URL('#d/' + id, location.href).href, `Penalty duel for ${DUEL.stakeOf(duelRow(id))} coins. First to join plays me.`, 'Penalty duel', btn),
+  // d/<stake>.html is a static page that unfurls with the stake (og-duels.mjs) and forwards to #d/<id>
+  share: (id, btn) => { const n = DUEL.stakeOf(duelRow(id)); shareLink(new URL(n ? `d/${n}.html?id=${encodeURIComponent(id)}` : '#d/' + id, location.href).href, `Penalty duel for ${n} coins. First to join plays me.`, 'Penalty duel', btn); },
   again: () => { $('chal').classList.add('open'); showGame('pen'); },
 };
 async function openDuel(id) {
