@@ -4504,6 +4504,17 @@ const duels = await page.evaluate(s4 => {
   const left = () => { const d = played(WIN.slice(0, 2)); [34, 15034, 30034].forEach((o, i) => { d.k[2 + i] = { as: seal('L', o + 1) }; }); return d; };
   const walk = (d, now = 1e9) => { const w = window.coinWalk(seed, [], [], now, {}, d); return [w.bal.Sifat, w.bal.Ofi]; };
   const st = d => { const x = DUEL.state(d, 1e9); return [x.phase, x.ga, x.gb, x.winner, x.out, x.gone]; };
+  // started under the new rules: over once it can't be caught, and no draws
+  const N = DUEL.NEW, fresh = pairs => joined({ bAt: N - 5, go: N, k: ks(pairs, N) });
+  const st2 = d => { const x = DUEL.state(d, N + 1e9); return [x.phase, x.ga, x.gb, x.winner, x.early, x.kicks.length]; };
+  const newer = {
+    sweep: st2(fresh(WIN)), // 3–0 after round 3: Ofi's last two can't make three
+    // 4–1 after Sifat's fourth: Ofi's two left can't reach four, so it stops mid-round
+    midround: st2(fresh([['L', 'R'], ['L', 'R'], ['L', 'R'], ['L', 'L'], ['L', 'R'], ['L', 'L'], ['L', 'R']])),
+    level: (() => { const x = DUEL.state(fresh(SAVES), N + 200); return [x.phase, x.cur && x.cur.n]; })(), // 0–0 after ten rounds plays on
+    sudden: st2(fresh([...rounds(11, ['L', 'L'], ['R', 'R']), ['L', 'R'], ['L', 'L']])), // won in round twelve
+    coins: walk([fresh(WIN)], N + 1e9),
+  };
   return {
     states: {
       open: st(duel()), joined: DUEL.state(joined(), 100).phase, noshow: st(joined()),
@@ -4522,6 +4533,7 @@ const duels = await page.evaluate(s4 => {
       // Nur has nothing: the post never stands
       broke: (() => { const w = window.coinWalk(seed, [], [], 1e9, {}, [duel({ a: em('Nur'), an: 'Nur' })]); return [w.bal.Nur, Object.values(w.duels)[0].void]; })(),
     },
+    newer,
     log: window.coinWalk(seed, [], [], 1e9, {}, [played(WIN)]).log.Sifat.map(l => l.why).slice(-2),
   };
 }, String(seat4));
@@ -4536,6 +4548,10 @@ assert.deepEqual(duels.coins, {
   posted: [5, 10], joined: [5, 5], noshow: [5, 10], won: [15, 5], draw: [10, 10], left: [15, 5], gone: [10, 10],
   sixth: [15, 5], broke: [0, true],
 }, 'a duel moved the wrong coins');
+assert.deepEqual(duels.newer, {
+  sweep: ['done', 3, 0, 'a', 4, 6], midround: ['done', 4, 1, 'a', 3, 7],
+  level: ['live', 20], sudden: ['done', 1, 0, 'a', 0, 24], coins: [15, 5],
+}, 'a duel under the new rules ended wrong');
 assert.deepEqual(duels.log, ['Penalty duel: your 5 stake', 'Won penalties vs Ofi 5–0'], 'the duel’s history lines are wrong');
 console.log('penalty duels OK');
 

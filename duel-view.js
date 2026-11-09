@@ -383,9 +383,9 @@ export function mount(el, api) {
       <ol class="dl-steps">
         <li><b>Post a duel</b> with a stake, or join somebody’s.</li>
         <li><b>Take turns.</b> One shoots, one dives, and you both pick at the same time, in 10 seconds. A dive to the side of the shot saves it.</li>
-        <li><b>Five kicks each.</b> The most goals takes both stakes.</li>
+        <li><b>Five kicks each.</b> The most goals takes both stakes. It ends early once the other side can’t catch up.</li>
       </ol>
-      <p class="dl-note">Level after five? One more each until someone’s ahead. Nobody sees a pick until both are in. ${D.DAILY} duels a day.</p>
+      <p class="dl-note">Level after five? One more each until someone’s ahead, so there’s always a winner. Nobody sees a pick until both are in. ${D.DAILY} duels a day.</p>
       <button class="dl-btn y" data-ok>Got it</button></div></div>`);
     hud.querySelector('.dl-how [data-ok]').onclick = () => hud.querySelector('.dl-how').remove();
     try { localStorage.duelHow = 1; } catch {}
@@ -534,6 +534,7 @@ export function mount(el, api) {
     const [my, th] = me === 'a' ? [st.ga, st.gb] : [st.gb, st.ga];
     const why = st.gone ? 'You both ran out of time, so the duel stopped. Both stakes are back.'
       : st.out ? (st.out === me ? 'You missed three moves in a row, so it counts as leaving.' : `${esc(nameOf())} missed three moves in a row and left.`)
+      : st.early ? `Settled early: ${st.early > 1 ? `the last ${st.early} kicks weren’t` : 'the last kick wasn’t'} needed.`
       : st.sudden ? 'Settled in sudden death.' : '';
     card('done', `<h2 class="${win ? '' : draw ? 'even' : 'lose'}">${win ? 'You win!' : draw ? (st.gone ? 'Stopped' : 'All square') : `${esc(nameOf())} wins`}</h2>
       <div class="dl-score">${my} – ${th}</div><div class="who"><span>You</span><span>${esc(nameOf())}</span></div>

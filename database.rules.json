@@ -176,7 +176,7 @@
         },
         "k": {
           "$n": {
-            ".validate": "$n.matches(/^1?[0-9]$/)",
+            ".validate": "$n.matches(/^[0-9]{1,3}$/)",
           "as": {
             ".write": "auth != null && auth.token.email_verified === true && auth.token.email === root.child('duels/' + $id + '/a').val() && !data.exists() && root.child('duels/' + $id + '/go').exists()",
             ".validate": "newData.hasChildren(['v', 't']) && newData.child('t').val() === now && newData.child('v').isString() && newData.child('v').val().matches(/^[0-9a-f]{64}$/)",

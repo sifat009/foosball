@@ -12,6 +12,10 @@
    to write a miss down; anyone reading the row works it out the same way. */
 (() => {
   const KICKS = 5, MAX = 10, MOVE_MS = 1e4, GRACE_MS = 15e3, SHOW_MS = 18e4, DAILY = 5, BETS = [2, 5, 10, 20, 50], BET_MAX = 50, OUT = 3;
+  /* Duels started from NEW on end once the trailing side can't catch up, and
+     sudden death has no cap, so there's no draw. Older ones keep the old
+     rules (all ten kicks, a draw after ten rounds), since coins replay them. */
+  const NEW = 1794201420000, LAST = 999;
 
   /* SHA-256, synchronous, for short strings: crypto.subtle is async and the
      walk isn't. ASCII only, which is all a pick is. */
@@ -76,10 +80,11 @@
        cur      the kick being taken: { n, by, o }
        winner   'a', 'b' or null; `out` names a side that left (missed OUT in
                 a row); `gone` is both sides leaving, which hands the stakes back
+       early    kicks left untaken when it ended because nobody could catch up
        endAt    when it finished, by the server's clock */
   function state(d, now = Date.now()) {
     d = d || {};
-    const res = { phase: 'open', kicks: [], ga: 0, gb: 0, cur: null, done: false, winner: null, out: null, gone: false, endAt: null, rounds: 0, sudden: false };
+    const res = { phase: 'open', kicks: [], ga: 0, gb: 0, cur: null, done: false, winner: null, out: null, gone: false, endAt: null, rounds: 0, sudden: false, early: 0 };
     const bAt = num(d.bAt), go = num(d.go);
     if (d.b && bAt && !go) {
       res.phase = now <= bAt + SHOW_MS ? 'joined' : 'open';
@@ -88,9 +93,11 @@
     }
     if (!d.b || !go) return res;
     res.phase = 'live';
+    const fresh = go >= NEW;
     const run = { a: 0, b: 0 };
     let o = go;
-    for (let n = 0; n < MAX * 2; n++) {
+    // ponytail: LAST (the rules' kick limit) caps sudden death; level that long is ~1e-150
+    for (let n = 0; n < (fresh ? LAST : MAX * 2); n++) {
       const by = shooter(n), keep = by === 'a' ? 'b' : 'a';
       const k = kick(d.k && d.k[n], o, now);
       if (!k) { res.cur = { n, by, o }; break; }
@@ -107,11 +114,20 @@
         else { res.out = run.a >= OUT ? 'a' : 'b'; res.winner = res.out === 'a' ? 'b' : 'a'; }
         break;
       }
+      // in the first five, it's over once the side behind can't draw level
+      if (fresh && n < KICKS * 2 - 1) {
+        const left = x => KICKS - Math.floor((n + (x === 'a' ? 2 : 1)) / 2);
+        if (res.ga + left('a') < res.gb || res.gb + left('b') < res.ga) {
+          res.done = true; res.endAt = at; res.early = KICKS * 2 - 1 - n;
+          res.winner = res.ga > res.gb ? 'a' : 'b';
+          break;
+        }
+      }
       // rounds are scored whole: after five, the first one with the score apart
       if (n % 2) {
         const r = (n + 1) / 2;
         res.rounds = r;
-        if (r >= KICKS && (res.ga !== res.gb || r === MAX)) {
+        if (r >= KICKS && (res.ga !== res.gb || (!fresh && r === MAX))) {
           res.done = true; res.endAt = at;
           res.winner = res.ga > res.gb ? 'a' : res.gb > res.ga ? 'b' : null;
           break;
@@ -127,5 +143,5 @@
   const side = (d, email) => d && d.a === email ? 'a' : d && d.b && d.b === email ? 'b' : null;
   const stakeOf = d => { const n = Math.round(num(d && d.stake)); return n >= 1 && n <= BET_MAX ? n : 0; };
 
-  globalThis.DUEL = { KICKS, MAX, MOVE_MS, GRACE_MS, SHOW_MS, DAILY, BETS, BET_MAX, OUT, state, side, stakeOf, sha256, shooter };
+  globalThis.DUEL = { KICKS, MAX, NEW, MOVE_MS, GRACE_MS, SHOW_MS, DAILY, BETS, BET_MAX, OUT, state, side, stakeOf, sha256, shooter };
 })();

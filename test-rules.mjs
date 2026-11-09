@@ -525,7 +525,7 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await mark('d1', 0, 'as', R1, SEAL), 'the joiner sealed the poster’s pick');
   assert.ok(!await mark('d1', 0, 'as', B1, 'L'), 'a pick went in unsealed');
   assert.ok(!await put(D('d1/k/0/as'), B1, { v: SEAL, t: 5 }), 'a seal carried its own time');
-  assert.ok(!await mark('d1', 20, 'as', B1, SEAL), 'a kick past the twentieth');
+  assert.ok(!await mark('d1', 1000, 'as', B1, SEAL), 'a kick past the thousandth'); // sudden death runs on, up to kick 999
   assert.ok(await mark('d1', 0, 'as', B1, SEAL), 'the poster could not seal');
   assert.ok(!await mark('d1', 0, 'as', B1, SEAL.replace('a', 'c')), 'a seal was changed');
   // opening: only after both seals, each side its own, once

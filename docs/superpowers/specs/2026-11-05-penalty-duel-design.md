@@ -32,9 +32,11 @@ all five kicks in advance.
      SAVED!.
    - If your ring runs out while you're on the screen, your phone picks a
      random side for you.
-5. **End.** Five kicks each, and the most goals wins. Level after five means
-   sudden death, scored by whole rounds, up to ten kicks each. Still level after
-   ten is a draw, and both stakes come back.
+5. **End.** Five kicks each, and the most goals wins. It ends as soon as the
+   side behind can't draw level with the kicks they have left. Level after five
+   means sudden death, scored by whole rounds, until someone wins: no draws.
+   (Duels started before `DUEL.NEW`, 2026-11-09, keep the old rules: all ten
+   kicks, and a draw after ten rounds.)
 
 ## Scoring
 
