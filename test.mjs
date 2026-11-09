@@ -4406,6 +4406,8 @@ const mk = await page.evaluate(() => {
     sold: [sold.bal.Sifat - w([...oak, ...waters.slice(0, 5)], D(9, 15)).bal.Sifat, sold.bal.Ofi, sold.ok.includes(late), sold.market.owned.Ofi.map(x => x.type), sold.market.listings.length],
     own: w([...oak, ...waters.slice(0, 5), list, own], D(9, 15)).ok.includes(own),
     dear: w([...oak, ...waters.slice(0, 5), dear], D(9, 15)).ok.includes(dear),
+    // from BANK_EACH_FROM: a Win Boost then a Shield the same day, but not a second Win Boost
+    each: (t => w(['win', 'shield', 'win'].map((b, i) => sp(t + i * 6e4, 'Ofi', 'buy', { bank: b })), t + 3e5).market.owned.Ofi.map(x => x.type))(BANK_EACH_FROM + 6e4),
     twice: [twice.bal.Ofi, twice.market.owned.Ofi.length], nextDay: nextDay.market.owned.Ofi.length,
     full: [full.market.owned.Ofi.length, full.bal.Ofi],
     thu: [new Date(thu).getDate(), new Date(thuHol).getDate()],
@@ -4423,6 +4425,7 @@ assert.deepEqual(mk.sold, [4, 196, false, ['shield'], 0], 'a sale did not pay th
 assert.equal(mk.own, false, 'a seller bought their own listing');
 assert.equal(mk.dear, false, 'a power-up was listed over 20');
 assert.deepEqual(mk.twice, [197, 1], 'a second bank buy the same day went through');
+assert.deepEqual(mk.each, ['win', 'shield'], 'the bank did not sell one of each a day, or sold a second Win Boost');
 assert.deepEqual(mk.cut, [6, 3, 3, 4], 'the bank did not charge the old price before the cut and 3, 3, 4 after');
 assert.equal(mk.nextDay, 2, 'a bank buy the next day was refused');
 assert.deepEqual(mk.full, [3, 191], 'a fourth power-up went into a full hand');

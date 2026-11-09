@@ -4289,6 +4289,9 @@ const ITEMS = {
    price and the old cap of 20, and the walk still charges it. */
 const MARKET_CUT_FROM = 1793605200000;
 const OLD_BANK = { win: 6, shield: 6, water: 10, game: 3 };
+/* From here (2026-11-09) the bank's once a day is per item: a Win Boost doesn't
+   use up today's Shield. A buy before it keeps the old one bank buy a day. */
+const BANK_EACH_FROM = 1794219033000;
 const bankPrice = (type, t) => (t < MARKET_CUT_FROM && OLD_BANK[type]) || ITEMS[type].bank;
 const DROP_EVERY = 5, DROP_HOLD = 3, AUTO_WATERS = 3, AUTO_HOUR = 9;
 /* When oaks started counting waters (midnight into 2026-11-01, Dhaka): a water
@@ -4661,7 +4664,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}, duels = []) 
       if (s.kind === 'buy') {
         const t = +s.at, l = s.list != null ? listings[s.list] : null, type = l ? l.type : s.bank, f = fam(type);
         if (who === undefined) return;
-        if (!f || (s.list != null ? !l || l.until <= t || l.who === who : s.bank == null || (bankDay[who + isoDay(t)] || 0) >= 1)
+        if (!f || (s.list != null ? !l || l.until <= t || l.who === who : s.bank == null || bankDay[who + isoDay(t) + (t >= BANK_EACH_FROM ? type : '')])
           || holds(who, ITEMS[type].fam, t) >= f.hold) return refuse(who, s, false);
         const price = l ? l.price : bankPrice(type, t);
         if (bal[who] < price) return refuse(who, s, true);
@@ -4670,7 +4673,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}, duels = []) 
           move(l.who, price, `Sold ${ITEMS[type].a} at the market`, t);
           l.drop.sold = true;
           delete listings[s.list];
-        } else bankDay[who + isoDay(t)] = 1;
+        } else bankDay[who + isoDay(t)] = bankDay[who + isoDay(t) + type] = 1;
         (owned[who] = owned[who] || []).push({ id: s.id, type, at: t, until: workdaysEnd(t, f.lasts) });
         ok.push(s);
         return;
@@ -4933,7 +4936,8 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}, duels = []) 
     listings: Object.values(listings).filter(live).map(({ drop, ...l }) => l),
     owned: Object.fromEntries(Object.entries(owned).map(([n, xs]) => [n, xs.filter(live)])),
     oaks: Object.fromEntries(Object.entries(oaks).map(([n, o]) => [n, { n: o.n, drops: o.drops.filter(d => live(d) && !d.sold) }])),
-    bankToday: Object.fromEntries(Object.values(EMAIL_NAMES).map(n => [n, !!bankDay[n + isoDay(now)]])),
+    // the bank items each player has bought today, so their rows go
+    bankToday: Object.fromEntries(Object.values(EMAIL_NAMES).map(n => [n, Object.keys(ITEMS).filter(k => bankDay[n + isoDay(now) + k])])),
     autoW,
   };
   return { bal, ok, bounties, tags, trees: treesNow, wagers, picked, cupBets, log, track, market, bought, given, recv, duels: duelPaid };
@@ -6058,8 +6062,8 @@ function renderMarket() {
   sort.append(part('', 'Sort', 'span'), seg);
   sale.append(part('mk-h', 'Shop'), chips, sort);
 
-  // the bank's three, gone for the day once you've bought one of them
-  const rows = (chalMarket.bankToday[me] ? [] : Object.keys(ITEMS).filter(k => !ITEMS[k].retired).map(type => ({ bank: type, type, price: ITEMS[type].bank, until: bankUntil(type, now) })))
+  // the bank's three, each gone for the day once you've bought it
+  const rows = (Object.keys(ITEMS).filter(k => !ITEMS[k].retired && !(chalMarket.bankToday[me] || []).includes(k)).map(type => ({ bank: type, type, price: ITEMS[type].bank, until: bankUntil(type, now) })))
     .concat(chalMarket.listings.map(l => ({ list: l.id, type: l.type, price: l.price, until: l.until, yours: l.who === me })))
     .concat(Object.keys(FOR_YOU).map(k => ({ you: k, type: k, price: FOR_YOU[k].price(), until: 0 })))
     .filter(r => mkFilter === 'all' || (mkFilter === 'you' ? r.you : r.type === mkFilter))
@@ -9534,10 +9538,11 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     });
   }
 
-  let busy = false;
+  let busy = false, run = 0; // run: bumped on open, so a spin left going behind a closed toss stops
   function spin() {
     if (busy) return;
     busy = true;
+    const mine = ++run;
     const btn = $('tossFlip'); btn.disabled = true;
     markSides(null); // last result is void the moment the hand moves again
     $('tossResult').innerHTML = '<span class="idle">Spinning…</span>';
@@ -9556,6 +9561,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     const start = angle, turns = 9 + Math.floor(Math.random() * 4);
     const sweep = 2 * Math.PI * turns + (((target - start) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
     const finish = () => {
+      if (mine !== run) return;
       busy = false; btn.disabled = false;
       angle = window.tossAngle = target; // exported only so the test can see where it stopped
       drawDial(angle);
@@ -9569,6 +9575,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
     const t0 = performance.now(), ease = t => 1 - Math.pow(1 - t, 3);
     let lastMark = 0, lastTick = 0;
     (function step(now) {
+      if (mine !== run) return;
       const t = Math.min(1, (now - t0) / SPIN_MS);
       const travelled = sweep * ease(t);
       angle = start + travelled;
@@ -9589,6 +9596,7 @@ var bootTimer = setTimeout(window.bootDone, 3000);
 
   function openToss() {
     $('toss').classList.add('open');
+    run++; busy = false; $('tossFlip').disabled = false;
     angle = UP;
     markSides(null);
     $('tossResult').innerHTML = '<span class="idle">Ready when you are.</span>';

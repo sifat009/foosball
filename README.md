@@ -461,8 +461,8 @@ was a fourth until 1 Nov 2026; it's `retired` in `ITEMS`, so ones already held
 or listed still work but nobody gets a new one: For you sells extra games.)
 The **Market** tab (a sheet on a phone, where Install gives way so the bar keeps
 five tabs) lists them with no seller's name, beside the bank's three at fixed
-prices, which look the same to everyone but the admin. A player buys one bank
-item a day and holds 3 power-ups; each lasts 7 workdays.
+prices, which look the same to everyone but the admin. A player buys each bank
+item once a day (one bank item a day in all before 9 Nov 2026) and holds 3 power-ups; each lasts 7 workdays.
 
 Nothing new is stored. `list`, `unlist`, `buy` and `use` are `spends` rows, and
 a bet can carry `own`. `coinWalk` grows the drops (each named after the water
