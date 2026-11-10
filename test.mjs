@@ -4198,6 +4198,22 @@ assert.deepEqual(odds.gains, [[1, 1, 1], [4, 6, 9], [6, 10, 15]], 'the odds tabl
 // window, the 4 on Blue stands and loses: 6, plus the 3.
 assert.deepEqual(hold.change, [20, 1, 9], 'a change in the window did not replace the first bet, or one after it did');
 assert.deepEqual(hold.noFree, [false, 1], 'a free game took a bet, or a staked one refused it');
+/* From RICH_FROM a bettor holding 200+ bets 15 to 30 on a game. Nur wins 60 to
+   nil (240), Rashed 45 then loses 15 (150): each bet on its own game, in order. */
+const richBet = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (ns, at) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), ...(at && { at: at + i }) }]));
+  const nil = (id, ns, i) => ({ id, at: i + 1, slots: S(ns), score: { b: 1, r: 0, nil: true, at: i + 1 } });
+  const seed = Array.from({ length: 60 }, (_, i) => i < 45 ? nil('n' + i, ['Nur', 'Rashed', 'Ofi', 'Sifat'], i) : nil('n' + i, ['Nur', 'Ofi', 'Rashed', 'Sifat'], i));
+  const R = RICH_FROM, A = ['Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'];
+  const games = Array.from({ length: 7 }, (_, i) => ({ id: 'g' + i, at: (i ? R : R - 1e5) + 10, stake: 2, slots: S(A, (i ? R : R - 1e5) + 10) }));
+  const bet = (i, who, amt) => ({ at: (i ? R : R - 1e5) + 20 + i, by: em(who), kind: 'bet', game: 'g' + i, side: 'b', amt });
+  const w = window.coinWalk([...seed, ...games], [], [bet(0, 'Nur', 10), bet(1, 'Nur', 10), bet(2, 'Nur', 31), bet(3, 'Nur', 30), bet(4, 'Nur', 15),
+    bet(5, 'Rashed', 15), bet(6, 'Rashed', 10)], R + 1000);
+  return { stood: games.map(g => (w.wagers[g.id] || []).map(x => `${x.who} ${x.amt}`).join()), why: w.log.Nur.find(l => /bets are/.test(l.why)) };
+});
+assert.deepEqual(richBet.stood, ['Nur 10', '', '', 'Nur 30', 'Nur 15', '', 'Rashed 10'], 'the 200+ range did not hold: ' + JSON.stringify(richBet.stood));
+assert.match(richBet.why.why, /holding 200\+, bets are 15 to 30/, 'a refused rich bet does not say why');
 assert.deepEqual(hold.open, [5, 5, 6], 'a seat or a bet from the side left its stake in the wallet');
 assert.deepEqual(hold.won, [15, 5, 14], 'a win did not hand the stake back with the winnings');
 assert.deepEqual(hold.lost, [5, 15, 6], 'a loss took more than the stake already gone');

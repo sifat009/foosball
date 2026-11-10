@@ -4103,6 +4103,13 @@ const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
    cancelled lobby or a game the walk doesn't pay costs nobody anything. What a
    loser stakes is gone, not paid to anyone. */
 const WAGER_MAX = 10, WAGER_MS = 2 * 6e4;
+/* From RICH_FROM a bettor holding RICH coins or more bets RICH_BET on a game
+   instead of 1 to WAGER_MAX: the few far ahead can't keep betting small, and
+   have something bigger to play for. It's checked when the bet is placed, on the
+   coins held plus any bet being changed, and a bet outside the range is refused
+   and costs nothing. Cup bets and duels keep their own limits. */
+const RICH_FROM = 1794325000000, RICH = 200, RICH_BET = [15, 30];
+const wagerRange = (held, at) => at >= RICH_FROM && held >= RICH ? RICH_BET : [1, WAGER_MAX];
 /* A bet on who wins the cup: anyone on the list, their own team included, puts
    1 to 10 on one team in the five minutes after the draw, while the admin's
    Kick Off waits. A win gains the bet times two less than the number of teams
@@ -4579,11 +4586,13 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}, duels = []) 
         if (who === undefined) return;
         if (!c) return refuse(who, s, false, 'the challenge was cancelled');
         if (+s.at >= PAID_BET_FROM && !chalBet(c)) return refuse(who, s, false, 'free games take no bets');
-        if (!fill || !(amt >= 1 && amt <= WAGER_MAX) || amt % 1) return refuse(who, s, false);
+        if (!fill || !(amt >= 1) || amt % 1) return refuse(who, s, false);
         if ((s.side !== 'b' && s.side !== 'r') || +s.at < fill || +s.at > fill + WAGER_MS) return refuse(who, s, false);
         if ((chalDone(c) && chalAt(c) <= +s.at) || SEATS.some(([x]) => seatName(c.slots[x]) === who)) return refuse(who, s, false);
         const old = w.find(x => x.who === who), back = old && old.cut ? old.amt : 0;
         if ((old && (+s.at < BET_CHANGE_FROM || old.settled)) || bal[who] + back < amt) return refuse(who, s, bal[who] + back < amt);
+        const [lo, hi] = wagerRange(bal[who] + back, +s.at);
+        if (amt < lo || amt > hi) return refuse(who, s, false, hi > WAGER_MAX ? `holding ${RICH}+, bets are ${lo} to ${hi}` : undefined);
         const cut = +c.at >= HOLD_FROM, on = pairOf(c, s.side);
         const tier = +s.at >= ODDS_FROM ? (tiers[s.game] = tiers[s.game] || betTiers(c, rows))[s.side] : 'even';
         if (old) {
@@ -6503,41 +6512,45 @@ function wagerDrawer(c, side, mine, tier = 'even', paint = () => {}) {
       extra.append(b);
     });
   }
-  return betDrawer(c.id, pairName(c, side + 'f', side + 'd'), a => { paint(a); return wgPayText(a, mine, tier); }, amt => {
+  const back = mine ? mine.amt : 0, [lo, hi] = wagerRange((coinBal()[myName()] || 0) + back, Date.now());
+  const box = betDrawer(c.id, pairName(c, side + 'f', side + 'd'), a => { paint(a); return wgPayText(a, mine, tier); }, amt => {
     const own = wgPu;
     wgPick = null; wgPu = null; wgEdit = null;
     window.spendCoins({ kind: 'bet', game: c.id, side, amt, by: acctEmail, ...(own && { own }) });
-  }, WAGER_MAX, extra, mine ? mine.amt : 0);
+  }, hi, extra, back, lo);
+  if (lo > 1) box.append(part('ch-note', `You hold ${RICH}+, so your bets are ${lo} to ${hi}.`));
+  return box;
 }
 /* The amount picker and the button, for a bet on a game or on the cup: `pay`
    words the stake, `place` writes it. */
-function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null, back = 0) {
+function betDrawer(key, name, pay0, place, max = WAGER_MAX, extra = null, back = 0, min = 1) {
   // `back`: the bet being changed, whose coins come back to cover this one
   const free = Math.max(0, chalFree || 0) + back;
   const box = part('ch-wg-drawer');
-  if (free < 1) {
-    box.append(part('ch-shy', `You need a coin free to bet \u2014 you have ${free}.`));
+  if (free < min) {
+    box.append(part('ch-shy', `You need ${min === 1 ? 'a coin' : min + ' coins'} free to bet \u2014 you have ${free}.`));
     return box;
   }
-  wgAmt = Math.max(1, Math.min(max, free, wgAmt));
+  wgAmt = Math.max(min, Math.min(max, free, wgAmt));
   const row = part('ch-wg-row');
   const amt = part('ch-wg-amt');
   const input = document.createElement('input');
-  Object.assign(input, { type: 'number', min: 1, max: Math.min(max, free), step: 1, value: wgAmt, inputMode: 'numeric', id: 'wgAmt-' + key });
+  Object.assign(input, { type: 'number', min, max: Math.min(max, free), step: 1, value: wgAmt, inputMode: 'numeric', id: 'wgAmt-' + key });
   input.setAttribute('aria-label', 'How many coins');
   const pay = part('ch-wg-pay', pay0(wgAmt), 'span');
   const go = document.createElement('button');
   go.type = 'button';
   go.className = 'btn btn-green ch-wg-go';
-  const show = () => { pay.textContent = pay0(wgAmt); go.textContent = `${back ? 'Change to' : 'Bet'} ${wgAmt} on ${name}`; input.value = wgAmt; };
-  const step = d => { wgAmt = Math.max(1, Math.min(max, free, wgAmt + d)); show(); };
+  const show = () => { pay.textContent = pay0(wgAmt); go.textContent = `${back ? 'Change to' : 'Bet'} ${wgAmt} on ${name}`; input.value = wgAmt; go.disabled = false; };
+  const step = d => { wgAmt = Math.max(min, Math.min(max, free, wgAmt + d)); show(); };
   const dn = document.createElement('button'), up = document.createElement('button');
   dn.type = up.type = 'button';
   dn.textContent = '\u2212'; up.textContent = '+';
   dn.setAttribute('aria-label', 'One less'); up.setAttribute('aria-label', 'One more');
   dn.onclick = () => step(-1); up.onclick = () => step(1);
   // as they type, without a repaint that would take the caret away
-  input.oninput = () => { const n = Math.round(+input.value); if (n >= 1) { wgAmt = Math.min(max, free, n); pay.textContent = pay0(wgAmt); go.textContent = `${back ? 'Change to' : 'Bet'} ${wgAmt} on ${name}`; } };
+  // under the least you may bet, the button waits rather than quietly betting more
+  input.oninput = () => { const n = Math.round(+input.value); go.disabled = !(n >= min); if (n >= min) { wgAmt = Math.min(max, free, n); pay.textContent = pay0(wgAmt); go.textContent = `${back ? 'Change to' : 'Bet'} ${wgAmt} on ${name}`; } };
   input.onchange = show;
   amt.append(dn, input, up);
   row.append(amt, pay);

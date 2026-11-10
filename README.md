@@ -348,7 +348,7 @@ Market's open Name colour or Name icon row, whose Buy pill presses it.
   zero). Nobody beats them, and the creator gets the amount back on top of what
   was collected. It takes a free coin to sit against a target. A target who sits
   down against hunters with none plays an ordinary game, which the bounty ignores.
-- **Bet on a game, 1–10.** For two minutes after a lobby's fourth seat is taken,
+- **Bet on a game, 1–10** (15–30 for anyone holding 200+). For two minutes after a lobby's fourth seat is taken,
   anyone not playing can put coins on a pair, at even money: a win gains the bet
   (bet 6, +6) and a loss loses it, to nobody. The bet is never taken up front, so
   the app shows and records only the gain. A draw, a cancelled
@@ -370,6 +370,12 @@ Market's open Name colour or Name icon row, whose Buy pill presses it.
   window, the seat list and that there is no result yet; the walk decides the
   rest at the moment the game is agreed, and a bet the bettor can no longer cover
   then doesn't stand either way.
+  From `RICH_FROM` (10 Nov 2026) a bettor holding `RICH` (200) coins or more,
+  counted when the bet is placed with any bet being changed handed back first,
+  bets 15 to 30 instead: the few far ahead can't keep betting small, and get
+  something bigger to play for. The picker starts at 15 for them; a bet outside
+  the bettor's range is refused by the walk and costs nothing. The rules allow
+  any bet up to 30, since they can't count coins. Cup bets and duels are unchanged.
 - **Bet on the cup, 1–10.** For five minutes after the last team is drawn, anyone
   on the list, players included and their own team too, can put coins on one team
   to win the cup. A win gains the bet times two less than the number of teams (bet

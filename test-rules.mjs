@@ -306,7 +306,8 @@ const confirm = (id, who, b, r, at = NOW) =>
   assert.ok(!await put('spends/w6', NUR, bet(filed)), 'a bet landed on a game with a result filed');
   assert.ok(!await put('spends/w7', NUR, bet(half)), 'a bet landed on a lobby that is not full');
   assert.ok(!await put('spends/w8', NUR, bet('nope')), 'a bet landed on a lobby that does not exist');
-  assert.ok(!await put('spends/w9', NUR, bet(fresh, { amt: 11 })), 'a bet over ten');
+  assert.ok(await put('spends/w9a', NUR, bet(fresh, { amt: 30 })), 'a bet of thirty, the most for 200+, was refused');
+  assert.ok(!await put('spends/w9', NUR, bet(fresh, { amt: 31 })), 'a bet over thirty');
   assert.ok(!await put('spends/w10', NUR, bet(fresh, { amt: 2.5 })), 'a fractional bet');
   assert.ok(!await put('spends/w11', NUR, bet(fresh, { side: 'x' })), 'a bet on no side');
   assert.ok(!await put('spends/w12', NUR, bet(fresh, { to: B1 })), 'a bet carrying a recipient');
