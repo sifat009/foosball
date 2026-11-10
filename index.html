@@ -6986,7 +6986,7 @@ window.renderChallenges = all => {
    it voided is nobody's game and isn't drawn. Times are the server's: the
    kicks are timed by its clock, so the page reads it through the offset
    Firebase keeps. */
-var allDuels = {}, chalDuelPaid = {}, duelView = null, duelBet = 5, duelOther = false;
+var allDuels = {}, chalDuelPaid = {}, duelView = null, duelFromGames = false, duelBet = 5, duelOther = false;
 const srvNow = () => Date.now() + (window.srvOffset || 0);
 window.renderDuels = v => { allDuels = v || {}; renderChal(); duelView && duelView.update(); };
 const duelRow = id => allDuels[id] ? { id, ...allDuels[id] } : null;
@@ -7015,7 +7015,7 @@ const duelApi = {
   mark: (id, n, f, v) => window.duelMark(id, n, f, v),
   remove: id => window.duelRemove(id),
   signIn: id => { window.chalIntent = { duel: id }; window.startSignIn(); },
-  closed: () => { if (chalStale) renderChal(); },
+  closed: () => { if (chalStale) renderChal(); if (duelFromGames) duelApi.again(); },
   // d/<stake>.html is a static page that unfurls with the stake (og-duels.mjs) and forwards to #d/<id>
   share: (id, btn) => { const n = DUEL.stakeOf(duelRow(id)); shareLink(new URL(n ? `d/${n}.html?id=${encodeURIComponent(id)}` : '#d/' + id, location.href).href, `Penalty duel for ${n} coins. First to join plays me.`, 'Penalty duel', btn); },
   again: () => { $('chal').classList.add('open'); showGame('pen'); },
@@ -7027,6 +7027,7 @@ async function openDuel(id) {
     console.error('[duel] load failed:', err);
     return alert('Couldn’t load the penalty duel. Check your connection and try again.');
   }
+  duelFromGames = $('chal').classList.contains('open'); // closing the duel goes back there
   $('chal').classList.remove('open');
   duelView.open(id);
 }
