@@ -4214,6 +4214,18 @@ const richBet = await page.evaluate(() => {
 });
 assert.deepEqual(richBet.stood, ['Nur 10', '', '', 'Nur 30', 'Nur 15', '', 'Rashed 10'], 'the 200+ range did not hold: ' + JSON.stringify(richBet.stood));
 assert.match(richBet.why.why, /holding 200\+, bets are 15 to 30/, 'a refused rich bet does not say why');
+// from RICH150_FROM the line is 150: Rashed's 150 bets 15, not 10
+const rich150 = await page.evaluate(() => {
+  const em = n => Object.keys(EMAIL_NAMES).find(e => EMAIL_NAMES[e] === n);
+  const S = (ns, at) => Object.fromEntries(['bf', 'bd', 'rf', 'rd'].map((k, i) => [k, { name: ns[i], email: em(ns[i]), ...(at && { at: at + i }) }]));
+  const nil = (id, ns, i) => ({ id, at: i + 1, slots: S(ns), score: { b: 1, r: 0, nil: true, at: i + 1 } });
+  const seed = Array.from({ length: 60 }, (_, i) => i < 45 ? nil('n' + i, ['Nur', 'Rashed', 'Ofi', 'Sifat'], i) : nil('n' + i, ['Nur', 'Ofi', 'Rashed', 'Sifat'], i));
+  const R = RICH150_FROM, A = ['Shewa', 'Toufiq', 'Siddiq', 'Sajeeb'];
+  const games = [0, 1].map(i => ({ id: 'g' + i, at: R + 10, stake: 2, slots: S(A, R + 10) }));
+  const w = window.coinWalk([...seed, ...games], [], [0, 1].map(i => ({ at: R + 20 + i, by: em('Rashed'), kind: 'bet', game: 'g' + i, side: 'b', amt: [10, 15][i] })), R + 1000);
+  return games.map(g => (w.wagers[g.id] || []).map(x => `${x.who} ${x.amt}`).join());
+});
+assert.deepEqual(rich150, ['', 'Rashed 15'], 'from RICH150_FROM a 150-coin bettor was not on 15 to 30: ' + JSON.stringify(rich150));
 assert.deepEqual(hold.open, [5, 5, 6], 'a seat or a bet from the side left its stake in the wallet');
 assert.deepEqual(hold.won, [15, 5, 14], 'a win did not hand the stake back with the winnings');
 assert.deepEqual(hold.lost, [5, 15, 6], 'a loss took more than the stake already gone');

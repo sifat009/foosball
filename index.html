@@ -4103,13 +4103,16 @@ const BOUNTY_MS = 2 * 864e5, BOUNTY_FEE = 1;
    cancelled lobby or a game the walk doesn't pay costs nobody anything. What a
    loser stakes is gone, not paid to anyone. */
 const WAGER_MAX = 10, WAGER_MS = 2 * 6e4;
-/* From RICH_FROM a bettor holding RICH coins or more bets RICH_BET on a game
+/* From RICH_FROM a bettor holding richAt(t) coins or more bets RICH_BET on a game
    instead of 1 to WAGER_MAX: the few far ahead can't keep betting small, and
    have something bigger to play for. It's checked when the bet is placed, on the
    coins held plus any bet being changed, and a bet outside the range is refused
-   and costs nothing. Cup bets and duels keep their own limits. */
-const RICH_FROM = 1794325000000, RICH = 200, RICH_BET = [15, 30];
-const wagerRange = (held, at) => at >= RICH_FROM && held >= RICH ? RICH_BET : [1, WAGER_MAX];
+   and costs nothing. Cup bets and duels keep their own limits.
+   The line was 200 until RICH150_FROM (11 Nov 2026) and 150 from it; bets
+   before it keep the 200, since coins replay them. */
+const RICH_FROM = 1794325000000, RICH150_FROM = 1794373904000, RICH_BET = [15, 30];
+const richAt = at => at >= RICH150_FROM ? 150 : 200;
+const wagerRange = (held, at) => at >= RICH_FROM && held >= richAt(at) ? RICH_BET : [1, WAGER_MAX];
 /* A bet on who wins the cup: anyone on the list, their own team included, puts
    1 to 10 on one team in the five minutes after the draw, while the admin's
    Kick Off waits. A win gains the bet times two less than the number of teams
@@ -4592,7 +4595,7 @@ function coinWalk(rows, cups, spends, now = Date.now(), drawn = {}, duels = []) 
         const old = w.find(x => x.who === who), back = old && old.cut ? old.amt : 0;
         if ((old && (+s.at < BET_CHANGE_FROM || old.settled)) || bal[who] + back < amt) return refuse(who, s, bal[who] + back < amt);
         const [lo, hi] = wagerRange(bal[who] + back, +s.at);
-        if (amt < lo || amt > hi) return refuse(who, s, false, hi > WAGER_MAX ? `holding ${RICH}+, bets are ${lo} to ${hi}` : undefined);
+        if (amt < lo || amt > hi) return refuse(who, s, false, hi > WAGER_MAX ? `holding ${richAt(+s.at)}+, bets are ${lo} to ${hi}` : undefined);
         const cut = +c.at >= HOLD_FROM, on = pairOf(c, s.side);
         const tier = +s.at >= ODDS_FROM ? (tiers[s.game] = tiers[s.game] || betTiers(c, rows))[s.side] : 'even';
         if (old) {
@@ -6518,7 +6521,7 @@ function wagerDrawer(c, side, mine, tier = 'even', paint = () => {}) {
     wgPick = null; wgPu = null; wgEdit = null;
     window.spendCoins({ kind: 'bet', game: c.id, side, amt, by: acctEmail, ...(own && { own }) });
   }, hi, extra, back, lo);
-  if (lo > 1) box.append(part('ch-note', `You hold ${RICH}+, so your bets are ${lo} to ${hi}.`));
+  if (lo > 1) box.append(part('ch-note', `You hold ${richAt(Date.now())}+, so your bets are ${lo} to ${hi}.`));
   return box;
 }
 /* The amount picker and the button, for a bet on a game or on the cup: `pay`
