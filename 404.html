@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16233a">
+<title>The Ollyo Cup has moved</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background: #eef2f8; color: #16233a; font: 16px/1.5 -apple-system, system-ui, sans-serif;
+    padding: 24px 16px; box-sizing: border-box; }
+  main { background: #fff; border-radius: 18px; padding: 28px 24px; max-width: 420px; width: 100%;
+    box-shadow: 0 6px 24px rgba(22,35,58,.08); }
+  h1 { font-size: 1.35rem; margin: 0 0 16px; }
+  ol { margin: 0 0 24px; padding-left: 1.3em; }
+  li { margin-bottom: 10px; }
+  .how { color: #5b6a7d; font-size: .92rem; }
+  a.btn { display: block; text-align: center; font-weight: 700; color: #fff; background: #16233a;
+    text-decoration: none; border-radius: 999px; padding: 14px 26px; }
+</style></head><body><main>
+  <h1>The Ollyo Cup has moved to a new address.</h1>
+  <ol>
+    <li>Tap <b>Open new app</b> and install it with its <b>Install app</b> button.
+      Sign in again there. Your coins and wins are all still there.</li>
+    <li>Delete this old icon:<br>
+      <span class="how">iPhone: press and hold → Remove App<br>
+      Android: press and hold → Uninstall</span></li>
+  </ol>
+  <a class="btn" id="go" href="https://ollyo-cup.web.app/" target="_blank" rel="noopener">Open new app</a>
+</main>
+<script>
+// keep the rest of the old link (a duel's d/5.html?id=…, or #d/…) so shared links still land right
+document.getElementById('go').href = 'https://ollyo-cup.web.app' +
+  location.pathname.replace(/^\/foosball\/?/, '/') + location.search + location.hash;
+</script>
+</body></html>
