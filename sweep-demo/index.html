@@ -1,0 +1,27 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sweep demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;700;800;900&display=swap" rel="stylesheet">
+<style>body{margin:0;background:#0b1220;color:#fff;font-family:Inter,system-ui}#start{display:block;margin:40px auto;padding:16px 28px;font:800 18px Inter;border-radius:14px}</style>
+</head><body>
+<button id="start">Start a card</button>
+<div id="sweep"></div>
+<script src="sweep.js"></script>
+<script type="module">
+// Local demo: rows live in memory; nothing touches the database or coins.
+const rows = {};
+const buy = () => { const id = 'demo' + Date.now(); rows[id] = { by: 'demo', at: Date.now(), free: true }; return id; };
+const { mount } = await import('./sweep-view.js');
+const view = mount(document.getElementById('sweep'), {
+  row: id => rows[id] ? { id, ...rows[id] } : null,
+  now: () => Date.now(),
+  tap: async (id, n, c) => { rows[id]['t' + n] = c; view.update(); },
+  verdict: () => ({}),
+  block: () => '',
+  freeLeft: () => true,
+  buy: async () => buy(),
+  closed: () => {},
+});
+document.getElementById('start').onclick = () => view.open(buy());
+</script>
+</body></html>
